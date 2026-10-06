@@ -938,4 +938,19 @@ export const paths = {
         reimbursements: `${ROOTS.EMPLOYEE}/reimbursements`,
         documents: `${ROOTS.EMPLOYEE}/documents`,
     } as Record<string, string>,
+    // PROTOTYPE-SETUP: ESS prototype tabs, mounted inside the corporate dashboard layout (not /employee) so
+    // the sidebar stays visible. Same keys as `employee` so the reused ESS pages can swap bases.
+    essEmployee: {
+        index: '/ess-employee',
+        home: '/ess-employee',
+        profile: '/ess-employee/profile',
+        attendance: '/ess-employee/attendance',
+        payslips: '/ess-employee/payslips',
+        leaves: '/ess-employee/leaves',
+        reimbursements: '/ess-employee/reimbursements',
+        documents: '/ess-employee/documents',
+    } as Record<string, string>,
+    essManager: {
+        index: '/ess-manager',
+    },
 };

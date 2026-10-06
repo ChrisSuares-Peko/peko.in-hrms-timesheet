@@ -6,8 +6,8 @@ import OnlineProposalPage from '@src/domains/dashboard/Procure/components/Propos
 import OnlinePOAcknowledgePage from '@src/domains/dashboard/Procure/components/PurchaseOrderDetails/OnlinePOAcknowledgePage';
 import OndcStaticTermsPage from '@src/domains/pages/OndcStaticTermsPage';
 import PageNotFound from '@src/domains/pages/PageNotFound';
-import { useRootPath } from '@src/hooks/useRootPath';
 import { paths } from '@src/routes/paths';
+import { PROTOTYPE_LANDING_ROUTE } from '@src/routes/PrototypeModuleRedirect';
 
 import { authRoutes } from './auth';
 import { dashboardRoutes } from './dashboard';
@@ -16,11 +16,11 @@ import { employeeRoutes } from './employee';
 import { systemUserRoutes } from './systemUser';
 
 export default function Router() {
-    const rootPath = useRootPath();
     return useRoutes([
         {
+            // PROTOTYPE-SETUP: land in the prototype module (was <Navigate to={useRootPath()} />, i.e. /dashboard).
             path: '/',
-            element: <Navigate to={rootPath} replace />,
+            element: <Navigate to={PROTOTYPE_LANDING_ROUTE} replace />,
         },
 
         // Public routes — must be before dashboardRoutes so they are not caught by the AuthGuard layout

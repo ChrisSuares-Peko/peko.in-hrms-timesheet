@@ -31,12 +31,15 @@ window.addEventListener('vite:preloadError', (event: any) => {
 const Main = () => {
     const [userId, setUserId] = useState('');
     const { user } = useAppSelector(state => state.reducer.user);
+    // PROTOTYPE-SETUP: IncomingCallListener subscribes to Peko's production Firestore for the user id; the
+    // mock session (no token) gets permission-denied, so leave userId empty and the listener stays idle.
+    const { token } = useAppSelector(state => state.reducer.auth);
 
     useEffect(() => {
-        if (user) {
+        if (user && token) {
             setUserId(user.username || '');
         }
-    }, [user]);
+    }, [user, token]);
 
     return (
         <BrowserRouter>

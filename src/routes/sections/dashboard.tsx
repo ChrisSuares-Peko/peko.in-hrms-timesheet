@@ -11,6 +11,7 @@ import ServiceNotAvailable from '@src/domains/failed/pages/ServiceNotAvailable';
 import AuthGuard from '@src/guard/AuthGuard';
 import CorporateAccessGuard from '@src/guard/CorporateAccessGuard';
 import CorporateUserGuard from '@src/guard/CorporateUserGuard';
+import PrototypeModuleRedirect from '@src/routes/PrototypeModuleRedirect';
 import { toServiceRoute } from '@utils/serviceRoute';
 
 import { accountingRoutes } from './accounting';
@@ -25,6 +26,7 @@ import { domainHostingRoutes } from './domainHosting';
 import { ecommerceRoutes } from './ecommerce';
 import { emailDomainRoutes } from './emailDomain';
 import { eSignRoutes } from './eSign';
+import { essEmployeeRoutes, essManagerRoutes } from './ess';
 import { giftCardsRoutes } from './giftCards';
 import { GlobalBusinessSetupRoutes } from './globalBusinessSetup';
 import { governmentServicesRoutes } from './governmentServices';
@@ -121,19 +123,22 @@ export const dashboardRoutes = [
     {
         path: '',
         element: (
-            <AuthGuard>
-                <CorporateUserGuard>
-                    <DashboardLayout>
-                        <CorporateAccessGuard>
-                            <ErrorBoundary fallback={<ServiceNotAvailable />}>
-                                <Suspense fallback={<Skeleton />}>
-                                    <Outlet />
-                                </Suspense>
-                            </ErrorBoundary>
-                        </CorporateAccessGuard>
-                    </DashboardLayout>
-                </CorporateUserGuard>
-            </AuthGuard>
+            // PROTOTYPE-SETUP: hidden services' routes redirect to the prototype module before any guard runs.
+            <PrototypeModuleRedirect>
+                <AuthGuard>
+                    <CorporateUserGuard>
+                        <DashboardLayout>
+                            <CorporateAccessGuard>
+                                <ErrorBoundary fallback={<ServiceNotAvailable />}>
+                                    <Suspense fallback={<Skeleton />}>
+                                        <Outlet />
+                                    </Suspense>
+                                </ErrorBoundary>
+                            </CorporateAccessGuard>
+                        </DashboardLayout>
+                    </CorporateUserGuard>
+                </AuthGuard>
+            </PrototypeModuleRedirect>
         ),
         children: [
             // Full route trees mounted under /more-services/<slug> for every service
@@ -258,6 +263,9 @@ export const dashboardRoutes = [
                 path: paths.dashboard.payroll,
                 children: payrollRoutes,
             },
+            // PROTOTYPE-SETUP: the two ESS prototype tabs, inside this layout so the sidebar stays visible.
+            { path: paths.essEmployee.index, children: essEmployeeRoutes },
+            { path: paths.essManager.index, children: essManagerRoutes },
             {
                 path: paths.dashboard.paytmBpos,
                 children: paytmBposRoutes,

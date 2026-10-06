@@ -1,17 +1,17 @@
 import { Col, Flex, Row, Skeleton } from 'antd';
 import { useNavigate } from 'react-router-dom';
 
-import { paths } from '@src/routes/paths';
-
 import AnnouncementsPanel from '../components/dashboard/AnnouncementsPanel';
 import AttendanceTable from '../components/dashboard/AttendanceTable';
 import ProfileCard from '../components/dashboard/ProfileCard';
 import ServiceShortcuts from '../components/dashboard/ServiceShortcuts';
 import StatCard from '../components/dashboard/StatCard';
 import { useEmployeeDashboard } from '../hooks/useEmployeeDashboard';
+import { useEmployeePaths } from '../hooks/useEmployeePaths';
 
 const Dashboard = () => {
     const navigate = useNavigate();
+    const employeePaths = useEmployeePaths(); // PROTOTYPE-SETUP: /employee or /ess-employee base
     const { data, isLoading, checkInLoading, checkOutLoading, handleCheckIn, handleCheckOut } =
         useEmployeeDashboard();
 
@@ -40,7 +40,7 @@ const Dashboard = () => {
                     <StatCard
                         title="Attendance"
                         stat={data.attendance}
-                        onViewMore={() => navigate(paths.employee.attendance)}
+                        onViewMore={() => navigate(employeePaths.attendance)}
                     />
                 </Col>
             </Row>
