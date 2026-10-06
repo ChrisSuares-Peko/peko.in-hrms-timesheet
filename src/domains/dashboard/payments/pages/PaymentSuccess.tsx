@@ -102,20 +102,6 @@ const PaymentSuccess = () => {
             navigate(`${savedSuccessPath}?status=success&transactionId=${transactionId || ''}`);
             return;
         }
-        const paymentResultRaw = sessionStorage.getItem('paymentResult');
-        if (paymentResultRaw && status === 'success' && typeof Moengage?.track_event === 'function') {
-            try {
-                const paymentResult = JSON.parse(paymentResultRaw);
-                if (paymentResult.serviceName) {
-                    Moengage.track_event(`${paymentResult.serviceName}_payment_result`, {
-                        status: 'success',
-                        total_amount: paymentResult.total_amount,
-                        coupon_code_used: paymentResult.coupon_code_used,
-                    });
-                }
-            } catch (_) { /* ignore parse errors */ }
-            sessionStorage.removeItem('paymentResult');
-        }
         // if (bulkPaymentDataString) {
         //     const parsedData = JSON.parse(decodeURIComponent(bulkPaymentDataString));
         //     if (serviceName === 'esim') {

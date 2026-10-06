@@ -99,22 +99,6 @@ export default function useForm() {
                 },
                 {}
             );
-            if (typeof Moengage?.track_event === 'function') {
-                Moengage.track_event('hotel_review_done', {
-                    guest_count: reviewTotalCount,
-                    hotel_name: hotelResponse.HotelDetails[0].HotelName,
-                    price: totalFare,
-                    adults: reviewTotalAdults,
-                    children: reviewTotalChildren,
-                    city: hotelsRequest.cityName || hotelsRequest.City,
-                    ...reviewRoomNamePayload,
-                    check_in: reviewCheckIn,
-                    check_out: reviewCheckOut,
-                    total_price: totalFare,
-                    room_numbers: hotelsRequest.rooms.length,
-                    stay_length: reviewNightDiff,
-                });
-            }
             const serviceDetails = {
                 guest_count: reviewTotalCount,
                 hotel_name: hotelResponse.HotelDetails[0].HotelName,

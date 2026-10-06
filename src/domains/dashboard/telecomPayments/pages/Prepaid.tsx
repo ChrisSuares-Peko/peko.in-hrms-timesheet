@@ -87,9 +87,6 @@ const Prepaid: React.FC = () => {
     const [isFetchingPlans, setIsFetchingPlans] = useState(false);
 
     useEffect(() => {
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event('prepaid_started');
-        }
     }, []);
 
     useEffect(() => {

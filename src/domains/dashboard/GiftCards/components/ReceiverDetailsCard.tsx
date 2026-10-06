@@ -133,11 +133,6 @@ const ReceiverDetailsCard = ({ collapsed, onToggle, amountConfirmed, id }: Recei
                         // guard the actual submit too in case that state is ever stale.
                         if (!hasConfirmedAmount) return;
 
-                        if (typeof Moengage?.track_event === 'function') {
-                            Moengage.track_event('giftcard_recipient_details', {
-                                recipient_name: values.receiverFirstName,
-                            });
-                        }
 
                         await dispatch(setAddressData({ ...values, employee: selectedEmployees }));
                         const employeesToSubmit =

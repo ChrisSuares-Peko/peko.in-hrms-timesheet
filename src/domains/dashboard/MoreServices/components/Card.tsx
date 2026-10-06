@@ -46,11 +46,6 @@ const Card: React.FC<IconCardProps> = ({ icon, title, path, status }) => {
     const screens = useBreakpoint();
 
     const handleClick = () => {
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event('service_viewed', {
-                service_name: path.split('/').filter(Boolean).pop() ?? path,
-            });
-        }
     };
 
      // Pasted SVG markup renders inline (no CORS, recolourable); legacy remote URLs

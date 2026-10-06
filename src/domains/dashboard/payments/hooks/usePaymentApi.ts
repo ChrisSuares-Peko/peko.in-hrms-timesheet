@@ -52,31 +52,6 @@ function retryIfPending<T extends { pending?: boolean; processing?: boolean }>(
     });
 }
 
-const SERVICE_NAME_MAP: Record<string, string> = {
-    Airline: 'flight',
-    Hotels: 'hotel',
-    'Gift Cards': 'giftcard',
-    'WhatsApp for Business': 'wa',
-    'Mobile Prepaid': 'prepaid',
-    'Mobile Postpaid': 'postpaid',
-    'Electricity Bill': 'electricity',
-    'LPG Cylinder': 'lpg_cylinder',
-    'Piped Gas': 'piped_gas',
-    'Broadband Bill': 'broadband',
-    'Water Bill': 'water',
-    'DTH Recharge': 'dth_recharge',
-    'FASTag Recharge': 'fastag_recharge',
-    'Landline Bill': 'landline',
-    'Prepaid Meter': 'prepaid_meter',
-    'Domain & Hosting': 'domain',
-    Logistics: 'logistics',
-};
-
-const getMoengageServiceName = (serviceName: string | number | undefined) => {
-    const name = String(serviceName ?? '');
-    return SERVICE_NAME_MAP[name] || name || 'N/A';
-};
-
 export default function usePaymentApi({
     setCheckoutJsInstance,
     checkoutJsInstance,
@@ -87,7 +62,6 @@ export default function usePaymentApi({
     const { user } = useAppSelector(state => state.reducer.user);
     const paymentState = useAppSelector(state => state.reducer.payment);
     const { searchInitiatedAt } = useAppSelector(state => state.reducer.airline);
-    const serviceDetails = sessionStorage.getItem('service_details');
 
     const [selectedPayment, setselectedPayment] = useState<PaymentMode>(PaymentMode.empty);
     const [isCashbackChecked, setIsCashbackChecked] = useState<boolean>(false);
@@ -100,11 +74,9 @@ export default function usePaymentApi({
         minimumAmount,
         maximumAmount,
         couponDiscount,
-        billSummary,
         successPath,
     } = useAppSelector(state => state.reducer.payment);
 
-    const excludedFromCheckoutEvent = [accessKeys.subscriptions].includes(payload?.accessKey!);
     const [isLoading, setIsLoading] = useState(false);
     const [couponCode, setCouponCode] = useState('');
     const [isCouponApplied, setIsCouponApplied] = useState(false);
@@ -256,8 +228,6 @@ export default function usePaymentApi({
             const payloadToSend = url.includes('domain-and-hosting')
                 ? payloadWithoutAccessKey
                 : payload;
-            const serviceName = billSummary.find(item => item.key === 'Service name')?.value;
-
             const requestBody = {
                 ...payloadToSend,
                 userId: id,
@@ -265,38 +235,7 @@ export default function usePaymentApi({
                 url,
                 currentUrl: undefined,
             };
-            if (typeof Moengage?.track_event === 'function') {
-                Moengage.track_event('payment_attempted', {
-                    service_name: serviceName || 'N/A',
-                    amount: totalAmount,
-                });
-            }
 
-            if (
-                typeof Moengage?.track_event === 'function' &&
-                serviceDetails &&
-                !excludedFromCheckoutEvent
-            ) {
-                const request = JSON.parse(serviceDetails);
-                const { moengage_prefix, ...checkoutData } = request.serviceDetails ?? {};
-                const moengageServiceName = moengage_prefix || getMoengageServiceName(serviceName);
-                Moengage.track_event(`${moengageServiceName}_checkout`, {
-                    mode: selectedPayment,
-                    ...checkoutData,
-                    coupon_code_used: isCouponApplied,
-                    ...(isCouponApplied && { coupon_code_used: couponCode }),
-                    total_amount: totalAmount,
-                });
-                sessionStorage.removeItem('service_details');
-                sessionStorage.setItem(
-                    'paymentResult',
-                    JSON.stringify({
-                        total_amount: totalAmount,
-                        coupon_code_used: isCouponApplied,
-                        serviceName: moengageServiceName,
-                    })
-                );
-            }
             let failureState: PaymentFailureState = {};
             const resp: PaymentResponse | false = await doWalletPayment(requestBody, error => {
                 failureState = {
@@ -392,39 +331,6 @@ export default function usePaymentApi({
         setIsSpinnerLoading(true);
         const AmountAfterWallet = totalAmount && totalAmount - balance;
         const pgAmount = isChecked ? AmountAfterWallet : totalAmount;
-
-        const serviceName = billSummary.find(item => item.key === 'Service name')?.value;
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event('payment_attempted', {
-                service_name: serviceName || 'N/A',
-                amount: pgAmount,
-            });
-        }
-        if (
-            typeof Moengage?.track_event === 'function' &&
-            serviceDetails &&
-            !excludedFromCheckoutEvent
-        ) {
-            const request = JSON.parse(serviceDetails);
-            const { moengage_prefix, ...checkoutData } = request.serviceDetails ?? {};
-            const moengageServiceName = moengage_prefix || getMoengageServiceName(serviceName);
-            Moengage.track_event(`${moengageServiceName}_checkout`, {
-                mode: selectedPayment,
-                ...checkoutData,
-                coupon_code_used: isCouponApplied,
-                ...(isCouponApplied && { coupon_code_used: couponCode }),
-                total_amount: totalAmount,
-            });
-            sessionStorage.removeItem('service_details');
-            sessionStorage.setItem(
-                'paymentResult',
-                JSON.stringify({
-                    total_amount: totalAmount,
-                    coupon_code_used: isCouponApplied,
-                    serviceName: moengageServiceName,
-                })
-            );
-        }
 
         const requestBody = {
             ...payload,
@@ -739,38 +645,6 @@ export default function usePaymentApi({
     const handleCCavenuePaymentRequest = async () => {
         if (!checkPayableAmount()) return;
         setIsLoading(true);
-        const serviceName = billSummary.find(item => item.key === 'Service name')?.value;
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event('payment_attempted', {
-                service_name: serviceName || 'N/A',
-                amount: totalAmount,
-            });
-        }
-        if (
-            typeof Moengage?.track_event === 'function' &&
-            serviceDetails &&
-            !excludedFromCheckoutEvent
-        ) {
-            const request = JSON.parse(serviceDetails);
-            const { moengage_prefix, ...checkoutData } = request.serviceDetails ?? {};
-            const moengageServiceName = moengage_prefix || getMoengageServiceName(serviceName);
-            Moengage.track_event(`${moengageServiceName}_checkout`, {
-                mode: selectedPayment,
-                ...checkoutData,
-                coupon_code_used: isCouponApplied,
-                ...(isCouponApplied && { coupon_code_used: couponCode }),
-                total_amount: totalAmount,
-            });
-            sessionStorage.removeItem('service_details');
-            sessionStorage.setItem(
-                'paymentResult',
-                JSON.stringify({
-                    total_amount: totalAmount,
-                    coupon_code_used: isCouponApplied,
-                    serviceName: moengageServiceName,
-                })
-            );
-        }
         const requestBody = {
             ...payload,
             pgAmount: totalAmount,
@@ -838,39 +712,6 @@ export default function usePaymentApi({
 
         const pgAfterWallet = totalAmount && totalAmount - balance;
         const pgAmount = isChecked ? pgAfterWallet : totalAmount;
-
-        const serviceName = billSummary.find(item => item.key === 'Service name')?.value;
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event('payment_attempted', {
-                service_name: serviceName || 'N/A',
-                amount: pgAmount,
-            });
-        }
-        if (
-            typeof Moengage?.track_event === 'function' &&
-            serviceDetails &&
-            !excludedFromCheckoutEvent
-        ) {
-            const request = JSON.parse(serviceDetails);
-            const { moengage_prefix, ...checkoutData } = request.serviceDetails ?? {};
-            const moengageServiceName = moengage_prefix || getMoengageServiceName(serviceName);
-            Moengage.track_event(`${moengageServiceName}_checkout`, {
-                mode: selectedPayment,
-                ...checkoutData,
-                coupon_code_used: isCouponApplied,
-                ...(isCouponApplied && { coupon_code_used: couponCode }),
-                total_amount: pgAmount,
-            });
-            sessionStorage.removeItem('service_details');
-            sessionStorage.setItem(
-                'paymentResult',
-                JSON.stringify({
-                    total_amount: pgAmount,
-                    coupon_code_used: isCouponApplied,
-                    serviceName: moengageServiceName,
-                })
-            );
-        }
 
         const requestBody = {
             ...payload,

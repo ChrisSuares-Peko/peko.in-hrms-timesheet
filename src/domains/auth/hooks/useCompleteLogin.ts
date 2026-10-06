@@ -58,21 +58,6 @@ export default function useCompleteLogin() {
             });
         }
 
-        if (
-            typeof Moengage?.track_event === 'function' &&
-            typeof Moengage?.identifyUser === 'function' &&
-            typeof Moengage?.add_user_attribute === 'function' &&
-            response.email
-        ) {
-            const userId = response.email;
-            Moengage.identifyUser(userId);
-            Moengage.add_email(response.email);
-            Moengage.add_user_attribute('branding', response.branding);
-            Moengage.add_user_attribute('packageName', response?.packageName);
-            Moengage?.track_event('user_login', {
-                status: 'success',
-            });
-        }
     };
 
     return { completeLogin };

@@ -34,19 +34,6 @@ const PaymentFailure = () => {
         // Seeded during checkout (same sessionStorage key the success page reads) — it's left
         // untouched on failure since the success page only clears it inside its own
         // status === 'success' branch, so it's still here to read.
-        const paymentResultRaw = sessionStorage.getItem('paymentResult');
-        if (paymentResultRaw && typeof Moengage?.track_event === 'function') {
-            try {
-                const paymentResult = JSON.parse(paymentResultRaw);
-                if (paymentResult.serviceName) {
-                    Moengage.track_event(`${paymentResult.serviceName}_payment_result`, {
-                        status: 'failed',
-                        total_amount: paymentResult.total_amount,
-                        coupon_code_used: paymentResult.coupon_code_used,
-                    });
-                }
-            } catch (_) { /* ignore parse errors */ }
-        }
         sessionStorage.removeItem('paymentResult');
     }, []);
 

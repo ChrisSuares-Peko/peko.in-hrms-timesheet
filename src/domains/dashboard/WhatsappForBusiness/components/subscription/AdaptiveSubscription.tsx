@@ -81,9 +81,6 @@ const AdaptiveSubscription = ({
                                         className="h-10 md:px-6"
                                         size="large"
                                         onClick={() => {
-                                            if (typeof Moengage?.track_event === 'function') {
-                                                Moengage.track_event('whatsapp_subscribe_clicked');
-                                            }
                                             navigate(`${paths.whatsappForBusiness.planDetails}`);
                                         }}
                                     >

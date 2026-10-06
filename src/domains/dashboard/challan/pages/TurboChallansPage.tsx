@@ -12,7 +12,6 @@ import { showToast } from '@src/slices/apiSlice';
 import { accessKeys } from '@utils/accessKeys';
 
 import { setPaymentData } from '../../payments/slices/payment';
-import useManageFleetApi from '../../turbo/hooks/useManageFleet';
 import { getChallanFees } from '../api/index';
 import ChallanDetailsDrawer from '../components/ChallanDetailsDrawer';
 import ChallanSummaryCards from '../components/ChallanSummaryCards';
@@ -43,10 +42,6 @@ const TurboChallansPage = () => {
     const dispatch = useAppDispatch();
     const { id, role } = useAppSelector(state => state.reducer.auth);
     const { challans, summary, isLoading, isRefreshing, lastUpdated, refetch } = useFleetChallans();
-    // Only the total fleet vehicle count is needed here (for the challan_pay_clicked Moengage
-    // event) — a minimal page/itemsPerPage keeps this an otherwise-unused listing call cheap.
-    const { count: fleetVehicleCount } = useManageFleetApi({ page: 1, itemsPerPage: 1 });
-
     const [filter, setFilter] = useState<ChallanFilter>('All');
     const [search, setSearch] = useState('');
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
@@ -75,16 +70,6 @@ const TurboChallansPage = () => {
     const goToPayment = async (toPay: Challan[]) => {
         if (!toPay.length) return;
         const challanTotal = toPay.reduce((sum, c) => sum + (c.challan_price ?? c.amount), 0);
-        if (typeof Moengage?.track_event === 'function') {
-            const [firstChallan] = toPay;
-            Moengage.track_event('challan_pay_clicked', {
-                vehicle_number: firstChallan.registration_number,
-                fleet_vehicle_count: fleetVehicleCount,
-                amount: challanTotal,
-                challan_date: firstChallan.challan_date,
-                challan_no: firstChallan.challan_number,
-            });
-        }
         // Seeds the generic checkout/payment-result Moengage pipeline (usePaymentApi.ts /
         // PaymentSuccess.tsx / PaymentFailure.tsx) — moengage_prefix drives the
         // "challan_checkout" / "challan_payment_result" event names.

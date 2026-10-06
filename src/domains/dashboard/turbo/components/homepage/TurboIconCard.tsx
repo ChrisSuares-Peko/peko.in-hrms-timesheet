@@ -11,24 +11,12 @@ interface IconCardProps {
     url?: string;
 }
 
-// These 3 tiles share this one component/click handler, so their Moengage events are
-// keyed off the tile title rather than each having their own onClick wired in from HomePage.
-const TILE_CLICK_EVENT_MAP: Record<string, string> = {
-    'Recharge FASTag': 'FASTag_clicked',
-    'Traffic Challans': 'traffic_challan_clicked',
-    'Manage Subscription': 'manage_subscription_clicked',
-};
-
 const TurboIconCard: React.FC<IconCardProps> = ({ icon, title, onClick, url }) => {
     const navigate = useNavigate();
     return (
         <Flex
             vertical
             onClick={() => {
-                const trackEvent = TILE_CLICK_EVENT_MAP[title];
-                if (trackEvent && typeof Moengage?.track_event === 'function') {
-                    Moengage.track_event(trackEvent);
-                }
                 if (url) navigate(url);
             }}
             gap={12}

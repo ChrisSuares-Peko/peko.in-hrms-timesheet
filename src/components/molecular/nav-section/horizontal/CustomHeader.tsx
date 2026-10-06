@@ -201,24 +201,6 @@ const CustomHeader = () => {
         }
     };
       useEffect(() => {
-        if (
-            user?.email &&
-            typeof Moengage?.identifyUser === 'function' &&
-            typeof Moengage?.add_user_attribute === 'function' &&
-            typeof Moengage?.add_email === 'function' &&
-            typeof Moengage?.add_mobile === 'function' &&
-            typeof Moengage?.add_user_name === 'function'
-        ) {
-            Moengage.identifyUser(user?.email);
-            if (user.partnerId) {
-                Moengage.add_user_attribute('partner_id', user.partnerId);
-            }
-            const formatedMobile = user?.mobileNo
-            Moengage.add_email(user?.email);
-            Moengage.add_mobile(formatedMobile);
-            Moengage.add_user_name(user?.contactPersonName);
-            Moengage.add_user_attribute('company_name', user?.companyName);
-        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.mobileNo, user?.email, user?.partnerId, user?.contactPersonName]);
 

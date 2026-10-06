@@ -8,7 +8,6 @@ import BharathConnect from '@src/domains/dashboard/billPayments/assets/svg/Bhara
 
 import BeneficiariesList from '../components/BeneficiariesList';
 import FormDetails from '../components/forms/DetailPageForm';
-import { BILL_VIEWED_EVENT_MAP } from '../hooks/useFetchBillApi';
 
 const { Text } = Typography;
 
@@ -24,13 +23,6 @@ const BillPaymentPage: React.FC<Props> = ({ title, accessKeyName, serviceCategor
         // idea as prepaid_started/postpaid_started, generalised across every service that goes
         // through this shared page. Reuses BILL_VIEWED_EVENT_MAP's per-service prefix (e.g.
         // "electricity_bill_viewed") so the two event families never drift apart.
-        if (typeof Moengage?.track_event === 'function') {
-            const viewedEvent = BILL_VIEWED_EVENT_MAP[accessKeyName];
-            const clickedEvent = viewedEvent?.replace(/_viewed$/, '_clicked');
-            if (clickedEvent) {
-                Moengage.track_event(clickedEvent);
-            }
-        }
     }, [accessKeyName]);
 
     return (

@@ -16,8 +16,6 @@ import MagnifyingGlass from '../assets/icons/MagnifyingGlass.svg';
 import useHandleAirlineSearch from '../hooks/useHandleAirlineSearch';
 import { resetFormState } from '../slices/airlineSlice';
 import { ITripData } from '../types/airlineTypes';
-import { retrieveFlightClass } from '../utils/getFlightClass';
-import { tripMethods } from '../utils/options';
 
 
 
@@ -95,23 +93,6 @@ export default function SearchFlight() {
         }
         const search = handleAirlineSearch(tripData);
         if (search.status) {
-            if (typeof Moengage?.track_event === 'function') {
-                const parseFlightDate = (d: string) => new Date(d.split('-').reverse().join('-'));
-                const payload: Record<string, any> = {
-                    from_city: tripData.fromLocation1,
-                    destination_city: tripData.toLocation1,
-                    depart_date: parseFlightDate(tripData.depart1),
-                    cabin_class: retrieveFlightClass(tripData.class),
-                    trip_type: tripMethods.find(t => t.value === tripData.tripType)?.label,
-                    number_passengers: tripData.adults + tripData.children + tripData.infants,
-                };
-                if (tripData.tripType === 2) payload.return_date = parseFlightDate(tripData.arrive);
-                if (tripData.tripType === 3) {
-                    payload.from_city_multi = tripData.fromLocation;
-                    payload.destination_city_multi = tripData.toLocation;
-                }
-                Moengage.track_event('flight_search_started', payload);
-            }
             navigate(`${paths.airline.index}/${paths.airline.results}`, {
                 state: { flightkey: 'searchFlights' },
             });

@@ -29,7 +29,7 @@ const PaymentSuccess = () => {
     const status = queryParams.get('status')?.replace(/["']/g, '');
     const transactionId = queryParams.get('transactionId');
     const firstBtnLink = paths.dashboard.ecommerce;
-    const { transactionData, isLoading } = useGetTransactionData(transactionId);
+    const { isLoading } = useGetTransactionData(transactionId);
 
     useEffect(() => {
         dispatch(resetPaymentData());
@@ -46,19 +46,6 @@ const PaymentSuccess = () => {
             sessionStorage.removeItem('PurchaseUrl');
         };
     }, [dispatch, navigate, status]);
-
-    useEffect(() => {
-        const result = sessionStorage.getItem('paymentResult');
-        if (typeof Moengage?.track_event === 'function' && result && transactionData) {
-            const successData = JSON.parse(result);
-
-            Moengage.track_event(`${successData?.serviceName}_payment_result`, {
-                status: 'success',
-                ...successData,
-            });
-            sessionStorage.removeItem('paymentResult');
-        }
-    }, [transactionData]);
 
     useEffect(() => {
         function handlePopState() {

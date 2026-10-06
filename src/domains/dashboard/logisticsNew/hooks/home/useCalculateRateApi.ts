@@ -6,8 +6,6 @@ import { calculateRate, calculateInternationalRate } from '../../api';
 import { setCourierResults, updateShipmentDetails } from '../../slice/logisticsSlice';
 import { DeliveryCompanyOption, CalculateRateResponse, ShipmentData, InternationalShipmentData } from '../../types';
 
-declare const Moengage: any;
-
 const mapCouriers = (companies: CalculateRateResponse['deliveryCompanies']): DeliveryCompanyOption[] =>
     companies.map(company => ({
         deliveryCompanyId: company.deliveryCompanyId,
@@ -23,7 +21,7 @@ const mapCouriers = (companies: CalculateRateResponse['deliveryCompanies']): Del
 
 export const useCalculateRateApi = () => {
     const { role, id } = useAppSelector(state => state.reducer.auth);
-    const { courierResults, shipmentDetails } = useAppSelector(state => state.reducer.logisticsV3);
+    const { courierResults } = useAppSelector(state => state.reducer.logisticsV3);
     const hasStoredResults = courierResults.length > 0;
     const [resultData, setResultData] = useState<DeliveryCompanyOption[] | null>(hasStoredResults ? courierResults : null);
     const [isLoading, setIsLoading] = useState(false);
@@ -56,16 +54,6 @@ export const useCalculateRateApi = () => {
             dispatch(setCourierResults(result));
             setIsLoading(false);
             setIsInital(false);
-            if (typeof Moengage?.track_event === 'function') {
-                Moengage.track_event('logistics_price_checked', {
-                    length: values.length,
-                    breadth: values.width,
-                    height: values.height,
-                    weight: values.weight,
-                    orgin_city: shipmentDetails?.originCity?.city,
-                    destination_city: shipmentDetails?.destinationCity?.city,
-                });
-            }
             return result;
         }
         setIsSubmmited(true);

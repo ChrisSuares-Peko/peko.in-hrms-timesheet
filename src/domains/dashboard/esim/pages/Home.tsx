@@ -27,7 +27,6 @@ import { clearPendingSelections, setPendingSelections } from '../slice/esimSlice
 import { PurchasingFor } from '../types';
 import { TravelType } from '../types/eSIM';
 import '../assets/style.css';
-import { convertMBtoGB } from '../utils/helperFunction';
 
 const { Text } = Typography;
 type SelectedPlansMap = Record<string, any>;
@@ -195,24 +194,6 @@ const Home = () => {
         }
 
         dispatch(setPendingSelections({ travelType, selectedCountry, countryCodes, selectedPlans, quantities, purchasingFor }));
-           if (typeof Moengage?.track_event === 'function') {
-            const serviceDetails =
-                orders.length === 1
-                    ? {
-                          country: orders[0].country,
-                          validity: orders[0].validity,
-                          data_pack: `${convertMBtoGB(orders[0].data)}GB`,
-                          quantity: orders[0].quantity,
-                      }
-                    : {
-                          countries: orders.map(o => o.country),
-                          validity: orders.map(o => o.validity),
-                          data_packs: orders.map(o => `${convertMBtoGB(o.data)}GB`),
-                          quantities: orders.map(o => o.quantity),
-                      };
-            Moengage.track_event('esim_buy_now_IN', serviceDetails);
-            sessionStorage.setItem('service_details', JSON.stringify({ serviceDetails }));
-        }
         handleSubmission({
             orders,
             ...(isForRecipient && {

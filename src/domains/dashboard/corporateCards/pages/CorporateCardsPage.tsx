@@ -71,9 +71,6 @@ const CorporateCardsPage = () => {
     const { handleReopen, reopenLoading } = useReopenKyb();
 
     const handleGetStarted = () => {
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event('corporate_cards_get_started');
-        }
         dispatch(setKybStage('initiate'));
     };
 

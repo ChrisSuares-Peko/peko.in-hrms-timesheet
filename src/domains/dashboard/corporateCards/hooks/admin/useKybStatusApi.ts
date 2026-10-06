@@ -83,16 +83,6 @@ export const useKybStatusApi = (enabled: boolean) => {
                 })
             );
             const kybStatus = application?.kybStatus ?? null;
-            const isTerminal = kybStatus === 'VERIFIED' || kybStatus === 'COMPLETED' || kybStatus === 'REJECTED';
-            if (
-                isTerminal &&
-                kybStatus !== lastTrackedStatus.current &&
-                typeof Moengage?.track_event === 'function'
-            ) {
-                Moengage.track_event('kyb_verification_status', {
-                    status: kybStatus === 'REJECTED' ? 'failed' : 'successful',
-                });
-            }
             if (kybStatus) lastTrackedStatus.current = kybStatus;
         }
         // Settled even when the call failed: the gate then falls through to its default rather than

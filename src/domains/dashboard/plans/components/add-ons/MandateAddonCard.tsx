@@ -61,13 +61,6 @@ const MandateAddonCard = ({ addOnpaymentPayload, planId }: Props) => {
         // enough for its existing dynamic ${service}_payment_result handling to pick it up.
         const moengageServiceName = title?.toLowerCase().replace(/\s+/g, '_');
         if (moengageServiceName) {
-            if (typeof Moengage?.track_event === 'function') {
-                Moengage.track_event(`${moengageServiceName}_checkout`, {
-                    [`${moengageServiceName}_plan`]: 'monthly',
-                    coupon_code_used: false,
-                    total_amount: pgAmount,
-                });
-            }
             sessionStorage.setItem(
                 'paymentResult',
                 JSON.stringify({

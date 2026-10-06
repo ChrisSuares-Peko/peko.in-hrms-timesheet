@@ -47,14 +47,6 @@ const ManageSubscription = () => {
             setError('Please enter the number of additional vehicles and drivers');
             return;
         }
-        if (typeof Moengage?.track_event === 'function') {
-            // The add-on bundles 1 vehicle + 1 driver per unit — there's no separate
-            // driver count field on this screen, so both properties use the same entered count.
-            Moengage.track_event('subscription_details_entered', {
-                no_of_vehicles: fleetCount,
-                no_of_drivers: fleetCount,
-            });
-        }
         const addOnpaymentPayload = {
             pgAmount: totalAmount,
             addonsAccessKey: accessKeys.garage,

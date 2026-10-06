@@ -17,10 +17,7 @@ import {
     setSelectedInbountAirline,
 } from '../../slices/airlineSlice';
 import { Flight } from '../../types/Flight';
-import { retrieveAirportName } from '../../utils/airlineData';
 import { getFlightGroupKey } from '../../utils/flightGrouping';
-import { retrieveFlightClass } from '../../utils/getFlightClass';
-import { tripMethods } from '../../utils/options';
 import FareSelectionModal from '../FareSelectionModal';
 import FlightInfoDrawer from '../FlightInfoDrawer';
 import SearchResultCard from '../SearchResultCard';
@@ -55,7 +52,7 @@ const SearchResultBody = ({
     const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
     const [fareModalFlight, setFareModalFlight] = useState<GroupedFlight | null>(null);
 
-    const { selectedAirline, selectedInbountAirline, searchData } = useAppSelector(
+    const { selectedAirline, selectedInbountAirline } = useAppSelector(
         state => state.reducer.airline
     );
 
@@ -64,29 +61,7 @@ const SearchResultBody = ({
     // handleClick), so this has to be reachable from both call sites or the popup path never
     // fires flight_airline_selected at all.
     const trackAirlineSelected = (item: Flight) => {
-        if (typeof Moengage?.track_event !== 'function') return;
-        const parseFlightDate = (d: string) => new Date(d.split('-').reverse().join('-'));
-        const payload: Record<string, any> = {
-            from_city: searchData.fromLocation1,
-            destination_city: searchData.toLocation1,
-            depart_date: parseFlightDate(searchData.depart1),
-            cabin_class: retrieveFlightClass(searchData.class),
-            trip_type: tripMethods.find(t => t.value === searchData.tripType)?.label,
-            number_passengers: searchData.adults + searchData.children + searchData.infants,
-            airline: item.journey[0]?.[0]?.Airline.AirlineName,
-            fare: item.price,
-            airport_takeoff: retrieveAirportName(item.journey[0]?.[0]?.Origin.Airport.AirportCode),
-            airport_landing: retrieveAirportName(item.journey[0]?.[item.journey[0].length - 1]?.Destination.Airport.AirportCode),
-            flight_number: item.flightNumber,
-            time_takeoff: item.depart.datetime,
-            time_landing: item.arrive.datetime,
-        };
-        if (searchData.tripType === 2) payload.return_date = parseFlightDate(searchData.arrive);
-        if (searchData.tripType === 3) {
-            payload.from_city_multi = searchData.fromLocation;
-            payload.destination_city_multi = searchData.toLocation;
-        }
-        Moengage.track_event('flight_airline_selected', payload);
+        // PROTOTYPE-SETUP: MoEngage tracking removed; kept as a no-op for its callers.
     };
 
     const handleClick = (item: Flight) => {

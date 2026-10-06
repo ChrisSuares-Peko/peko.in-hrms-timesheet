@@ -86,12 +86,6 @@ const Details = () => {
     }
 
         useEffect(() => {
-        if (typeof Moengage?.track_event === 'function' && data) {
-            Moengage.track_event('giftcard_brand_viewed', {
-                brand_name: data?.mainGiftCard.brand_name || data?.mainGiftCard.name,
-                min_amount: parseFloat(data?.mainGiftCard.min_price),
-            });
-        }
     }, [data]);
 
 

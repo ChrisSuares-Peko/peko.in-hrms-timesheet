@@ -93,12 +93,6 @@ export const handleLogout = async () => {
             console.error('Error destroying fcWidget:', error);
         }
     }
-    if (typeof Moengage?.track_event === 'function') {
-        Moengage.track_event('user_logout');
-    }
-    if (typeof Moengage?.destroy_session === 'function') {
-        Moengage.destroy_session();
-    }
 
     let authData: {
         token?: string;

@@ -21,64 +21,10 @@ import VerificationInput from './VerificationInput';
 import useAadhaarVerification from '../hooks/useAadhaarVerification';
 import useVerifyApi from '../hooks/useVerify';
 import { generateYupSchema } from '../schema';
-import { verificationConfigNew } from '../utils/data';
-
-// Each verification service's MoEngage checkout event carries at most one identifying property —
-// never the sensitive ID number itself (PAN, GSTIN, CIN, DIN, account number). Where the only
-// identifying value available is that raw ID, the property is left out entirely and the checkout
-// event fires with no extra data. `prefix` drives the checkout event name (`${prefix}_checkout`)
-// — the verify/result events reuse the service's accessKey as-is (`accessKeys` / `${accessKeys}_result`).
-const VERIFICATION_TRACKING: Record<
-    string,
-    { prefix: string; property?: string; getIdentifier?: (data: any, values: any) => any }
-> = {
-    pan_verify: { prefix: 'pan', property: 'name', getIdentifier: (_data, values) => values?.name },
-    aadhar_verify: { prefix: 'aadhar', property: 'name', getIdentifier: (_data, values) => values?.name },
-    bank_account_verify: {
-        prefix: 'bank_account',
-        property: 'account_holder_name',
-        getIdentifier: data => verificationConfigNew.bank_account_verify?.getData?.(data, undefined)?.accountHolderName,
-    },
-    // No non-sensitive identifying field is available (the GSTIN itself isn't sent) — event
-    // fires with no extra property.
-    gst_return_check: { prefix: 'gst_return' },
-    gstin_verify: {
-        prefix: 'gstin',
-        property: 'company_name',
-        getIdentifier: data => {
-            const resultData = verificationConfigNew.gstin_verify?.getData?.(data, undefined);
-            return resultData?.lgnm || resultData?.tradeNam;
-        },
-    },
-    // The PAN searched isn't sent — event fires with no extra property.
-    gstin_pan: { prefix: 'gstin_pan' },
-    gst_business_verify: {
-        prefix: 'gst_business',
-        property: 'company_name',
-        getIdentifier: data => verificationConfigNew.gst_business_verify?.getData?.(data, undefined)?.lgnm,
-    },
-    // corporate_verify's response doesn't surface a company name (its result fields aren't
-    // mapped in verificationConfigNew), and the CIN itself isn't sent — event fires with no
-    // extra property.
-    corporate_verify: { prefix: 'corporate' },
-    director_verify_cin: { prefix: 'director_cin' },
-    director_verify_din: { prefix: 'director_din' },
-};
 
 const trackVerificationCheckoutAndResult = (accessKeys: string, data: any, values: any) => {
-    if (typeof Moengage?.track_event !== 'function') return;
-
-    const tracking = VERIFICATION_TRACKING[accessKeys];
-    const status = verificationConfigNew[accessKeys]?.getValidityStatus?.(data, undefined);
-
-    Moengage.track_event(
-        `${tracking?.prefix ?? accessKeys}_checkout`,
-        tracking?.property ? { [tracking.property]: tracking.getIdentifier?.(data, values) } : undefined
-    );
-    Moengage.track_event(`${accessKeys}_result`, {
-        status,
-    });
-};
+        // PROTOTYPE-SETUP: MoEngage tracking removed; kept as a no-op for its callers.
+    };
 
 interface AddressModalProps {
     open: boolean;

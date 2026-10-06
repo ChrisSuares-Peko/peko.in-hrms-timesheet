@@ -57,9 +57,6 @@ const VerificationCard = ({
             );
             return;
         }
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event(accessKeys);
-        }
         setIsOpen(true);
     };
 

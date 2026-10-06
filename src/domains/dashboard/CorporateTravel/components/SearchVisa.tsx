@@ -310,9 +310,6 @@ const SearchVisa = () => {
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event('visa_viewed');
-        }
     }, []);
 
     useEffect(() => {
@@ -372,16 +369,6 @@ const SearchVisa = () => {
         if (Object.keys(newErrors).length > 0) return;
 
         const natLabel = nationalityOptions.find(c => c.value === nationality)?.label ?? '';
-        const resLabel = residencyOptions.find(c => c.value === residency)?.label ?? '';
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event('visa_search_started', {
-                nationality: natLabel,
-                residency: resLabel,
-                destination: selectedDestination?.destination ?? '',
-                visa_type: visaType,
-                travel_date: travelDate?.format('YYYY-MM-DD') ?? '',
-            });
-        }
         navigate(`${paths.dashboard.corporateTravel}/${paths.visa.index}/${paths.visa.results}`, {
             state: {
                 nationality: natLabel,

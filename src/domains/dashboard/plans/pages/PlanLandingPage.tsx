@@ -26,15 +26,6 @@ import {
     trackSubscribeClicked,
 } from '../utils';
 
-// Maps the GROUP plan's display name (packageName) to its per-plan "_viewed" Moengage event,
-// fired when the user clicks "Choose This Plan". Only Peko Go / Peko+ are tracked per spec;
-// packageName is "Peko+" (no space), so a generic slugify (.replace(/\s+/g, '_')) would not
-// produce "peko_plus" — hence the explicit map instead.
-const PLAN_VIEWED_EVENT_MAP: Record<string, string> = {
-    'Peko Go': 'peko_go_plan_viewed',
-    'Peko+': 'peko_plus_plan_viewed',
-};
-
 const PlanLandingPage = () => {
     const navigate = useNavigate();
     const dispatch = useAppDispatch();
@@ -88,11 +79,6 @@ const PlanLandingPage = () => {
     );
 
     useEffect(() => {
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event('service_viewed', {
-                service_name: 'peko_plan',
-            });
-        }
     }, []);
 
     if (roleName && roleName === 'corporate sub user') {
@@ -130,10 +116,6 @@ const PlanLandingPage = () => {
                 })
             );
             return;
-        }
-        const viewedEvent = PLAN_VIEWED_EVENT_MAP[card.name];
-        if (viewedEvent && typeof Moengage?.track_event === 'function') {
-            Moengage.track_event(viewedEvent);
         }
         startSubscription(card.id, undefined, billing);
     };

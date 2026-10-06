@@ -96,11 +96,6 @@ const HeaderBanner = ({ inputParams, verifyRcResponse, verifyResponse }: any) =>
 
         dispatch(setInputParams(payload));
         if (selectedTab === 'RC' && payload.doc_identity_no !== '') {
-            if (typeof Moengage?.track_event === 'function') {
-                Moengage.track_event('vehicle_search_initiated', {
-                    vehicle_number: trimmedIdentity,
-                });
-            }
             dispatch(resetRcResponse());
             verifyApi({
                 doc_identity_no: identityNo.trim(),

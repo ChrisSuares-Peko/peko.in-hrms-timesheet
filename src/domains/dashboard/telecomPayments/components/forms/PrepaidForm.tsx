@@ -169,14 +169,6 @@ const PrepaidForm: React.FC<PrepaidFormProps> = ({ onProceed, initialFormData })
                             data.planCategory
                         );
                     }
-                    if (typeof Moengage?.track_event === 'function') {
-                       
-                        Moengage.track_event('prepaid_details_submitted', {
-                            service_provider: values.serviceProvider,
-                            circle: values.circle,
-                            number: values.mobileNumber,
-                        });
-                    }
                 } finally {
                     setSubmitting(false);
                 }

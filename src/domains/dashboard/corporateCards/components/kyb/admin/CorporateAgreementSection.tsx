@@ -257,16 +257,6 @@ const CorporateAgreementSection = ({
                         validationSchema={corporateAgreementSchema(!!addressProofFileName)}
                         validateOnMount
                         onSubmit={values => {
-                            if (typeof Moengage?.track_event === 'function') {
-                                Moengage.track_event('e_signature_initiated', {
-                                    name: values.entityName,
-                                    address: values.regAddress,
-                                    city: values.regCity,
-                                    state: values.regState,
-                                    pan_account_no: values.panNumber,
-                                    gst_no: values.gstNumber,
-                                });
-                            }
                             onSendForEsign(agreementValuesOnly(values));
                         }}
                     >

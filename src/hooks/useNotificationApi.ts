@@ -3,7 +3,7 @@ import { useCallback, useEffect } from 'react';
 import Pusher from 'pusher-js';
 
 import { notificationListResponse } from '@customtypes/general';
-import { VITE_PUSHER_APPKEY } from '@src/config-global';
+import { HAS_PUSHER_KEY, VITE_PUSHER_APPKEY } from '@src/config-global';
 import { getNotifications, resetNotifications } from '@src/services/notification';
 import { resetNotificationCounter, setNotifications } from '@src/slices/userSlice';
 
@@ -32,6 +32,8 @@ export default function useNotificationApi() {
     }, [getNotificationData, notifications]);
 
     useEffect(() => {
+        // PROTOTYPE-SETUP: no Pusher key outside Peko's env — don't create an instance (empty key throws).
+        if (!HAS_PUSHER_KEY) return undefined;
         const pusher = new Pusher(VITE_PUSHER_APPKEY, { cluster: 'ap2' });
         const subscribedChannel = pusher.subscribe('push-notification');
         subscribedChannel.bind('real-time-notification', (data: any) => {

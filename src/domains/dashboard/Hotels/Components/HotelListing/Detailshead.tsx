@@ -14,7 +14,6 @@ import { showToast } from '@src/slices/apiSlice';
 
 import useDateFields from '../../hooks/useDateField';
 import useSearchCityApi from '../../hooks/useSearchCityApi';
-import useTimeConvert from '../../hooks/useTimeConvertHook';
 import { getHotels, resetHotelArr } from '../../slices/getHotelSlice';
 import SelectCity from '../AutoComplete/SelectCity';
 import BookModal from '../GuestInfoModal/Modal';
@@ -29,8 +28,6 @@ const Detailshead = ({
 }) => {
     const { showModal, handleCancel, isModalOpen } = useDateFields();
     const { hotelsRequest } = useAppSelector(state => state.reducer.hotels);
-    const { convertToDateString } = useTimeConvert();
-
     // const { convertToDateString } = useTimeConvert();
 
     const [searchText, setSearchText] = useState<string>('');
@@ -105,26 +102,6 @@ const Detailshead = ({
             })
         );
 
-         if (typeof Moengage?.track_event === 'function') {
-            const totalAdults = hotelsRequest.rooms.reduce(
-                (sum: any, item: any) => sum + item.adult,
-                0
-            );
-            const totalChildren = hotelsRequest.rooms.reduce(
-                (sum: any, item: any) => sum + item.child,
-                0
-            );
-            const checkInData = convertToDateString(checkInDate);
-            const checkoutData = convertToDateString(checkOutDate);
-            Moengage.track_event('hotel_search_started', {
-                city: defaultCityName,
-                check_in: new Date(checkInData),
-                check_out: new Date(checkoutData),
-                rooms: hotelsRequest.rooms.length,
-                adults: totalAdults,
-                children: totalChildren,
-            });
-        }
 
         hotelsSearch(payload);
     };

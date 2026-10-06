@@ -10,11 +10,12 @@ import { PersistGate } from 'redux-persist/integration/react';
 import { persistor, store } from '@store/store';
 
 import App from './App';
+import AppErrorBoundary from './components/AppErrorBoundary';
 import './index.css';
 import { handleLogout } from './services/handleLogout';
 import IncomingCallListener from './domains/dashboard/pekoConnect/components/IncomingCallListener';
 import { useAppSelector } from './hooks/store';
-import './moengage-init';
+// PROTOTYPE-SETUP: MoEngage loader (./moengage-init) removed — analytics SDK that needs Peko's env/infra.
 
 window.addEventListener('vite:preloadError', (event: any) => {
     console.error('Vite preload error:', event);
@@ -49,9 +50,12 @@ const Main = () => {
 };
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-    <Provider store={store}>
-        <PersistGate loading={null} persistor={persistor}>
-            <Main />
-        </PersistGate>
-    </Provider>
+    // PROTOTYPE-SETUP: outermost boundary — covers store, router, layout, header and pages.
+    <AppErrorBoundary>
+        <Provider store={store}>
+            <PersistGate loading={null} persistor={persistor}>
+                <Main />
+            </PersistGate>
+        </Provider>
+    </AppErrorBoundary>
 );

@@ -200,26 +200,7 @@ const Bookingfields = () => {
             );
             hotelsList(payload);
             dispatch(setSearchKey('searchHotel'));
-               const totalAdults = hotelsRequest.rooms.reduce(
-                (sum: any, item: any) => sum + item.adult,
-                0
-            );
-            const totalChildren = hotelsRequest.rooms.reduce(
-                (sum: any, item: any) => sum + item.child,
-                0
-            );
 
-            // Moengage event tracking
-            if (typeof Moengage?.track_event === 'function') {
-                Moengage.track_event('hotel_search_started', {
-                    city: defaultCityName,
-                    check_in: new Date(checkInData),
-                    check_out: new Date(checkoutData),
-                    rooms: hotelsRequest.rooms.length,
-                    adults: totalAdults,
-                    children: totalChildren,
-                });
-            }
             navigate(`${paths.hotels.index}/${paths.hotels.details}`, {
                 state: { key: 'searchHotels' },
             });

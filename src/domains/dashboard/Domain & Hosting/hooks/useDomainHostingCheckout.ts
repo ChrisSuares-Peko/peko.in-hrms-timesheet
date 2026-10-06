@@ -126,16 +126,6 @@ export default function useDomainHostingCheckout() {
                 })
             );
 
-            if (typeof Moengage?.track_event === 'function') {
-                const domainNames = cartData.items
-                    .filter(i => i.itemType === 'domain')
-                    .map(i => i.productName)
-                    .filter(Boolean);
-                Moengage.track_event(`${getEventPrefix()}_order_processing`, {
-                    domain_name: domainNames.length === 1 ? domainNames[0] : domainNames,
-                    total_price: total,
-                });
-            }
             sessionStorage.setItem(
                 'service_details',
                 JSON.stringify({

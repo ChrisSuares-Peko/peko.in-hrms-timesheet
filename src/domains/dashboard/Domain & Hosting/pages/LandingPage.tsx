@@ -109,12 +109,6 @@ const LandingPage = () => {
 
     const onAdd = async (domain: DomainResult) => {
         setAddingId(domain.classkey);
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event('domain_add_to_cart', {
-                domain_name: domain.domain,
-                price: domain.price,
-            });
-        }
         const result = await handleAddToCart({ itemType: 'domain', productId: domain.classkey, productName: domain.domain });
         if (result) {
             dispatch(showToast({ variant: 'success', description: `${domain.domain} has been added to your cart!` }));

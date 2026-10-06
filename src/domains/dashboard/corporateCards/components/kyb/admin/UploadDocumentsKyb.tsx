@@ -332,14 +332,6 @@ const UploadDocumentsKyb = ({
                                             loading={submitLoading}
                                             disabled={!canSubmit}
                                             onClick={() => {
-                                                if (typeof Moengage?.track_event === 'function') {
-                                                    Moengage.track_event('verification_initiated', {
-                                                        esign_status:
-                                                            agreement?.esignStatus === 'SIGNED'
-                                                                ? 'successful'
-                                                                : 'pending',
-                                                    });
-                                                }
                                                 handleSubmit();
                                             }}
                                             style={

@@ -20,16 +20,6 @@ const VisaPaymentSuccess = () => {
         // payments/hooks/usePaymentApi.ts, which routes here instead of the generic
         // payments success page) — so visa_payment_result has to be fired here, reading the
         // same paymentResult sessionStorage payload the generic checkout mechanism seeded.
-        const paymentResultRaw = sessionStorage.getItem('paymentResult');
-        if (paymentResultRaw && typeof Moengage?.track_event === 'function') {
-            try {
-                const paymentResult = JSON.parse(paymentResultRaw);
-                Moengage.track_event('visa_payment_result', {
-                    status: 'success',
-                    total_amount: paymentResult.total_amount,
-                });
-            } catch (_) { /* ignore parse errors */ }
-        }
         sessionStorage.removeItem('paymentResult');
     }, []);
 

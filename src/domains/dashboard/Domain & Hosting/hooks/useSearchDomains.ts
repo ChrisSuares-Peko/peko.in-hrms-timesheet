@@ -17,9 +17,6 @@ export default function useSearchDomains() {
             const data = await searchDomains({ domainName, userId: id, userType: role });
             if (data) {
                 dispatch(setSearchResults(data));
-                if (typeof Moengage?.track_event === 'function') {
-                    Moengage.track_event('domain_search_started', { domain_name: domainName });
-                }
             }
             setIsLoading(false);
         },

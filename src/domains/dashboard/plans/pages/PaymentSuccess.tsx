@@ -99,27 +99,6 @@ const PaymentSuccess = () => {
             setIsLoading(false);
             const parsed = JSON.parse(PlanDetails);
             const { url, service, selectedType, addOnpaymentPayload, isAddOns } = parsed;
-             const result = sessionStorage.getItem('paymentResult');
-            if (typeof Moengage?.track_event === 'function' && result) {
-                try {
-                    const successData = JSON.parse(result);
-                    if (successData?.isGroupPlan) {
-                        Moengage.track_event('peko_plan_payment_result', {
-                            status: 'success',
-                            final_amount: successData?.total_amount,
-                        });
-                    } else if (successData?.serviceName) {
-                        const moengageServiceName = successData.serviceName
-                            .toLowerCase()
-                            .replace(/\s+/g, '_');
-                        Moengage.track_event(`${moengageServiceName}_payment_result`, {
-                            status: 'success',
-                            total_amount: successData?.total_amount,
-                        });
-                    }
-                } catch (_) { /* ignore parse errors */ }
-                sessionStorage.removeItem('paymentResult');
-            }
             // if (typeof Moengage?.track_event === 'function' && result) {
             //     const successData = JSON.parse(result);
 

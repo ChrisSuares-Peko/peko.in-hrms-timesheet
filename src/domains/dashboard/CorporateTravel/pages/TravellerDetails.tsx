@@ -560,9 +560,6 @@ const TravellerDetails = () => {
     } | null;
 
     useEffect(() => {
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event('visa_traveller_details');
-        }
     }, []);
 
     const dispatch = useAppDispatch();

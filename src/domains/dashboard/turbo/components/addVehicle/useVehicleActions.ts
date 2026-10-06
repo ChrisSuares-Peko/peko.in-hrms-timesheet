@@ -7,7 +7,6 @@ import { useAppSelector } from '@src/hooks/store';
 import { paths } from '@src/routes/paths';
 import { showToast } from '@src/slices/apiSlice';
 
-import { getVehicleAge } from './vehicleDetailsHelpers';
 import { updateFleetFastag } from '../../api';
 import useDeleteFleet from '../../hooks/deleteFleet';
 import useAddDocApi from '../../hooks/useAddDocApi';
@@ -99,13 +98,6 @@ const useVehicleActions = ({ inputParams, verifyRcResponse, id, setRefresh, fast
     };
 
     const handleSubmit = async () => {
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event('add_vehicle_to_fleet_clicked', {
-                vehicle_number: verifyRcResponse?.vehicleNumber,
-                vehicle_age: getVehicleAge(verifyRcResponse?.regDate),
-                class: verifyRcResponse?.rawData?.class,
-            });
-        }
         const res = await addDocApi(inputParams);
         if (res) {
             // Save any FASTag details entered before the vehicle existed in the fleet.

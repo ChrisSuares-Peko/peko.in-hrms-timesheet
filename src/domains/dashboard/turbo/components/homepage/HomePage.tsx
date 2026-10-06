@@ -36,9 +36,6 @@ const HomePage = () => {
     const filter: filterState = initialValues;
 
     useEffect(() => {
-        if (typeof Moengage?.track_event === 'function') {
-            Moengage.track_event('service_viewed', { service_name: 'turbo' });
-        }
     }, []);
 
     // You can handle API fetching here if needed for additional side effects
