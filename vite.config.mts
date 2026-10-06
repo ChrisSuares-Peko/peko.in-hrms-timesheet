@@ -8,6 +8,8 @@ export default defineConfig({
     build: {
         // No data: URI inlining — sub-4KB svgs rendered via ReactSVG break in prod builds.
         assetsInlineLimit: 0,
+        // PROTOTYPE-SETUP: skips gzip size reporting, which OOMs on Vercel.
+        reportCompressedSize: false,
     },
     resolve: {
         alias: {
