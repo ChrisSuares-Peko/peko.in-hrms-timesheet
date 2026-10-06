@@ -1,0 +1,92 @@
+import { PayloadAction, createSlice } from '@reduxjs/toolkit';
+
+import { ProductTour, UserInfoResponse, notificationListResponse } from '@customtypes/general';
+import { MOCK_AUTHENTICATED_USER } from '@domains/auth/slices/loginSlice';
+
+interface ApiState {
+    user: UserInfoResponse | null;
+    notifications: notificationListResponse | null;
+}
+
+// PROTOTYPE-SETUP: identity derived from the single mock in loginSlice, so useUserInfo never fetches it.
+const MOCK_USER_INFO: UserInfoResponse = {
+    balance: '250000.00',
+    credentialId: MOCK_AUTHENTICATED_USER.id,
+    role: MOCK_AUTHENTICATED_USER.role,
+    companyName: MOCK_AUTHENTICATED_USER.name ?? '',
+    roleName: MOCK_AUTHENTICATED_USER.roleName,
+    username: MOCK_AUTHENTICATED_USER.username,
+    logo: '',
+    // PROTOTYPE-SETUP: tours off (antd <Tour> renders when these are true) — see Phase 4.
+    productTour: { dashboard: false, payroll: false },
+    gstVerified: true,
+    panVerified: true,
+    contactPersonName: MOCK_AUTHENTICATED_USER.contactPersonName ?? '',
+    email: MOCK_AUTHENTICATED_USER.email ?? '',
+    mobileNo: MOCK_AUTHENTICATED_USER.mobileNo ?? '',
+    chatId: '',
+    isPekoCreditActive: false,
+    isPekoCreditAvailable: false,
+    accountType: 'corporate',
+};
+
+const initialState: ApiState = {
+    user: MOCK_USER_INFO, // PROTOTYPE-SETUP: was null (fetched from walletDetails API)
+    notifications: null,
+};
+
+export const userSlice = createSlice({
+    name: 'user',
+    initialState,
+    reducers: {
+        setUserInfo: (state, action: PayloadAction<Partial<ApiState>>) => {
+            state = { ...state, ...action.payload };
+            return state;
+        },
+        setNotifications: (state, action: PayloadAction<Partial<ApiState>>) => {
+            state = { ...state, ...action.payload };
+            return state;
+        },
+        resetNotificationCounter: state => {
+            if (state.notifications) {
+                state.notifications.count = 0;
+            }
+        },
+        alterProductTour: (state, action: PayloadAction<Partial<ProductTour>>) => {
+            if (state.user) {
+                state.user.productTour = { ...state.user.productTour, ...action.payload };
+            }
+        },
+        setGstandPanInfo: (state, action: PayloadAction<Partial<boolean>>) => {
+            if (state.user) {
+                state.user.gstVerified = action.payload;
+                state.user.panVerified = action.payload;
+            }
+        },
+        resetUser: state => {
+            state = initialState;
+            return state;
+        },
+        updatePekoCreditState: (
+            state,
+            action: PayloadAction<{ isPekoCreditActive: boolean; pekoCredits: string }>
+        ) => {
+            if (state.user) {
+                state.user.isPekoCreditActive = action.payload.isPekoCreditActive;
+                state.user.pekoCredits = action.payload.pekoCredits;
+            }
+        },
+    },
+});
+
+export const {
+    setUserInfo,
+    setNotifications,
+    resetUser,
+    alterProductTour,
+    setGstandPanInfo,
+    resetNotificationCounter,
+    updatePekoCreditState,
+} = userSlice.actions;
+
+export default userSlice.reducer;
