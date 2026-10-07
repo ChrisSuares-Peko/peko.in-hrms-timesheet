@@ -14,7 +14,7 @@ import {
     getCorrections,
 } from '../api';
 import CorrectionModal from '../components/CorrectionModal';
-import { formatDuration } from '../components/format';
+import { displayTime, formatDuration } from '../components/format';
 import { useAtsScope } from '../hooks/useAtsScope';
 import type { AtsOverview, AttendanceDay, AttendanceMonthView, CorrectionKind } from '../types';
 import AttendanceCalendar from './AttendanceCalendar';
@@ -130,7 +130,10 @@ const AttendanceTab = ({ overview, onOverview, onChanged }: AttendanceTabProps) 
             <Row gutter={[24, 24]}>
                 <Col xs={24} xl={9} className="min-w-0">
                     <div className="flex flex-col gap-4 sm:gap-6">
-                        <Panel title="Today" subtitle={dayjs(today).format('dddd, D MMMM')}>
+                        <Panel
+                            title="Today"
+                            subtitle={`Shift ${displayTime(overview.shift.start)}–${displayTime(overview.shift.end)} · ${overview.graceMinutes} min grace`}
+                        >
                             <TodayPunch overview={overview} onOverview={onPunch} />
                         </Panel>
                         <Panel

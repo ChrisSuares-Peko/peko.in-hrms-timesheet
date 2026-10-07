@@ -95,7 +95,7 @@ const ManageBankTransactionsPage = lazy(
     () => import('@src/domains/dashboard/Payroll/pages/ManageBankTransactions')
 );
 // PROTOTYPE-SETUP: ESS Service 1 — HR / Finance level-2 queues and Timesheet status. These replace the
-// Timesheet V1 pages (Payroll/pages/Level2Approvals, Payroll/pages/TimesheetSummary), which are no longer routed.
+// Timesheet V1 pages (Payroll/pages/Level2Approvals, Payroll/pages/TimesheetSummary), now removed.
 const Level2ApprovalsPage = lazy(
     () => import('@src/domains/attendanceTimesheet/payroll/Level2ApprovalsPage')
 );

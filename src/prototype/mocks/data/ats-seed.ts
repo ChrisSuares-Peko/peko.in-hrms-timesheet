@@ -37,7 +37,7 @@ import {
 
 import { isoDateTime, monthsAgo } from './dates';
 import { CEO_CODE, DepartmentName, EMPLOYEES, MockEmployee, findEmployee, managerOf } from './employees';
-import { ATTENDANCE } from './time-attendance';
+import { ATTENDANCE, ATTENDANCE_FROM } from './time-attendance';
 import { isWorkingDay, monthBounds, seeded, todayIso, workingDayOffset } from './time-calendar';
 import { OVERTIME } from './time-overtime';
 
@@ -478,7 +478,8 @@ const OT_STATE: Record<string, Parameters<typeof trailFor>[2]> = {
 };
 
 const seedOvertime = (s: ReturnType<typeof atsScenario>): OvertimeRequest[] => {
-    const fromOld = OVERTIME.map((o): OvertimeRequest => {
+    // Only days the seeded attendance covers, so every request has that day's hours as context.
+    const fromOld = OVERTIME.filter(o => o.date >= ATTENDANCE_FROM).map((o): OvertimeRequest => {
         // Imran's approved overtime: the manager approved, Finance hasn't yet.
         const state = o.employee.employeeId === 'ACME-014' ? 'pending-l2' : OT_STATE[o.status];
         return {

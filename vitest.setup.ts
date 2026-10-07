@@ -32,3 +32,26 @@ globalThis.IntersectionObserver =
             const self = this;
         }
     };
+
+// PROTOTYPE-SETUP: Node 25 exposes its own global `localStorage` (a non-functional stub unless Node is started with
+// --localstorage-file), which shadows jsdom's. Code that reads storage at import time (src/store/store.ts) then
+// crashes. Give tests a working in-memory Storage when the global one is broken.
+if (typeof window !== 'undefined' && typeof window.localStorage?.getItem !== 'function') {
+    const data = new Map<string, string>();
+    const memoryStorage: Storage = {
+        get length() {
+            return data.size;
+        },
+        clear: () => data.clear(),
+        getItem: key => (data.has(key) ? data.get(key)! : null),
+        key: index => [...data.keys()][index] ?? null,
+        removeItem: key => {
+            data.delete(key);
+        },
+        setItem: (key, value) => {
+            data.set(key, String(value));
+        },
+    };
+    Object.defineProperty(window, 'localStorage', { value: memoryStorage, configurable: true });
+    Object.defineProperty(globalThis, 'localStorage', { value: memoryStorage, configurable: true });
+}

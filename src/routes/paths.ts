@@ -547,8 +547,8 @@ export const paths = {
         employeeSalaryProfile: 'employee-salary-profile',
         payrollRecordSuccess: 'payroll-record-success',
         ctcCalculator: 'ctc-calculator',
-        approvals: 'approvals', // PROTOTYPE-SETUP: Timesheet V1 — HR / Finance level-2 queues
-        timesheets: 'timesheets', // PROTOTYPE-SETUP: Timesheet V1 — status summary + read-only view
+        approvals: 'approvals', // PROTOTYPE-SETUP: ESS Service 1 — HR / Finance level-2 queues
+        timesheets: 'timesheets', // PROTOTYPE-SETUP: ESS Service 1 — timesheet status per month (status only)
     },
     pekoCloud: {
         index: 'hub',

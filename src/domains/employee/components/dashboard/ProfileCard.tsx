@@ -134,14 +134,7 @@ const ProfileCard = ({
                 </Flex>
             </Flex>
 
-            {/* PROTOTYPE-SETUP: in 'timesheet' mode punch in/out is replaced by a pointer to My Timesheet */}
-            {hidePunch && (
-                <Flex className="px-3 py-5">
-                    <Typography.Text className="text-sm text-[#1d1d1d]">
-                        Your company uses timesheets — log your hours in My Timesheet.
-                    </Typography.Text>
-                </Flex>
-            )}
+            {/* PROTOTYPE-SETUP: ESS Service 1 — on the ESS tabs check-in / out lives on the Attendance & Timesheet card */}
             {!hidePunch && (
                 <Flex className="px-3 py-5">
                     {(() => {

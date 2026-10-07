@@ -38,11 +38,11 @@ import {
 } from '@src/prototype/rules/attendance';
 
 import { createCollection } from './persistentStore';
-import { leavesLive } from './requestStores';
 import { buildAtsSeed, recordKey, weekId } from '../data/ats-seed';
 import { isoDateTime, monthsAgo, toIsoDate } from '../data/dates';
 import { EMPLOYEES, MockEmployee, findEmployee, managerOf } from '../data/employees';
 import { holidayOn, todayIso } from '../data/time-calendar';
+import { LEAVES } from '../data/time-leaves';
 import type { DataMode } from '../envelope';
 
 // ---- collections --------------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ export const firstUnprocessedMonth = (mode: DataMode) =>
 
 /** Full-day approved leave on the date (half-day leave is a working half-day). */
 export const leaveNameOn = (mode: DataMode, e: MockEmployee, date: string) =>
-    leavesLive(mode).find(
+    (mode === 'empty' ? [] : LEAVES).find(
         l => l.employee.id === e.id && l.status === 'approved' && l.halfDaySelection === null && l.days.includes(date)
     )?.type.name;
 

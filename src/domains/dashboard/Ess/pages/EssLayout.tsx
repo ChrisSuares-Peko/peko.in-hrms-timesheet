@@ -11,9 +11,9 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { getAtsSettings } from '@src/domains/attendanceTimesheet/api';
 import type { AtsMode } from '@src/domains/attendanceTimesheet/types';
-import { titleFor } from '@src/prototype/rules/attendance';
 import { directReportsOf } from '@src/prototype/mocks/data/employees';
 import { ESS_TABS, essTabFor } from '@src/prototype/persona/essPersonas';
+import { titleFor } from '@src/prototype/rules/attendance';
 
 const { Title } = Typography;
 

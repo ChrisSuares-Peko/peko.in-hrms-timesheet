@@ -506,7 +506,7 @@ export interface RequestItem {
     /** Overtime: that day's attendance / timesheet hours. Correction: current vs requested times. */
     overtimeContext?: OvertimeContext;
     correction?: Pick<AttendanceCorrection, 'kind' | 'current' | 'requested'>;
-    /** Set when the day's payroll is processed: it can't be approved. */
+    /** Set when the day's payroll is processed: it can't be approved (attendance corrections and overtime). */
     blockedReason?: string;
     waitingForYou: boolean;
 }

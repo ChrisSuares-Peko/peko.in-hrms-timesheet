@@ -7,8 +7,8 @@
 //   Reporting: one manager per department; everyone else reports to their department's manager; the five
 //   department heads report to the CEO (ACME-021), who has no reporting manager.
 //   Status: 19 active, 1 on notice (ACME-010), 1 newly joined this month (ACME-015).
-//   PROTOTYPE-SETUP (Timesheet V1, Slice 1): ACME-021 is a placeholder CEO — a plain employee for now; no
-//   CEO-specific approval rules are applied yet.
+//   PROTOTYPE-SETUP (ESS Service 1): ACME-021 is the CEO — no reporting manager, so his requests skip to level 2
+//   and his timesheets are auto-approved (src/prototype/rules/attendance.ts).
 //
 // PERSONAS
 //   ESS - Employee persona: ACME-004 Sneha Iyer — marked with `persona: 'ESS_EMPLOYEE'` below.

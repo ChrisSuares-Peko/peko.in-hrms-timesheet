@@ -337,6 +337,7 @@ const overtimeItem = (mode: DataMode, o: OvertimeRequest, viewer: ApproverRole):
         trail: o.trail,
         statusLabel: trailLabel(o.trail),
         overtimeContext: overtimeContext(mode, e, o.date),
+        ...(o.trail.status.startsWith('PENDING') && isDayLocked(mode, o.date) ? { blockedReason: lockReasonFor(o.date) } : {}),
         waitingForYou: awaiting(o.trail) === viewer,
     };
 };

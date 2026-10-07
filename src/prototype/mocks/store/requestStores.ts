@@ -11,13 +11,22 @@ import { MockEmployee, managerOf } from '../data/employees';
 import { DISPUTES, DisputeStatus, MockDispute } from '../data/time-attendance';
 import { LEAVES, LeaveStatus, MockLeave } from '../data/time-leaves';
 import { MockReimbursement, REIMBURSEMENTS, ReimbursementStatus } from '../data/time-requests';
-import { defaultTimesheetSettings } from '../data/timesheet-seed';
 import type { DataMode } from '../envelope';
 import { createCollection } from './persistentStore';
 
 export type StoredLeave = MockLeave & { trail: ApprovalTrail };
 export type StoredReimbursement = MockReimbursement & { trail: ApprovalTrail };
 export type StoredDispute = MockDispute & { trail: ApprovalTrail };
+
+// PROTOTYPE-SETUP: ESS Service 1 — this V1 Slice 5 store is DORMANT: not registered with any approval queue
+// and not read by any endpoint. Kept (with its V1 types) for when leave / reimbursement join the new approval
+// chain. Level 2 used to come from the V1 timesheet settings; it is fixed here.
+const DORMANT_LEVEL2: Record<Level2Component, 'HR' | 'FINANCE' | 'NONE'> = {
+    attendance: 'HR',
+    overtime: 'FINANCE',
+    leave: 'HR',
+    reimbursement: 'FINANCE',
+};
 
 /** Seeded requests the manager already approved (waiting on level 2), by id. */
 // lv-004 Divya Menon (leave → HR), rb-010 Imran Shaikh (claim → Finance), dsp-004 Farah Khan (dispute → HR).
@@ -32,7 +41,7 @@ const seededTrail = (
     comment?: string | null
 ): ApprovalTrail => {
     const manager = managerOf(employee);
-    const level2 = defaultTimesheetSettings().level2[component];
+    const level2 = DORMANT_LEVEL2[component];
     const l1 = { level: 1 as const, approverRole: 'MANAGER' as const, ...(manager ? { approverId: manager.id } : {}) };
     const l2 = level2 === 'NONE' ? null : { level: 2 as const, approverRole: level2 };
     const steps = (s1: ApprovalTrail['steps'][number], s2?: ApprovalTrail['steps'][number]) =>
