@@ -41,6 +41,10 @@ const SEEDS: ReimbursementSeed[] = [
     { code: 'ACME-004', offset: -24, category: 'Travel', details: 'Cab to client office, Whitefield – sprint review', amount: 864, status: 'approved' },
     { code: 'ACME-004', offset: -38, category: 'Meals', details: 'Team lunch after release', amount: 1450, status: 'rejected' },
     { code: 'ACME-001', offset: -4, category: 'Travel', details: 'Flight BLR → BOM for leadership offsite', amount: 8640, status: 'approved' },
+    // PROTOTYPE-SETUP: more claims for the ESS - Manager persona (Arjun Mehta).
+    { code: 'ACME-001', offset: -1, category: 'Meals', details: 'Team dinner – Q3 hackathon winners', amount: 4820, status: 'requestedByEmployee' },
+    { code: 'ACME-001', offset: -16, category: 'Internet', details: 'Home broadband – Airtel Xstream (on-call allowance)', amount: 1299, status: 'approved' },
+    { code: 'ACME-001', offset: -33, category: 'Equipment', details: 'Noise-cancelling headset for interviews', amount: 6499, status: 'rejected' },
     { code: 'ACME-008', offset: -1, category: 'Meals', details: 'Client dinner – Tata Steel procurement team', amount: 3200, status: 'requestedByEmployee' },
     { code: 'ACME-009', offset: -19, category: 'Travel', details: 'Local travel – client visits in Andheri and BKC', amount: 2150, status: 'approved' },
     { code: 'ACME-014', offset: -3, category: 'Fuel', details: 'Fuel for warehouse runs (Bhiwandi)', amount: 1800, status: 'requestedByEmployee' },

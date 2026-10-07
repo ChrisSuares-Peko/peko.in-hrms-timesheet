@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 
-import { useAppDispatch, useAppSelector } from '@src/hooks/store';
+import { useEssIdentity } from '@src/domains/employee/hooks/useEssIdentity';
+import { useAppDispatch } from '@src/hooks/store';
 import { showToast } from '@src/slices/apiSlice';
 
 import {
@@ -14,7 +15,7 @@ import { ReimbursementRecord } from '../types';
 const PAGE_SIZE = 10;
 
 export const useReimbursements = () => {
-    const { role, id } = useAppSelector(state => state.reducer.auth);
+    const { role, id } = useEssIdentity(); // PROTOTYPE-SETUP: ESS tab persona (else the session)
     const dispatch = useAppDispatch();
     const [records, setRecords] = useState<ReimbursementRecord[]>([]);
     const [total, setTotal] = useState(0);

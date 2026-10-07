@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 import { MenuOutlined, UserOutlined } from '@ant-design/icons';
 import { Avatar, Badge, Button, Flex, Grid, Image, Typography, theme } from 'antd';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import NotificationIcon from '@assets/icons/Notification.svg';
 import Support from '@assets/icons/Support.svg';
@@ -13,6 +13,7 @@ import { UserRole } from '@customtypes/general';
 import { useCompanyNameFallback } from '@domains/dashboard/profile/hooks/useCompanyNameFallback';
 import { useAppSelector } from '@src/hooks/store';
 import useNotificationApi from '@src/hooks/useNotificationApi';
+import { essTabFor } from '@src/prototype/persona/essPersonas';
 import { paths } from '@src/routes/paths';
 import { handleLogout } from '@src/services/handleLogout';
 import { formatNumberWithLocalString } from '@utils/priceFormat';
@@ -25,7 +26,10 @@ const MobileHeader = ({ handleDraggerOpen }: MobileHeaderType) => {
     const { user, notifications } = useAppSelector(state => state.reducer.user);
     const { roleName, role } = useAppSelector(state => state.reducer.auth);
     const { resetNotificationCount } = useNotificationApi();
-    const { applicationId, name: resolvedName } = useCompanyNameFallback();
+    const { applicationId, name: companyFallbackName } = useCompanyNameFallback();
+    // PROTOTYPE-SETUP: on an ESS tab the header shows that tab's persona (e.g. Sneha Iyer), not the company.
+    const essTab = essTabFor(useLocation().pathname);
+    const resolvedName = essTab ? essTab.persona.fullName : companyFallbackName;
     const displayName = resolvedName || applicationId || null;
     const [isLoggingOut, setIsLoggingOut] = useState(false);
 

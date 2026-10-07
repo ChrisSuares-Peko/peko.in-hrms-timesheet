@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { useAppSelector } from '@src/hooks/store';
+
+import { useEssIdentity } from '@src/domains/employee/hooks/useEssIdentity';
 
 import { EmployeeProfile, getEmployeeProfile } from '../api/onboarding';
 
 // Completion is a real backend flag (Employee.isCompleted), set once the Emergency
 // Contact step succeeds — unlike AE, which infers it client-side from field presence.
 export const useOnboardingStatus = () => {
-    const { role, id } = useAppSelector(state => state.reducer.auth);
+    const { role, id } = useEssIdentity(); // PROTOTYPE-SETUP: ESS tab persona (else the session)
     const [loading, setLoading] = useState(true);
     const [isComplete, setIsComplete] = useState(false);
     const [profile, setProfile] = useState<EmployeeProfile | null>(null);

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 
-import { useAppSelector } from '@src/hooks/store';
+
+import { useEssIdentity } from '@src/domains/employee/hooks/useEssIdentity';
 
 import { RequiredOnboardingDocument, getRequiredOnboardingDocuments } from '../api/onboarding';
 
 // Fetches the HR-configured documents this employee must upload during onboarding.
 export const useRequiredOnboardingDocuments = () => {
-    const { role, id } = useAppSelector(state => state.reducer.auth);
+    const { role, id } = useEssIdentity(); // PROTOTYPE-SETUP: ESS tab persona (else the session)
     const [documents, setDocuments] = useState<RequiredOnboardingDocument[]>([]);
     const [loading, setLoading] = useState(true);
 

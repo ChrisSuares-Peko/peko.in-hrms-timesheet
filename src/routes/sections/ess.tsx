@@ -1,15 +1,15 @@
 // PROTOTYPE-SETUP: routes for the two ESS prototype tabs, mounted inside the corporate dashboard layout
-// (see dashboard.tsx). The /employee ESS portal routes and EmployeeAuthGuard are untouched.
+// (see dashboard.tsx). Both tabs mount the SAME existing ESS portal pages; who they run as comes from
+// useEssIdentity (ESS - Employee = the ESS employee persona, ESS - Manager = her reporting manager).
+// The /employee ESS portal routes, EmployeePortalLayout and EmployeeAuthGuard are untouched.
 import { lazy } from 'react';
 
-import { ESS_EMPLOYEE, ESS_MANAGER } from '@src/prototype/mocks/data/employees';
-import PersonaScope from '@src/prototype/persona/PersonaScope';
+import { ESS_TABS } from '@src/prototype/persona/essPersonas';
 
-const EssEmployeeLayout = lazy(() => import('@src/domains/dashboard/Ess/pages/EssEmployeeLayout'));
-const EssManagerPage = lazy(() => import('@src/domains/dashboard/Ess/pages/EssManagerPage'));
+const EssLayout = lazy(() => import('@src/domains/dashboard/Ess/pages/EssLayout'));
 
-// Reused ESS portal pages. Home mounts the employee Dashboard directly: EmployeeHome's onboarding gate
-// is API-driven and would always bounce to /employee/onboarding without a real backend.
+// Home mounts the employee Dashboard directly: EmployeeHome's onboarding gate would send an empty-mode
+// persona to the onboarding wizard, which is not one of the tab's pages.
 const EmployeeDashboard = lazy(() => import('@src/domains/employee/pages/Dashboard'));
 const Attendance = lazy(() => import('@src/domains/employee/pages/Attendance'));
 const Leaves = lazy(() => import('@src/domains/employee/pages/Leaves'));
@@ -18,15 +18,10 @@ const Reimbursements = lazy(() => import('@src/domains/employee/pages/Reimbursem
 const Documents = lazy(() => import('@src/domains/employee/pages/Documents'));
 const Profile = lazy(() => import('@src/domains/employee/pages/Profile'));
 
-// Personas: ESS - Employee runs as ESS_EMPLOYEE (Sneha Iyer); ESS - Manager as ESS_MANAGER (Arjun Mehta,
-// her reporting manager). Payroll and the rest of the app stay the corporate admin.
-export const essEmployeeRoutes = [
+/** One route tree per tab; `key` remounts the pages on a tab switch so each persona's data loads fresh. */
+const essTabRoutes = (base: string) => [
     {
-        element: (
-            <PersonaScope employee={ESS_EMPLOYEE} label="ESS - Employee">
-                <EssEmployeeLayout />
-            </PersonaScope>
-        ),
+        element: <EssLayout key={base} />,
         children: [
             { element: <EmployeeDashboard />, index: true },
             { element: <Attendance />, path: 'attendance' },
@@ -39,13 +34,5 @@ export const essEmployeeRoutes = [
     },
 ];
 
-export const essManagerRoutes = [
-    {
-        element: (
-            <PersonaScope employee={ESS_MANAGER} label="ESS - Manager">
-                <EssManagerPage />
-            </PersonaScope>
-        ),
-        index: true,
-    },
-];
+/** Mounted in dashboard.tsx as { path: tab.base, children } for each tab. */
+export const essRoutes = ESS_TABS.map(tab => ({ path: tab.base, children: essTabRoutes(tab.base) }));

@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 
 import dayjs from 'dayjs';
 
-import { useAppDispatch, useAppSelector } from '@src/hooks/store';
+import { useEssIdentity } from '@src/domains/employee/hooks/useEssIdentity';
+import { useAppDispatch } from '@src/hooks/store';
 import { showToast } from '@src/slices/apiSlice';
 
 import { getMyAnnouncements } from '../api/announcements';
@@ -75,7 +76,7 @@ const toRow = (record: AttendanceApiRecord): DashboardAttendanceRow => ({
 });
 
 export const useEmployeeDashboard = () => {
-    const { role, id } = useAppSelector(state => state.reducer.auth);
+    const { role, id } = useEssIdentity(); // PROTOTYPE-SETUP: ESS tab persona (else the session)
     const dispatch = useAppDispatch();
     const [data, setData] = useState<EmployeeDashboard>(buildInitialData);
     const [isLoading, setIsLoading] = useState(true);

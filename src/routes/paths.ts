@@ -950,7 +950,15 @@ export const paths = {
         reimbursements: '/ess-employee/reimbursements',
         documents: '/ess-employee/documents',
     } as Record<string, string>,
+    // PROTOTYPE-SETUP: identical pages to ESS - Employee, run as that employee's reporting manager.
     essManager: {
         index: '/ess-manager',
-    },
+        home: '/ess-manager',
+        profile: '/ess-manager/profile',
+        attendance: '/ess-manager/attendance',
+        payslips: '/ess-manager/payslips',
+        leaves: '/ess-manager/leaves',
+        reimbursements: '/ess-manager/reimbursements',
+        documents: '/ess-manager/documents',
+    } as Record<string, string>,
 };

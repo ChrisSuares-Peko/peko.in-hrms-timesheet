@@ -8,15 +8,16 @@
 //   Status: 18 active, 1 on notice (ACME-010), 1 newly joined this month (ACME-015).
 //
 // PERSONAS
-//   ESS - Manager  persona: ACME-001 Arjun Mehta (Engineering Manager, 6 direct reports)
-//   ESS - Employee persona: ACME-004 Sneha Iyer   (Software Engineer, reports to Arjun Mehta)
+//   ESS - Employee persona: ACME-004 Sneha Iyer — marked with `persona: 'ESS_EMPLOYEE'` below.
+//   ESS - Manager  persona: NOT marked — always the ESS employee's reporting manager, resolved from her
+//                  `managerEmployeeId` (today ACME-001 Arjun Mehta, Engineering Manager, 6 direct reports).
 import { COMPANY, OfficeLocation } from './company';
 import { daysFromToday, monthsAgo, startOfThisMonth } from './dates';
 
 export type DepartmentName = 'Engineering' | 'Sales' | 'Operations' | 'Finance' | 'HR';
 export type EmploymentStatus = 'active' | 'notice' | 'new-joiner';
 export type Seniority = 'Manager' | 'Senior' | 'Mid' | 'Junior';
-export type Persona = 'ESS_MANAGER' | 'ESS_EMPLOYEE';
+export type Persona = 'ESS_EMPLOYEE';
 
 export interface MockDepartment {
     id: number;
@@ -160,7 +161,7 @@ interface Seed {
 
 const SEEDS: Seed[] = [
     // ---- Engineering (7) — manager ACME-001 -------------------------------------------------------------
-    { n: 1, firstName: 'Arjun', lastName: 'Mehta', gender: 'Male', department: 'Engineering', designation: 'Engineering Manager', seniority: 'Manager', location: 'Bengaluru', joinedMonthsAgo: 46, joinDay: 3, monthlyCtc: 240000, birthYear: 1986, birthMonthDay: '04-12', maritalStatus: 'Married', qualification: 'B.Tech, Computer Science', experienceYears: 14, bankName: 'HDFC Bank', ifsc: 'HDFC0000523', emergency: { name: 'Kavita Mehta', relation: 'Spouse' }, persona: 'ESS_MANAGER' },
+    { n: 1, firstName: 'Arjun', lastName: 'Mehta', gender: 'Male', department: 'Engineering', designation: 'Engineering Manager', seniority: 'Manager', location: 'Bengaluru', joinedMonthsAgo: 46, joinDay: 3, monthlyCtc: 240000, birthYear: 1986, birthMonthDay: '04-12', maritalStatus: 'Married', qualification: 'B.Tech, Computer Science', experienceYears: 14, bankName: 'HDFC Bank', ifsc: 'HDFC0000523', emergency: { name: 'Kavita Mehta', relation: 'Spouse' } },
     { n: 2, firstName: 'Priya', lastName: 'Nair', gender: 'Female', department: 'Engineering', designation: 'Senior Software Engineer', seniority: 'Senior', location: 'Bengaluru', joinedMonthsAgo: 40, joinDay: 15, monthlyCtc: 155000, birthYear: 1991, birthMonthDay: '09-23', maritalStatus: 'Married', qualification: 'M.Tech, Software Systems', experienceYears: 9, bankName: 'ICICI Bank', ifsc: 'ICIC0001845', emergency: { name: 'Anil Nair', relation: 'Spouse' } },
     { n: 3, firstName: 'Rahul', lastName: 'Verma', gender: 'Male', department: 'Engineering', designation: 'Senior Software Engineer', seniority: 'Senior', location: 'Bengaluru', joinedMonthsAgo: 34, joinDay: 8, monthlyCtc: 148000, birthYear: 1992, birthMonthDay: '01-30', maritalStatus: 'Single', qualification: 'B.E., Information Science', experienceYears: 8, bankName: 'Axis Bank', ifsc: 'UTIB0000413', emergency: { name: 'Sunita Verma', relation: 'Mother' } },
     { n: 4, firstName: 'Sneha', lastName: 'Iyer', gender: 'Female', department: 'Engineering', designation: 'Software Engineer', seniority: 'Mid', location: 'Bengaluru', joinedMonthsAgo: 22, joinDay: 1, monthlyCtc: 95000, birthYear: 1996, birthMonthDay: '06-18', maritalStatus: 'Single', qualification: 'B.Tech, Computer Science', experienceYears: 4, bankName: 'HDFC Bank', ifsc: 'HDFC0001272', emergency: { name: 'Ramesh Iyer', relation: 'Father' }, persona: 'ESS_EMPLOYEE' },
@@ -270,8 +271,9 @@ export const employeesInDepartment = (departmentId: number) =>
 /** "Current" employees (active + notice + new joiner) — everyone in this dataset is still on payroll. */
 export const currentEmployees = () => EMPLOYEES;
 
-export const ESS_MANAGER = EMPLOYEES.find(e => e.persona === 'ESS_MANAGER')!;
 export const ESS_EMPLOYEE = EMPLOYEES.find(e => e.persona === 'ESS_EMPLOYEE')!;
+/** The ESS employee's reporting manager, via `managerEmployeeId` — never a hard-coded id. */
+export const ESS_MANAGER = managerOf(ESS_EMPLOYEE)!;
 
 export const EMPLOYEE_COUNTS = {
     total: EMPLOYEES.length,

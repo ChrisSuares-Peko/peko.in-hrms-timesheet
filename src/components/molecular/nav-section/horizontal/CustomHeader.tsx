@@ -13,7 +13,7 @@ import {
     theme,
 } from 'antd';
 import { IoIosClose } from 'react-icons/io';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import NotificationIcon from '@assets/icons/Notification.svg';
 import pekoConnect from '@assets/svg/pekoConnect.svg';
@@ -33,6 +33,7 @@ import { useAppSelector } from '@src/hooks/store';
 import useNotificationApi from '@src/hooks/useNotificationApi';
 import useSubUserLogout from '@src/hooks/useSubUserLogout';
 import useUserInfo from '@src/hooks/useUserInfo';
+import { essTabFor } from '@src/prototype/persona/essPersonas';
 import { paths } from '@src/routes/paths';
 import { handleLogout } from '@src/services/handleLogout';
 import {
@@ -81,7 +82,10 @@ const CustomHeader = () => {
         companyName = user.companyName;
     }
 
-    const { applicationId, name: resolvedName } = useCompanyNameFallback();
+    const { applicationId, name: companyFallbackName } = useCompanyNameFallback();
+    // PROTOTYPE-SETUP: on an ESS tab the header shows that tab's persona (e.g. Sneha Iyer), not the company.
+    const essTab = essTabFor(useLocation().pathname);
+    const resolvedName = essTab ? essTab.persona.fullName : companyFallbackName;
     const isFreelancer = user?.accountType === 'freelancer';
     // An employee is a person, not a company: their own name is on the session, and the company-name
     // fallbacks below are never going to resolve for them.
@@ -91,6 +95,7 @@ const CustomHeader = () => {
             : resolvedName || applicationId || 'Registration Pending';
 
     const accountLabel = (() => {
+        if (essTab) return essTab.roleLabel; // PROTOTYPE-SETUP: "Employee" / "Manager" on ESS tabs
         if (role === UserRole.EMPLOYEE) return 'Employee';
         if (isFreelancer) return 'Freelancer / Influencer';
         return formatString(user?.roleName);

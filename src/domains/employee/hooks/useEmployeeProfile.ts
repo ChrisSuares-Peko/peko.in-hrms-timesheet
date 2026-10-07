@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { useAppSelector } from '@src/hooks/store';
+
+import { useEssIdentity } from '@src/domains/employee/hooks/useEssIdentity';
 
 import { EmployeeProfile, getEmployeeProfile } from '../api/onboarding';
 
 // Local-state fetch (matches useOnboardingStatus.ts's pattern) rather than a
 // Redux slice — this domain doesn't use Redux for employee data anywhere else.
 export const useEmployeeProfile = () => {
-    const { role, id } = useAppSelector(state => state.reducer.auth);
+    const { role, id } = useEssIdentity(); // PROTOTYPE-SETUP: ESS tab persona (else the session)
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<EmployeeProfile | null>(null);
 

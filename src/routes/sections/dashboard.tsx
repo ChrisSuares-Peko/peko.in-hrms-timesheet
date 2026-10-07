@@ -26,7 +26,7 @@ import { domainHostingRoutes } from './domainHosting';
 import { ecommerceRoutes } from './ecommerce';
 import { emailDomainRoutes } from './emailDomain';
 import { eSignRoutes } from './eSign';
-import { essEmployeeRoutes, essManagerRoutes } from './ess';
+import { essRoutes } from './ess';
 import { giftCardsRoutes } from './giftCards';
 import { GlobalBusinessSetupRoutes } from './globalBusinessSetup';
 import { governmentServicesRoutes } from './governmentServices';
@@ -264,8 +264,7 @@ export const dashboardRoutes = [
                 children: payrollRoutes,
             },
             // PROTOTYPE-SETUP: the two ESS prototype tabs, inside this layout so the sidebar stays visible.
-            { path: paths.essEmployee.index, children: essEmployeeRoutes },
-            { path: paths.essManager.index, children: essManagerRoutes },
+            ...essRoutes, // /ess-employee/* and /ess-manager/* — same pages, different persona
             {
                 path: paths.dashboard.paytmBpos,
                 children: paytmBposRoutes,

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 
-import { useAppSelector } from '@src/hooks/store';
+
+import { useEssIdentity } from '@src/domains/employee/hooks/useEssIdentity';
 
 import { getLeaveBalance } from '../api/leaves';
 
 export const useLeaveTypes = () => {
-    const { role, id } = useAppSelector(state => state.reducer.auth);
+    const { role, id } = useEssIdentity(); // PROTOTYPE-SETUP: ESS tab persona (else the session)
     const [leaveTypes, setLeaveTypes] = useState<{ label: string; value: string }[]>([]);
     const [loading, setLoading] = useState(true);
 

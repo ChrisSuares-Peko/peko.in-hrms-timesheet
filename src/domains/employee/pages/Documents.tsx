@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { UploadOutlined } from '@ant-design/icons';
 import { Button, Tabs, Typography } from 'antd';
 
-import { useAppDispatch, useAppSelector } from '@src/hooks/store';
+import { useEssIdentity } from '@src/domains/employee/hooks/useEssIdentity';
+import { useAppDispatch } from '@src/hooks/store';
 import { showToast } from '@src/slices/apiSlice';
 
 import { uploadUserDocument } from '../api/documents';
@@ -33,7 +34,7 @@ const Documents: React.FC = () => {
     const [uploadOpen, setUploadOpen] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
     const dispatch = useAppDispatch();
-    const { role, id } = useAppSelector(state => state.reducer.auth);
+    const { role, id } = useEssIdentity(); // PROTOTYPE-SETUP: ESS tab persona (else the session)
 
     const handleUpload = async (body: {
         name: string;

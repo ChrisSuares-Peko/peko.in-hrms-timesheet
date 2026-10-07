@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Flex, Spin } from 'antd';
 import { useNavigate } from 'react-router-dom';
 
-import { paths } from '@src/routes/paths';
+import { useEmployeePaths } from '@src/domains/employee/hooks/useEmployeePaths';
 
 import BankStep, { BankValues } from '../components/onboarding/BankStep';
 import DocumentsStep, { DocumentsValues } from '../components/onboarding/DocumentsStep';
@@ -36,6 +36,7 @@ const initialEmergency: EmergencyValues = { fullName: '', relationship: '', phon
 
 const EmployeeOnboarding = () => {
     const navigate = useNavigate();
+    const employeePaths = useEmployeePaths(); // PROTOTYPE-SETUP: stay inside the current ESS tab
     const { profile: employeeProfile } = useOnboardingStatus();
     const { submitDocuments, submitBank, submitEmergency } = useOnboardingSubmit();
     const { documents: requiredDocs, loading: docsLoading } = useRequiredOnboardingDocuments();
@@ -94,7 +95,7 @@ const EmployeeOnboarding = () => {
         return (
             <OnboardingSuccess
                 firstName={displayName}
-                onGoToDashboard={() => navigate(paths.employee.home, { replace: true })}
+                onGoToDashboard={() => navigate(employeePaths.home, { replace: true })}
             />
         );
     }

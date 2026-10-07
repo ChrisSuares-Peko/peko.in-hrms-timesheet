@@ -6,8 +6,8 @@ import { useNavigate } from 'react-router-dom';
 
 import { getAvailableRoles } from '@domains/auth/api/index';
 import useSwitchRole from '@domains/auth/hooks/useSwitchRole';
-import { paths } from '@routes/paths';
-import { useAppSelector } from '@src/hooks/store';
+import { useEmployeePaths } from '@src/domains/employee/hooks/useEmployeePaths';
+import { useEssIdentity } from '@src/domains/employee/hooks/useEssIdentity';
 import { handleLogout } from '@src/services/handleLogout';
 import { getEmployeeDropdownItems } from '@utils/navbarData';
 
@@ -18,7 +18,8 @@ const EmployeeHeader = () => {
         token: { colorPrimary },
     } = theme.useToken();
     const navigate = useNavigate();
-    const { username } = useAppSelector(state => state.reducer.auth);
+    const employeePaths = useEmployeePaths(); // PROTOTYPE-SETUP: stay inside the current ESS tab
+    const { username } = useEssIdentity(); // PROTOTYPE-SETUP: ESS tab persona (else the session)
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [hasCorporateAccess, setHasCorporateAccess] = useState(false);
     const { switchRole } = useSwitchRole();
@@ -35,7 +36,7 @@ const EmployeeHeader = () => {
 
     const handleMenuClick: MenuProps['onClick'] = async ({ key }) => {
         if (key === 'profile') {
-            navigate(paths.employee.profile);
+            navigate(employeePaths.profile);
         } else if (key === 'switch-corporate') {
             await switchRole('corporate');
         } else if (key === 'signout') {

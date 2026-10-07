@@ -41,6 +41,9 @@ const SEEDS: OvertimeSeed[] = [
     { code: 'ACME-003', offset: -12, hours: 1.5, status: 'rejected', notes: 'Code review backlog' },
     { code: 'ACME-013', offset: -20, hours: 2, status: 'cancelledByEmployee', notes: 'Vendor onboarding calls' },
     { code: 'ACME-009', offset: -15, hours: 2, status: 'approved', notes: 'Client RFP submission deadline' },
+    // PROTOTYPE-SETUP: overtime for the ESS - Manager persona (Arjun Mehta).
+    { code: 'ACME-001', offset: -2, hours: 2, status: 'requestedByEmployee', notes: 'Incident bridge – payments gateway outage' },
+    { code: 'ACME-001', offset: -22, hours: 3, status: 'approved', notes: 'Weekend production cut-over for v4.2' },
 ];
 
 /** Hourly rate derived from monthly gross (30 days × 8 hours). */

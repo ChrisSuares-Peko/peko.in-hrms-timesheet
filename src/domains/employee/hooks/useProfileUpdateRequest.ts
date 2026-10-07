@@ -1,4 +1,5 @@
-import { useAppDispatch, useAppSelector } from '@src/hooks/store';
+import { useEssIdentity } from '@src/domains/employee/hooks/useEssIdentity';
+import { useAppDispatch } from '@src/hooks/store';
 import { showToast } from '@src/slices/apiSlice';
 
 import {
@@ -10,7 +11,7 @@ import {
 
 // Submits a profile/bank update request (mirrors useOnboardingSubmit.ts's run/scope pattern); true on success.
 export const useProfileUpdateRequest = () => {
-    const { role, id } = useAppSelector(state => state.reducer.auth);
+    const { role, id } = useEssIdentity(); // PROTOTYPE-SETUP: ESS tab persona (else the session)
     const dispatch = useAppDispatch();
     const scope = { userType: role, userId: id };
 

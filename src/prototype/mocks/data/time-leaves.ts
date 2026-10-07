@@ -112,6 +112,11 @@ const SEEDS: LeaveSeed[] = [
     { code: 'ACME-004', type: 'sick', offset: -80, days: 2, status: 'approved', reason: 'Dental surgery' },
     { code: 'ACME-004', type: 'casual', offset: -40, days: 1, status: 'cancelledByEmployee', reason: 'Personal errand' },
     { code: 'ACME-001', type: 'earned', offset: -32, days: 2, status: 'approved', reason: 'Long weekend with family' },
+    // PROTOTYPE-SETUP: ESS - Manager persona (Arjun Mehta) gets a full ESS leave history of his own.
+    { code: 'ACME-001', type: 'earned', offset: 18, days: 3, status: 'applied', reason: 'Annual family vacation – Munnar' },
+    { code: 'ACME-001', type: 'sick', offset: -6, days: 1, status: 'approved', reason: 'Migraine' },
+    { code: 'ACME-001', type: 'casual', offset: -75, days: 1, status: 'approved', reason: "Daughter's school admission interview" },
+    { code: 'ACME-001', type: 'casual', offset: -110, days: 2, status: 'approved', reason: 'Housewarming in Pune' },
     { code: 'ACME-005', type: 'sick', offset: -45, days: 1, status: 'approved', reason: 'Food poisoning' },
     { code: 'ACME-016', type: 'earned', offset: -70, days: 4, status: 'approved', reason: 'Summer vacation – Shimla' },
     { code: 'ACME-018', type: 'casual', offset: -50, days: 1, status: 'approved', reason: 'Personal work' },

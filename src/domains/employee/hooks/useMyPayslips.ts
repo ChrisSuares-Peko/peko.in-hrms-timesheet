@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 
-import { useAppSelector } from '@src/hooks/store';
+
+import { useEssIdentity } from '@src/domains/employee/hooks/useEssIdentity';
 
 import { getMyPayslips } from '../api/payslips';
 import { PayslipRow } from '../types';
 
 export const useMyPayslips = (year: string) => {
-    const { role, id } = useAppSelector(state => state.reducer.auth);
+    const { role, id } = useEssIdentity(); // PROTOTYPE-SETUP: ESS tab persona (else the session)
     const [rows, setRows] = useState<PayslipRow[]>([]);
     const [loading, setLoading] = useState(false);
 

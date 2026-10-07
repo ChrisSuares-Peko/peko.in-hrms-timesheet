@@ -40,6 +40,7 @@ import {
     DEPARTMENTS,
     EMPLOYEES,
     ESS_EMPLOYEE,
+    ESS_MANAGER,
     MockEmployee,
     PAYROLL_TOTALS,
     findEmployee,
@@ -780,6 +781,16 @@ const DOCUMENT_REQUESTS: DocumentRequestsListResponse['records'] = [
         employee: { id: recordId(ESS_EMPLOYEE), fullName: ESS_EMPLOYEE.fullName, employeeId: ESS_EMPLOYEE.employeeId },
         createdAt: isoDateTime(daysFromToday(-3), '09:45:00'),
         updatedAt: isoDateTime(daysFromToday(-3), '09:45:00'),
+    },
+    {
+        // PROTOTYPE-SETUP: a pending request for the ESS - Manager persona (the ESS employee's manager).
+        id: 'dr-4103',
+        documentType: 'Experience Letter',
+        purpose: 'Board-member nomination paperwork.',
+        status: 'pending',
+        employee: { id: recordId(ESS_MANAGER), fullName: ESS_MANAGER.fullName, employeeId: ESS_MANAGER.employeeId },
+        createdAt: isoDateTime(daysFromToday(-2), '11:20:00'),
+        updatedAt: isoDateTime(daysFromToday(-2), '11:20:00'),
     },
     {
         id: 'dr-4098',
