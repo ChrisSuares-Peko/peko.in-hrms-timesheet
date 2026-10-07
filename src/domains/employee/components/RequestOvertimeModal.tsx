@@ -1,3 +1,5 @@
+import { ReactNode } from 'react';
+
 import { Button, Form, Modal } from 'antd';
 import dayjs from 'dayjs';
 import { Formik } from 'formik';
@@ -18,6 +20,10 @@ interface RequestOvertimeModalProps {
     onClose: () => void;
     onSubmit: (body: RequestOvertimeBody) => Promise<boolean>;
     dateOfJoin?: string;
+    /** PROTOTYPE-SETUP: pre-fill (My Timesheet → Request overtime). Omitted = today, empty fields. */
+    initialValues?: Partial<OvertimeFormValues>;
+    /** PROTOTYPE-SETUP: shown under the title, e.g. the flagged timesheet entries the request covers. */
+    extraContent?: ReactNode;
 }
 
 interface OvertimeFormValues {
@@ -53,6 +59,8 @@ const RequestOvertimeModal = ({
     onClose,
     onSubmit,
     dateOfJoin,
+    initialValues,
+    extraContent,
 }: RequestOvertimeModalProps) => {
     const minDate = dateOfJoin ? dayjs(dateOfJoin) : undefined;
 
@@ -66,7 +74,13 @@ const RequestOvertimeModal = ({
             styles={{ content: { padding: 24, borderRadius: 24, overflow: 'hidden' } }}
         >
             <Formik<OvertimeFormValues>
-                initialValues={{ date: dayjs().format('YYYY-MM-DD'), hours: '', notes: '' }}
+                initialValues={{
+                    date: dayjs().format('YYYY-MM-DD'),
+                    hours: '',
+                    notes: '',
+                    ...initialValues,
+                }}
+                enableReinitialize
                 validationSchema={buildValidationSchema(dateOfJoin)}
                 onSubmit={async (values, { resetForm }) => {
                     const ok = await onSubmit({
@@ -94,6 +108,7 @@ const RequestOvertimeModal = ({
                                 Submit a new overtime request
                             </span>
                         </div>
+                        {extraContent}
 
                         <DatePickerInput
                             name="date"

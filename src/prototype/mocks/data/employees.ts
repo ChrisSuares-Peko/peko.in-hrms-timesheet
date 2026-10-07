@@ -3,9 +3,12 @@
 // derives from this list, so the same 20 people appear everywhere. Edit people here, nowhere else.
 //
 // Shape: one neutral record per person; each handler maps it to its endpoint's real response type.
-//   Departments: Engineering 7, Sales 4, Operations 4, Finance 2, HR 3.
-//   Reporting: one manager per department; everyone else reports to their department's manager.
-//   Status: 18 active, 1 on notice (ACME-010), 1 newly joined this month (ACME-015).
+//   Departments: Engineering 7, Sales 4, Operations 4, Finance 2, HR 3, Leadership 1 (the CEO).
+//   Reporting: one manager per department; everyone else reports to their department's manager; the five
+//   department heads report to the CEO (ACME-021), who has no reporting manager.
+//   Status: 19 active, 1 on notice (ACME-010), 1 newly joined this month (ACME-015).
+//   PROTOTYPE-SETUP (Timesheet V1, Slice 1): ACME-021 is a placeholder CEO — a plain employee for now; no
+//   CEO-specific approval rules are applied yet.
 //
 // PERSONAS
 //   ESS - Employee persona: ACME-004 Sneha Iyer — marked with `persona: 'ESS_EMPLOYEE'` below.
@@ -14,7 +17,7 @@
 import { COMPANY, OfficeLocation } from './company';
 import { daysFromToday, monthsAgo, startOfThisMonth } from './dates';
 
-export type DepartmentName = 'Engineering' | 'Sales' | 'Operations' | 'Finance' | 'HR';
+export type DepartmentName = 'Engineering' | 'Sales' | 'Operations' | 'Finance' | 'HR' | 'Leadership';
 export type EmploymentStatus = 'active' | 'notice' | 'new-joiner';
 export type Seniority = 'Manager' | 'Senior' | 'Mid' | 'Junior';
 export type Persona = 'ESS_EMPLOYEE';
@@ -33,6 +36,7 @@ export const DEPARTMENTS: MockDepartment[] = [
     { id: 103, name: 'Operations', code: 'OPS', managerEmployeeId: 'ACME-012' },
     { id: 104, name: 'Finance', code: 'FIN', managerEmployeeId: 'ACME-016' },
     { id: 105, name: 'HR', code: 'HR', managerEmployeeId: 'ACME-018' },
+    { id: 106, name: 'Leadership', code: 'LDR', managerEmployeeId: 'ACME-021' },
 ];
 
 /** Monthly salary split (INR) — standard Indian structure derived from monthly CTC. */
@@ -189,10 +193,21 @@ const SEEDS: Seed[] = [
     { n: 18, firstName: 'Ritu', lastName: 'Sharma', gender: 'Female', department: 'HR', designation: 'HR Manager', seniority: 'Manager', location: 'Bengaluru', joinedMonthsAgo: 45, joinDay: 5, monthlyCtc: 150000, birthYear: 1989, birthMonthDay: '08-03', maritalStatus: 'Married', qualification: 'MBA, Human Resources', experienceYears: 11, bankName: 'Axis Bank', ifsc: 'UTIB0000009', emergency: { name: 'Amit Sharma', relation: 'Spouse' } },
     { n: 19, firstName: 'Nikhil', lastName: 'Bansal', gender: 'Male', department: 'HR', designation: 'HR Executive', seniority: 'Mid', location: 'Bengaluru', joinedMonthsAgo: 16, joinDay: 18, monthlyCtc: 52000, birthYear: 1996, birthMonthDay: '02-26', maritalStatus: 'Single', qualification: 'BBA, Human Resources', experienceYears: 3, bankName: 'Kotak Mahindra Bank', ifsc: 'KKBK0008068', emergency: { name: 'Rajiv Bansal', relation: 'Father' } },
     { n: 20, firstName: 'Farah', lastName: 'Khan', gender: 'Female', department: 'HR', designation: 'Talent Acquisition Specialist', seniority: 'Mid', location: 'Mumbai', joinedMonthsAgo: 6, joinDay: 7, monthlyCtc: 58000, birthYear: 1995, birthMonthDay: '10-30', maritalStatus: 'Married', qualification: 'MA, Psychology', experienceYears: 5, bankName: 'HDFC Bank', ifsc: 'HDFC0000240', emergency: { name: 'Zaid Khan', relation: 'Spouse' } },
+
+    // ---- Leadership (1) — the CEO; the five department heads report to him ----------------------------
+    { n: 21, firstName: 'Rohan', lastName: 'Malhotra', gender: 'Male', department: 'Leadership', designation: 'Chief Executive Officer', seniority: 'Manager', location: 'Bengaluru', joinedMonthsAgo: 47, joinDay: 1, monthlyCtc: 250000, birthYear: 1982, birthMonthDay: '05-21', maritalStatus: 'Married', qualification: 'MBA, IIM Bangalore', experienceYears: 20, bankName: 'HDFC Bank', ifsc: 'HDFC0000523', emergency: { name: 'Anjali Malhotra', relation: 'Spouse' } },
 ];
 
 const code = (n: number) => `ACME-${String(n).padStart(3, '0')}`;
+/** The CEO — the only employee without a reporting manager. */
+export const CEO_CODE = 'ACME-021';
 const departmentOf = (name: DepartmentName) => DEPARTMENTS.find(d => d.name === name)!;
+
+/** Department heads report to the CEO; the CEO (head of Leadership) has no reporting manager. */
+const reportingManagerOf = (employeeId: string, isDepartmentManager: boolean, departmentManager: string) => {
+    if (!isDepartmentManager) return departmentManager;
+    return employeeId === CEO_CODE ? null : CEO_CODE;
+};
 
 const toEmployee = (s: Seed): MockEmployee => {
     const employeeId = code(s.n);
@@ -218,7 +233,7 @@ const toEmployee = (s: Seed): MockEmployee => {
         designation: s.designation,
         seniority: s.seniority,
         isDepartmentManager,
-        managerEmployeeId: isDepartmentManager ? null : dept.managerEmployeeId,
+        managerEmployeeId: reportingManagerOf(employeeId, isDepartmentManager, dept.managerEmployeeId),
         location: s.location,
         address: `${office.line1}, ${office.city}, ${office.state} ${office.pincode}`,
         dateOfJoin: s.joinedMonthsAgo === null ? startOfThisMonth() : monthsAgo(s.joinedMonthsAgo, s.joinDay),
@@ -248,7 +263,7 @@ const toEmployee = (s: Seed): MockEmployee => {
     };
 };
 
-/** The 20 employees of Acme Technologies, ordered by employee code. */
+/** The 21 employees of Acme Technologies (incl. the CEO, ACME-021), ordered by employee code. */
 export const EMPLOYEES: MockEmployee[] = SEEDS.map(toEmployee);
 
 // ---- lookups used by every handler ----------------------------------------------------------------------

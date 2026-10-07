@@ -97,6 +97,10 @@ const SEEDS: LeaveSeed[] = [
     // ---- approved, upcoming ----
     { code: 'ACME-003', type: 'earned', offset: 8, days: 5, status: 'approved', reason: 'Vacation – Himachal Pradesh', note: 'Approved. Please hand over the release checklist to Priya.' },
     { code: 'ACME-008', type: 'casual', offset: 3, days: 1, status: 'approved', reason: "Child's school annual day" },
+    // PROTOTYPE-SETUP: ESS Service 1 scenarios — Sneha's approved leave in the next fortnight; Ananya on leave
+    // today (ESS - Manager "Team today").
+    { code: 'ACME-004', type: 'earned', offset: 9, days: 2, status: 'approved', reason: 'Diwali shopping trip with family', note: 'Approved — enjoy!' },
+    { code: 'ACME-006', type: 'casual', offset: 0, days: 1, status: 'approved', reason: 'Passport appointment' },
     // ---- approved, within the attendance window ----
     { code: 'ACME-004', type: 'sick', offset: -14, days: 1, status: 'approved', reason: 'Fever and cold' },
     { code: 'ACME-002', type: 'earned', offset: -20, days: 3, status: 'approved', reason: 'Onam with family in Kochi' },

@@ -2,6 +2,7 @@
 import type { notification, notificationListResponse } from '@customtypes/general';
 
 import { isoDateTime, monthsAgo } from '../data/dates';
+import { EMPLOYEES } from '../data/employees';
 import { ModeData, byMode } from '../envelope';
 import { MockRoute, route } from '../router';
 
@@ -26,7 +27,7 @@ const notificationItem = (
 const notifications: ModeData<notificationListResponse> = {
     dummy: {
         data: [
-            notificationItem(1, 'Payroll processed', 'Salaries for last month were credited to 20 employees.', monthsAgo(0, 1)),
+            notificationItem(1, 'Payroll processed', `Salaries for last month were credited to ${EMPLOYEES.length} employees.`, monthsAgo(0, 1)),
             notificationItem(2, 'Leave requests pending', '3 leave requests are awaiting approval.', monthsAgo(0, 2)),
         ],
         count: 2,

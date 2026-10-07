@@ -3,6 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { Tabs, Typography } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+// PROTOTYPE-SETUP: ESS Service 1 — the single Attendance & Timesheet settings tab (replaces the V1 one).
+import AtsSettingsTab from '@src/domains/attendanceTimesheet/payroll/AtsSettingsTab';
+
 import ComplianceSettings from './complianceSettings';
 import LeavePolicyTable from '../components/LeaveSettings/LeavePolicyTable';
 import BankDetails from '../components/organizationSettings/BankDetails/BankDetails';
@@ -76,6 +79,13 @@ const OrganizationSettings = () => {
             key: '9',
             label: 'ESS Settings',
             children: <EssSettings />,
+        },
+        {
+            // PROTOTYPE-SETUP: ESS Service 1 — mode, day rules, weekly off, timesheet approval and the approval
+            // matrix. The V1 AttendanceTimesheetSettings component is no longer rendered (left in place, isolated).
+            key: '10',
+            label: 'Attendance & Timesheet',
+            children: <AtsSettingsTab />,
         },
     ];
 

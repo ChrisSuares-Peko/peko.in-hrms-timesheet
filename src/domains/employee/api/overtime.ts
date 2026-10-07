@@ -36,6 +36,8 @@ export interface RequestOvertimeBody {
     date: string;
     hours: number;
     notes?: string;
+    /** PROTOTYPE-SETUP: flagged timesheet entries the request was raised from (My Timesheet). */
+    timesheetEntryIds?: string[];
 }
 
 const base = ({ userType, userId }: OnboardingScope) => `${userType}/${userId}/payroll`;

@@ -33,6 +33,8 @@ import DashboardHeader from '@domains/dashboard/Payroll/components/Dashboard/Das
 import InfoCard from '@domains/dashboard/Payroll/components/Dashboard/InfoCard';
 import NavigationCards from '@domains/dashboard/Payroll/components/Dashboard/NavigationCards';
 import UpcomingActivityCard from '@domains/dashboard/Payroll/components/Dashboard/UpcomingActivityCard';
+// PROTOTYPE-SETUP: ESS Service 1 — tiles follow the new Attendance & Timesheet settings (was V1 settings).
+import { useAtsSettings } from '@src/domains/attendanceTimesheet/payroll/usePayrollAts';
 import { useAppDispatch, useAppSelector } from '@src/hooks/store';
 import useScreenSize from '@src/hooks/useScreenSize';
 import { useScrollToTop } from '@src/hooks/useScrollToTop';
@@ -259,7 +261,10 @@ const Dash = () => {
         },
     ];
 
-    const navMenuDetails = [
+    // PROTOTYPE-SETUP: ESS Service 1 — Attendance & Timesheet settings for the tile filter below.
+    const { settings: atsSettings } = useAtsSettings();
+
+    const allNavMenuDetails = [
         {
             icon: employee,
             title: 'Employees & Departments',
@@ -294,6 +299,19 @@ const Dash = () => {
             isActive: true,
             link: `/${paths.payroll.index}/${paths.payroll.employeeReimbursement}`,
             ref: reimbursementRef,
+        },
+        // PROTOTYPE-SETUP: ESS Service 1 — Timesheet status (read-only) and the HR / Finance approval queues.
+        {
+            icon: timesheetIcon,
+            title: 'Timesheets',
+            isActive: true,
+            link: `/${paths.payroll.index}/${paths.payroll.timesheets}`,
+        },
+        {
+            icon: reportsIcon,
+            title: 'Approvals',
+            isActive: true,
+            link: `/${paths.payroll.index}/${paths.payroll.approvals}`,
         },
         {
             icon: companyDocumentIcon,
@@ -334,6 +352,21 @@ const Dash = () => {
             iconWidth: 75,
         },
     ];
+
+    // PROTOTYPE-SETUP: ESS Service 1 — hide Attendance in 'timesheet' mode and Timesheets in 'attendance' mode.
+    // Approvals (the HR / Finance level-2 queues for attendance corrections and overtime) is hidden when
+    // neither type has a level-2 approver. It doesn't depend on timesheet approval: timesheets are manager-only.
+    const atsMode = atsSettings?.mode;
+    const hasLevel2Queue =
+        !atsSettings ||
+        atsSettings.level2.overtime !== 'NONE' ||
+        (atsMode !== 'timesheet' && atsSettings.level2.attendance !== 'NONE');
+    const navMenuDetails = allNavMenuDetails.filter(
+        item =>
+            !(item.title === 'Attendance' && atsMode === 'timesheet') &&
+            !(item.title === 'Timesheets' && atsMode === 'attendance') &&
+            !(item.title === 'Approvals' && !hasLevel2Queue)
+    );
 
     const dashboardDetails = [
         {

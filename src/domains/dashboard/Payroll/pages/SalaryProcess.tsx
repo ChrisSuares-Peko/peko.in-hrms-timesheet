@@ -6,6 +6,8 @@ import type { TableRowSelection } from 'antd/es/table/interface';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import GenericTable from '@components/atomic/GenericTable';
+// PROTOTYPE-SETUP: ESS Service 1 — "Run payroll" panel (process the month, timesheet blockers).
+import PayrollMonthPanel from '@src/domains/attendanceTimesheet/payroll/PayrollMonthPanel';
 import useGetVirtualAccountBalance from '@src/domains/dashboard/paymentLinks/hooks/useGetVirtualAccountBalance';
 import EditSalaryDrawer from '@src/domains/dashboard/Payroll/components/drawers/EditSalaryDrawer';
 import ProceedSalaryModal from '@src/domains/dashboard/Payroll/components/modals/ProceedSalaryModal';
@@ -228,6 +230,10 @@ const SalaryProcess = () => {
                     Process Salary
                 </Text>
             </Flex>
+
+            {/* PROTOTYPE-SETUP: ESS Service 1 — earliest unprocessed month, its timesheet blockers and the
+                "Process payroll" action. Added above the existing salary flow, which is unchanged. */}
+            <PayrollMonthPanel />
 
             {/* Warning banner */}
             <Flex align="center" gap={8} style={{

@@ -547,6 +547,8 @@ export const paths = {
         employeeSalaryProfile: 'employee-salary-profile',
         payrollRecordSuccess: 'payroll-record-success',
         ctcCalculator: 'ctc-calculator',
+        approvals: 'approvals', // PROTOTYPE-SETUP: Timesheet V1 — HR / Finance level-2 queues
+        timesheets: 'timesheets', // PROTOTYPE-SETUP: Timesheet V1 — status summary + read-only view
     },
     pekoCloud: {
         index: 'hub',
@@ -949,6 +951,10 @@ export const paths = {
         leaves: '/ess-employee/leaves',
         reimbursements: '/ess-employee/reimbursements',
         documents: '/ess-employee/documents',
+        attendanceTimesheet: '/ess-employee/attendance-timesheet', // PROTOTYPE-SETUP: ESS Service 1 section
+        myTeam: '/ess-employee/my-team', // PROTOTYPE-SETUP: ESS Service 1 — ESS - Manager "My team" (people managers)
+        timesheet: '/ess-employee/timesheet', // PROTOTYPE-SETUP: redirects to attendance-timesheet/timesheet (was Timesheet V1)
+        approvals: '/ess-employee/approvals', // PROTOTYPE-SETUP: redirects to my-team (was Team Approvals)
     } as Record<string, string>,
     // PROTOTYPE-SETUP: identical pages to ESS - Employee, run as that employee's reporting manager.
     essManager: {
@@ -960,5 +966,9 @@ export const paths = {
         leaves: '/ess-manager/leaves',
         reimbursements: '/ess-manager/reimbursements',
         documents: '/ess-manager/documents',
+        attendanceTimesheet: '/ess-manager/attendance-timesheet', // PROTOTYPE-SETUP: ESS Service 1 section
+        myTeam: '/ess-manager/my-team', // PROTOTYPE-SETUP: ESS Service 1 — ESS - Manager "My team" (people managers)
+        timesheet: '/ess-manager/timesheet', // PROTOTYPE-SETUP: redirects to attendance-timesheet/timesheet (was Timesheet V1)
+        approvals: '/ess-manager/approvals', // PROTOTYPE-SETUP: redirects to my-team (was Team Approvals)
     } as Record<string, string>,
 };

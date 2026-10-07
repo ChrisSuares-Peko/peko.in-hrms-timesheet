@@ -1,9 +1,11 @@
 // PROTOTYPE-SETUP: axios adapter that answers every ApiClient request from the mock route table instead of
 // the network. Only the transport is replaced: ApiClient's request/response interceptors still run, so a
 // mock response reaches callers exactly as a real one would (the response interceptor unwraps the body).
+import { AxiosError } from 'axios';
 import type { AxiosAdapter, AxiosResponse } from 'axios';
 
 import { DataMode, RawBody, ok } from './envelope';
+import { MockHttpError } from './errors';
 import { mockRoutes } from './index';
 import { setCurrentRequestParams } from './requester';
 import { HttpMethod, MockRoute, findRoute, normaliseRequest, parseBody } from './router';
@@ -47,6 +49,18 @@ export const createPrototypeMockAdapter =
                 });
                 body = result instanceof RawBody ? result.body : ok(result ?? {});
             } catch (error) {
+                if (error instanceof MockHttpError) {
+                    // Deliberate rejection (validation / conflict): behave like a real 4xx from the server.
+                    const errorResponse: AxiosResponse = {
+                        data: { status: false, message: error.message, responseCode: String(error.status) },
+                        status: error.status,
+                        statusText: 'Mock error',
+                        headers: {},
+                        config,
+                        request: { prototypeMock: true },
+                    };
+                    throw new AxiosError(error.message, 'ERR_BAD_REQUEST', config, errorResponse.request, errorResponse);
+                }
                 // A broken handler must not take the demo down; log it loudly and answer empty.
                 console.error(`[prototype-mock] handler failed for ${method} ${path}`, error);
                 body = ok({});

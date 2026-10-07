@@ -2,16 +2,19 @@ import { useState } from 'react';
 
 import { Button, Row, Tabs, TabsProps, Typography } from 'antd';
 
+// PROTOTYPE-SETUP: ESS Service 1 — Overtime and Attendance corrections are read-only history plus the level-2
+// (HR / Finance) decision.
+import PayrollRequestsTab from '@src/domains/attendanceTimesheet/payroll/PayrollRequestsTab';
 import useScreenSize from '@src/hooks/useScreenSize';
 
 import AddHolidaysModal from '../components/modals/AddHolidaysModal';
 import MarkAttendanceModal from '../components/modals/MarkAttendanceModal';
 import DailyLogTab from '../components/timesheet/DailyLogTab';
-import DisputeTab from '../components/timesheet/DisputeTab';
 import HolidaysTab from '../components/timesheet/HolidaysTab';
 import MonthlySummaryTab from '../components/timesheet/MonthlySummaryTab';
-import OvertimeTab from '../components/timesheet/OvertimeTab';
 import ShiftScheduleTab from '../components/timesheet/ShiftScheduleTab';
+// PROTOTYPE-SETUP: ESS Service 1 — the old OvertimeTab (approve) and DisputeTab (review) are isolated: no longer
+// rendered here, left in place under ../components/timesheet/ until the cleanup.
 
 const tabItems: TabsProps['items'] = [
     { key: '1', label: 'Daily Log' },
@@ -19,7 +22,8 @@ const tabItems: TabsProps['items'] = [
     { key: '3', label: 'Overtime' },
     { key: '4', label: 'Holidays' },
     { key: '5', label: 'Shift Schedule' },
-    { key: '6', label: 'Dispute' },
+    // PROTOTYPE-SETUP: ESS Service 1 — renamed from "Dispute".
+    { key: '6', label: 'Attendance corrections' },
 ];
 
 const Timesheet = () => {
@@ -71,10 +75,12 @@ const Timesheet = () => {
 
             {activeTab === '1' && <DailyLogTab refetchTrigger={dailyRefetchTrigger} />}
             {activeTab === '2' && <MonthlySummaryTab />}
-            {activeTab === '3' && <OvertimeTab />}
+            {/* PROTOTYPE-SETUP: ESS Service 1 — level-2 overtime queue (Finance by default). */}
+            {activeTab === '3' && <PayrollRequestsTab type="overtime" />}
             {activeTab === '4' && <HolidaysTab refetchTrigger={dailyRefetchTrigger} />}
             {activeTab === '5' && <ShiftScheduleTab />}
-            {activeTab === '6' && <DisputeTab />}
+            {/* PROTOTYPE-SETUP: ESS Service 1 — level-2 attendance-correction queue (HR by default). */}
+            {activeTab === '6' && <PayrollRequestsTab type="attendance" />}
         </>
     );
 };

@@ -1,5 +1,9 @@
 import { Col, Flex, Row, Skeleton } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
+
+import AtsDashboardCard from '@src/domains/attendanceTimesheet/ess/AtsDashboardCard';
+import MyTeamCard from '@src/domains/attendanceTimesheet/team/MyTeamCard';
+import type { EssOutletContext } from '@src/domains/dashboard/Ess/pages/EssLayout';
 
 import AnnouncementsPanel from '../components/dashboard/AnnouncementsPanel';
 import AttendanceTable from '../components/dashboard/AttendanceTable';
@@ -12,6 +16,9 @@ import { useEmployeePaths } from '../hooks/useEmployeePaths';
 const Dashboard = () => {
     const navigate = useNavigate();
     const employeePaths = useEmployeePaths(); // PROTOTYPE-SETUP: /employee or /ess-employee base
+    // PROTOTYPE-SETUP: ESS Service 1 — on the ESS tabs the Attendance & Timesheet card (with check-in / out)
+    // replaces the profile card's punch button and the Attendance stat; managers also get "My team".
+    const essContext = useOutletContext<EssOutletContext | undefined>();
     const { data, isLoading, checkInLoading, checkOutLoading, handleCheckIn, handleCheckOut } =
         useEmployeeDashboard();
 
@@ -34,16 +41,22 @@ const Dashboard = () => {
                         checkOutLoading={checkOutLoading}
                         onCheckIn={handleCheckIn}
                         onCheckOut={handleCheckOut}
+                        hidePunch={Boolean(essContext)}
                     />
                 </Col>
                 <Col xs={24} lg={8}>
-                    <StatCard
-                        title="Attendance"
-                        stat={data.attendance}
-                        onViewMore={() => navigate(employeePaths.attendance)}
-                    />
+                    {essContext ? (
+                        <AtsDashboardCard />
+                    ) : (
+                        <StatCard
+                            title="Attendance"
+                            stat={data.attendance}
+                            onViewMore={() => navigate(employeePaths.attendance)}
+                        />
+                    )}
                 </Col>
             </Row>
+            {essContext?.isManager && <MyTeamCard />}
 
             <Row gutter={[24, 24]}>
                 <Col xs={24} lg={13}>

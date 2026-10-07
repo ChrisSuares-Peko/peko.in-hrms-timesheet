@@ -2,6 +2,9 @@ import { lazy } from 'react';
 
 import { Outlet } from 'react-router-dom';
 
+// PROTOTYPE-SETUP: ESS Service 1 — the gate reads the new Attendance & Timesheet settings (was V1 ModeGate).
+import AtsModeGate from '@src/domains/attendanceTimesheet/payroll/AtsModeGate';
+
 import { paths } from '../paths';
 
 const ActivityCalendarPage = lazy(
@@ -91,6 +94,14 @@ const ManageBanksPage = lazy(() => import('@src/domains/dashboard/Payroll/pages/
 const ManageBankTransactionsPage = lazy(
     () => import('@src/domains/dashboard/Payroll/pages/ManageBankTransactions')
 );
+// PROTOTYPE-SETUP: ESS Service 1 — HR / Finance level-2 queues and Timesheet status. These replace the
+// Timesheet V1 pages (Payroll/pages/Level2Approvals, Payroll/pages/TimesheetSummary), which are no longer routed.
+const Level2ApprovalsPage = lazy(
+    () => import('@src/domains/attendanceTimesheet/payroll/Level2ApprovalsPage')
+);
+const TimesheetStatusPage = lazy(
+    () => import('@src/domains/attendanceTimesheet/payroll/TimesheetStatusPage')
+);
 const CtcCalculatorPage = lazy(
     () => import('@src/domains/dashboard/Payroll/pages/CtcCalculatorPage')
 );
@@ -148,9 +159,25 @@ export const payrollRoutes = [
     { element: <OrganizationSettingsPage />, path: paths.payroll.payrollSettings },
     { element: <ComplianceSettingsPage />, path: paths.payroll.complianceSettings },
     { element: <EmployeeLeavePage />, path: paths.payroll.employeeLeave },
-    { element: <TimesheetPage />, path: paths.payroll.timesheet },
+    {
+        // PROTOTYPE-SETUP: ESS Service 1 — check-in based Attendance screens are off in Timesheet only mode.
+        element: (
+            <AtsModeGate
+                hiddenIn="timesheet"
+                title="Attendance tracking is off"
+                subTitle="Your company is in Timesheet only mode, so employees don't check in or out. See Timesheet status for timesheets."
+            >
+                <TimesheetPage />
+            </AtsModeGate>
+        ),
+        path: paths.payroll.timesheet,
+    },
     { element: <ReportsPage />, path: paths.payroll.reports },
     { element: <CtcCalculatorPage />, path: paths.payroll.ctcCalculator },
+    // PROTOTYPE-SETUP: ESS Service 1 — HR / Finance level-2 queues.
+    { element: <Level2ApprovalsPage />, path: paths.payroll.approvals },
+    // PROTOTYPE-SETUP: ESS Service 1 — status only, never entries.
+    { element: <TimesheetStatusPage />, path: paths.payroll.timesheets },
 
     {
         element: <EmployeeOnboardPage />,

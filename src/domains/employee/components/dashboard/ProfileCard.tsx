@@ -14,6 +14,8 @@ interface ProfileCardProps {
     checkOutLoading: boolean;
     onCheckIn: () => void;
     onCheckOut: () => void;
+    /** PROTOTYPE-SETUP: 'timesheet' mode — no punch in/out (employees only log time). */
+    hidePunch?: boolean;
 }
 
 const formatToday = (iso: string) => {
@@ -54,6 +56,7 @@ const ProfileCard = ({
     checkOutLoading,
     onCheckIn,
     onCheckOut,
+    hidePunch,
 }: ProfileCardProps) => {
     const [punchModalOpen, setPunchModalOpen] = useState(false);
 
@@ -131,185 +134,199 @@ const ProfileCard = ({
                 </Flex>
             </Flex>
 
-            <Flex className="px-3 py-5">
-                {(() => {
-                    if (onTheClock) {
-                        const accent = isLate ? '#B78912' : '#43B75D';
-                        const boxBg = isLate ? '#FFFAEB' : '#eaf9f0';
-                        return (
-                            <Flex
-                                align="center"
-                                justify="space-between"
-                                className="w-full rounded-2xl px-4 py-3"
-                                style={{ backgroundColor: boxBg }}
-                            >
-                                <Flex align="center" gap={12}>
-                                    <EnvironmentFilled
-                                        className="text-lg"
-                                        style={{ color: accent }}
-                                    />
-                                    <Flex vertical gap={2}>
-                                        <Typography.Text
-                                            className="text-base font-semibold"
+            {/* PROTOTYPE-SETUP: in 'timesheet' mode punch in/out is replaced by a pointer to My Timesheet */}
+            {hidePunch && (
+                <Flex className="px-3 py-5">
+                    <Typography.Text className="text-sm text-[#1d1d1d]">
+                        Your company uses timesheets — log your hours in My Timesheet.
+                    </Typography.Text>
+                </Flex>
+            )}
+            {!hidePunch && (
+                <Flex className="px-3 py-5">
+                    {(() => {
+                        if (onTheClock) {
+                            const accent = isLate ? '#B78912' : '#43B75D';
+                            const boxBg = isLate ? '#FFFAEB' : '#eaf9f0';
+                            return (
+                                <Flex
+                                    align="center"
+                                    justify="space-between"
+                                    className="w-full rounded-2xl px-4 py-3"
+                                    style={{ backgroundColor: boxBg }}
+                                >
+                                    <Flex align="center" gap={12}>
+                                        <EnvironmentFilled
+                                            className="text-lg"
                                             style={{ color: accent }}
-                                        >
-                                            {isLate ? 'Checked In Late' : 'Checked In On Time'}
-                                        </Typography.Text>
-                                        <Flex align="center" gap={5}>
-                                            <ClockCircleOutlined className="text-[#1d1d1d] text-xs" />
-                                            <Typography.Text className="text-xs text-[#1d1d1d]">
-                                                In {formatClock(checkInTime)}
+                                        />
+                                        <Flex vertical gap={2}>
+                                            <Typography.Text
+                                                className="text-base font-semibold"
+                                                style={{ color: accent }}
+                                            >
+                                                {isLate ? 'Checked In Late' : 'Checked In On Time'}
                                             </Typography.Text>
-                                            {isLate && lateMinutes ? (
-                                                <Typography.Text
-                                                    className="text-xs font-semibold"
-                                                    style={{ color: accent }}
-                                                >
-                                                    · {formatLate(lateMinutes)}
+                                            <Flex align="center" gap={5}>
+                                                <ClockCircleOutlined className="text-[#1d1d1d] text-xs" />
+                                                <Typography.Text className="text-xs text-[#1d1d1d]">
+                                                    In {formatClock(checkInTime)}
                                                 </Typography.Text>
-                                            ) : null}
+                                                {isLate && lateMinutes ? (
+                                                    <Typography.Text
+                                                        className="text-xs font-semibold"
+                                                        style={{ color: accent }}
+                                                    >
+                                                        · {formatLate(lateMinutes)}
+                                                    </Typography.Text>
+                                                ) : null}
+                                            </Flex>
                                         </Flex>
                                     </Flex>
+                                    <Flex
+                                        align="center"
+                                        justify="center"
+                                        className="bg-white rounded-lg px-3 py-1"
+                                    >
+                                        <Typography.Text
+                                            className="text-sm font-semibold tabular-nums"
+                                            style={{ color: accent }}
+                                        >
+                                            {elapsed}
+                                        </Typography.Text>
+                                    </Flex>
                                 </Flex>
+                            );
+                        }
+                        if (isCheckedOut) {
+                            return (
                                 <Flex
                                     align="center"
-                                    justify="center"
-                                    className="bg-white rounded-lg px-3 py-1"
+                                    justify="space-between"
+                                    className="w-full rounded-2xl bg-[#f5f6f7] px-4 py-3"
                                 >
-                                    <Typography.Text
-                                        className="text-sm font-semibold tabular-nums"
-                                        style={{ color: accent }}
+                                    <Flex align="center" gap={12}>
+                                        {shiftComplete ? (
+                                            <img src={tickCircle} alt="" className="w-6 h-6" />
+                                        ) : (
+                                            <ClockCircleOutlined className="text-[#8a94a6] text-xl" />
+                                        )}
+                                        <Flex vertical gap={2}>
+                                            <Typography.Text
+                                                className={`text-base font-semibold ${shiftComplete ? 'text-[#43B75D]' : 'text-[#1e293b]'}`}
+                                            >
+                                                {shiftComplete ? 'Shift Complete' : 'Checked Out'}
+                                            </Typography.Text>
+                                            {shiftComplete && (
+                                                <Typography.Text className="text-xs text-[#8a94a6]">
+                                                    Great work today!
+                                                </Typography.Text>
+                                            )}
+                                        </Flex>
+                                    </Flex>
+                                    <Flex
+                                        align="center"
+                                        justify="center"
+                                        className="bg-white rounded-lg px-3 py-1"
                                     >
-                                        {elapsed}
-                                    </Typography.Text>
+                                        <Typography.Text className="text-sm text-[#8a94a6]">
+                                            Total:{' '}
+                                            <span className="font-semibold text-[#1e293b]">
+                                                {formatHours(totalHours) ?? '0h 00m'}
+                                            </span>
+                                        </Typography.Text>
+                                    </Flex>
                                 </Flex>
-                            </Flex>
-                        );
-                    }
-                    if (isCheckedOut) {
+                            );
+                        }
                         return (
                             <Flex
                                 align="center"
-                                justify="space-between"
-                                className="w-full rounded-2xl bg-[#f5f6f7] px-4 py-3"
+                                gap={12}
+                                className="w-full rounded-2xl bg-[#F7F7F7] px-4 py-3"
                             >
-                                <Flex align="center" gap={12}>
-                                    {shiftComplete ? (
-                                        <img src={tickCircle} alt="" className="w-6 h-6" />
-                                    ) : (
-                                        <ClockCircleOutlined className="text-[#8a94a6] text-xl" />
-                                    )}
-                                    <Flex vertical gap={2}>
-                                        <Typography.Text
-                                            className={`text-base font-semibold ${shiftComplete ? 'text-[#43B75D]' : 'text-[#1e293b]'}`}
-                                        >
-                                            {shiftComplete ? 'Shift Complete' : 'Checked Out'}
-                                        </Typography.Text>
-                                        {shiftComplete && (
-                                            <Typography.Text className="text-xs text-[#8a94a6]">
-                                                Great work today!
-                                            </Typography.Text>
-                                        )}
-                                    </Flex>
-                                </Flex>
-                                <Flex
-                                    align="center"
-                                    justify="center"
-                                    className="bg-white rounded-lg px-3 py-1"
-                                >
-                                    <Typography.Text className="text-sm text-[#8a94a6]">
-                                        Total:{' '}
-                                        <span className="font-semibold text-[#1e293b]">
-                                            {formatHours(totalHours) ?? '0h 00m'}
-                                        </span>
+                                <EnvironmentFilled className="text-[#ff4f4f] text-xl" />
+                                <Flex vertical>
+                                    <Typography.Text className="text-base font-medium text-[#080808]">
+                                        Not Checked In
+                                    </Typography.Text>
+                                    <Typography.Text className="text-sm text-[#1d1d1d]">
+                                        {formatToday(profile.today)}
                                     </Typography.Text>
                                 </Flex>
                             </Flex>
                         );
-                    }
-                    return (
-                        <Flex
-                            align="center"
-                            gap={12}
-                            className="w-full rounded-2xl bg-[#F7F7F7] px-4 py-3"
-                        >
-                            <EnvironmentFilled className="text-[#ff4f4f] text-xl" />
-                            <Flex vertical>
-                                <Typography.Text className="text-base font-medium text-[#080808]">
-                                    Not Checked In
-                                </Typography.Text>
-                                <Typography.Text className="text-sm text-[#1d1d1d]">
-                                    {formatToday(profile.today)}
-                                </Typography.Text>
-                            </Flex>
-                        </Flex>
-                    );
-                })()}
-            </Flex>
+                    })()}
+                </Flex>
+            )}
 
-            <Flex vertical gap={6} className="px-3 pb-3 mt-auto">
-                {(() => {
-                    if (onTheClock) {
-                        return (
-                            <Button
-                                block
-                                loading={loading}
-                                disabled={!checkInOutEnabled}
-                                onClick={() => setPunchModalOpen(true)}
-                                className="h-11 rounded-md font-medium"
-                                style={
-                                    checkInOutEnabled
-                                        ? { color: '#FF4F4F', borderColor: '#FF4F4F' }
-                                        : undefined
-                                }
-                            >
-                                Check Out
-                            </Button>
-                        );
-                    }
-                    if (isCheckedOut) {
-                        return (
-                            <Button block disabled className="h-11 rounded-md font-medium">
-                                Check In
-                            </Button>
-                        );
-                    }
-                    return (
-                        <Button
-                            type="primary"
-                            block
-                            loading={loading}
-                            disabled={!canCheckIn}
-                            onClick={() => setPunchModalOpen(true)}
-                            className="h-11 rounded-md font-medium"
-                            style={
-                                canCheckIn
-                                    ? { backgroundColor: '#FF4F4F', borderColor: '#FF4F4F' }
-                                    : undefined
+            {!hidePunch && (
+                <>
+                    <Flex vertical gap={6} className="px-3 pb-3 mt-auto">
+                        {(() => {
+                            if (onTheClock) {
+                                return (
+                                    <Button
+                                        block
+                                        loading={loading}
+                                        disabled={!checkInOutEnabled}
+                                        onClick={() => setPunchModalOpen(true)}
+                                        className="h-11 rounded-md font-medium"
+                                        style={
+                                            checkInOutEnabled
+                                                ? { color: '#FF4F4F', borderColor: '#FF4F4F' }
+                                                : undefined
+                                        }
+                                    >
+                                        Check Out
+                                    </Button>
+                                );
                             }
-                        >
-                            Check In
-                        </Button>
-                    );
-                })()}
-                {checkInHint && (
-                    <Typography.Text className="text-xs text-center text-[#9e9e9e]">
-                        {checkInHint}
-                    </Typography.Text>
-                )}
-            </Flex>
+                            if (isCheckedOut) {
+                                return (
+                                    <Button block disabled className="h-11 rounded-md font-medium">
+                                        Check In
+                                    </Button>
+                                );
+                            }
+                            return (
+                                <Button
+                                    type="primary"
+                                    block
+                                    loading={loading}
+                                    disabled={!canCheckIn}
+                                    onClick={() => setPunchModalOpen(true)}
+                                    className="h-11 rounded-md font-medium"
+                                    style={
+                                        canCheckIn
+                                            ? { backgroundColor: '#FF4F4F', borderColor: '#FF4F4F' }
+                                            : undefined
+                                    }
+                                >
+                                    Check In
+                                </Button>
+                            );
+                        })()}
+                        {checkInHint && (
+                            <Typography.Text className="text-xs text-center text-[#9e9e9e]">
+                                {checkInHint}
+                            </Typography.Text>
+                        )}
+                    </Flex>
 
-            <PunchModal
-                open={punchModalOpen}
-                mode={mode}
-                loading={loading}
-                onClose={() => setPunchModalOpen(false)}
-                onConfirm={() => {
-                    if (onTheClock) onCheckOut();
-                    else onCheckIn();
-                    setPunchModalOpen(false);
-                }}
-            />
+                    <PunchModal
+                        open={punchModalOpen}
+                        mode={mode}
+                        loading={loading}
+                        onClose={() => setPunchModalOpen(false)}
+                        onConfirm={() => {
+                            if (onTheClock) onCheckOut();
+                            else onCheckIn();
+                            setPunchModalOpen(false);
+                        }}
+                    />
+                </>
+            )}
         </Flex>
     );
 };

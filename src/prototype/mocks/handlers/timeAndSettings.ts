@@ -49,8 +49,9 @@ import type {
 import type { PaymentVirtualAccountBalanceData } from '@domains/dashboard/Payroll/types/virtualAccount';
 import type { AnnouncementApiItem } from '@domains/employee/api/announcements';
 import type { AttendanceApiRecord, AttendanceMetrics } from '@domains/employee/api/attendance';
-import type { OvertimeApiRecord, OvertimeSummary } from '@domains/employee/api/overtime';
 import type { AvailableLeave, HolidayDoc, LeaveDoc, ReimbursementRecord } from '@domains/employee/types';
+// PROTOTYPE-SETUP: ESS Service 1 — live Attendance & Timesheet store.
+import { RuleError } from '@src/prototype/rules/attendance';
 
 import { COMPANY } from '../data/company';
 import { EMPLOYEES, ESS_EMPLOYEE, MockEmployee, PAYROLL_TOTALS, findEmployee } from '../data/employees';
@@ -67,16 +68,11 @@ import {
     activeYears,
 } from '../data/settings-org';
 import {
-    ATTENDANCE,
     DISPUTES,
     MockAttendance,
     MockDispute,
     attendanceInRange,
-    attendanceOf,
     disputeFor,
-    findAttendance,
-    monthRecordsOf,
-    todaySummary,
     totalsOf,
 } from '../data/time-attendance';
 import {
@@ -119,9 +115,21 @@ import {
     findReimbursement,
     reimbursementsOf,
 } from '../data/time-requests';
-import { ModeData, byMode, raw } from '../envelope';
+import { DataMode, ModeData, byMode, raw } from '../envelope';
+import { fail } from '../errors';
 import { essRequester } from '../requester';
 import { MockRoute, route } from '../router';
+import { checkIn as atsCheckIn, checkOut as atsCheckOut } from '../store/atsEss';
+import {
+    findLiveAttendance,
+    legacyDay,
+    liveAttendanceAll,
+    liveAttendanceOf,
+    liveMonthRecordsOf,
+    liveTodaySummary,
+} from '../store/atsLegacy';
+import { getSettings } from '../store/atsStore';
+import { updateSettings } from '../store/atsTeam';
 
 // ---- shared helpers ---------------------------------------------------------------------------------------
 
@@ -266,8 +274,9 @@ const EMPTY_ESS_METRICS: AttendanceMetrics = {
     total: 0,
 };
 
-const monthlySummaryOf = (employee: MockEmployee, month: string): MonthlySummaryEntry => {
-    const records = monthRecordsOf(employee, month);
+// PROTOTYPE-SETUP: ESS Service 1 — reads the live Attendance & Timesheet store (store/atsLegacy.ts).
+const monthlySummaryOf = (mode: DataMode, employee: MockEmployee, month: string): MonthlySummaryEntry => {
+    const records = liveMonthRecordsOf(mode, employee, month);
     const t = totalsOf(records);
     const attended = t.present + t.late + t.halfDay * 0.5;
     return {
@@ -292,8 +301,8 @@ const currentWeek = (): ShiftSchedulePeriod => {
     return { from: monday, to: addDays(monday, 6) };
 };
 
-const shiftScheduleOf = (employee: MockEmployee, period: ShiftSchedulePeriod): ShiftScheduleApiEntry => {
-    const records = attendanceOf(employee);
+const shiftScheduleOf = (mode: DataMode, employee: MockEmployee, period: ShiftSchedulePeriod): ShiftScheduleApiEntry => {
+    const records = liveAttendanceOf(mode, employee); // PROTOTYPE-SETUP: ESS Service 1 — live store
     const scheduledStart = localDateTime('2000-01-01', SHIFT_START_MIN).slice(11, 16);
     const scheduledEnd = localDateTime('2000-01-01', SHIFT_END_MIN).slice(11, 16);
     const days = datesBetween(period.from, period.to).map(date => {
@@ -616,21 +625,6 @@ const toOvertimeEntry = (o: MockOvertime): OvertimeEntry => ({
     updatedAt: o.updatedAt,
 });
 
-const toEssOvertime = (o: MockOvertime): OvertimeApiRecord => ({
-    id: o.id,
-    overTimeDate: o.date,
-    extraHours: o.extraHours,
-    notes: o.notes,
-    status: o.status,
-    paymentStatus: o.paymentStatus,
-});
-
-const overtimeSummary = (list: MockOvertime[]): OvertimeSummary => ({
-    totalOtHours: list.filter(o => o.status === 'approved').reduce((s, o) => s + o.extraHours, 0),
-    approvedCount: list.filter(o => o.status === 'approved').length,
-    pendingCount: list.filter(o => o.status === 'requestedByEmployee').length,
-});
-
 const toSalaryOvertime = (o: MockOvertime): overtimeListingResponse['overTimeData'][number] => ({
     corporateUser: CORPORATE_USER,
     employee: String(o.employee.id),
@@ -794,14 +788,14 @@ const P = ':type/:uid/payroll';
 
 const attendanceRoutes: MockRoute[] = [
     route('GET', `${P}/attendance-record/today-summary`, ({ mode }) =>
-        byMode<TodayAttendanceCounts>(mode, { dummy: todaySummary(), empty: { present: 0, late: 0, absent: 0, onLeave: 0 } })
+        byMode<TodayAttendanceCounts>(mode, { dummy: liveTodaySummary(mode), empty: { present: 0, late: 0, absent: 0, onLeave: 0 } })
     ),
     route('GET', `${P}/attendance-record/daily-log`, ({ mode, query }) => {
         const employee = employeeFilter(query.employee);
         const list =
             mode === 'empty' || employee === null
                 ? []
-                : filterAttendance(employee ? attendanceOf(employee) : ATTENDANCE, query).filter(a =>
+                : filterAttendance(employee ? liveAttendanceOf(mode, employee) : liveAttendanceAll(mode), query).filter(a =>
                       employeeMatches(a.employee, query.search)
                   );
         return envelopeWith({
@@ -820,7 +814,7 @@ const attendanceRoutes: MockRoute[] = [
                       e => e.dateOfJoin <= last && employeeMatches(e, query.search)
                   );
         return envelopeWith({
-            data: pageOf(people, query.page, query.limit).map(e => monthlySummaryOf(e, month)),
+            data: pageOf(people, query.page, query.limit).map(e => monthlySummaryOf(mode, e, month)),
             pagination: paginationOf(people.length, query.page, query.limit),
         });
     }),
@@ -839,7 +833,7 @@ const attendanceRoutes: MockRoute[] = [
                   );
         return envelopeWith({
             period,
-            data: pageOf(people, query.page, query.limit).map(e => shiftScheduleOf(e, period)),
+            data: pageOf(people, query.page, query.limit).map(e => shiftScheduleOf(mode, e, period)),
             pagination: paginationOf(people.length, query.page, query.limit),
         });
     }),
@@ -849,8 +843,8 @@ const attendanceRoutes: MockRoute[] = [
         method: 'manual',
         createdAt: nowIso(),
     })),
-    route('PUT', `${P}/attendance-record/:attendanceId`, ({ params, body }) => ({
-        ...(findAttendance(params.attendanceId) ? toDailyLog(findAttendance(params.attendanceId)!) : {}),
+    route('PUT', `${P}/attendance-record/:attendanceId`, ({ mode, params, body }) => ({
+        ...(findLiveAttendance(mode, params.attendanceId) ? toDailyLog(findLiveAttendance(mode, params.attendanceId)!) : {}),
         ...body,
         _id: params.attendanceId,
         updatedAt: nowIso(),
@@ -1237,20 +1231,24 @@ const settingsRoutes: MockRoute[] = [
                     ?.required ?? doc.required,
         })),
     })),
-    route('GET', `${P}/hr-settings/grace-period`, ({ mode }) =>
-        byMode(mode, { dummy: { gracePeriodMinutes: HR_SETTINGS.gracePeriodMinutes }, empty: { gracePeriodMinutes: 0 } })
-    ),
-    route('POST', `${P}/hr-settings/grace-period`, ({ body }) => ({
-        gracePeriodMinutes: Number(body?.gracePeriodMinutes ?? HR_SETTINGS.gracePeriodMinutes),
+    // PROTOTYPE-SETUP: ESS Service 1 — grace period and default shift are the Attendance & Timesheet settings.
+    route('GET', `${P}/hr-settings/grace-period`, ({ mode }) => ({ gracePeriodMinutes: getSettings(mode).graceMinutes })),
+    route('POST', `${P}/hr-settings/grace-period`, ({ mode, body }) => ({
+        gracePeriodMinutes: updateSettings(mode, { graceMinutes: Number(body?.gracePeriodMinutes) }).graceMinutes,
     })),
     route('GET', `${P}/hr-settings/check-in-out`, ({ mode }) =>
         byMode(mode, { dummy: { checkInOutEnabled: HR_SETTINGS.checkInOutEnabled }, empty: { checkInOutEnabled: false } })
     ),
     route('POST', `${P}/hr-settings/check-in-out`, ({ body }) => ({ checkInOutEnabled: Boolean(body?.checkInOutEnabled) })),
-    route('GET', `${P}/hr-settings/work-schedule`, () => ({ defaultWorkSchedule: WORK_SCHEDULE })),
-    route('POST', `${P}/hr-settings/work-schedule`, ({ body }) => ({
-        defaultWorkSchedule: { ...WORK_SCHEDULE, ...body },
+    route('GET', `${P}/hr-settings/work-schedule`, ({ mode }) => ({
+        defaultWorkSchedule: { ...WORK_SCHEDULE, checkInTime: getSettings(mode).shift.start, checkOutTime: getSettings(mode).shift.end },
     })),
+    route('POST', `${P}/hr-settings/work-schedule`, ({ mode, body }) => {
+        const { shift } = updateSettings(mode, {
+            shift: { start: body?.checkInTime ?? getSettings(mode).shift.start, end: body?.checkOutTime ?? getSettings(mode).shift.end },
+        });
+        return { defaultWorkSchedule: { ...WORK_SCHEDULE, checkInTime: shift.start, checkOutTime: shift.end } };
+    }),
 ];
 
 const hrRequestRoutes: MockRoute[] = [
@@ -1308,50 +1306,39 @@ const essRoutes: MockRoute[] = [
         else if (isWeekend(today)) reason = 'Today is a weekly off';
         return { isCheckInAvailable: false, reason };
     }),
+    // PROTOTYPE-SETUP: ESS Service 1 — the original ESS attendance endpoints read and write the live store.
     route('GET', `${P}/attendance/metrics`, ({ mode, query }) => {
-        const records = attendanceOf(essEmployee());
+        const me = essEmployee();
+        const records = liveAttendanceOf(mode, me);
         const month = /^\d{4}-\d{2}$/.test(String(query.month ?? '')) ? String(query.month) : undefined;
         const scoped = month
-            ? monthRecordsOf(essEmployee(), month)
+            ? liveMonthRecordsOf(mode, me, month)
             : attendanceInRange(records, toLocalIsoDate(query.from), toLocalIsoDate(query.to));
-        return byMode<AttendanceMetrics>(mode, { dummy: essMetrics(scoped), empty: EMPTY_ESS_METRICS });
+        return scoped.length ? essMetrics(scoped) : EMPTY_ESS_METRICS;
     }),
     route('GET', `${P}/attendance`, ({ mode, query }) => {
-        const list = filterAttendance(attendanceOf(essEmployee()), query);
-        return byMode<{ records: AttendanceApiRecord[]; total: number }>(mode, {
-            dummy: { records: pageOf(list, query.page, query.limit).map(toEssAttendance), total: list.length },
-            empty: { records: [], total: 0 },
-        });
+        const list = filterAttendance(liveAttendanceOf(mode, essEmployee()), query);
+        return { records: pageOf(list, query.page, query.limit).map(toEssAttendance), total: list.length };
     }),
-    route('POST', `${P}/attendance/check-in`, () => {
-        const today = todayIso();
-        const existing = attendanceOf(essEmployee()).find(a => a.date === today);
-        if (existing) return toEssAttendance(existing);
-        const now = new Date();
-        const minutes = now.getHours() * 60 + now.getMinutes();
-        const late = minutes > SHIFT_START_MIN + 10;
-        return {
-            _id: `att-${essEmployee().id}-${today.replace(/-/g, '')}`,
-            date: today,
-            checkIn: { time: localDateTime(today, minutes), method: 'ess' },
-            status: late ? 'late' : 'present',
-            lateMinutes: late ? minutes - SHIFT_START_MIN : undefined,
-        } satisfies AttendanceApiRecord;
+    route('POST', `${P}/attendance/check-in`, ({ mode }) => {
+        const me = essEmployee();
+        try {
+            atsCheckIn(mode, me);
+        } catch (e) {
+            if (!(e instanceof RuleError)) throw e;
+            throw fail(e.status, e.message);
+        }
+        return toEssAttendance(legacyDay(mode, me, todayIso())!);
     }),
-    route('POST', `${P}/attendance/check-out`, () => {
-        const today = todayIso();
-        const existing = attendanceOf(essEmployee()).find(a => a.date === today);
-        const now = new Date();
-        const outMin = now.getHours() * 60 + now.getMinutes();
-        const record: AttendanceApiRecord = existing
-            ? toEssAttendance(existing)
-            : { _id: `att-${essEmployee().id}-${today.replace(/-/g, '')}`, date: today, status: 'present' };
-        const inMin = existing?.checkIn ? Number(existing.checkIn.slice(11, 13)) * 60 + Number(existing.checkIn.slice(14, 16)) : outMin;
-        return {
-            ...record,
-            checkOut: { time: localDateTime(today, outMin) },
-            totalHours: Math.max(0, Math.round(((outMin - inMin) / 60 - COMPANY.workWeek.breakTimeHrs) * 100) / 100),
-        };
+    route('POST', `${P}/attendance/check-out`, ({ mode }) => {
+        const me = essEmployee();
+        try {
+            atsCheckOut(mode, me);
+        } catch (e) {
+            if (!(e instanceof RuleError)) throw e;
+            throw fail(e.status, e.message);
+        }
+        return toEssAttendance(legacyDay(mode, me, todayIso())!);
     }),
     route('POST', `${P}/leave/disputes`, ({ body }) => ({
         id: `dsp-new-${Date.now()}`,
@@ -1394,39 +1381,11 @@ const essRoutes: MockRoute[] = [
         });
     }),
     route('POST', `${P}/leave-applications`, ({ body }) => echoLeaveDoc(essEmployee(), body, `lv-new-${Date.now()}`)),
+    // PROTOTYPE-SETUP: ESS overtime requests are stateful now — see handlers/timesheet.ts (essOvertimeRoutes).
     route('PATCH', `${P}/leave-applications/:leaveId/cancel`, ({ params }) => {
         const leave = findLeave(params.leaveId);
         const doc = leave ? toEssLeave(leave) : echoLeaveDoc(essEmployee(), {}, params.leaveId ?? '');
         return { ...doc, status: 'cancelledByEmployee' } satisfies LeaveDoc;
-    }),
-    route('GET', `${P}/overtime-requests`, ({ mode, query }) => {
-        const from = toLocalIsoDate(query.from);
-        const to = toLocalIsoDate(query.to);
-        const inRange = overtimeOf(essEmployee()).filter(o => (!from || o.date >= from) && (!to || o.date <= to));
-        const list = inRange.filter(o => !query.status || o.status === query.status);
-        return byMode<{ records: OvertimeApiRecord[]; total: number; summary: OvertimeSummary }>(mode, {
-            dummy: {
-                records: pageOf(list, query.page, query.limit).map(toEssOvertime),
-                total: list.length,
-                summary: overtimeSummary(inRange),
-            },
-            empty: { records: [], total: 0, summary: { totalOtHours: 0, approvedCount: 0, pendingCount: 0 } },
-        });
-    }),
-    route('POST', `${P}/overtime-requests`, ({ body }): OvertimeApiRecord => ({
-        id: `ot-new-${Date.now()}`,
-        overTimeDate: toLocalIsoDate(body?.date) ?? todayIso(),
-        extraHours: Number(body?.hours ?? 0),
-        notes: body?.notes,
-        status: 'requestedByEmployee',
-        paymentStatus: 'UNPAID',
-    })),
-    route('PATCH', `${P}/overtime-requests/:overtimeId/cancel`, ({ params }): OvertimeApiRecord => {
-        const overtime = findOvertime(params.overtimeId);
-        return {
-            ...(overtime ? toEssOvertime(overtime) : { id: params.overtimeId ?? '', overTimeDate: todayIso(), extraHours: 0 }),
-            status: 'cancelledByEmployee',
-        };
     }),
     route('GET', `${P}/reimbursement-requests`, ({ mode, query }) => {
         const from = toLocalIsoDate(query.from);

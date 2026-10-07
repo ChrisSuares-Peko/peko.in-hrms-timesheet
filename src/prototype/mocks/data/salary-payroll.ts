@@ -2,7 +2,8 @@
 // breakup so every salary/payslip/report screen tells the same story.
 //
 // STORY (all relative to today)
-//   - Payroll has run every month since each employee joined; every past month is PAID.
+//   - Payroll has run every month since each employee joined; every past month is PAID — except last month,
+//     which stays PENDING until Payroll processes it (PROTOTYPE-SETUP: ESS Service 1, see liveStatus below).
 //   - The current month is the open run: every employee (incl. the new joiner and the one on notice) is
 //     PENDING processing.
 //   - A joining month is pro-rated by days worked (e.g. joined on the 20th → 12/31 of the month).
@@ -11,6 +12,7 @@
 //   - Sales incentives last month for ACME-009 and ACME-011 (and an earlier one for ACME-009).
 import { toIsoDate, today } from './dates';
 import { EMPLOYEES, MockEmployee, SalaryBreakup, salaryFromMonthlyCtc } from './employees';
+import { isProcessed, lastMonth } from '../store/atsStore';
 
 const round = (n: number) => Math.round(n);
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -218,8 +220,17 @@ const LEDGER: PayrollLine[][] = Array.from({ length: HISTORY_MONTHS + 1 }, (_, o
     EMPLOYEES.filter(e => isOnRollsIn(e, offset)).map(e => buildLine(e, offset))
 );
 
+// PROTOTYPE-SETUP: ESS Service 1 — last month is PENDING until "Run payroll" processes it (blocked while
+// timesheet weeks are unapproved); then it shows as paid on the day it was processed.
+const liveStatus = (l: PayrollLine): PayrollLine => {
+    const month = `${l.pm.year}-${pad(l.pm.month)}`;
+    if (month !== lastMonth()) return l;
+    if (!isProcessed('dummy', month)) return { ...l, status: 'PENDING', payingDate: null, processedOn: null };
+    return l;
+};
+
 /** All payroll lines of a month (empty for future months or before the company's first payroll). */
-export const linesForOffset = (offset: number): PayrollLine[] => LEDGER[offset] ?? [];
+export const linesForOffset = (offset: number): PayrollLine[] => (LEDGER[offset] ?? []).map(liveStatus);
 
 export const linesFor = (year: number | string | undefined, month: number | string | undefined) =>
     linesForOffset(offsetOf(year, month));
@@ -229,10 +240,14 @@ export const offsetsInYear = (year: number | string | undefined) =>
     Array.from({ length: 12 }, (_, i) => offsetOf(year, i + 1)).filter(o => linesForOffset(o).length > 0);
 
 export const linesForEmployee = (e: MockEmployee) =>
-    LEDGER.map(lines => lines.find(l => l.employee.id === e.id)).filter((l): l is PayrollLine => Boolean(l));
+    LEDGER.map(lines => lines.find(l => l.employee.id === e.id))
+        .filter((l): l is PayrollLine => Boolean(l))
+        .map(liveStatus);
 
-export const findLineBySalaryId = (salaryId: string | undefined) =>
-    LEDGER.flat().find(l => l.salaryId === salaryId);
+export const findLineBySalaryId = (salaryId: string | undefined) => {
+    const line = LEDGER.flat().find(l => l.salaryId === salaryId);
+    return line ? liveStatus(line) : undefined;
+};
 
 export interface MonthTotals {
     employees: number;

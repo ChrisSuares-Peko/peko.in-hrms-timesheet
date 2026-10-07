@@ -10,7 +10,7 @@ import { EMPLOYEE_COUNTS } from '../data/employees';
 import { byMode, raw } from '../envelope';
 import { MockRoute, route } from '../router';
 
-/** Seats well above the 20 demo employees, so no limit/upgrade banner or progress bar ever trips. */
+/** Seats well above the 21 demo employees, so no limit/upgrade banner or progress bar ever trips. */
 const PLAN_EMPLOYEE_LIMIT = 100;
 
 const PLAN_PACKAGE = {
