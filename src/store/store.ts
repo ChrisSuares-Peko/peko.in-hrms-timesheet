@@ -84,6 +84,7 @@ import workReducer from '@src/domains/dashboard/Works/slices/worksSlice';
 import activeTabReducer from '@src/slices/activeTabSlice';
 import callReducer from '@src/slices/callSlice';
 import chatReducer from '@src/slices/chatSlice';
+import dataModeReducer from '@src/slices/dataModeSlice';
 import loaderReducer from '@src/slices/loaderSlice';
 import servicesReducer from '@src/slices/servicesSlice';
 import subscriptionsReducer from '@src/slices/subscriptionSlice';
@@ -163,6 +164,7 @@ const persistConfig = {
         // how the admin People table and the cardholder view came to disagree about the same person.
         // An identity-verification gate must read the server, never the last thing this browser saw.
         'busTicket',
+        'dataMode', // PROTOTYPE-SETUP: Dummy/Empty choice survives reloads
     ],
 };
 
@@ -254,6 +256,7 @@ const rootReducer = combineReducers({
     accountingReportFilters: accountingReportFiltersReducer,
     globalBusinessSetup: globalBusinessSetupReducer,
     corporateCards: corporateCardsReducer,
+    dataMode: dataModeReducer, // PROTOTYPE-SETUP: drives the prototype mock layer (dummy | empty)
 });
 
 const reducer = persistReducer(persistConfig, rootReducer);

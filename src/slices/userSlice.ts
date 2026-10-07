@@ -28,6 +28,10 @@ const MOCK_USER_INFO: UserInfoResponse = {
     isPekoCreditActive: false,
     isPekoCreditAvailable: false,
     accountType: 'corporate',
+    // PROTOTYPE-SETUP: on the top paid plan, so the header shows "Current Plan: Peko+" and no Upgrade CTA
+    // (CustomHeader: currentPlanName = activeGroupPackageName || 'Free'; showUpgrade = !isTopPlan).
+    activeGroupPackageName: 'Peko+',
+    isTopPlan: true,
 };
 
 const initialState: ApiState = {

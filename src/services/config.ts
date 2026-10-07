@@ -5,6 +5,7 @@ import { jwtDecode } from 'jwt-decode';
 import { ErrorGenericResponse } from '@customtypes/general';
 import { SERVER_URL } from '@src/config-global';
 import { loginSuccess, setPrivacyModalVisible } from '@src/domains/auth/slices/loginSlice';
+import { createPrototypeMockAdapter } from '@src/prototype/mocks/adapter';
 import { showToast } from '@src/slices/apiSlice';
 // eslint-disable-next-line import/no-cycle
 import { RootState, store } from '@store/store';
@@ -24,6 +25,12 @@ export const ApiClient = axios.create({
     // timeout: 15000,
     signal: new AbortController().signal,
 });
+
+// PROTOTYPE-SETUP: every ApiClient request is answered by the prototype mock layer, never the network.
+// Interceptors below still run, so mocks reach callers exactly like real responses.
+ApiClient.defaults.adapter = createPrototypeMockAdapter(
+    () => (store.getState() as RootState).reducer.dataMode?.mode ?? 'dummy'
+);
 
 ApiClient.interceptors.request.use(
     async config => {
