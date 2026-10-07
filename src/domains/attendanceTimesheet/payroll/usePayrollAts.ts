@@ -10,7 +10,10 @@ import type { AtsSettings } from '../types';
 
 /** The corporate user, e.g. { userType: 'corporate', userId: 1001 }. */
 export const usePayrollScope = (): AtsScope => {
-    const { role, id } = useAppSelector(s => s.reducer.auth);
+    // Tolerates a missing auth state (e.g. screens rendered in unit tests with a mocked store).
+    const auth = useAppSelector(s => s.reducer.auth);
+    const role = auth?.role;
+    const id = auth?.id;
     return useMemo(() => ({ userType: role, userId: id }), [role, id]);
 };
 
