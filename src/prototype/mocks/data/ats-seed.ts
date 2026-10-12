@@ -8,7 +8,7 @@
 //     lateDay        Wed of that week: late check-in with a pending attendance correction.
 //     afterCheckOut  Thu of that week: checked out 17:45, time logged until 19:30 → "logged outside check-in hours".
 //   crWeek           the week before this one: Approved, with a pending change request (client call added).
-//   overtimeDay      Monday this week: checked out 20:05, no overtime request → suggested overtime.
+//   overtimeDay      first working day this week (else last week) without a request: out 20:05 → suggested overtime.
 //   autoDay          the working day before today: no check-out (auto 18:30), entries until 20:15.
 //   plannedDay       next working day: a planned timesheet entry (later this week, or next week on a Friday).
 //   + an approved leave in the next fortnight (data/time-leaves.ts) and a rejected change request in the past.
@@ -28,6 +28,7 @@ import type {
 import {
     DEFAULT_SETTINGS,
     addDays,
+    sortEntries,
     effectiveCheckOut,
     fromMinutes,
     startTrail,
@@ -71,9 +72,13 @@ export const atsScenario = () => {
     const crWeekCandidate = addDays(w0, -7);
     const crWeek = crWeekCandidate === sentBackWeek ? addDays(sentBackWeek, 7) : crWeekCandidate;
     const autoDay = workingDayOffset(today, -1);
-    const mondayThisWeek = firstWorkingDayIn(w0);
+    // PROTOTYPE-SETUP: the earliest working day of this week (else last week) that isn't the auto check-out day
+    // and has no seeded overtime request for Sneha — so it is always an unclaimed suggestion, whatever today is.
+    const hasSnehaOvertime = (d: string) => OVERTIME.some(o => o.employee.employeeId === SNEHA && o.date === d);
     const overtimeDay =
-        mondayThisWeek < today && mondayThisWeek !== autoDay ? mondayThisWeek : firstWorkingDayIn(crWeek);
+        [w0, crWeek]
+            .flatMap(ws => [0, 1, 2, 3, 4].map(i => addDays(ws, i)))
+            .find(d => d < today && d !== autoDay && isWorkingDay(d) && !hasSnehaOvertime(d)) ?? firstWorkingDayIn(crWeek);
     const next = workingDayOffset(today, 1);
     return {
         today,
@@ -184,6 +189,7 @@ const entriesFor = (e: MockEmployee, date: string, start: string, end: string): 
         date,
         start: fromMinutes(a),
         end: fromMinutes(b),
+        mins: b - a,
         description: task(e, date, i),
     }));
 
@@ -243,7 +249,15 @@ export interface AtsSeed {
     overtime: OvertimeRequest[];
 }
 
-const byDate = (a: TimesheetEntry, b: TimesheetEntry) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start);
+/** A timed seed entry (mins = end − start). */
+const timedEntry = (id: string, date: string, start: string, end: string, description: string): TimesheetEntry => ({
+    id,
+    date,
+    start,
+    end,
+    mins: toMinutes(end) - toMinutes(start),
+    description,
+});
 
 const buildWeeks = (s: ReturnType<typeof atsScenario>, attendance: AtsSeed['attendance']) => {
     const weeks: Record<string, TimesheetWeek> = {};
@@ -269,10 +283,12 @@ const snehaScenarios = (s: ReturnType<typeof atsScenario>, seed: AtsSeed) => {
 
     // Sent-back week: Friday afternoon missing; time logged after the 17:45 check-out on Thursday.
     const sb = weeks[weekId(sneha.id, s.sentBackWeek)];
-    const sbEntries = [
-        ...sb.entries.filter(x => !(x.date === s.missingFriday && toMinutes(x.start) >= LUNCH_START)),
-        { id: `te-${sneha.id}-${s.afterCheckOutDay}-x`, date: s.afterCheckOutDay, start: '18:15', end: '19:30', description: 'Production support – release verification' },
-    ].sort(byDate);
+    const sbEntries = sortEntries([
+        ...sb.entries.filter(x => !(x.date === s.missingFriday && toMinutes(x.start ?? '00:00') >= LUNCH_START)),
+        timedEntry(`te-${sneha.id}-${s.afterCheckOutDay}-x`, s.afterCheckOutDay, '18:15', '19:30', 'Production support – release verification'),
+        // PROTOTYPE-SETUP (V2): an hours-only entry — no set times.
+        { id: `te-${sneha.id}-${s.lateDay}-h`, date: s.lateDay, start: null, end: null, mins: 60, description: 'Writing release notes' },
+    ]);
     const submittedAt = isoDateTime(addDays(s.sentBackWeek, 4), '12:30:00');
     const sentBackAt = isoDateTime(addDays(s.sentBackWeek, 7), '05:10:00');
     const comment = 'Friday afternoon is missing — please add it and resubmit.';
@@ -295,11 +311,11 @@ const snehaScenarios = (s: ReturnType<typeof atsScenario>, seed: AtsSeed) => {
     const dayBlocks = cw.entries.filter(x => x.date === s.crDay);
     const last = dayBlocks[dayBlocks.length - 1];
     if (last) {
-        const callStart = fromMinutes(toMinutes(last.end) - 60);
-        const proposed = [
-            ...cw.entries.map(x => (x.id === last.id ? { ...x, end: callStart } : x)),
-            { id: `te-${sneha.id}-${s.crDay}-cr`, date: s.crDay, start: callStart, end: last.end, description: 'Client call – Zenith Bank integration' },
-        ].sort(byDate);
+        const callStart = fromMinutes(toMinutes(last.end ?? '18:30') - 60);
+        const proposed = sortEntries([
+            ...cw.entries.map(x => (x.id === last.id ? { ...x, end: callStart, mins: toMinutes(callStart) - toMinutes(x.start ?? callStart) } : x)),
+            timedEntry(`te-${sneha.id}-${s.crDay}-cr`, s.crDay, callStart, last.end ?? '18:30', 'Client call – Zenith Bank integration'),
+        ]);
         const requestedAt = isoDateTime(addDays(s.crWeek, 7), '09:40:00');
         seed.changeRequests.push({
             id: 'cr-001',
@@ -351,24 +367,24 @@ const snehaScenarios = (s: ReturnType<typeof atsScenario>, seed: AtsSeed) => {
     if (tw) {
         const extra: TimesheetEntry[] = [];
         if (s.autoDay >= s.thisWeek) {
-            extra.push({ id: `te-${sneha.id}-${s.autoDay}-x`, date: s.autoDay, start: '18:30', end: '20:15', description: 'Production deploy – payments v4.3' });
+            extra.push(timedEntry(`te-${sneha.id}-${s.autoDay}-x`, s.autoDay, '18:30', '20:15', 'Production deploy – payments v4.3'));
         }
         if (isWorkingDay(s.today)) {
-            extra.push({ id: `te-${sneha.id}-${s.today}-0`, date: s.today, start: '09:30', end: '11:00', description: 'Sprint standup & planning' });
+            extra.push(timedEntry(`te-${sneha.id}-${s.today}-0`, s.today, '09:30', '11:00', 'Sprint standup & planning'));
         }
-        weeks[tw.id] = { ...tw, entries: [...tw.entries, ...extra].sort(byDate) };
+        weeks[tw.id] = { ...tw, entries: sortEntries([...tw.entries, ...extra]) };
     }
     // The planned entry goes in its own week (next week when today is the last working day).
     const plannedWeekStart = weekStartOf(s.plannedDay);
-    const planned: TimesheetEntry = { id: `te-${sneha.id}-${s.plannedDay}-0`, date: s.plannedDay, start: '10:00', end: '11:30', description: 'Sprint demo – payments release' };
+    const planned: TimesheetEntry = timedEntry(`te-${sneha.id}-${s.plannedDay}-0`, s.plannedDay, '10:00', '11:30', 'Sprint demo – payments release');
     const pwk = weeks[weekId(sneha.id, plannedWeekStart)] ?? draftWeek(sneha, plannedWeekStart, []);
-    weeks[pwk.id] = { ...pwk, entries: [...pwk.entries, planned].sort(byDate) };
+    weeks[pwk.id] = { ...pwk, entries: sortEntries([...pwk.entries, planned]) };
     if (s.autoDay < s.thisWeek) {
         // Auto day fell in last week (today is Monday): the entry goes there.
         const pw = weeks[weekId(sneha.id, weekStartOf(s.autoDay))];
         if (pw) {
-            const x = { id: `te-${sneha.id}-${s.autoDay}-x`, date: s.autoDay, start: '18:30', end: '20:15', description: 'Production deploy – payments v4.3' };
-            weeks[pw.id] = { ...pw, entries: [...pw.entries, x].sort(byDate), approvedEntries: [...pw.entries, x].sort(byDate) };
+            const x = timedEntry(`te-${sneha.id}-${s.autoDay}-x`, s.autoDay, '18:30', '20:15', 'Production deploy – payments v4.3');
+            weeks[pw.id] = { ...pw, entries: sortEntries([...pw.entries, x]), approvedEntries: sortEntries([...pw.entries, x]) };
         }
     }
 };
@@ -401,8 +417,8 @@ const teamScenarios = (s: ReturnType<typeof atsScenario>, seed: AtsSeed) => {
     const vikram = emp('ACME-007');
     const vw = weeks[weekId(vikram.id, weekStartOf(s.vikramAutoDay))];
     if (vw) {
-        const x = { id: `te-${vikram.id}-${s.vikramAutoDay}-x`, date: s.vikramAutoDay, start: '18:30', end: '20:10', description: 'Release support – database migration' };
-        const entries = [...vw.entries, x].sort(byDate);
+        const x = timedEntry(`te-${vikram.id}-${s.vikramAutoDay}-x`, s.vikramAutoDay, '18:30', '20:10', 'Release support – database migration');
+        const entries = sortEntries([...vw.entries, x]);
         weeks[vw.id] = { ...vw, entries, approvedEntries: vw.status === 'APPROVED' ? entries : vw.approvedEntries };
     }
 };

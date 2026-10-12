@@ -13,7 +13,7 @@ import { getMemberAttendance, getMemberMonth, getMemberWeek } from '../api';
 import { formatDuration } from '../components/format';
 import { useAtsPaths } from '../hooks/useAtsPaths';
 import { useAtsScope } from '../hooks/useAtsScope';
-import TimesheetViewer from '../timesheet/TimesheetViewer';
+import ManagerTimesheetViewer from '../timesheet/manager/ManagerTimesheetViewer';
 import type { AttendanceMonthView, PersonRef, TimesheetWeekView } from '../types';
 import { CountTile, PersonCell, useTeamSettings } from './teamShared';
 import TimesheetReviewDrawer from './TimesheetReviewDrawer';
@@ -212,7 +212,7 @@ const MemberTimesheetPage = () => {
                     )}
                     {settings.mode !== 'attendance' && (
                         <div className="min-w-0">
-                            <TimesheetViewer
+                            <ManagerTimesheetViewer
                                 loadWeek={loadWeek}
                                 loadMonth={loadMonth}
                                 initialDate={initialDate}

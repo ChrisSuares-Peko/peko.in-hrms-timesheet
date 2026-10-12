@@ -1,3 +1,5 @@
+// PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
+// frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
 // PROTOTYPE-SETUP: ESS Service 1 — 'both' mode: "Time logged outside check-in hours". Lists the flagged entries
 // and offers "Update check-out" (auto-closed day) or "Request correction", or shows the correction already
 // raised. Makes clear this time is not overtime. Without `onAction` (manager view) it is informational.
@@ -6,7 +8,8 @@ import { Alert, Button, Tag } from 'antd';
 
 import { displayTime } from '@src/prototype/rules/attendance';
 
-import type { TimesheetDay } from '../types';
+import { entryTimeLabel } from './managerHelpers';
+import type { TimesheetDay } from '../../types';
 
 export interface OutsideFlagBannerProps {
     day: TimesheetDay;
@@ -15,7 +18,7 @@ export interface OutsideFlagBannerProps {
     onAction?: () => void;
 }
 
-const OutsideFlagBanner = ({ day, perspective = 'employee', onAction }: OutsideFlagBannerProps) => {
+const ManagerOutsideFlagBanner = ({ day, perspective = 'employee', onAction }: OutsideFlagBannerProps) => {
     const flag = day.outsideCheckIn;
     if (!flag) return null;
     const flagged = day.entries.filter(e => flag.entryIds.includes(e.id));
@@ -60,7 +63,7 @@ const OutsideFlagBanner = ({ day, perspective = 'employee', onAction }: OutsideF
                         {flagged.map(e => (
                             <li key={e.id} className="break-words">
                                 <span className="tabular-nums">
-                                    {displayTime(e.start)}–{displayTime(e.end)}
+                                    {entryTimeLabel(e)}
                                 </span>{' '}
                                 · {e.description}
                             </li>
@@ -77,4 +80,4 @@ const OutsideFlagBanner = ({ day, perspective = 'employee', onAction }: OutsideF
     );
 };
 
-export default OutsideFlagBanner;
+export default ManagerOutsideFlagBanner;

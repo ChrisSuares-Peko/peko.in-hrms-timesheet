@@ -245,18 +245,29 @@ export interface OvertimeView {
 /** SENT_BACK = returned by the manager with a comment. With approval off, weeks stay DRAFT (just recorded). */
 export type TimesheetStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'SENT_BACK';
 
+/**
+ * PROTOTYPE-SETUP (ESS Service 1, V2): a timed entry has start and end, and `mins` = end − start. An hours-only
+ * entry ("I worked 1h on this, no set times") has start = end = null and `mins` as entered.
+ */
 export interface TimesheetEntry {
     id: string;
     date: string;
-    start: string;
-    end: string;
+    start: string | null;
+    end: string | null;
+    /** Minutes worked: end − start for a timed entry, as entered for an hours-only entry. */
+    mins: number;
     description: string;
 }
 
+/**
+ * What the form sends. Start + end → mins is calculated; start + mins → end is calculated; mins alone → an
+ * hours-only entry. The server normalises it (see validateEntry in the rules module).
+ */
 export interface TimesheetEntryInput {
     date: string;
-    start: string;
-    end: string;
+    start?: string | null;
+    end?: string | null;
+    mins?: number | null;
     description: string;
 }
 

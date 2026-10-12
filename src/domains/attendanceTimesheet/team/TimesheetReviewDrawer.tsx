@@ -18,8 +18,8 @@ import {
 import { fmtStamp, fmtWeekRange, formatDuration } from '../components/format';
 import { WeekStatusTag } from '../components/StatusTags';
 import { useAtsScope } from '../hooks/useAtsScope';
-import ChangeDiff from '../timesheet/ChangeDiff';
-import TimesheetViewer from '../timesheet/TimesheetViewer';
+import ManagerChangeDiff from '../timesheet/manager/ManagerChangeDiff';
+import ManagerTimesheetViewer from '../timesheet/manager/ManagerTimesheetViewer';
 import type { TimesheetWeekView } from '../types';
 import { PersonCell } from './teamShared';
 
@@ -269,12 +269,12 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
                             What changed
                         </Typography.Text>
                         <div className="overflow-x-auto">
-                            <ChangeDiff base={cr.baseEntries} proposed={cr.proposedEntries} />
+                            <ManagerChangeDiff base={cr.baseEntries} proposed={cr.proposedEntries} />
                         </div>
                     </div>
                 )}
 
-                <TimesheetViewer
+                <ManagerTimesheetViewer
                     loadWeek={loadWeek}
                     loadMonth={loadMonth}
                     initialDate={view.week.weekStart}

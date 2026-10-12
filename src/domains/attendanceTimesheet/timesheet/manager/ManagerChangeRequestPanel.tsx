@@ -1,12 +1,14 @@
+// PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
+// frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
 // PROTOTYPE-SETUP: ESS Service 1 — a week's change request: the pending one with "What changed", its reason
 // and (for the employee) "Cancel request"; or the decision on the latest one.
 import { ClockCircleOutlined } from '@ant-design/icons';
 import { Alert, Button, Popconfirm } from 'antd';
 
-import { fmtDate } from '../components/format';
-import type { ChangeRequest } from '../types';
-import ChangeDiff from './ChangeDiff';
-import type { TimesheetPerspective } from './helpers';
+import ManagerChangeDiff from './ManagerChangeDiff';
+import type { TimesheetPerspective } from './managerHelpers';
+import { fmtDate } from '../../components/format';
+import type { ChangeRequest } from '../../types';
 
 export interface ChangeRequestPanelProps {
     cr: ChangeRequest;
@@ -16,7 +18,7 @@ export interface ChangeRequestPanelProps {
     onCancel?: () => void;
 }
 
-const ChangeRequestPanel = ({ cr, perspective, busy, onCancel }: ChangeRequestPanelProps) => {
+const ManagerChangeRequestPanel = ({ cr, perspective, busy, onCancel }: ChangeRequestPanelProps) => {
     const employee = perspective === 'employee';
     if (cr.status !== 'PENDING') {
         const approved = cr.status === 'APPROVED';
@@ -74,7 +76,7 @@ const ChangeRequestPanel = ({ cr, perspective, busy, onCancel }: ChangeRequestPa
                 <Alert type="warning" showIcon message="This change can't be approved" description={cr.blockedReason} />
             )}
             <div className="rounded-lg border border-solid border-gray-200 bg-white p-2.5">
-                <ChangeDiff base={cr.baseEntries} proposed={cr.proposedEntries} />
+                <ManagerChangeDiff base={cr.baseEntries} proposed={cr.proposedEntries} />
             </div>
             {employee && (
                 <span className="text-xs text-gray-500">
@@ -86,4 +88,4 @@ const ChangeRequestPanel = ({ cr, perspective, busy, onCancel }: ChangeRequestPa
     );
 };
 
-export default ChangeRequestPanel;
+export default ManagerChangeRequestPanel;

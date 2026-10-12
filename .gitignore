@@ -32,3 +32,5 @@ snyk
 .claude
 .env
 .env.production
+# PROTOTYPE-SETUP: never commit env files
+.env*

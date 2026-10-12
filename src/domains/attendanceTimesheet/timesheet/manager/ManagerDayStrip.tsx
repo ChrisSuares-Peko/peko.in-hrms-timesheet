@@ -1,3 +1,5 @@
+// PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
+// frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
 // PROTOTYPE-SETUP: ESS Service 1 — the Day view's 7-day strip (Mon–Sun of the selected week with each day's
 // logged hours) and prev / next week arrows. Only the strip itself scrolls sideways, never the page.
 import { useEffect, useRef } from 'react';
@@ -6,8 +8,8 @@ import { LeftOutlined, RightOutlined, WarningFilled } from '@ant-design/icons';
 import { Button } from 'antd';
 import dayjs from 'dayjs';
 
-import type { TimesheetDay } from '../types';
-import { shortHours } from './helpers';
+import { shortHours } from './managerHelpers';
+import type { TimesheetDay } from '../../types';
 
 export interface DayStripProps {
     days: TimesheetDay[];
@@ -18,7 +20,7 @@ export interface DayStripProps {
     onNextWeek: () => void;
 }
 
-const DayStrip = ({ days, selected, today, onSelect, onPrevWeek, onNextWeek }: DayStripProps) => {
+const ManagerDayStrip = ({ days, selected, today, onSelect, onPrevWeek, onNextWeek }: DayStripProps) => {
     const scroller = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -76,4 +78,4 @@ const DayStrip = ({ days, selected, today, onSelect, onPrevWeek, onNextWeek }: D
     );
 };
 
-export default DayStrip;
+export default ManagerDayStrip;

@@ -1,12 +1,14 @@
+// PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
+// frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
 // PROTOTYPE-SETUP: ESS Service 1, Slice 4/6 — read-only Day / Week / Month timesheet viewer. Used by ESS -
 // Manager to look at a direct report's timesheet. Same building blocks as the employee's Timesheet tab
-// (TimesheetFrame, DayView, WeekView, MonthView…) so both look identical; no editing here.
+// (ManagerTimesheetFrame, ManagerDayView, ManagerWeekView, ManagerMonthView…) so both look identical; no editing here.
 import type { ReactNode } from 'react';
 
-import type { TimesheetMonthView, TimesheetWeekView } from '../types';
-import ChangeRequestPanel from './ChangeRequestPanel';
-import TimesheetFrame from './TimesheetFrame';
-import { useTimesheetNav } from './useTimesheetNav';
+import ManagerChangeRequestPanel from './ManagerChangeRequestPanel';
+import ManagerTimesheetFrame from './ManagerTimesheetFrame';
+import { useManagerTimesheetNav } from './useManagerTimesheetNav';
+import type { TimesheetMonthView, TimesheetWeekView } from '../../types';
 
 export interface TimesheetViewerProps {
     /** The week containing `date` (YYYY-MM-DD). */
@@ -21,18 +23,18 @@ export interface TimesheetViewerProps {
     reloadKey?: number;
 }
 
-const TimesheetViewer = ({ loadWeek, loadMonth, initialDate, weekActions, reloadKey }: TimesheetViewerProps) => {
-    const nav = useTimesheetNav({ loadWeek, loadMonth, initialDate, reloadKey });
+const ManagerTimesheetViewer = ({ loadWeek, loadMonth, initialDate, weekActions, reloadKey }: TimesheetViewerProps) => {
+    const nav = useManagerTimesheetNav({ loadWeek, loadMonth, initialDate, reloadKey });
     const { view } = nav;
 
     return (
-        <TimesheetFrame
+        <ManagerTimesheetFrame
             nav={nav}
             perspective="manager"
             weekActions={view && weekActions ? weekActions(view) : undefined}
-            notices={view?.changeRequest ? <ChangeRequestPanel cr={view.changeRequest} perspective="manager" /> : null}
+            notices={view?.changeRequest ? <ManagerChangeRequestPanel cr={view.changeRequest} perspective="manager" /> : null}
         />
     );
 };
 
-export default TimesheetViewer;
+export default ManagerTimesheetViewer;

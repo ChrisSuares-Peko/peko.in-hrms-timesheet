@@ -1,3 +1,5 @@
+// PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
+// frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
 // PROTOTYPE-SETUP: ESS Service 1 — side card listing past days with unlogged hours (for the week or the month).
 // Clicking a day jumps to it in the Day view.
 import { CheckCircleOutlined, RightOutlined } from '@ant-design/icons';
@@ -5,7 +7,7 @@ import { Card, Skeleton } from 'antd';
 
 import { formatDuration } from '@src/prototype/rules/attendance';
 
-import { fmtDay } from '../components/format';
+import { fmtDay } from '../../components/format';
 
 export interface UnloggedItem {
     date: string;
@@ -23,7 +25,7 @@ export interface UnloggedCardProps {
     perspective?: 'employee' | 'manager';
 }
 
-const UnloggedCard = ({ periodLabel, items, loading, onOpenDay, perspective = 'employee' }: UnloggedCardProps) => {
+const ManagerUnloggedCard = ({ periodLabel, items, loading, onOpenDay, perspective = 'employee' }: UnloggedCardProps) => {
     const total = items.reduce((s, i) => s + i.unloggedMinutes, 0);
     return (
         <Card
@@ -74,4 +76,4 @@ const UnloggedCard = ({ periodLabel, items, loading, onOpenDay, perspective = 'e
     );
 };
 
-export default UnloggedCard;
+export default ManagerUnloggedCard;

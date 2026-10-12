@@ -1,0 +1,2005 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Peko Attendance & Timesheet prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F6F8; --surface:#FFFFFF; --surface-2:#FAFAFB; --ink:#101828; --ink-2:#475467; --muted:#8A94A6;
+  --line:#EAECF0; --line-2:#D0D5DD;
+  --red:#E30000; --red-hover:#C40000; --red-soft:#FFF1F0; --red-ink:#B42318;
+  --green:#05A357; --green-soft:#E7F8EE; --green-ink:#067647;
+  --amber:#FDA700; --amber-soft:#FFF6E0; --amber-ink:#93370D;
+  --blue:#2E62E8; --blue-soft:#EEF3FF; --blue-ink:#1D3F9E;
+  --track:#F0F2F5; --entry:#344054; --entry-ink:#FFFFFF;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.06);
+  --overlay:rgba(16,24,40,.45);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1116; --surface:#161A21; --surface-2:#1B2029; --ink:#E7EAF0; --ink-2:#B4BCC9; --muted:#7D8696;
+    --line:#262C37; --line-2:#363D4A;
+    --red:#FF4545; --red-hover:#FF6161; --red-soft:#3A1717; --red-ink:#FFB4AB;
+    --green:#2BC77A; --green-soft:#12301F; --green-ink:#8BE3B5;
+    --amber:#FDB022; --amber-soft:#33270E; --amber-ink:#FEC84B;
+    --blue:#6E95FF; --blue-soft:#172440; --blue-ink:#AFC4FF;
+    --track:#1F2530; --entry:#9AA7BD; --entry-ink:#0E1116;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+    --overlay:rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1116; --surface:#161A21; --surface-2:#1B2029; --ink:#E7EAF0; --ink-2:#B4BCC9; --muted:#7D8696;
+  --line:#262C37; --line-2:#363D4A;
+  --red:#FF4545; --red-hover:#FF6161; --red-soft:#3A1717; --red-ink:#FFB4AB;
+  --green:#2BC77A; --green-soft:#12301F; --green-ink:#8BE3B5;
+  --amber:#FDB022; --amber-soft:#33270E; --amber-ink:#FEC84B;
+  --blue:#6E95FF; --blue-soft:#172440; --blue-ink:#AFC4FF;
+  --track:#1F2530; --entry:#9AA7BD; --entry-ink:#0E1116;
+  --shadow:0 1px 2px rgba(0,0,0,.4); --overlay:rgba(0,0,0,.6);
+}
+*,*::before,*::after{box-sizing:border-box}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Roboto,system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+/* shell */
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100%}
+.side{background:var(--surface);border-right:1px solid var(--line);padding:22px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px}
+.logo{font-weight:700;font-size:24px;letter-spacing:-.5px;padding:0 14px 22px;display:flex;align-items:center;gap:8px}
+.logo-mark{width:22px;height:22px;border-radius:4px;background:var(--ink);position:relative}
+.logo-mark::after{content:"";position:absolute;right:-3px;bottom:-3px;width:10px;height:10px;background:var(--red);border-radius:2px}
+.nav{display:flex;align-items:center;gap:10px;width:100%;border:0;background:none;text-align:left;padding:10px 14px;border-radius:8px;color:var(--ink-2);font-weight:500}
+.nav:hover{background:var(--surface-2)}
+.nav[aria-current="page"]{background:var(--red-soft);color:var(--red-ink)}
+.nav svg{width:18px;height:18px;flex:none}
+.nav .count{margin-left:auto;background:var(--red);color:#fff;border-radius:10px;font-size:11px;padding:1px 7px;font-weight:500}
+.side-foot{margin-top:auto;padding:12px 14px;font-size:12px;color:var(--muted)}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{background:var(--surface);border-bottom:1px solid var(--line);padding:14px 28px;display:flex;align-items:center;gap:16px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.top h1{font-size:18px;margin:0;font-weight:500}
+.top .sub{color:var(--muted);font-size:13px}
+.who{margin-left:auto;display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:6px 12px 6px 6px}
+.avatar{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:500;font-size:13px;background:var(--red-soft);color:var(--red-ink);flex:none}
+.who b{display:block;font-size:13px;font-weight:500}
+.who span{display:block;font-size:12px;color:var(--muted)}
+.content{padding:20px 28px 96px;max-width:1240px;width:100%}
+
+/* tabs */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px;overflow-x:auto}
+.tab{border:0;background:none;padding:10px 14px;color:var(--ink-2);font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;display:flex;gap:8px;align-items:center}
+.tab[aria-selected="true"]{color:var(--red);border-bottom-color:var(--red)}
+.tab .n{background:var(--track);color:var(--ink-2);border-radius:10px;padding:0 7px;font-size:12px}
+.tab[aria-selected="true"] .n{background:var(--red-soft);color:var(--red-ink)}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:7px 14px;font-weight:500;color:var(--ink-2);border-right:1px solid var(--line-2)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+
+/* basics */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.pad{padding:18px 20px}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.spacer{flex:1}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+h2{font-size:16px;font-weight:500;margin:0}
+h3{font-size:14px;font-weight:500;margin:0}
+.btn{border:1px solid var(--line-2);background:var(--surface);border-radius:8px;padding:8px 14px;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}
+.btn.primary:hover{background:var(--red-hover)}
+.btn.good{background:var(--green);border-color:var(--green);color:#fff}
+.btn.ghost{border-color:transparent;background:none;color:var(--ink-2);padding:6px 8px}
+.btn.ghost:hover{background:var(--track)}
+.btn.link{border:0;background:none;padding:0;color:var(--blue);font-weight:500}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.chip{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--track);color:var(--ink-2)}
+.chip.green{background:var(--green-soft);color:var(--green-ink)}
+.chip.red{background:var(--red-soft);color:var(--red-ink)}
+.chip.amber{background:var(--amber-soft);color:var(--amber-ink)}
+.chip.blue{background:var(--blue-soft);color:var(--blue-ink)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.banner{border-radius:10px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;margin-bottom:14px;border:1px solid}
+.banner.red{background:var(--red-soft);border-color:transparent;color:var(--red-ink)}
+.banner.amber{background:var(--amber-soft);border-color:transparent;color:var(--amber-ink)}
+.banner.blue{background:var(--blue-soft);border-color:transparent;color:var(--blue-ink)}
+.banner.grey{background:var(--track);border-color:transparent;color:var(--ink-2)}
+.banner b{font-weight:500}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field label{font-size:13px;color:var(--ink-2);font-weight:500}
+.input{border:1px solid var(--line-2);background:var(--surface);border-radius:8px;padding:8px 10px;width:100%}
+textarea.input{min-height:76px;resize:vertical}
+.err{color:var(--red-ink);font-size:12px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+.scroll-x{overflow-x:auto}
+
+/* timesheet */
+.ts-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+.weekbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.weekbar .range{font-size:16px;font-weight:500;min-width:170px}
+.day{display:grid;grid-template-columns:118px minmax(0,1fr);gap:16px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.day:last-child{border-bottom:0}
+.day.off{background:var(--surface-2)}
+.day.today .dname{color:var(--red)}
+.dname{font-weight:500}
+.dsub{font-size:12px;color:var(--muted)}
+.win{font-size:12px;color:var(--ink-2);margin-bottom:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.track{position:relative;height:18px;background:var(--track);border-radius:4px;margin-bottom:6px;overflow:hidden}
+.track .w{position:absolute;top:0;bottom:0;background:var(--blue-soft);border-left:2px solid var(--blue);border-right:2px solid var(--blue)}
+.track .seg-in{position:absolute;top:4px;bottom:4px;background:var(--entry);border-radius:2px}
+.track .seg-out{position:absolute;top:4px;bottom:4px;border-radius:2px;background:repeating-linear-gradient(135deg,var(--amber) 0 4px,#FFD27A 4px 8px)}
+.ticks{position:relative;height:14px;font-size:10px;color:var(--muted);margin-bottom:8px}
+.ticks span{position:absolute;transform:translateX(-50%)}
+.entry{display:grid;grid-template-columns:118px 58px minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 0;border-top:1px dashed var(--line)}
+.entry:first-of-type{border-top:0}
+.entry .t{font-variant-numeric:tabular-nums;font-weight:500}
+.entry .d{color:var(--ink-2);font-variant-numeric:tabular-nums}
+.entry .desc{min-width:0;overflow-wrap:anywhere}
+.entry .acts{display:flex;gap:2px}
+.ot{margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--amber-soft);color:var(--amber-ink);border-radius:8px;padding:8px 10px;font-size:13px}
+.ot b{font-weight:500}
+.editor{display:grid;grid-template-columns:110px 110px minmax(0,1fr) auto;gap:8px;align-items:start;padding:8px 0}
+.editor .err{grid-column:1/-1}
+.addline{margin-top:6px}
+.empty-day{color:var(--muted);font-size:13px;padding:2px 0}
+.lockline{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;margin-top:4px}
+.card{position:sticky;top:84px}
+.card .big{font-size:22px;font-weight:500;letter-spacing:-.3px}
+.bars{display:flex;flex-direction:column;gap:7px;margin:14px 0}
+.bar{display:grid;grid-template-columns:34px 1fr 64px;gap:8px;align-items:center;font-size:12px}
+.bar .b{height:6px;background:var(--track);border-radius:3px;overflow:hidden;position:relative}
+.bar .b i{position:absolute;left:0;top:0;bottom:0;background:var(--ink-2);border-radius:3px}
+.bar .b i.over{background:var(--amber)}
+.bar .v{text-align:right;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.divider{height:1px;background:var(--line);margin:14px 0}
+.hist{list-style:none;margin:0;padding:0}
+.hist li{padding:9px 0;border-bottom:1px solid var(--line);font-size:13px;display:grid;grid-template-columns:86px 1fr;gap:10px}
+.hist li:last-child{border-bottom:0}
+
+/* diff */
+.diffday{padding:12px 0;border-bottom:1px solid var(--line)}
+.diffday:last-child{border-bottom:0}
+.drow{display:grid;grid-template-columns:20px 120px 1fr;gap:8px;padding:6px 8px;border-radius:6px;margin-top:4px;font-size:13px}
+.drow.add{background:var(--green-soft);color:var(--green-ink)}
+.drow.del{background:var(--red-soft);color:var(--red-ink)}
+.drow.del .x{text-decoration:line-through}
+.drow.edit{background:var(--amber-soft);color:var(--amber-ink)}
+.old{text-decoration:line-through;opacity:.75}
+
+/* requests */
+.req{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.req:last-child{border-bottom:0}
+.req .title{font-weight:500}
+.chain{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;font-size:12px}
+.step{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px;background:var(--track);color:var(--ink-2)}
+.step.done{background:var(--green-soft);color:var(--green-ink)}
+.step.pending{background:var(--blue-soft);color:var(--blue-ink)}
+.step.rejected{background:var(--red-soft);color:var(--red-ink)}
+.step.skipped{background:transparent;border:1px dashed var(--line-2);color:var(--muted)}
+.arrow{color:var(--muted)}
+.empty{padding:36px 20px;text-align:center;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-weight:500;margin-bottom:4px}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.stat{padding:14px 16px}
+.stat .k{font-size:12px;color:var(--muted)}
+.stat .v{font-size:22px;font-weight:500;margin-top:2px}
+.headline{display:flex;align-items:baseline;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.headline .num{font-size:34px;font-weight:700;letter-spacing:-1px}
+
+/* settings */
+.modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.mode{border:1px solid var(--line-2);border-radius:10px;padding:14px;text-align:left;background:var(--surface)}
+.mode[aria-pressed="true"]{border-color:var(--red);box-shadow:0 0 0 1px var(--red);background:var(--red-soft)}
+.mode b{display:block;font-weight:500;margin-bottom:4px}
+.mode span{color:var(--ink-2);font-size:13px}
+.setgrid{display:grid;gap:16px}
+
+/* modal + toast + demo */
+.overlay{position:fixed;inset:0;background:var(--overlay);display:grid;place-items:center;padding:20px;z-index:50}
+.modal{background:var(--surface);border-radius:14px;width:min(560px,100%);max-height:calc(100vh - 40px);overflow:auto;box-shadow:0 20px 50px rgba(16,24,40,.25)}
+.modal.wide{width:min(980px,100%)}
+.modal-h{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;position:sticky;top:0;background:var(--surface);z-index:1}
+.modal-b{padding:18px 20px}
+.modal-f{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;position:sticky;bottom:0;background:var(--surface)}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:10px;font-weight:500;z-index:60;box-shadow:var(--shadow)}
+.demo{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:40;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.demo-pop{width:300px;padding:16px}
+.demo-btn{background:var(--ink);color:var(--surface);border:0;border-radius:999px;padding:10px 16px;font-weight:500;box-shadow:var(--shadow)}
+
+@media (max-width:1020px){
+  .ts-layout{grid-template-columns:1fr}
+  .card{position:static;order:-1}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr}
+  .side{position:sticky;top:0;height:auto;flex-direction:row;align-items:center;padding:8px 10px;overflow-x:auto;z-index:10;border-right:0;border-bottom:1px solid var(--line);top:env(safe-area-inset-top,0px)}
+  .logo{padding:0 10px 0 4px;font-size:20px}
+  .side-foot{display:none}
+  .nav{width:auto;white-space:nowrap}
+  .top{position:static;padding:12px 16px;flex-wrap:wrap}
+  .who{margin-left:0}
+  .content{padding:16px 14px 96px}
+  .day{grid-template-columns:1fr;gap:6px;padding:14px}
+  .entry{grid-template-columns:96px 52px minmax(0,1fr);}
+  .entry .acts{grid-column:1/-1;justify-content:flex-end}
+  .editor{grid-template-columns:1fr 1fr}
+  .editor .input.desc{grid-column:1/-1}
+  .modes{grid-template-columns:1fr}
+  .req{grid-template-columns:1fr}
+  .demo-pop{width:min(300px,calc(100vw - 40px))}
+}
+
+/* v2 additions */
+.crumb{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:var(--muted)}
+.crumb button{border:0;background:none;color:var(--blue);padding:0;font-weight:500}
+.home-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px}
+.hcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:10px;text-align:left;min-height:168px}
+.hcard.link{cursor:pointer}
+.hcard.link:hover{border-color:var(--line-2);box-shadow:var(--shadow)}
+.hcard .hk{font-weight:500;font-size:15px;display:flex;align-items:center;gap:8px}
+.hcard .hv{font-size:20px;font-weight:500;letter-spacing:-.3px}
+.hcard .hs{color:var(--ink-2);font-size:13px}
+.hcard .hf{margin-top:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hcard.feature{border-color:var(--red);box-shadow:0 0 0 1px var(--red) inset}
+.hcard.dim{opacity:.6}
+.viewbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.viewbar .range{font-size:16px;font-weight:500;min-width:150px}
+
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.cal-h{font-size:12px;color:var(--muted);padding:8px 10px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface-2)}
+.cal-cell{min-height:88px;padding:8px 10px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface);text-align:left;display:flex;flex-direction:column;gap:4px;border-top:0;border-left:0;font:inherit;color:inherit;cursor:pointer}
+.cal-cell:hover{background:var(--surface-2)}
+.cal-cell.out{background:var(--surface-2);color:var(--muted);cursor:default}
+.cal-cell.sel{box-shadow:inset 0 0 0 2px var(--red)}
+.cal-cell .dn{font-size:12px;font-weight:500}
+.cal-cell.today .dn{color:var(--red)}
+.cal-cell .cv{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums}
+.cal-cell .cs{font-size:11px;color:var(--ink-2);line-height:1.3}
+.mini{display:inline-flex;align-items:center;gap:4px;font-size:11px;border-radius:999px;padding:1px 7px;font-weight:500;width:max-content;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini.present{background:var(--green-soft);color:var(--green-ink)}
+.mini.late,.mini.half,.mini.ot{background:var(--amber-soft);color:var(--amber-ink)}
+.mini.absent{background:var(--red-soft);color:var(--red-ink)}
+.mini.leave,.mini.holiday,.mini.open{background:var(--blue-soft);color:var(--blue-ink)}
+.mini.off,.mini.offwork,.mini.notin{background:var(--track);color:var(--ink-2)}
+.mini.offwork{background:var(--amber-soft);color:var(--amber-ink)}
+
+.split{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+.kv{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;font-size:13px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0}
+.todaybox{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.todaybox .clock{font-size:28px;font-weight:500;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+
+.daystrip{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;margin-bottom:12px}
+.daystrip button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11px;color:var(--ink-2)}
+.daystrip button b{font-size:15px;font-weight:500;color:var(--ink)}
+.daystrip button[aria-pressed="true"]{border-color:var(--red);background:var(--red-soft)}
+.daystrip button[aria-pressed="true"] b{color:var(--red-ink)}
+.daybig .track{height:26px}
+.daybig .day{grid-template-columns:1fr}
+
+.flag{margin-top:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-radius:8px;padding:8px 10px;font-size:13px}
+.flag.ot{background:var(--amber-soft);color:var(--amber-ink)}
+.flag.att{background:var(--blue-soft);color:var(--blue-ink)}
+.flag b{font-weight:500}
+
+.switch{position:relative;width:40px;height:22px;border-radius:11px;border:0;background:var(--line-2);padding:0;flex:none}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}
+.switch[aria-checked="true"]{background:var(--green)}
+.switch[aria-checked="true"]::after{left:21px}
+.rules{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.blockers{border:1px solid var(--line);border-radius:10px;margin-top:12px}
+.blockers div{padding:9px 12px;border-bottom:1px solid var(--line);font-size:13px;display:flex;gap:10px;flex-wrap:wrap}
+.blockers div:last-child{border-bottom:0}
+
+@media (max-width:1020px){
+  .split{grid-template-columns:1fr}
+  .rules{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:860px){
+  .cal-cell{min-height:58px;padding:5px}
+  .cal-cell .cs,.cal-cell .mini{display:none}
+  .cal-cell .dot-m{display:block}
+  .cal-h{padding:6px 4px;text-align:center}
+}
+.dot-m{display:none;width:8px;height:8px;border-radius:50%;margin-top:2px}
+.dot-m.present{background:var(--green)}.dot-m.late,.dot-m.half,.dot-m.offwork,.dot-m.ot{background:var(--amber)}.dot-m.absent{background:var(--red)}.dot-m.leave,.dot-m.holiday,.dot-m.open{background:var(--blue)}.dot-m.off,.dot-m.notin,.dot-m.none{background:var(--line-2)}
+
+/* v3 timesheet workspace */
+:root{--cal-sub:#E4F6EC;--cal-sub-ink:#067647;--cal-ok:#6FCF97;--cal-ok-ink:#053D24;--cal-back:#FFD9A8;--cal-back-ink:#7A3E00;--cal-off:#EEF0F3;--cal-off-ink:#9AA3B2;--bar-win:#D9DDE3;--bar-entry:#2E62E8}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--cal-sub:#123324;--cal-sub-ink:#8BE3B5;--cal-ok:#1F8A55;--cal-ok-ink:#E9FFF3;--cal-back:#5A3510;--cal-back-ink:#FFD39E;--cal-off:#1E232C;--cal-off-ink:#6B7484;--bar-win:#2E3542;--bar-entry:#6E95FF}}
+:root[data-theme="dark"]{--cal-sub:#123324;--cal-sub-ink:#8BE3B5;--cal-ok:#1F8A55;--cal-ok-ink:#E9FFF3;--cal-back:#5A3510;--cal-back-ink:#FFD39E;--cal-off:#1E232C;--cal-off-ink:#6B7484;--bar-win:#2E3542;--bar-entry:#6E95FF}
+.ts-top{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
+.ts-side{display:flex;flex-direction:column;gap:12px}
+.cal3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.mm-t{text-align:center;font-weight:500;font-size:13px;margin-bottom:6px}
+.mm-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.mm-h{font-size:11px;color:var(--muted);text-align:center;padding-bottom:2px}
+.mc{position:relative;border:0;background:transparent;border-radius:6px;height:30px;font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink);padding:0}
+.mc:hover{box-shadow:inset 0 0 0 1px var(--line-2)}
+.mc.off{background:var(--cal-off);color:var(--cal-off-ink)}
+.mc.sub{background:var(--cal-sub);color:var(--cal-sub-ink)}
+.mc.ok{background:var(--cal-ok);color:var(--cal-ok-ink);font-weight:500}
+.mc.back{background:var(--cal-back);color:var(--cal-back-ink);font-weight:500}
+.mc.inr{box-shadow:inset 0 -2px 0 var(--red)}
+.mc.tdy{outline:1.5px solid var(--red);outline-offset:-1.5px}
+.mc.sel{box-shadow:inset 0 0 0 2px var(--ink)}
+.mc .lv{position:absolute;left:50%;bottom:3px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--blue)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-size:12px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.lg{width:12px;height:12px;border-radius:3px;display:inline-block}
+.lg.off{background:var(--cal-off)}.lg.sub{background:var(--cal-sub);box-shadow:inset 0 0 0 1px var(--cal-ok)}.lg.ok{background:var(--cal-ok)}.lg.back{background:var(--cal-back)}
+.lg.lvd{width:6px;height:6px;border-radius:50%;background:var(--blue)}
+.ul-row{display:flex;justify-content:space-between;width:100%;border:0;background:none;padding:7px 0;border-bottom:1px solid var(--line);font-size:13px;text-align:left;gap:8px}
+.ul-row:last-child{border-bottom:0}
+.ul-row:hover{color:var(--blue)}
+.hist-h{display:flex;justify-content:space-between;width:100%;border:0;background:none;padding:14px 16px;font-weight:500;text-align:left}
+.ts-lines{padding:4px 0}
+.dl{display:grid;grid-template-columns:140px minmax(0,1fr);border-bottom:1px solid var(--line)}
+.dl:last-child{border-bottom:0}
+.dl.open{background:var(--surface-2)}
+.dl-axis{border-bottom:1px solid var(--line)}
+.dl-axis .dl-b{padding-top:6px;padding-bottom:0;cursor:default}
+.dl-axis .ticks{margin-bottom:2px}
+.dl-a{border:0;background:none;text-align:left;padding:12px 16px;display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+.dl-d{font-weight:500;font-size:14px}
+.dl.tdy .dl-d{color:var(--red)}
+.dl-m{font-size:12px;color:var(--muted)}
+.dl-b{padding:10px 16px 12px 0;cursor:pointer;min-width:0}
+.dl-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);margin-bottom:6px;font-variant-numeric:tabular-nums}
+.dl-log b{font-weight:500;color:var(--ink)}
+.dl-car{color:var(--muted)}
+.bt{position:relative;height:14px;background:var(--track);border-radius:4px;overflow:hidden}
+.bt-w{position:absolute;top:0;bottom:0;background:var(--bar-win)}
+.bt-e{position:absolute;top:3px;bottom:3px;background:var(--bar-entry);border-radius:2px}
+.bt-o{position:absolute;top:3px;bottom:3px;border-radius:2px;background:repeating-linear-gradient(135deg,var(--amber) 0 4px,#FFD27A 4px 8px)}
+.dl-c{grid-column:2;padding:2px 16px 14px 0}
+.entry.hov .acts{opacity:0;transition:opacity .12s}
+.entry.hov:hover .acts,.entry.hov:focus-within .acts{opacity:1}
+@media (hover:none){.entry.hov .acts{opacity:1}}
+.qa{display:grid;grid-template-columns:18px 104px 104px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0 0;border-top:1px dashed var(--line);margin-top:4px}
+.qa .err{grid-column:2/-1}
+.qa-plus{font-style:normal;color:var(--muted);text-align:center}
+@media (max-width:1020px){.ts-top{grid-template-columns:1fr}}
+@media (max-width:860px){
+  .cal3{grid-template-columns:1fr}.mm.side{display:none}
+  .dl{grid-template-columns:1fr}.dl-a{flex-direction:row;align-items:center;padding:10px 14px 0;gap:8px}
+  .dl-b{padding:6px 14px 12px}.dl-c{grid-column:1;padding:0 14px 14px}.dl-axis{display:none}
+  .qa{grid-template-columns:1fr 1fr}.qa-plus{display:none}.qa .desc{grid-column:1/-1}.qa .btn{grid-column:1/-1}
+}
+
+/* v4 hours field + shared browser */
+.modal.wide{width:min(1180px,100%)}
+.ef{display:grid;grid-template-columns:104px 104px 78px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0}
+.ef.qa{grid-template-columns:18px 104px 104px 78px minmax(0,1fr) auto;padding:8px 0 0;border-top:1px dashed var(--line);margin-top:4px}
+.ef .err,.ef .ef-hint{grid-column:1/-1}
+.ef.qa .err,.ef.qa .ef-hint{grid-column:2/-1}
+.ef-hint{font-size:12px;color:var(--muted)}
+.ef-hint .btn.link{font-size:12px}
+.entry .t.nt{color:var(--muted);font-weight:400;font-style:italic}
+.bt-m{height:3px;background:var(--track);border-radius:2px;margin-top:4px;position:relative;overflow:hidden}
+.bt-m i{position:absolute;left:0;top:0;bottom:0;background:var(--green);border-radius:2px}
+.bt-m i.over{background:var(--amber)}
+.axis-key{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin:2px 0 6px}
+.axis-key span{display:inline-flex;align-items:center;gap:5px}
+.axis-key i{display:inline-block;width:14px;height:8px;border-radius:2px}
+.axis-key .k-w{background:var(--bar-win)}.axis-key .k-e{background:var(--bar-entry)}.axis-key .k-o{background:repeating-linear-gradient(135deg,var(--amber) 0 3px,#FFD27A 3px 6px)}.axis-key .k-m{height:3px;background:var(--green)}
+@media (max-width:860px){
+  .ef,.ef.qa{grid-template-columns:1fr 1fr 1fr}.ef .qa-plus{display:none}
+  .ef .desc{grid-column:1/-1}.ef>.row{grid-column:1/-1}.ef.qa .err,.ef.qa .ef-hint{grid-column:1/-1}
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script>
+(function(){
+'use strict';
+const { useState, useEffect, useMemo, useCallback, createContext, useContext } = React;
+const html = htm.bind(React.createElement);
+const kids = x => React.Children.toArray(x);
+
+/* ---------------- dates & time ---------------- */
+const pad = n => String(n).padStart(2, '0');
+const toKey = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const fromKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (k, n) => { const d = fromKey(k); d.setDate(d.getDate() + n); return toKey(d); };
+const dow = k => fromKey(k).getDay();
+const mondayOf = k => addDays(k, -((dow(k) + 6) % 7));
+const monthOf = k => k.slice(0, 7);
+const firstOf = m => m + '-01';
+const isWeekend = k => dow(k) === 0 || dow(k) === 6;
+const DAY_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAY_LONG = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MON_LONG = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const fmtDate = k => { const d = fromKey(k); return DAY_SHORT[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()]; };
+const fmtLong = k => { const d = fromKey(k); return DAY_LONG[d.getDay()] + ', ' + d.getDate() + ' ' + MON_LONG[d.getMonth()]; };
+const fmtShort = k => { const d = fromKey(k); return d.getDate() + ' ' + MON[d.getMonth()]; };
+const fmtMonth = m => { const [y, mm] = m.split('-').map(Number); return MON_LONG[mm - 1] + ' ' + y; };
+const addMonths = (m, n) => { const [y, mm] = m.split('-').map(Number); const d = new Date(y, mm - 1 + n, 1); return d.getFullYear() + '-' + pad(d.getMonth() + 1); };
+const weekRange = ws => { const a = fromKey(ws), b = fromKey(addDays(ws, 6)); return a.getMonth() === b.getMonth() ? a.getDate() + '–' + b.getDate() + ' ' + MON[b.getMonth()] + ' ' + b.getFullYear() : fmtShort(ws) + ' – ' + fmtShort(addDays(ws, 6)) + ' ' + b.getFullYear(); };
+const weekDays = ws => [0, 1, 2, 3, 4, 5, 6].map(d => addDays(ws, d));
+const TODAY = toKey(new Date());
+const THIS_WEEK = mondayOf(TODAY);
+const toMin = t => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+const toTime = m => pad(Math.floor(m / 60)) + ':' + pad(m % 60);
+const dur = m => { m = Math.max(0, Math.round(m)); const h = Math.floor(m / 60), r = m % 60; if (!h) return r + 'm'; return r ? h + 'h ' + r + 'm' : h + 'h'; };
+const r5 = m => Math.round(m / 5) * 5;
+const ceil15 = m => Math.ceil(m / 15) * 15;
+const floor15 = m => Math.floor(m / 15) * 15;
+const inr = n => '₹' + Number(n).toLocaleString('en-IN');
+const clone = o => JSON.parse(JSON.stringify(o));
+const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+
+function rng(seed) {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  let a = h >>> 0;
+  return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+function useMedia(q) {
+  const [m, setM] = useState(() => window.matchMedia ? window.matchMedia(q).matches : false);
+  useEffect(() => { if (!window.matchMedia) return; const mq = window.matchMedia(q); const h = () => setM(mq.matches); mq.addEventListener ? mq.addEventListener('change', h) : mq.addListener(h); return () => { mq.removeEventListener ? mq.removeEventListener('change', h) : mq.removeListener(h); }; }, [q]);
+  return m;
+}
+
+/* ---------------- org & calendar ---------------- */
+const EMP = [
+  { id: 'ACME-021', name: 'Vikram Rao', title: 'Chief Executive Officer', dept: 'Leadership', mgr: null },
+  { id: 'ACME-001', name: 'Priya Nair', title: 'Engineering Manager', dept: 'Engineering', mgr: 'ACME-021' },
+  { id: 'ACME-002', name: 'Rohan Mehta', title: 'Senior Software Engineer', dept: 'Engineering', mgr: 'ACME-001' },
+  { id: 'ACME-003', name: 'Ananya Iyer', title: 'Software Engineer', dept: 'Engineering', mgr: 'ACME-001' },
+  { id: 'ACME-004', name: 'Karthik Reddy', title: 'Software Engineer', dept: 'Engineering', mgr: 'ACME-001' },
+  { id: 'ACME-005', name: 'Sneha Kulkarni', title: 'QA Engineer', dept: 'Engineering', mgr: 'ACME-001' },
+  { id: 'ACME-006', name: 'Arjun Menon', title: 'DevOps Engineer', dept: 'Engineering', mgr: 'ACME-001' },
+  { id: 'ACME-007', name: 'Divya Shetty', title: 'Frontend Engineer', dept: 'Engineering', mgr: 'ACME-001' },
+  { id: 'ACME-008', name: 'Rahul Verma', title: 'Sales Manager', dept: 'Sales', mgr: 'ACME-021' },
+  { id: 'ACME-009', name: 'Meera Joshi', title: 'Account Executive', dept: 'Sales', mgr: 'ACME-008' },
+  { id: 'ACME-010', name: 'Aditya Singh', title: 'Business Development Executive', dept: 'Sales', mgr: 'ACME-008' },
+  { id: 'ACME-011', name: 'Pooja Desai', title: 'Sales Associate', dept: 'Sales', mgr: 'ACME-008' },
+  { id: 'ACME-012', name: 'Suresh Pillai', title: 'Operations Manager', dept: 'Operations', mgr: 'ACME-021' },
+  { id: 'ACME-013', name: 'Kavya Rao', title: 'Operations Executive', dept: 'Operations', mgr: 'ACME-012' },
+  { id: 'ACME-014', name: 'Nikhil Bhat', title: 'Logistics Coordinator', dept: 'Operations', mgr: 'ACME-012' },
+  { id: 'ACME-015', name: 'Farah Sheikh', title: 'Operations Associate', dept: 'Operations', mgr: 'ACME-012' },
+  { id: 'ACME-016', name: 'Deepak Agarwal', title: 'Finance Manager', dept: 'Finance', mgr: 'ACME-021' },
+  { id: 'ACME-017', name: 'Lakshmi Narayan', title: 'Accounts Executive', dept: 'Finance', mgr: 'ACME-016' },
+  { id: 'ACME-018', name: 'Neha Kapoor', title: 'HR Manager', dept: 'HR', mgr: 'ACME-021' },
+  { id: 'ACME-019', name: 'Imran Khan', title: 'HR Executive', dept: 'HR', mgr: 'ACME-018' },
+  { id: 'ACME-020', name: 'Swati Hegde', title: 'Talent Acquisition Specialist', dept: 'HR', mgr: 'ACME-018' },
+];
+const EMAP = Object.fromEntries(EMP.map(e => [e.id, e]));
+const EMPLOYEE_ID = 'ACME-002';
+const MANAGER_ID = 'ACME-001';
+const SHIFTS = { Engineering: ['09:30', '18:30'], Sales: ['10:00', '19:00'], Operations: ['08:00', '17:00'], Finance: ['09:30', '18:30'], HR: ['09:30', '18:30'], Leadership: ['09:30', '18:30'] };
+const shiftOf = e => SHIFTS[e.dept].map(toMin);
+const shiftLen = e => { const [a, b] = shiftOf(e); return b - a; };
+const initials = n => n.split(' ').map(p => p[0]).join('').slice(0, 2);
+const first = n => n.split(' ')[0];
+const HOL = { '01-26': 'Republic Day', '08-15': 'Independence Day', '10-02': 'Gandhi Jayanti', '11-01': 'Kannada Rajyotsava', '12-25': 'Christmas' };
+const holidayOf = k => HOL[k.slice(5)] || null;
+const isOff = k => isWeekend(k) || !!holidayOf(k);
+const POOLS = {
+  Engineering: ['Sprint standup and planning', 'Payroll API: leave balance endpoint', 'Code review for attendance sync PR', 'Bug fixes on ESS mobile layout', 'Pairing on timesheet export', 'Unit tests for payslip service', 'Release checklist and deployment', 'Investigating slow dashboard query', 'Design review with product', 'Refactoring auth middleware'],
+  Sales: ['Client call: Brightline Logistics', 'Demo prep for Northwind Foods', 'CRM updates and follow-ups', 'Proposal draft for Zenith Retail', 'Pipeline review with manager', 'Prospecting calls', 'Client visit, Andheri'],
+  Operations: ['Vendor coordination for office supplies', 'Dispatch planning', 'Inventory count, Bengaluru office', 'Courier reconciliation', 'Facility maintenance follow-up', 'Weekly ops review'],
+  Finance: ['Vendor payment run', 'GST reconciliation', 'Expense report review', 'Month-end close prep', 'Bank statement matching'],
+  HR: ['Interview: frontend engineer candidate', 'Onboarding paperwork for new joiner', 'Policy document updates', 'Payroll inputs review', 'Employee query resolution', 'Engagement survey planning'],
+  Leadership: ['Leadership sync', 'Investor update prep', 'Customer escalation review', 'Hiring plan review', 'Strategy offsite planning'],
+};
+const TYPE_LABEL = { attendance: 'Attendance correction', overtime: 'Overtime', leave: 'Leave', reimbursement: 'Reimbursement' };
+const MODE_LABEL = { attendance: 'Attendance only', both: 'Attendance + timesheet', timesheet: 'Timesheet only' };
+const SECTION_NAME = { attendance: 'Attendance', both: 'Attendance & Timesheet', timesheet: 'Timesheet' };
+
+/* ---------------- demo data ---------------- */
+const STORE_KEY = 'peko-timesheet-proto-v2';
+const submitDateOf = (s, ws) => addDays(ws, (s.settings.submitDay + 6) % 7);
+function hist(w, at, by, text) { w.history.push({ at, by, text }); }
+
+function genDay(e, inM, outM, rnd, s) {
+  const [ss, se] = shiftOf(e);
+  const start = Math.max(ceil15(inM), ss), end = Math.min(floor15(outM), se);
+  const pool = POOLS[e.dept];
+  const out = [];
+  [[start, 13 * 60], [14 * 60, end - (rnd() < 0.35 ? 30 : 0)]].forEach(([a, b]) => {
+    let t = a;
+    while (b - t >= 30) {
+      let len = Math.min(b - t, 60 + Math.floor(rnd() * 4) * 30);
+      if (b - t - len < 30) len = b - t;
+      out.push({ id: 'e' + (s.seq++), start: toTime(t), end: toTime(t + len), desc: pool[Math.floor(rnd() * pool.length)] });
+      t += len;
+      if (rnd() < 0.15 && b - t > 45) t += 15;
+    }
+  });
+  return out;
+}
+
+function buildDemo() {
+  const s = {
+    version: 2, builtFor: THIS_WEEK, seq: 1000,
+    settings: { mode: 'both', submitDay: 5, tsApproval: true, graceMin: 15, halfDayMin: 270, breakMin: 60, otMin: 30, l2: { attendance: 'HR', overtime: 'Finance', leave: 'HR', reimbursement: 'Finance', timesheet: 'None' }, lastProcessed: addMonths(monthOf(TODAY), -2) },
+    weeks: {}, attendance: {}, requests: [],
+  };
+  const W = [-5, -4, -3, -2, -1, 0].map(i => addDays(THIS_WEEK, i * 7));
+  EMP.forEach(e => {
+    const rnd = rng(e.id);
+    const [ss, se] = shiftOf(e);
+    W.forEach(ws => {
+      const entries = {};
+      weekDays(ws).forEach(k => {
+        if (isOff(k) || k > TODAY) return;
+        const inM = r5(ss + Math.round(rnd() * 30) - 5);
+        if (k === TODAY) { if (nowMin() >= inM) s.attendance[e.id + '|' + k] = { in: toTime(inM) }; return; }
+        const outM = r5(se + Math.round(rnd() * 25) - 10);
+        s.attendance[e.id + '|' + k] = { in: toTime(inM), out: toTime(outM) };
+        entries[k] = genDay(e, inM, outM, rnd, s);
+      });
+      const w = { status: ws === THIS_WEEK ? 'draft' : 'approved', entries, approved: null, change: null, comment: null, history: [] };
+      if (w.status === 'approved') {
+        const sub = submitDateOf(s, ws);
+        if (!e.mgr) hist(w, sub, 'System', 'Auto-submitted and auto-approved (no reporting manager)');
+        else { hist(w, sub, 'System', 'Auto-submitted on ' + DAY_LONG[s.settings.submitDay]); hist(w, addDays(sub, 3), EMAP[e.mgr].name, 'Approved'); }
+        w.approved = clone(entries);
+      }
+      s.weeks[e.id + '|' + ws] = w;
+    });
+  });
+  const wk = (id, i) => s.weeks[id + '|' + W[5 + i]];
+  const workDays = ws => weekDays(ws).filter(k => !isOff(k) && k < TODAY);
+  const setDay = (id, k, tin, tout, extra, keepEarly) => {
+    if (tin === null) { delete s.attendance[id + '|' + k]; } else { s.attendance[id + '|' + k] = tout ? { in: tin, out: tout } : { in: tin }; }
+    if (tin && !keepEarly) { const w0 = s.weeks[id + '|' + mondayOf(k)]; w0.entries[k] = (w0.entries[k] || []).map(en => timed(en) && toMin(en.start) < toMin(tin) ? Object.assign({}, en, { start: toTime(ceil15(toMin(tin))) }) : en).filter(en => toMin(en.end) > toMin(en.start)); }
+    if (extra) { const w = s.weeks[id + '|' + mondayOf(k)]; w.entries[k] = (w.entries[k] || []).concat(extra.map(x => ({ id: 'e' + (s.seq++), start: x[0], end: x[1], desc: x[2] }))); if (w.approved) w.approved = clone(w.entries); }
+  };
+  ['ACME-003', 'ACME-004', 'ACME-006'].forEach(id => { const w = wk(id, -1); w.status = 'submitted'; w.approved = null; w.history = w.history.slice(0, 1); });
+
+  // Rohan: last week
+  const L = W[4], wdL = workDays(L);
+  const R = EMPLOYEE_ID;
+  if (wdL[1]) setDay(R, wdL[1], '10:05', '20:20', [['18:30', '20:15', 'Release checklist and deployment']], true);
+  if (wdL[2]) setDay(R, wdL[2], '09:20', '20:35', [['18:30', '20:30', 'Release prep for payroll v2']]);
+  if (wdL[3]) setDay(R, wdL[3], '09:30', null, [['18:30', '19:45', 'Fixing release blocker on payslips']]);
+  const rw = wk(R, -1);
+  wdL.slice(-2).forEach(k => (rw.entries[k] || []).forEach(en => { if (en.desc !== 'Fixing release blocker on payslips') en.desc = 'Development'; }));
+  if (wdL[0]) rw.entries[wdL[0]] = (rw.entries[wdL[0]] || []).concat([{ id: 'e' + (s.seq++), start: null, end: null, mins: 60, desc: 'Writing release notes' }]);
+  rw.status = 'rejected'; rw.approved = null; rw.history = rw.history.slice(0, 1);
+  rw.comment = 'Two days only say "Development". Add which tickets you worked on and resubmit.';
+  hist(rw, addDays(submitDateOf(s, L), 1), 'Priya Nair', 'Sent back: ' + rw.comment);
+
+  // Rohan: change request on an approved week (3 weeks ago)
+  const cw = wk(R, -3), wd3 = workDays(W[2]);
+  const prop = clone(cw.entries);
+  if (wd3[1] && prop[wd3[1]] && prop[wd3[1]].length) { const last = prop[wd3[1]][prop[wd3[1]].length - 1]; last.end = toTime(toMin(last.end) + 30); last.desc = 'Code review for attendance sync PR (ran over)'; }
+  if (wd3[2]) prop[wd3[2]] = (prop[wd3[2]] || []).concat([{ id: 'e' + (s.seq++), start: '18:30', end: '19:30', desc: 'Client call with Brightline on payroll integration' }]);
+  cw.change = { entries: prop, reason: "Forgot to log a late client call, and a code review ran longer than I entered.", at: addDays(TODAY, -1), by: 'Rohan Mehta' };
+  hist(cw, addDays(TODAY, -1), 'Rohan Mehta', 'Requested a change: ' + cw.change.reason);
+
+  // Karthik: change request
+  const kw = wk('ACME-004', -2), wd2 = workDays(W[3]);
+  const kprop = clone(kw.entries);
+  const kd = wd2[3] || wd2[0];
+  if (kprop[kd] && kprop[kd].length > 1) { kprop[kd].pop(); kprop[kd][0].desc = 'Release checklist and deployment (prod)'; }
+  kw.change = { entries: kprop, reason: 'Logged the deployment twice that day.', at: TODAY, by: 'Karthik Reddy' };
+  hist(kw, TODAY, 'Karthik Reddy', 'Requested a change: ' + kw.change.reason);
+
+  // Rohan: this week
+  const cur = wk(R, 0);
+  const pastThis = workDays(THIS_WEEK);
+  if (pastThis.length) setDay(R, pastThis[0], '09:50', '19:10', [['18:45', '20:30', 'Hotfix: payslip PDF rendering in production']]);
+  const future = weekDays(THIS_WEEK).find(k => k > TODAY && !isOff(k));
+  if (future) cur.entries[future] = [{ id: 'e' + (s.seq++), start: '16:00', end: '17:00', desc: 'Sprint retro and planning' }];
+
+  // Rohan: approved overtime 2 weeks ago
+  const wdA = workDays(W[3]);
+  if (wdA[2]) setDay(R, wdA[2], '09:30', '20:00', [['18:30', '20:00', 'Incident call and fix']]);
+
+  // Team today
+  if (!isOff(TODAY)) {
+    if (nowMin() >= 620) s.attendance['ACME-004|' + TODAY] = { in: '10:20' }; else delete s.attendance['ACME-004|' + TODAY];
+    delete s.attendance['ACME-005|' + TODAY];
+    delete s.attendance['ACME-007|' + TODAY];
+  }
+  // weekend work
+  const sat = addDays(L, 5);
+  setDay('ACME-006', sat, '10:00', '14:00', [['10:00', '14:00', 'Database migration and verification']]);
+  setDay('ACME-013', sat, '09:00', '12:00', [['09:00', '12:00', 'Quarter-end stock count']]);
+
+  // requests
+  const N1 = addDays(THIS_WEEK, 7), N2 = addDays(THIS_WEEK, 14);
+  const mk = (type, empId, created, data, status) => {
+    const e = EMAP[empId];
+    const r = { id: 'REQ-' + (s.seq++), type, empId, created, data, status, l2: s.settings.l2[type] === 'None' ? null : s.settings.l2[type], trail: [{ level: 0, by: e.name, action: 'Submitted', at: created }] };
+    if (status === 'pending_l2' || status === 'approved') r.trail.push({ level: 1, by: EMAP[e.mgr].name, action: 'Approved', at: addDays(created, 1) });
+    if (status === 'approved' && r.l2) r.trail.push({ level: 2, by: r.l2 + ' team', action: 'Approved', at: addDays(created, 2) });
+    s.requests.push(r);
+  };
+  const att = (id, k) => s.attendance[id + '|' + k] || { in: '09:30', out: '18:30' };
+  if (wdA[2]) mk('overtime', R, addDays(wdA[2], 1), { kind: 'worked', date: wdA[2], minutes: 90, note: 'Production incident on payroll exports' }, 'approved');
+  if (wdL[1]) {
+    mk('overtime', R, addDays(wdL[1], 1), { kind: 'worked', date: wdL[1], minutes: 75, note: 'Release went past 7pm' }, 'pending_l2');
+    mk('attendance', R, addDays(wdL[1], 1), { date: wdL[1], from: { in: '10:05', out: '20:20' }, to: { in: '09:30', out: '20:20' }, reason: "Badge reader didn't register. I was in the 9:30 standup." }, 'pending_l1');
+  }
+  mk('reimbursement', R, addDays(L, 3), { category: 'Travel', amount: 860, date: addDays(L, 2), description: 'Cab fare for Brightline client visit' }, 'pending_l1');
+  mk('leave', R, addDays(TODAY, -6), { leaveType: 'Casual', from: N2, to: N2, days: 1, reason: 'Personal errand' }, 'approved');
+  mk('leave', 'ACME-003', addDays(TODAY, -1), { leaveType: 'Casual', from: addDays(N1, 3), to: addDays(N1, 4), days: 2, reason: 'Family function in Kochi' }, 'pending_l1');
+  mk('overtime', 'ACME-003', addDays(TODAY, -1), { kind: 'planned', date: addDays(N1, 5), minutes: 180, note: 'Production cutover for payroll v2, has to run on a Saturday' }, 'pending_l1');
+  mk('overtime', 'ACME-006', addDays(sat, 1), { kind: 'worked', date: sat, minutes: 240, note: 'Weekend database migration' }, 'pending_l1');
+  mk('reimbursement', 'ACME-005', addDays(L, 2), { category: 'Internet', amount: 1200, date: L, description: 'Home internet bill' }, 'pending_l1');
+  mk('attendance', 'ACME-007', addDays(L, 1), { date: L, from: { in: att('ACME-007', L).in, out: att('ACME-007', L).out }, to: { in: att('ACME-007', L).in, out: '19:15' }, reason: 'Forgot to check out after the design review.' }, 'pending_l1');
+  if (!isOff(TODAY)) mk('leave', 'ACME-007', addDays(TODAY, -4), { leaveType: 'Sick', from: TODAY, to: TODAY, days: 1, reason: 'Fever' }, 'approved');
+  mk('reimbursement', 'ACME-009', addDays(L, 1), { category: 'Client entertainment', amount: 3450, date: L, description: 'Client lunch with Northwind Foods' }, 'pending_l2');
+  mk('overtime', 'ACME-013', addDays(sat, 1), { kind: 'worked', date: sat, minutes: 180, note: 'Quarter-end stock count' }, 'pending_l2');
+  mk('leave', 'ACME-014', addDays(TODAY, -2), { leaveType: 'Sick', from: N1, to: N1, days: 1, reason: 'Medical check-up' }, 'pending_l2');
+  const imranDay = workDays(L)[3] || L;
+  mk('attendance', 'ACME-019', addDays(imranDay, 1), { date: imranDay, from: { in: '11:20', out: att('ACME-019', imranDay).out || '18:30' }, to: { in: '09:35', out: att('ACME-019', imranDay).out || '18:30' }, reason: 'Was at an offsite interview drive in the morning.' }, 'pending_l2');
+  s.attendance['ACME-019|' + imranDay] = { in: '11:20', out: att('ACME-019', imranDay).out || '18:30' };
+  mk('leave', 'ACME-015', addDays(TODAY, -3), { leaveType: 'Earned', from: N2, to: addDays(N2, 2), days: 3, reason: 'Trip home to Lucknow' }, 'pending_l2');
+  mk('reimbursement', 'ACME-017', addDays(L, -5), { category: 'Office supplies', amount: 640, date: addDays(L, -6), description: 'Printer toner' }, 'approved');
+  return s;
+}
+function loadStore() {
+  try { const raw = localStorage.getItem(STORE_KEY); if (raw) { const s = JSON.parse(raw); if (s && s.version === 2 && s.builtFor === THIS_WEEK) return s; } } catch (e) { /* storage unavailable */ }
+  return buildDemo();
+}
+
+/* ---------------- domain logic ---------------- */
+const blankWeek = () => ({ status: 'draft', entries: {}, approved: null, change: null, comment: null, history: [] });
+const readWeek = (s, id, ws) => s.weeks[id + '|' + ws] || blankWeek();
+const writeWeek = (s, id, ws) => (s.weeks[id + '|' + ws] = s.weeks[id + '|' + ws] || blankWeek());
+const isLocked = (s, k) => monthOf(k) <= s.settings.lastProcessed;
+const approvalOn = s => s.settings.tsApproval && s.settings.mode !== 'attendance';
+const weekStatusKey = w => (w.change ? 'change' : w.status);
+const WEEK_STATUS = {
+  draft: { label: 'Draft', cls: '' }, submitted: { label: 'Awaiting manager', cls: 'blue' }, approved: { label: 'Approved', cls: 'green' },
+  rejected: { label: 'Sent back', cls: 'red' }, change: { label: 'Change pending', cls: 'amber' },
+};
+const entriesOn = (s, id, k) => readWeek(s, id, mondayOf(k)).entries[k] || [];
+const timed = e => !!(e.start && e.end);
+const entryMins = e => timed(e) ? toMin(e.end) - toMin(e.start) : (e.mins || 0);
+const byStart = (x, y) => (timed(x) ? 0 : 1) - (timed(y) ? 0 : 1) || (timed(x) && timed(y) ? toMin(x.start) - toMin(y.start) : 0);
+const entTime = e => timed(e) ? e.start + ' – ' + e.end : 'No set time';
+function parseHours(v) {
+  v = (v || '').trim(); if (!v) return null;
+  let m = v.match(/^(\d{1,2}):(\d{1,2})$/); if (m) return +m[2] > 59 ? NaN : +m[1] * 60 + +m[2];
+  m = v.match(/^\d*\.?\d+$/); if (m) return Math.round(parseFloat(v) * 60);
+  m = v.match(/^(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?$/i); if (m && (m[1] || m[2])) return (+(m[1] || 0)) * 60 + (+(m[2] || 0));
+  return NaN;
+}
+const fmtH = m => Math.floor(m / 60) + ':' + pad(m % 60);
+const sumMins = list => (list || []).reduce((t, e) => t + entryMins(e), 0);
+
+// attendance record with auto check-out applied for past days
+function attOf(s, emp, k) {
+  const a = s.attendance[emp.id + '|' + k];
+  if (!a || !a.in) return null;
+  if (a.out) return { in: a.in, out: a.out, auto: false };
+  if (k < TODAY) { const se = shiftOf(emp)[1]; return { in: a.in, out: toTime(Math.max(se, toMin(a.in))), auto: true }; }
+  return { in: a.in, out: null, auto: false };
+}
+function leaveOn(s, id, k) { return s.requests.find(r => r.type === 'leave' && r.empId === id && r.status === 'approved' && r.data.from <= k && r.data.to >= k); }
+function dayStatus(s, emp, k) {
+  const a = attOf(s, emp, k);
+  const hol = holidayOf(k);
+  if (isOff(k)) return a ? { key: 'offwork', label: 'Worked on ' + (hol ? hol : 'weekly off') } : hol ? { key: 'holiday', label: hol } : { key: 'off', label: 'Weekly off' };
+  const lv = leaveOn(s, emp.id, k);
+  if (lv) return { key: 'leave', label: lv.data.leaveType + ' leave' };
+  if (!a) return k < TODAY ? { key: 'absent', label: 'Absent' } : k === TODAY ? { key: 'notin', label: 'Not checked in' } : { key: 'none', label: '' };
+  const ss = shiftOf(emp)[0];
+  const late = toMin(a.in) > ss + s.settings.graceMin;
+  if (!a.out) return { key: 'open', label: late ? 'Checked in late' : 'Checked in', late };
+  const worked = toMin(a.out) - toMin(a.in);
+  if (worked < s.settings.halfDayMin) return { key: 'half', label: 'Half day', late };
+  if (late) return { key: 'late', label: 'Late', late };
+  return { key: 'present', label: 'Present', late };
+}
+function dayWindow(s, emp, k) {
+  const [ss, se] = shiftOf(emp);
+  const shiftTxt = toTime(ss) + '–' + toTime(se);
+  const hol = holidayOf(k);
+  if (s.settings.mode === 'timesheet') return isOff(k) ? { start: null, end: null, label: hol ? hol + ' (holiday)' : 'Weekly off' } : { start: ss, end: se, label: 'Shift ' + shiftTxt };
+  const a = attOf(s, emp, k);
+  if (a && a.out) return { start: toMin(a.in), end: toMin(a.out), label: 'Checked in ' + a.in + ', out ' + a.out + (a.auto ? ' (auto check-out)' : ''), auto: a.auto };
+  if (a) return { start: toMin(a.in), end: Math.max(toMin(a.in), k === TODAY ? Math.max(se, nowMin()) : se), label: 'Checked in ' + a.in + ', still checked in', open: true };
+  if (isOff(k)) return { start: null, end: null, label: hol ? hol + ' (holiday)' : 'Weekly off' };
+  if (k >= TODAY) return { start: ss, end: se, label: 'Shift ' + shiftTxt + (k === TODAY ? ', not checked in yet' : '') };
+  return { start: null, end: null, label: 'No check-in recorded', missing: true };
+}
+function outsideMins(e, win) {
+  if (!timed(e)) return 0;
+  const a = toMin(e.start), b = toMin(e.end);
+  if (win.start == null) return b - a;
+  return Math.max(0, Math.min(b, win.start) - a) + Math.max(0, b - Math.max(a, win.end));
+}
+// overtime = time worked beyond the standard day, regardless of check-in/out times
+function otOfDay(s, emp, k) {
+  const off = isOff(k);
+  if (s.settings.mode === 'timesheet') {
+    const worked = sumMins(entriesOn(s, emp.id, k));
+    const base = off ? 0 : shiftLen(emp) - s.settings.breakMin;
+    return { worked, base, extra: Math.max(0, worked - base), off, source: 'timesheet' };
+  }
+  const a = attOf(s, emp, k);
+  if (!a || !a.out) return { worked: 0, base: off ? 0 : shiftLen(emp), extra: 0, off, source: 'attendance' };
+  const worked = toMin(a.out) - toMin(a.in);
+  const base = off ? 0 : shiftLen(emp);
+  return { worked, base, extra: Math.max(0, worked - base), off, source: 'attendance' };
+}
+const otRequestFor = (s, id, k) => s.requests.find(r => r.type === 'overtime' && r.empId === id && r.data.date === k && r.status !== 'rejected');
+function otSuggestion(s, emp, k) {
+  if (k >= TODAY || s.settings.mode === 'attendance' && false) return null;
+  const o = otOfDay(s, emp, k);
+  return o.extra >= s.settings.otMin ? o : null;
+}
+const otText = (o, emp) => o.off ? 'Worked ' + dur(o.worked) + ' on a day off. All of it counts as overtime.' : 'Worked ' + dur(o.worked) + ', which is ' + dur(o.extra) + ' more than your ' + dur(o.base) + ' day.';
+
+function submitWeek(s, empId, ws, by, text) {
+  const w = writeWeek(s, empId, ws);
+  if (!EMAP[empId].mgr) { w.status = 'approved'; w.approved = clone(w.entries); hist(w, TODAY, 'System', text + ' Auto-approved (no reporting manager).'); }
+  else { w.status = 'submitted'; w.comment = null; hist(w, TODAY, by, text); }
+}
+function runSubmission(s) {
+  Object.keys(s.weeks).forEach(key => { const [id, ws] = key.split('|'); if (s.weeks[key].status === 'draft' && ws <= THIS_WEEK) submitWeek(s, id, ws, 'System', 'Auto-submitted on ' + DAY_LONG[s.settings.submitDay]); });
+}
+function createRequest(s, type, empId, data) {
+  const e = EMAP[empId];
+  const l2 = s.settings.l2[type] === 'None' ? null : s.settings.l2[type];
+  const r = { id: 'REQ-' + (s.seq++), type, empId, created: TODAY, data, status: 'pending_l1', l2, trail: [{ level: 0, by: e.name, action: 'Submitted', at: TODAY }] };
+  if (!e.mgr) { r.trail.push({ level: 1, by: 'No reporting manager', action: 'Skipped', at: TODAY }); r.status = l2 ? 'pending_l2' : 'approved'; if (!l2) applyEffects(s, r); }
+  s.requests.unshift(r);
+  return r;
+}
+function applyEffects(s, r) { if (r.type === 'attendance') s.attendance[r.empId + '|' + r.data.date] = { in: r.data.to.in, out: r.data.to.out }; }
+function decideRequest(s, id, level, decision, comment, by) {
+  const r = s.requests.find(x => x.id === id);
+  if (!r) return;
+  r.trail.push({ level, by, action: decision === 'approve' ? 'Approved' : 'Rejected', comment: comment || '', at: TODAY });
+  if (decision === 'reject') { r.status = 'rejected'; return; }
+  if (level === 1) { const l2 = s.settings.l2[r.type] === 'None' ? null : s.settings.l2[r.type]; r.l2 = l2; if (l2) r.status = 'pending_l2'; else { r.status = 'approved'; applyEffects(s, r); } }
+  else { r.status = 'approved'; applyEffects(s, r); }
+}
+function diffEntries(before, after) {
+  const days = Array.from(new Set(Object.keys(before || {}).concat(Object.keys(after || {})))).sort();
+  const out = [];
+  days.forEach(k => {
+    const b = (before && before[k]) || [], a = (after && after[k]) || [];
+    const bm = Object.fromEntries(b.map(e => [e.id, e])), am = Object.fromEntries(a.map(e => [e.id, e]));
+    const rows = [];
+    a.forEach(e => { if (!bm[e.id]) rows.push({ kind: 'add', after: e }); else { const o = bm[e.id]; if (o.start !== e.start || o.end !== e.end || o.desc !== e.desc || entryMins(o) !== entryMins(e)) rows.push({ kind: 'edit', before: o, after: e }); } });
+    b.forEach(e => { if (!am[e.id]) rows.push({ kind: 'del', before: e }); });
+    rows.sort((x, y) => byStart(x.after || x.before, y.after || y.before));
+    if (rows.length) out.push({ day: k, rows, before: sumMins(b), after: sumMins(a) });
+  });
+  return out;
+}
+function weeksIn(s, m) {
+  return Array.from(new Set(Object.keys(s.weeks).map(k => k.split('|')[1]))).filter(ws => ws <= THIS_WEEK && weekDays(ws).some(k => monthOf(k) === m)).sort();
+}
+function payrollBlockers(s, m) {
+  if (!approvalOn(s)) return [];
+  const out = [];
+  EMP.forEach(e => {
+    const open = weeksIn(s, m).filter(ws => s.weeks[e.id + '|' + ws] && s.weeks[e.id + '|' + ws].status !== 'approved').map(ws => ({ ws, st: s.weeks[e.id + '|' + ws].status }));
+    if (open.length) out.push({ e, open });
+  });
+  return out;
+}
+function teamTimesheetItems(store, mgrId) {
+  if (!approvalOn(store)) return [];
+  const reports = EMP.filter(e => e.mgr === mgrId).map(e => e.id);
+  const items = [];
+  Object.keys(store.weeks).forEach(key => {
+    const [id, ws] = key.split('|');
+    if (!reports.includes(id)) return;
+    const w = store.weeks[key];
+    if (w.change) items.push({ id, ws, kind: 'change' });
+    else if (w.status === 'submitted') items.push({ id, ws, kind: 'week' });
+  });
+  return items.sort((a, b) => a.ws < b.ws ? -1 : 1);
+}
+const reqVisible = (s, r) => !(s.settings.mode === 'timesheet' && r.type === 'attendance');
+
+/* ---------------- context ---------------- */
+const Ctx = createContext(null);
+const useApp = () => useContext(Ctx);
+
+/* ---------------- small components ---------------- */
+const Icon = {
+  payroll: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>`,
+  emp: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>`,
+  mgr: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1.2-3.4 3.8-5 6.5-5s5.3 1.6 6.5 5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 15c1.8.6 3 2.2 3.5 5"/></svg>`,
+  lock: html`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>`,
+  clock: html`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`,
+};
+function Modal({ title, onClose, children, footer, wide }) {
+  useEffect(() => { const h = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, [onClose]);
+  return html`<div className="overlay" onMouseDown=${e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className=${'modal' + (wide ? ' wide' : '')} role="dialog" aria-modal="true" aria-label=${title}>
+      <div className="modal-h"><h2>${title}</h2><span className="spacer"></span><button className="btn ghost" onClick=${onClose} aria-label="Close">✕</button></div>
+      <div className="modal-b">${kids(children)}</div>
+      ${footer && html`<div className="modal-f">${kids(footer)}</div>`}
+    </div></div>`;
+}
+function CommentModal({ title, label, confirm, required, onClose, onSubmit, danger }) {
+  const [text, setText] = useState(''); const [err, setErr] = useState('');
+  const go = () => { if (required && !text.trim()) { setErr('Add a short note so the employee knows what to fix.'); return; } onSubmit(text.trim()); };
+  return html`<${Modal} title=${title} onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="o" className=${'btn ' + (danger ? 'primary' : 'good')} onClick=${go}>${confirm}</button>`]}>
+    <div className="field"><label htmlFor="cm">${label}</label>
+      <textarea id="cm" className="input" autoFocus value=${text} onInput=${e => { setText(e.target.value); setErr(''); }}></textarea>
+      ${err && html`<span className="err">${err}</span>`}</div>
+  <//>`;
+}
+function WeekChip({ w }) { const { store } = useApp(); if (!approvalOn(store)) return html`<span className="chip">No approval needed</span>`; const st = WEEK_STATUS[weekStatusKey(w)]; return html`<span className=${'chip ' + st.cls}><span className="dot"></span>${st.label}</span>`; }
+function Empty({ title, children }) { return html`<div className="empty"><b>${title}</b>${kids(children)}</div>`; }
+function Seg({ value, options, onChange, label }) {
+  return html`<div className="seg" role="group" aria-label=${label}>${options.map(([k, l]) => html`<button key=${k} aria-pressed=${value === k} onClick=${() => onChange(k)}>${l}</button>`)}</div>`;
+}
+function Tabs({ tabs, value, onChange }) {
+  return html`<div className="tabs" role="tablist">${tabs.map(t => html`<button key=${t.k} className="tab" role="tab" aria-selected=${value === t.k} onClick=${() => onChange(t.k)}>${t.label}${t.n != null && html`<span className="n">${t.n}</span>`}</button>`)}</div>`;
+}
+function approvalLine(s, emp, type) {
+  const mgr = emp.mgr ? EMAP[emp.mgr] : null; const l2 = s.settings.l2[type];
+  return 'Approval: ' + (mgr ? mgr.name + ' (manager)' : 'no manager, skipped') + (l2 !== 'None' ? ', then ' + l2 + ' team' : '') + '.';
+}
+
+/* ---------------- track ---------------- */
+const T0 = 7 * 60, T1 = 22 * 60, TSPAN = T1 - T0;
+const pct = m => ((Math.min(Math.max(m, T0), T1) - T0) / TSPAN) * 100;
+function DayTrack({ win, list }) {
+  const segs = [];
+  (list || []).forEach(e => {
+    const a = toMin(e.start), b = toMin(e.end);
+    if (win.start == null) { segs.push({ a, b, out: true }); return; }
+    if (a < win.start) segs.push({ a, b: Math.min(b, win.start), out: true });
+    const ia = Math.max(a, win.start), ib = Math.min(b, win.end);
+    if (ib > ia) segs.push({ a: ia, b: ib, out: false });
+    if (b > win.end) segs.push({ a: Math.max(a, win.end), b, out: true });
+  });
+  return html`<div className="track" aria-hidden="true">
+    ${win.start != null && html`<div className="w" style=${{ left: pct(win.start) + '%', width: (pct(win.end) - pct(win.start)) + '%' }}></div>`}
+    ${segs.map((s, i) => html`<div key=${i} className=${s.out ? 'seg-out' : 'seg-in'} style=${{ left: pct(s.a) + '%', width: Math.max(0.6, pct(s.b) - pct(s.a)) + '%' }}></div>`)}
+  </div>`;
+}
+function Ticks() {
+  return html`<div className="ticks" aria-hidden="true">${[8, 10, 12, 14, 16, 18, 20].map(h => html`<span key=${h} style=${{ left: pct(h * 60) + '%' }}>${h > 12 ? (h - 12) + 'pm' : h === 12 ? '12pm' : h + 'am'}</span>`)}</div>`;
+}
+
+/* ---------------- month grid ---------------- */
+function MonthGrid({ month, selected, onPick, cell }) {
+  const start = mondayOf(firstOf(month));
+  const last = addDays(firstOf(addMonths(month, 1)), -1);
+  const days = []; for (let k = start; k <= last || dow(k) !== 1; k = addDays(k, 1)) { days.push(k); if (days.length > 42) break; }
+  return html`<div className="panel" style=${{ overflow: 'hidden' }}><div className="cal">
+    ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => html`<div key=${d} className="cal-h">${d}</div>`)}
+    ${days.map(k => {
+      const inM = monthOf(k) === month;
+      const c = inM ? cell(k) : null;
+      return html`<button key=${k} className=${'cal-cell' + (inM ? '' : ' out') + (k === TODAY ? ' today' : '') + (selected === k ? ' sel' : '')} disabled=${!inM} onClick=${() => inM && onPick(k)} aria-label=${fmtLong(k)}>
+        <span className="dn">${fromKey(k).getDate()}</span>${c}</button>`;
+    })}
+  </div></div>`;
+}
+
+/* ---------------- request pieces ---------------- */
+function reqStatusText(r) {
+  if (r.status === 'pending_l1') { const e = EMAP[r.empId]; return 'with ' + (e.mgr ? EMAP[e.mgr].name : 'manager'); }
+  if (r.status === 'pending_l2') return 'with ' + r.l2 + ' team';
+  return r.status === 'approved' ? 'approved' : 'rejected';
+}
+function ReqStatusChip({ r }) {
+  const cls = r.status === 'approved' ? 'green' : r.status === 'rejected' ? 'red' : 'blue';
+  const lbl = r.type === 'overtime' && r.data.kind === 'planned' ? 'Planned overtime' : TYPE_LABEL[r.type];
+  return html`<span className=${'chip ' + cls}><span className="dot"></span>${lbl} ${reqStatusText(r)}</span>`;
+}
+function Chain({ r }) {
+  const e = EMAP[r.empId];
+  const t1 = r.trail.find(t => t.level === 1), t2 = r.trail.find(t => t.level === 2);
+  const s1 = t1 ? (t1.action === 'Skipped' ? 'skipped' : t1.action === 'Approved' ? 'done' : 'rejected') : r.status === 'pending_l1' ? 'pending' : '';
+  const s2 = t2 ? (t2.action === 'Approved' ? 'done' : 'rejected') : r.status === 'pending_l2' ? 'pending' : '';
+  const sym = st => st === 'done' ? '✓' : st === 'rejected' ? '✕' : st === 'pending' ? '…' : '';
+  const showL2 = !!r.l2 || r.status === 'pending_l1';
+  return html`<div className="chain">
+    <span className=${'step ' + s1}>${sym(s1)} ${e.mgr ? EMAP[e.mgr].name + ' (manager)' : 'No manager, skipped'}</span>
+    ${showL2 && html`<span className="arrow">→</span>`}
+    ${showL2 && html`<span className=${'step ' + s2}>${sym(s2)} ${r.l2 ? r.l2 + ' team' : 'Level 2 per settings'}</span>`}
+  </div>`;
+}
+function reqTitle(r) { return r.type === 'overtime' && r.data.kind === 'planned' ? 'Planned overtime' : TYPE_LABEL[r.type]; }
+function reqSummary(r) {
+  const d = r.data;
+  if (r.type === 'overtime') return dur(d.minutes) + ' on ' + fmtDate(d.date) + (holidayOf(d.date) ? ' (' + holidayOf(d.date) + ')' : isWeekend(d.date) ? ' (weekly off)' : '') + (d.note ? '. ' + d.note : '');
+  if (r.type === 'leave') return d.leaveType + ' leave, ' + fmtShort(d.from) + (d.to !== d.from ? ' – ' + fmtShort(d.to) : '') + ' (' + d.days + (d.days === 1 ? ' day' : ' days') + '). ' + d.reason;
+  if (r.type === 'reimbursement') return inr(d.amount) + ', ' + d.category + '. ' + d.description;
+  if (r.type === 'attendance') {
+    const parts = [];
+    if (d.from.in !== d.to.in) parts.push('check-in ' + d.from.in + ' → ' + d.to.in);
+    if (d.from.out !== d.to.out) parts.push('check-out ' + (d.from.out || 'none') + (d.autoFix ? ' (auto)' : '') + ' → ' + d.to.out);
+    return fmtDate(d.date) + ': ' + parts.join(', ') + '. ' + d.reason;
+  }
+  return '';
+}
+function ReqRow({ r, showEmp, level, actor }) {
+  const { store, update, notify } = useApp();
+  const [rejecting, setRejecting] = useState(false);
+  const e = EMAP[r.empId];
+  const actionable = level && ((level === 1 && r.status === 'pending_l1') || (level === 2 && r.status === 'pending_l2'));
+  const lastComment = r.trail.filter(t => t.comment).slice(-1)[0];
+  let context = null;
+  if (r.type === 'overtime' && level && r.data.kind !== 'planned' && store.settings.mode !== 'timesheet') {
+    const a = attOf(store, e, r.data.date);
+    if (a && a.out) context = 'Attendance that day: ' + a.in + ' to ' + a.out + ' (' + dur(toMin(a.out) - toMin(a.in)) + ')' + (a.auto ? ', auto check-out' : '');
+  }
+  if (r.type === 'overtime' && level && r.data.kind !== 'planned' && store.settings.mode === 'timesheet') context = 'Timesheet that day: ' + dur(sumMins(entriesOn(store, e.id, r.data.date))) + ' logged';
+  if (r.type === 'overtime' && r.data.kind === 'planned' && r.data.date < TODAY) { const o = otOfDay(store, e, r.data.date); context = 'Actually worked ' + dur(o.extra) + ' extra that day.'; }
+  return html`<div className="req">
+    <div>
+      <div className="row" style=${{ gap: '8px' }}>
+        ${showEmp && html`<span className="avatar" style=${{ width: '26px', height: '26px', fontSize: '11px' }}>${initials(e.name)}</span>`}
+        <span className="title">${showEmp ? e.name + ', ' : ''}${reqTitle(r)}</span><span className="muted small">${r.id}, raised ${fmtShort(r.created)}</span>
+      </div>
+      <div style=${{ marginTop: '4px', color: 'var(--ink-2)' }}>${reqSummary(r)}</div>
+      ${context && html`<div className="small muted" style=${{ marginTop: '2px' }}>${context}</div>`}
+      <${Chain} r=${r} />
+      ${lastComment && html`<div className="small" style=${{ marginTop: '6px', color: 'var(--ink-2)' }}>${lastComment.by}: “${lastComment.comment}”</div>`}
+    </div>
+    <div className="row" style=${{ alignItems: 'flex-start' }}>
+      ${actionable ? [html`<button key="rj" className="btn sm" onClick=${() => setRejecting(true)}>Reject</button>`,
+        html`<button key="ap" className="btn sm good" onClick=${() => { update(s => decideRequest(s, r.id, level, 'approve', '', actor)); notify(reqTitle(r) + ' approved' + (level === 1 && store.settings.l2[r.type] !== 'None' ? ', sent to ' + store.settings.l2[r.type] : '')); }}>Approve</button>`]
+        : html`<${ReqStatusChip} r=${r} />`}
+    </div>
+    ${rejecting && html`<${CommentModal} title=${'Reject ' + reqTitle(r).toLowerCase()} label="Reason (shown to the employee)" confirm="Reject" danger required onClose=${() => setRejecting(false)}
+      onSubmit=${c => { update(s => decideRequest(s, r.id, level, 'reject', c, actor)); setRejecting(false); notify(reqTitle(r) + ' rejected'); }} />`}
+  </div>`;
+}
+
+/* ---------------- modals: overtime & attendance fix ---------------- */
+function OvertimeModal({ emp, kind: kind0, prefill, onClose }) {
+  const { update, notify, store } = useApp();
+  const [kind, setKind] = useState(kind0 || 'worked');
+  const [date, setDate] = useState(prefill ? prefill.k : kind0 === 'planned' ? addDays(TODAY, 1) : addDays(TODAY, -1));
+  const [hours, setHours] = useState(prefill ? Math.floor(prefill.mins / 60) : 1);
+  const [mins, setMins] = useState(prefill ? prefill.mins % 60 : 0);
+  const [note, setNote] = useState('');
+  const [err, setErr] = useState('');
+  const mgr = emp.mgr ? EMAP[emp.mgr] : null;
+  const go = () => {
+    const total = Number(hours) * 60 + Number(mins);
+    if (!date) return setErr('Pick a date.');
+    if (kind === 'planned' && date < TODAY) return setErr('Planned overtime needs a date from today onwards.');
+    if (kind === 'worked' && date > TODAY) return setErr('For a future date, use planned overtime.');
+    if (total <= 0) return setErr('Overtime must be more than zero.');
+    if (kind === 'planned' && !note.trim()) return setErr('Say what the planned work is, so your manager can approve it.');
+    if (isLocked(store, date)) return setErr('Payroll for that month is processed. Overtime can no longer be claimed for it.');
+    update(s => createRequest(s, 'overtime', emp.id, { kind, date, minutes: total, note: note.trim() }));
+    notify((kind === 'planned' ? 'Planned overtime' : 'Overtime request') + ' sent to ' + (mgr ? mgr.name : store.settings.l2.overtime + ' team'));
+    onClose();
+  };
+  return html`<${Modal} title=${kind === 'planned' ? 'Plan overtime' : 'Request overtime'} onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="o" className="btn primary" onClick=${go}>Send request</button>`]}>
+    ${!prefill && html`<div className="field"><${Seg} label="Overtime type" value=${kind} onChange=${k => { setKind(k); setErr(''); setDate(k === 'planned' ? addDays(TODAY, 1) : addDays(TODAY, -1)); }} options=${[['worked', 'Already worked'], ['planned', 'Planned (ask in advance)']]} /></div>`}
+    ${prefill && html`<div className="banner amber"><div>${otText(prefill.o, emp)}</div></div>`}
+    <div className="field"><label htmlFor="otd">Date</label><input id="otd" className="input" type="date" value=${date} min=${kind === 'planned' ? TODAY : undefined} max=${kind === 'worked' ? TODAY : undefined} onInput=${e => { setDate(e.target.value); setErr(''); }} /></div>
+    <div className="row" style=${{ flexWrap: 'nowrap' }}>
+      <div className="field" style=${{ flex: 1 }}><label htmlFor="oth">${kind === 'planned' ? 'Expected hours' : 'Hours'}</label><input id="oth" className="input" type="number" min="0" max="16" value=${hours} onInput=${e => { setHours(e.target.value); setErr(''); }} /></div>
+      <div className="field" style=${{ flex: 1 }}><label htmlFor="otm">Minutes</label><input id="otm" className="input" type="number" min="0" max="59" step="5" value=${mins} onInput=${e => { setMins(e.target.value); setErr(''); }} /></div>
+    </div>
+    <div className="field"><label htmlFor="otn">${kind === 'planned' ? 'What needs the extra time?' : 'Note (optional)'}</label><textarea id="otn" className="input" value=${note} onInput=${e => { setNote(e.target.value); setErr(''); }}></textarea></div>
+    <div className="small muted">${approvalLine(store, emp, 'overtime')}</div>
+    ${err && html`<div className="err">${err}</div>`}
+  <//>`;
+}
+function AttendanceFixModal({ emp, k, prefill, onClose }) {
+  const { store, update, notify } = useApp();
+  const a = attOf(store, emp, k);
+  const raw = store.attendance[emp.id + '|' + k] || {};
+  const autoOnly = a && a.auto && !prefill;
+  const [tin, setIn] = useState(prefill ? prefill.in : a ? a.in : '09:30');
+  const [tout, setOut] = useState(prefill ? prefill.out : a && a.out ? a.out : '18:30');
+  const [reason, setReason] = useState('');
+  const [err, setErr] = useState('');
+  const mgr = emp.mgr ? EMAP[emp.mgr] : null;
+  const go = () => {
+    if (toMin(tout) <= toMin(tin)) return setErr('Check-out must be after check-in.');
+    if (!reason.trim()) return setErr('Add a reason.');
+    if (a && tin === a.in && tout === a.out && !a.auto) return setErr('Change at least one time.');
+    update(s => createRequest(s, 'attendance', emp.id, { date: k, autoFix: !!(a && a.auto), from: { in: a ? a.in : '–', out: a && a.out ? a.out : '' }, to: { in: tin, out: tout }, reason: reason.trim() }));
+    notify('Sent to ' + (mgr ? mgr.name : 'HR'));
+    onClose();
+  };
+  return html`<${Modal} title=${(autoOnly ? 'Update check-out for ' : 'Correct attendance for ') + fmtDate(k)} onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="o" className="btn primary" onClick=${go}>Send request</button>`]}>
+    ${a && a.auto && html`<div className="banner blue"><div>You didn't check out, so the day was closed at your shift end (${a.out}). Enter when you actually left.</div></div>`}
+    ${prefill && html`<div className="banner blue"><div>Filled in from your timesheet entries for this day.</div></div>`}
+    <div className="row" style=${{ flexWrap: 'nowrap' }}>
+      <div className="field" style=${{ flex: 1 }}><label htmlFor="ai">Check in</label><input id="ai" className="input" type="time" value=${tin} disabled=${autoOnly} onInput=${e => { setIn(e.target.value); setErr(''); }} /></div>
+      <div className="field" style=${{ flex: 1 }}><label htmlFor="ao">${autoOnly ? 'Actual check-out' : 'Check out'}</label><input id="ao" className="input" type="time" value=${tout} autoFocus=${autoOnly} onInput=${e => { setOut(e.target.value); setErr(''); }} /></div>
+    </div>
+    <div className="small muted" style=${{ marginBottom: '12px' }}>Recorded: ${raw.in ? raw.in + ' to ' + (a && a.out ? a.out + (a.auto ? ' (auto)' : '') : 'no check-out') : 'no check-in'}</div>
+    <div className="field"><label htmlFor="ar">Reason</label><textarea id="ar" className="input" value=${reason} onInput=${e => { setReason(e.target.value); setErr(''); }}></textarea></div>
+    <div className="small muted">${approvalLine(store, emp, 'attendance')}</div>
+    ${err && html`<div className="err">${err}</div>`}
+  <//>`;
+}
+
+/* ---------------- Attendance tab ---------------- */
+function TodayPanel({ emp }) {
+  const { store, update, notify } = useApp();
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick(x => x + 1), 30000); return () => clearInterval(t); }, []);
+  const a = store.attendance[emp.id + '|' + TODAY] || {};
+  const [ss, se] = shiftOf(emp);
+  const now = nowMin(); const nowT = toTime(r5(now) >= 1440 ? 1435 : r5(now));
+  const st = dayStatus(store, emp, TODAY);
+  const lv = leaveOn(store, emp.id, TODAY);
+  const worked = a.in ? (a.out ? toMin(a.out) : now) - toMin(a.in) : 0;
+  return html`<div className="panel pad todaybox" style=${{ marginBottom: '18px' }}>
+    <div><div className="muted small">${fmtLong(TODAY)}${holidayOf(TODAY) ? ', ' + holidayOf(TODAY) : ''}</div>
+      <div className="clock">${a.in ? dur(Math.max(0, worked)) : '0h'}</div>
+      <div className="small" style=${{ color: 'var(--ink-2)' }}>${lv ? 'On ' + lv.data.leaveType.toLowerCase() + ' leave today' : !a.in ? 'Not checked in. Shift ' + toTime(ss) + '–' + toTime(se) : a.out ? 'Checked in ' + a.in + ', checked out ' + a.out : 'Checked in at ' + a.in + (st.late ? ' (late)' : '') + '. Shift ends ' + toTime(se)}</div>
+    </div>
+    <span className="spacer"></span>
+    ${!a.in && !lv && html`<button className="btn primary" onClick=${() => { update(s => { s.attendance[emp.id + '|' + TODAY] = { in: nowT }; }); notify('Checked in at ' + nowT); }}>Check in</button>`}
+    ${a.in && !a.out && html`<button className="btn primary" onClick=${() => { update(s => { s.attendance[emp.id + '|' + TODAY].out = nowT; }); notify('Checked out at ' + nowT); }}>Check out</button>`}
+    ${a.in && !a.out && html`<div className="small muted" style=${{ width: '100%' }}>If you forget to check out, the day closes automatically at ${toTime(se)}. You can update it to the real time later.</div>`}
+  </div>`;
+}
+function MyAttendance({ emp }) {
+  const { store } = useApp();
+  const [month, setMonth] = useState(monthOf(TODAY));
+  const [sel, setSel] = useState(TODAY);
+  const [fix, setFix] = useState(null);
+  const mine = store.requests.filter(r => r.empId === emp.id && r.type === 'attendance');
+  const days = []; for (let k = firstOf(month); monthOf(k) === month; k = addDays(k, 1)) days.push(k);
+  const counts = { present: 0, late: 0, half: 0, absent: 0, leave: 0, auto: 0 };
+  days.filter(k => k <= TODAY).forEach(k => { const st = dayStatus(store, emp, k); if (counts[st.key] != null) counts[st.key]++; if (st.key === 'late') counts.present++; const a = attOf(store, emp, k); if (a && a.auto) counts.auto++; });
+  const cell = k => { const st = dayStatus(store, emp, k); const a = attOf(store, emp, k); return [
+    st.label ? html`<span key="m" className=${'mini ' + st.key}>${st.label}</span>` : null,
+    html`<span key="d" className=${'dot-m ' + (st.key || 'none')}></span>`,
+    a && a.out ? html`<span key="t" className="cs">${a.in}–${a.out}${a.auto ? ' auto' : ''}</span>` : a ? html`<span key="t" className="cs">In ${a.in}</span>` : null]; };
+  const a = attOf(store, emp, sel);
+  const st = dayStatus(store, emp, sel);
+  const pending = mine.find(r => r.data.date === sel && (r.status === 'pending_l1' || r.status === 'pending_l2'));
+  const ot = otSuggestion(store, emp, sel);
+  return html`<div>
+    <${TodayPanel} emp=${emp} />
+    <div className="viewbar">
+      <button className="btn sm" aria-label="Previous month" onClick=${() => setMonth(addMonths(month, -1))}>‹</button>
+      <span className="range">${fmtMonth(month)}</span>
+      <button className="btn sm" aria-label="Next month" onClick=${() => setMonth(addMonths(month, 1))}>›</button>
+      ${month !== monthOf(TODAY) && html`<button className="btn sm ghost" onClick=${() => { setMonth(monthOf(TODAY)); setSel(TODAY); }}>This month</button>`}
+      <span className="spacer"></span>
+      <span className="chip green">${counts.present} present</span>${counts.late ? html`<span className="chip amber">${counts.late} late</span>` : null}${counts.half ? html`<span className="chip amber">${counts.half} half day</span>` : null}${counts.absent ? html`<span className="chip red">${counts.absent} absent</span>` : null}${counts.leave ? html`<span className="chip blue">${counts.leave} on leave</span>` : null}${counts.auto ? html`<span className="chip">${counts.auto} auto check-out</span>` : null}
+    </div>
+    <div className="split">
+      <${MonthGrid} month=${month} selected=${sel} onPick=${setSel} cell=${cell} />
+      <aside className="card panel pad">
+        <h3>${fmtLong(sel)}</h3>
+        <div style=${{ margin: '8px 0 12px' }}>${st.label ? html`<span className=${'mini ' + st.key}>${st.label}</span>` : html`<span className="muted small">Upcoming</span>`}</div>
+        <dl className="kv">
+          <dt>Shift</dt><dd>${isOff(sel) ? 'Off' : shiftOf(emp).map(toTime).join('–')}</dd>
+          <dt>Check in</dt><dd>${a ? a.in : '–'}</dd>
+          <dt>Check out</dt><dd>${a && a.out ? a.out + (a.auto ? ' (auto, you didn’t check out)' : '') : a ? 'Still checked in' : '–'}</dd>
+          <dt>Time at work</dt><dd>${a && a.out ? dur(toMin(a.out) - toMin(a.in)) : '–'}</dd>
+        </dl>
+        ${ot && store.settings.mode !== 'timesheet' && html`<div className="flag ot"><span>${otText(ot, emp)}</span></div>`}
+        <div className="divider"></div>
+        ${pending ? html`<${ReqStatusChip} r=${pending} />` : isLocked(store, sel) ? html`<div className="small muted">${Icon.lock} Payroll processed for this month. No changes.</div>`
+          : sel > TODAY ? html`<div className="small muted">Nothing to do for a future day.</div>`
+          : a && a.auto ? html`<button className="btn primary" onClick=${() => setFix({ k: sel })}>Update check-out</button>`
+          : sel < TODAY || (a && a.out) ? html`<button className="btn" onClick=${() => setFix({ k: sel })}>Request correction</button>` : html`<div className="small muted">Use Check in / Check out above for today.</div>`}
+      </aside>
+    </div>
+    <h3 style=${{ margin: '22px 0 10px' }}>My correction requests</h3>
+    <div className="panel">${mine.length ? mine.map(r => html`<${ReqRow} key=${r.id} r=${r} />`) : html`<${Empty} title="No corrections raised">Pick a day in the calendar to request one.<//>`}</div>
+    ${fix && html`<${AttendanceFixModal} emp=${emp} k=${fix.k} prefill=${fix.prefill} onClose=${() => setFix(null)} />`}
+  </div>`;
+}
+
+/* ---------------- Timesheet tab ---------------- */
+function SideCard({ emp, ws, entries, week, children }) {
+  const { store } = useApp();
+  let logged = 0, expected = 0;
+  const rows = weekDays(ws).map(k => {
+    const win = dayWindow(store, emp, k);
+    const l = sumMins(entries[k]);
+    const exp = isOff(k) ? 0 : store.settings.mode === 'timesheet' || win.start == null ? shiftLen(emp) - store.settings.breakMin : Math.max(0, win.end - win.start - store.settings.breakMin);
+    logged += l; expected += exp;
+    return { k, l, exp };
+  });
+  const gap = expected - logged;
+  return html`<aside className="card panel pad" aria-label="Week summary">
+    <div className="row"><h3>Week of ${fmtShort(ws)}</h3><span className="spacer"></span><${WeekChip} w=${week} /></div>
+    <div style=${{ marginTop: '10px' }}><span className="big">${dur(logged)}</span> <span className="muted">of ${dur(expected)} logged</span></div>
+    <div className="bars">${rows.map(r => html`<div key=${r.k} className="bar"><span className=${r.k === TODAY ? '' : 'muted'}>${DAY_SHORT[dow(r.k)]}</span>
+      <span className="b"><i className=${r.l > r.exp ? 'over' : ''} style=${{ width: (r.exp ? Math.min(100, (r.l / r.exp) * 100) : r.l ? 100 : 0) + '%' }}></i></span>
+      <span className="v">${r.exp ? dur(r.l) + ' / ' + dur(r.exp) : r.l ? dur(r.l) : holidayOf(r.k) ? 'Holiday' : 'Off'}</span></div>`)}</div>
+    <div className="small muted">${gap > 0 ? dur(gap) + ' not logged yet, after a ' + dur(store.settings.breakMin) + ' break each day. This never blocks submission.' : 'Your working hours are fully logged.'}</div>
+    <div className="divider"></div>
+    ${kids(children)}
+  </aside>`;
+}
+function HistoryList({ week }) {
+  if (!week.history.length) return null;
+  return html`<div className="panel pad" style=${{ marginTop: '18px' }}><h3 style=${{ marginBottom: '6px' }}>Change history</h3>
+    <ul className="hist">${week.history.slice().reverse().map((h, i) => html`<li key=${i}><span className="muted">${fmtShort(h.at)}</span><span><b style=${{ fontWeight: 500 }}>${h.by}</b>: ${h.text}</span></li>`)}</ul></div>`;
+}
+function tsMonthCell(store, emp, k, entriesFn) {
+  const l = sumMins(entriesFn(k));
+  const w = readWeek(store, emp.id, mondayOf(k));
+  const st = WEEK_STATUS[weekStatusKey(w)];
+  const ot = k < TODAY ? otSuggestion(store, emp, k) : null;
+  const hol = holidayOf(k);
+  return [
+    html`<span key="v" className="cv">${l ? dur(l) : isOff(k) ? '' : k <= TODAY ? '0h' : ''}</span>`,
+    hol ? html`<span key="h" className="mini holiday">${hol}</span>` : isWeekend(k) && !l ? html`<span key="h" className="cs">Weekly off</span>` : null,
+    ot ? html`<span key="o" className="mini ot">+${dur(ot.extra)} OT</span>` : null,
+    approvalOn(store) && dow(k) === 1 && k <= TODAY ? html`<span key="s" className=${'mini ' + (st.cls === 'green' ? 'present' : st.cls === 'red' ? 'absent' : st.cls === 'amber' ? 'late' : st.cls === 'blue' ? 'leave' : 'off')}>${st.label}</span>` : null,
+    html`<span key="d" className=${'dot-m ' + (l ? 'present' : 'none')}></span>`,
+  ];
+}
+/* ---- timesheet workspace (shared by employee, manager viewer and review) ---- */
+function calState(store, emp, k) {
+  if (isOff(k)) return 'off';
+  if (!approvalOn(store)) return '';
+  const ws = mondayOf(k);
+  if (ws > THIS_WEEK) return '';
+  const w = store.weeks[emp.id + '|' + ws];
+  if (!w) return '';
+  if (w.status === 'rejected') return 'back';
+  if (w.change || w.status === 'submitted') return 'sub';
+  if (w.status === 'approved') return 'ok';
+  return '';
+}
+function expectedFor(store, emp, k) {
+  if (isOff(k) || leaveOn(store, emp.id, k)) return 0;
+  if (store.settings.mode === 'timesheet') return shiftLen(emp) - store.settings.breakMin;
+  const w = dayWindow(store, emp, k);
+  if (w.missing) return 0;
+  return w.start == null ? shiftLen(emp) - store.settings.breakMin : Math.max(0, w.end - w.start - store.settings.breakMin);
+}
+function periodOf(store, emp, view, cursor, entriesFor) {
+  const ws = mondayOf(cursor);
+  const worked = k => entriesFor(k).length > 0 || !!store.attendance[emp.id + '|' + k];
+  if (view === 'day') return { days: [cursor], rangeFn: k => k === cursor, label: fmtLong(cursor) };
+  if (view === 'week') return { days: weekDays(ws).filter(k => !isOff(k) || worked(k)), rangeFn: k => mondayOf(k) === ws, label: weekRange(ws) };
+  const m = monthOf(cursor), days = [];
+  for (let k = firstOf(m); monthOf(k) === m; k = addDays(k, 1)) if (!isOff(k) || worked(k)) days.push(k);
+  return { days, rangeFn: k => monthOf(k) === m, label: fmtMonth(m) };
+}
+function MiniMonth({ month, emp, sel, inRange, onPick, extraClass }) {
+  const { store } = useApp();
+  const start = mondayOf(firstOf(month));
+  const cells = []; for (let i = 0; i < 42; i++) { const k = addDays(start, i); if (i >= 35 && monthOf(k) !== month) break; cells.push(k); }
+  return html`<div className=${'mm ' + (extraClass || '')}>
+    <div className="mm-t">${fmtMonth(month)}</div>
+    <div className="mm-g">
+      ${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => html`<span key=${'h' + i} className="mm-h">${d}</span>`)}
+      ${cells.map(k => {
+        if (monthOf(k) !== month) return html`<span key=${k}></span>`;
+        const st = calState(store, emp, k);
+        const lv = leaveOn(store, emp.id, k);
+        const cls = 'mc ' + st + (inRange(k) ? ' inr' : '') + (k === sel ? ' sel' : '') + (k === TODAY ? ' tdy' : '');
+        const tip = fmtLong(k) + (holidayOf(k) ? ', ' + holidayOf(k) : '') + (lv ? ', on leave' : '') + ({ ok: ', approved', sub: ', submitted', back: ', update requested' }[st] || '');
+        return html`<button key=${k} className=${cls} title=${tip} aria-label=${tip} aria-pressed=${k === sel} onClick=${() => onPick(k)}>${fromKey(k).getDate()}${lv ? html`<i className="lv"></i>` : null}</button>`;
+      })}
+    </div>
+  </div>`;
+}
+function Calendar3({ emp, cursor, sel, rangeFn, onPick, onShift, onToday }) {
+  const { store } = useApp();
+  const appr = approvalOn(store);
+  const months = [-1, 0, 1].map(n => addMonths(monthOf(cursor), n));
+  return html`<section className="panel pad" aria-label="Calendar">
+    <div className="row" style=${{ marginBottom: '10px' }}><h3>Calendar</h3><span className="spacer"></span>
+      <button className="btn sm" aria-label="Earlier months" onClick=${() => onShift(-1)}>‹</button>
+      <button className="btn sm ghost" onClick=${onToday}>Today</button>
+      <button className="btn sm" aria-label="Later months" onClick=${() => onShift(1)}>›</button></div>
+    <div className="cal3">${months.map((m, i) => html`<${MiniMonth} key=${m} month=${m} emp=${emp} sel=${sel} inRange=${rangeFn} onPick=${onPick} extraClass=${i === 1 ? '' : 'side'} />`)}</div>
+    <div className="legend">
+      <span><i className="lg off"></i>Weekend or holiday</span>
+      ${appr ? html`<span><i className="lg sub"></i>Submitted</span>` : null}
+      ${appr ? html`<span><i className="lg ok"></i>Approved</span>` : null}
+      ${appr ? html`<span><i className="lg back"></i>Update requested</span>` : null}
+      <span><i className="lg lvd"></i>Leave</span>
+    </div>
+  </section>`;
+}
+function UnloggedCard({ emp, days, entriesFor, onPick, view, who }) {
+  const { store } = useApp();
+  const list = days.filter(k => k < TODAY).map(k => ({ k, logged: sumMins(entriesFor(k)), exp: expectedFor(store, emp, k) })).filter(u => u.exp - u.logged >= 15).map(u => Object.assign(u, { gap: u.exp - u.logged }));
+  return html`<section className="panel pad" aria-label="Unlogged hours">
+    <div className="row"><h3>Unlogged hours</h3><span className="spacer"></span><b style=${{ fontWeight: 500, color: list.length ? 'var(--amber-ink)' : 'var(--green-ink)' }}>${dur(list.reduce((t, u) => t + u.gap, 0))}</b></div>
+    ${list.length ? html`<div style=${{ marginTop: '6px' }}>${list.slice(0, 5).map(u => html`<button key=${u.k} className="ul-row" onClick=${() => onPick(u.k)}>
+        <span>${fmtDate(u.k)}<span className="muted small"> · ${dur(u.logged)} of ${dur(u.exp)}</span></span><span style=${{ color: 'var(--amber-ink)' }}>${dur(u.gap)} ›</span></button>`)}
+        ${list.length > 5 ? html`<div className="small muted">and ${list.length - 5} more</div>` : null}</div>`
+      : html`<div className="small muted" style=${{ marginTop: '6px' }}>Nothing missing in this ${view}${who ? ' for ' + who : ''}.</div>`}
+  </section>`;
+}
+function HistoryCard({ week }) {
+  const [open, setOpen] = useState(false);
+  if (!week.history.length) return null;
+  return html`<section className="panel" aria-label="History">
+    <button className="hist-h" aria-expanded=${open} onClick=${() => setOpen(o => !o)}><span>${open ? '▾' : '▸'} History</span><span className="muted small">${week.history.length}</span></button>
+    ${open && html`<ul className="hist" style=${{ padding: '0 16px 8px' }}>${week.history.slice().reverse().map((h, i) => html`<li key=${i}><span className="muted">${fmtShort(h.at)}</span><span><b style=${{ fontWeight: 500 }}>${h.by}</b>: ${h.text}</span></li>`)}</ul>`}
+  </section>`;
+}
+function BarTrack({ win, list }) {
+  const segs = [];
+  (list || []).filter(timed).forEach(e => {
+    const a = toMin(e.start), b = toMin(e.end);
+    if (win.start == null) { segs.push({ a, b, out: true, e }); return; }
+    if (a < win.start) segs.push({ a, b: Math.min(b, win.start), out: true, e });
+    const ia = Math.max(a, win.start), ib = Math.min(b, win.end);
+    if (ib > ia) segs.push({ a: ia, b: ib, out: false, e });
+    if (b > win.end) segs.push({ a: Math.max(a, win.end), b, out: true, e });
+  });
+  return html`<div className="bt" aria-hidden="true">
+    ${win.start != null && html`<div className="bt-w" style=${{ left: pct(win.start) + '%', width: (pct(win.end) - pct(win.start)) + '%' }}></div>`}
+    ${segs.map((s, i) => html`<div key=${i} className=${s.out ? 'bt-o' : 'bt-e'} title=${s.e.start + '–' + s.e.end + ' ' + s.e.desc} style=${{ left: pct(s.a) + '%', width: Math.max(0.5, pct(s.b) - pct(s.a)) + '%' }}></div>`)}
+  </div>`;
+}
+/* entry form: start + end work out the hours; or type hours alone */
+function EntryForm({ initial, others, onSave, onCancel, quick }) {
+  const init = initial || {};
+  const [start, setStart] = useState(init.start || '');
+  const [end, setEnd] = useState(init.end || '');
+  const [hours, setHours] = useState(init.id ? fmtH(entryMins(init)) : '');
+  const [desc, setDesc] = useState(init.desc || '');
+  const [err, setErr] = useState('');
+  const onStart = v => { setStart(v); setErr(''); const h = parseHours(hours); if (v && end && toMin(end) > toMin(v)) setHours(fmtH(toMin(end) - toMin(v))); else if (v && h > 0) setEnd(toTime(Math.min(toMin(v) + h, 23 * 60 + 59))); };
+  const onEnd = v => { setEnd(v); setErr(''); if (start && v && toMin(v) > toMin(start)) setHours(fmtH(toMin(v) - toMin(start))); };
+  const onHours = v => { setHours(v); setErr(''); const h = parseHours(v); if (start && h > 0) setEnd(toTime(Math.min(toMin(start) + h, 23 * 60 + 59))); };
+  const clearTimes = () => { setStart(''); setEnd(''); };
+  const save = () => {
+    if (!start && end) return setErr('Add a start time too, or clear the end time.');
+    if (start && end && toMin(end) <= toMin(start)) return setErr('End time must be after the start time.');
+    const h = parseHours(hours);
+    const m = start && end ? toMin(end) - toMin(start) : h;
+    if (start && !end && !(h > 0)) return setErr('Add an end time or the hours.');
+    if (Number.isNaN(h) && !(start && end)) return setErr('Write hours like 1:30, 1.5 or 1h 30m.');
+    if (!(m > 0)) return setErr('Add the hours worked, or a start and end time.');
+    if (m > 24 * 60) return setErr('One entry can’t be more than 24 hours.');
+    if (!desc.trim()) return setErr('Describe what you worked on.');
+    if (sumMins(others) + m > 24 * 60) return setErr('That takes the day over 24 hours.');
+    if (start) { const a = toMin(start), b = a + m; const clash = others.filter(timed).find(o => a < toMin(o.end) && b > toMin(o.start)); if (clash) return setErr('Overlaps with ' + clash.start + '–' + clash.end + ' (' + clash.desc + ').'); }
+    const out = start ? { start, end: end || toTime(toMin(start) + m), mins: m, desc: desc.trim() } : { start: null, end: null, mins: m, desc: desc.trim() };
+    onSave(out);
+    if (quick) { setStart(''); setEnd(''); setHours(''); setDesc(''); }
+  };
+  return html`<div className=${quick ? 'ef qa' : 'ef'} onKeyDown=${e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') save(); }}>
+    ${quick ? html`<i className="qa-plus" aria-hidden="true">+</i>` : null}
+    <input className="input" type="time" aria-label="Start time (optional)" title="Start (optional)" value=${start} onInput=${e => onStart(e.target.value)} />
+    <input className="input" type="time" aria-label="End time (optional)" title="End (optional)" value=${end} onInput=${e => onEnd(e.target.value)} />
+    <input className="input hrs" inputMode="decimal" placeholder="Hours" aria-label="Hours" value=${hours} onInput=${e => onHours(e.target.value)} />
+    <input className="input desc" placeholder="What did you work on?" aria-label="Description" value=${desc} autoFocus=${!quick} onInput=${e => { setDesc(e.target.value); setErr(''); }} />
+    <div className="row" style=${{ gap: '4px', flexWrap: 'nowrap' }}>
+      <button className="btn sm primary" onClick=${save}>${quick ? 'Add' : 'Save'}</button>
+      ${onCancel ? html`<button className="btn sm ghost" onClick=${onCancel}>Cancel</button>` : null}
+    </div>
+    <span className="ef-hint">${start || end ? html`<span>Hours come from the times. <button className="btn link small" onClick=${clearTimes}>Log hours only</button></span>` : 'Times are optional. Enter hours alone if you don’t track start and end.'}</span>
+    ${err && html`<span className="err">${err}</span>`}
+  </div>`;
+}
+function EntriesPanel({ emp, k, list, editable, onSave, onDelete, onRequestOT, onFix }) {
+  const { store } = useApp();
+  const [editing, setEditing] = useState(null);
+  useEffect(() => setEditing(null), [k]);
+  const win = dayWindow(store, emp, k);
+  const sorted = (list || []).slice().sort(byStart);
+  const tl = sorted.filter(timed);
+  const both = store.settings.mode === 'both';
+  const outside = both ? sorted.reduce((t, e) => t + outsideMins(e, win), 0) : 0;
+  const ot = k < TODAY ? otSuggestion(store, emp, k) : null;
+  const otReq = otRequestFor(store, emp.id, k);
+  const locked = isLocked(store, k);
+  const a = attOf(store, emp, k);
+  const fix = () => {
+    const tin = a ? Math.min(toMin(a.in), ...tl.map(e => toMin(e.start))) : Math.min(...tl.map(e => toMin(e.start)));
+    const tout = a && a.out ? Math.max(toMin(a.out), ...tl.map(e => toMin(e.end))) : Math.max(...tl.map(e => toMin(e.end)));
+    onFix(k, { in: toTime(tin), out: toTime(tout) });
+  };
+  return html`<div className="dl-c">
+    ${locked && html`<div className="small muted" style=${{ marginBottom: '8px' }}>${Icon.lock} Payroll processed for this month. Read-only.</div>`}
+    ${(outside > 0 && k <= TODAY) || (ot && onRequestOT !== undefined) || otReq ? html`<div className="row" style=${{ gap: '8px', marginBottom: '8px' }}>
+      ${outside > 0 && k <= TODAY && html`<span className="chip blue">${dur(outside)} ${win.auto ? 'after auto check-out' : win.missing ? 'with no check-in' : 'outside check-in'}</span>`}
+      ${outside > 0 && k <= TODAY && onFix && !locked && html`<button className="btn sm" onClick=${fix}>${win.auto ? 'Update check-out' : 'Request attendance correction'}</button>`}
+      ${ot && !otReq && html`<span className="chip amber">${dur(ot.extra)} overtime</span>`}
+      ${ot && !otReq && onRequestOT && !locked && html`<button className="btn sm" onClick=${() => onRequestOT(k, ot)}>Request overtime</button>`}
+      ${otReq && html`<${ReqStatusChip} r=${otReq} />`}
+    </div>` : null}
+    ${sorted.length === 0 && !editable && html`<div className="empty-day">No time logged.</div>`}
+    ${sorted.map(e => editing === e.id
+      ? html`<${EntryForm} key=${e.id} initial=${e} others=${sorted.filter(o => o.id !== e.id)} onCancel=${() => setEditing(null)} onSave=${v => { onSave(k, Object.assign({}, e, v)); setEditing(null); }} />`
+      : html`<div key=${e.id} className="entry hov" onDoubleClick=${() => editable && setEditing(e.id)}>
+          <span className=${'t' + (timed(e) ? '' : ' nt')}>${entTime(e)}</span><span className="d">${dur(entryMins(e))}</span>
+          <span className="desc">${e.desc}${both && outsideMins(e, win) > 0 ? html`<span className="chip blue" style=${{ marginLeft: '6px' }}>outside check-in</span>` : null}</span>
+          <span className="acts">${editable ? [html`<button key="ed" className="btn ghost sm" onClick=${() => setEditing(e.id)} aria-label=${'Edit ' + e.desc}>Edit</button>`, html`<button key="del" className="btn ghost sm" onClick=${() => onDelete(k, e.id)} aria-label=${'Delete ' + e.desc}>Delete</button>`] : null}</span>
+        </div>`)}
+    ${editable && !editing && html`<${EntryForm} quick others=${sorted} onSave=${v => onSave(k, Object.assign({ id: null }, v))} />`}
+  </div>`;
+}
+function DayLine({ emp, k, list, expanded, onToggle, children }) {
+  const { store } = useApp();
+  const win = dayWindow(store, emp, k);
+  const a = attOf(store, emp, k);
+  const st = dayStatus(store, emp, k);
+  const logged = sumMins(list);
+  const untimed = (list || []).filter(e => !timed(e)).reduce((t, e) => t + entryMins(e), 0);
+  const exp = expectedFor(store, emp, k);
+  const ot = k < TODAY ? otSuggestion(store, emp, k) : null;
+  const both = store.settings.mode === 'both';
+  const outside = both && k <= TODAY ? (list || []).reduce((t, e) => t + outsideMins(e, win), 0) : 0;
+  const lv = leaveOn(store, emp.id, k);
+  let meta;
+  if (lv) meta = 'On ' + lv.data.leaveType.toLowerCase() + ' leave';
+  else if (store.settings.mode === 'timesheet') meta = isOff(k) ? (holidayOf(k) || 'Weekly off') : 'Shift ' + shiftOf(emp).map(toTime).join('–');
+  else if (a) meta = 'In ' + a.in + ' · Out ' + (a.out ? a.out + (a.auto ? ' (auto)' : '') : '—') + (a.out ? ' · At work ' + dur(toMin(a.out) - toMin(a.in)) : '');
+  else meta = k > TODAY ? 'Upcoming' : k === TODAY ? 'Not checked in yet' : 'No check-in';
+  const fill = exp ? Math.min(100, (logged / exp) * 100) : logged ? 100 : 0;
+  return html`<div className=${'dl' + (expanded ? ' open' : '') + (k === TODAY ? ' tdy' : '')}>
+    <button className="dl-a" onClick=${onToggle} aria-expanded=${expanded}>
+      <span className="dl-d">${DAY_SHORT[dow(k)]} ${fromKey(k).getDate()}</span>
+      <span className="dl-m">${MON[fromKey(k).getMonth()]}${k === TODAY ? ', today' : ''}</span>
+      ${st.label && store.settings.mode !== 'timesheet' ? html`<span className=${'mini ' + st.key}>${st.label}</span>` : null}
+    </button>
+    <div className="dl-b" onClick=${onToggle}>
+      <div className="dl-meta"><span>${meta}</span><span className="dl-log">Logged <b>${dur(logged)}</b>${exp ? ' of ' + dur(exp) : ''}${untimed ? ' (' + dur(untimed) + ' without set times)' : ''}</span>
+        ${ot ? html`<span className="chip amber">+${dur(ot.extra)} OT</span>` : null}
+        ${outside > 0 ? html`<span className="chip blue">${dur(outside)} outside check-in</span>` : null}
+        <span className="spacer"></span><span className="dl-car" aria-hidden="true">${expanded ? '▾' : '▸'}</span></div>
+      <${BarTrack} win=${win} list=${list} />
+      <div className="bt-m" aria-hidden="true"><i className=${exp && logged > exp ? 'over' : ''} style=${{ width: fill + '%' }}></i></div>
+    </div>
+    ${expanded && kids(children)}
+  </div>`;
+}
+function DayLines({ emp, days, entriesFor, view, sel, onToggle, panel }) {
+  return html`<section className="panel ts-lines" aria-label="Days">
+    <div className="dl dl-axis" aria-hidden="true"><div className="dl-a"></div><div className="dl-b"><${Ticks} /><div className="axis-key"><span><i className="k-w"></i>At work</span><span><i className="k-e"></i>Timed entries</span><span><i className="k-o"></i>Outside check-in</span><span><i className="k-m"></i>Hours logged vs expected</span></div></div></div>
+    ${days.map(k => html`<${DayLine} key=${k} emp=${emp} k=${k} list=${entriesFor(k)} expanded=${view === 'day' || sel === k} onToggle=${() => onToggle(k)}>${panel(k)}<//>`)}
+    ${days.length === 0 && html`<${Empty} title="No working days here">Pick another period.<//>`}
+  </section>`;
+}
+
+/* ---- employee: my timesheet ---- */
+function MyTimesheet({ emp }) {
+  const { store, update, notify } = useApp();
+  const [view, setView] = useState('week');
+  const [cursor, setCursor] = useState(TODAY);
+  const [sel, setSel] = useState(null);
+  const [draft, setDraft] = useState(null);
+  const [showProposed, setShowProposed] = useState(false);
+  const [askReason, setAskReason] = useState(false);
+  const [otModal, setOtModal] = useState(null);
+  const [fix, setFix] = useState(null);
+  const appr = approvalOn(store);
+  const focus = view === 'day' ? cursor : sel || cursor;
+  const fws = mondayOf(focus);
+  const fweek = readWeek(store, emp.id, fws);
+  useEffect(() => { setShowProposed(false); }, [fws]);
+  const mgr = emp.mgr ? EMAP[emp.mgr] : null;
+  const entriesFor = k => {
+    const wk = mondayOf(k);
+    if (draft && draft.ws === wk) return draft.entries[k] || [];
+    const w = readWeek(store, emp.id, wk);
+    if (showProposed && wk === fws && w.change) return w.change.entries[k] || [];
+    return w.entries[k] || [];
+  };
+  const canEdit = k => {
+    if (isLocked(store, k)) return false;
+    if (draft && draft.ws === mondayOf(k)) return true;
+    const w = readWeek(store, emp.id, mondayOf(k));
+    if (!appr) return true;
+    return ['draft', 'submitted', 'rejected'].includes(w.status) && !w.change;
+  };
+  const save = (k, entry) => {
+    if (draft && draft.ws === mondayOf(k)) { setDraft(prev => { const d = clone(prev); const list = d.entries[k] || []; d.entries[k] = entry.id ? list.map(e => e.id === entry.id ? entry : e) : list.concat([Object.assign({}, entry, { id: 'n' + Date.now() })]); return d; }); return; }
+    update(s => {
+      const w = writeWeek(s, emp.id, mondayOf(k)); const list = w.entries[k] || [];
+      w.entries[k] = entry.id ? list.map(e => e.id === entry.id ? entry : e) : list.concat([Object.assign({}, entry, { id: 'e' + (s.seq++) })]);
+      if (approvalOn(s) && w.status === 'submitted') { const last = w.history[w.history.length - 1]; if (!last || last.text !== 'Edited while waiting for approval') hist(w, TODAY, emp.name, 'Edited while waiting for approval'); }
+    });
+  };
+  const del = (k, id) => {
+    if (draft && draft.ws === mondayOf(k)) { setDraft(prev => { const d = clone(prev); d.entries[k] = (d.entries[k] || []).filter(e => e.id !== id); return d; }); return; }
+    update(s => { const w = writeWeek(s, emp.id, mondayOf(k)); w.entries[k] = (w.entries[k] || []).filter(e => e.id !== id); });
+  };
+  const p = periodOf(store, emp, view, cursor, entriesFor);
+  const step = n => { setSel(null); setCursor(view === 'day' ? addDays(cursor, n) : view === 'week' ? addDays(cursor, 7 * n) : firstOf(addMonths(monthOf(cursor), n))); };
+  const pick = k => { setCursor(k); setSel(view === 'day' ? null : k); };
+  const changeView = v => { setView(v); if (v === 'day') { setCursor(sel || cursor); setSel(null); } };
+  const totLogged = p.days.reduce((t, k) => t + sumMins(entriesFor(k)), 0);
+  const totExp = p.days.reduce((t, k) => t + expectedFor(store, emp, k), 0);
+  const onOT = (k, o) => setOtModal({ k, o, mins: o.extra });
+  const onFix = store.settings.mode === 'both' ? (k, pr) => setFix({ k, prefill: pr }) : null;
+
+  const allLocked = weekDays(fws).every(k => isLocked(store, k));
+  const editingThis = draft && draft.ws === fws;
+  const pendingChanges = editingThis ? diffEntries(fweek.approved || fweek.entries, draft.entries) : [];
+  let statusLine, actions = null;
+  if (!appr) statusLine = 'Approval is off. ' + (mgr ? mgr.name : 'Your manager') + ' can see your timesheet, and you can edit it until payroll is processed.';
+  else if (allLocked) statusLine = 'Payroll is processed for this period, so it can’t be changed.';
+  else if (editingThis) { statusLine = 'Editing a copy. The approved week stays until ' + (mgr ? mgr.name : 'HR') + ' approves your change. ' + pendingChanges.reduce((t, d) => t + d.rows.length, 0) + ' change(s) so far.';
+    actions = [html`<button key="s" className="btn sm primary" disabled=${!pendingChanges.length} onClick=${() => setAskReason(true)}>Send change</button>`, html`<button key="d" className="btn sm" onClick=${() => setDraft(null)}>Discard</button>`]; }
+  else if (fweek.change) { statusLine = 'Change waiting for ' + (mgr ? mgr.name : 'HR') + '. Reason: ' + fweek.change.reason;
+    actions = [html`<button key="v" className="btn sm" onClick=${() => setShowProposed(v => !v)}>${showProposed ? 'Show approved' : 'Show my changes'}</button>`, html`<button key="w" className="btn sm ghost" onClick=${() => { update(s => { const w = writeWeek(s, emp.id, fws); w.change = null; hist(w, TODAY, emp.name, 'Withdrew the change request'); }); notify('Change request withdrawn'); }}>Withdraw</button>`]; }
+  else if (fweek.status === 'approved') { statusLine = 'Approved by ' + (mgr ? mgr.name : 'system') + '. You can still request a change.'; actions = html`<button className="btn sm" onClick=${() => setDraft({ ws: fws, entries: clone(fweek.entries) })}>Request a change</button>`; }
+  else if (fweek.status === 'rejected') { statusLine = (mgr ? mgr.name : 'Manager') + ' asked for an update: ' + fweek.comment; actions = html`<button className="btn sm primary" onClick=${() => { update(s => submitWeek(s, emp.id, fws, emp.name, 'Resubmitted after changes')); notify('Resubmitted to ' + (mgr ? mgr.name : 'HR')); }}>Resubmit</button>`; }
+  else if (fweek.status === 'submitted') { const sub = fweek.history.slice().reverse().find(h => /submit/i.test(h.text)); statusLine = 'Sent to ' + (mgr ? mgr.name : 'HR') + (sub ? ' on ' + fmtShort(sub.at) : '') + '. You can keep editing until it’s approved.'; }
+  else { const sd = submitDateOf(store, fws); statusLine = sd >= TODAY ? 'Auto-submits to ' + (mgr ? mgr.name : 'HR') + ' on ' + fmtDate(sd) + '.' : 'Goes out on the next submission run.'; }
+
+  return html`<div>
+    <div className="ts-top">
+      <${Calendar3} emp=${emp} cursor=${cursor} sel=${view === 'day' ? cursor : sel} rangeFn=${p.rangeFn} onPick=${pick}
+        onShift=${n => { setCursor(firstOf(addMonths(monthOf(cursor), n))); setSel(null); }} onToday=${() => { setCursor(TODAY); setSel(view === 'day' ? null : TODAY); }} />
+      <div className="ts-side">
+        <section className="panel pad" aria-label="Week status">
+          <div className="row"><h3>Week of ${fmtShort(fws)}</h3><span className="spacer"></span><${WeekChip} w=${fweek} /></div>
+          <div className="small" style=${{ margin: '8px 0', color: 'var(--ink-2)' }}>${statusLine}</div>
+          ${actions && html`<div className="row" style=${{ gap: '6px' }}>${kids(actions)}</div>`}
+        </section>
+        <${UnloggedCard} emp=${emp} days=${p.days} entriesFor=${entriesFor} view=${view} onPick=${k => { if (view === 'day') setCursor(k); else setSel(k); }} />
+        ${appr && html`<${HistoryCard} week=${fweek} />`}
+      </div>
+    </div>
+    <div className="viewbar" style=${{ marginTop: '18px' }}>
+      <${Seg} label="View" value=${view} onChange=${changeView} options=${[['day', 'Day'], ['week', 'Week'], ['month', 'Month']]} />
+      <button className="btn sm" aria-label="Previous" onClick=${() => step(-1)}>‹</button>
+      <span className="range">${p.label}</span>
+      <button className="btn sm" aria-label="Next" onClick=${() => step(1)}>›</button>
+      <span className="spacer"></span>
+      <span className="small" style=${{ color: 'var(--ink-2)' }}>Logged <b style=${{ fontWeight: 500 }}>${dur(totLogged)}</b> of ${dur(totExp)} expected</span>
+      ${editingThis && html`<span className="chip amber">Editing a change</span>`}
+      ${showProposed && fweek.change && !editingThis && html`<span className="chip amber">Showing your proposed changes</span>`}
+    </div>
+    <${DayLines} emp=${emp} days=${p.days} entriesFor=${entriesFor} view=${view} sel=${sel} onToggle=${k => { if (view !== 'day') setSel(sel === k ? null : k); }}
+      panel=${k => html`<${EntriesPanel} emp=${emp} k=${k} list=${entriesFor(k)} editable=${canEdit(k)} onSave=${save} onDelete=${del} onRequestOT=${draft ? null : onOT} onFix=${draft ? null : onFix} />`} />
+    ${askReason && html`<${CommentModal} title="Send change for approval" label=${'Why are you changing this week? ' + (mgr ? mgr.name : 'HR') + ' will see this.'} confirm="Send for approval" required onClose=${() => setAskReason(false)}
+      onSubmit=${reason => { update(s => { const w = writeWeek(s, emp.id, draft.ws);
+        if (!emp.mgr) { w.entries = clone(draft.entries); w.approved = clone(draft.entries); hist(w, TODAY, emp.name, 'Changed an approved week. Auto-approved (no reporting manager): ' + reason); }
+        else { w.change = { entries: clone(draft.entries), reason, at: TODAY, by: emp.name }; hist(w, TODAY, emp.name, 'Requested a change: ' + reason); } });
+        setDraft(null); setAskReason(false); notify('Change sent to ' + (mgr ? mgr.name : 'HR')); }} />`}
+    ${otModal && html`<${OvertimeModal} emp=${emp} prefill=${otModal} onClose=${() => setOtModal(null)} />`}
+    ${fix && html`<${AttendanceFixModal} emp=${emp} k=${fix.k} prefill=${fix.prefill} onClose=${() => setFix(null)} />`}
+  </div>`;
+}
+
+/* ---- manager: read-only browser in the same layout ---- */
+function TimesheetBrowser({ emp, start, startView, override, statusFor }) {
+  const { store } = useApp();
+  const [view, setView] = useState(startView || 'week');
+  const [cursor, setCursor] = useState(start || TODAY);
+  const [sel, setSel] = useState(startView === 'day' ? null : (start && start !== mondayOf(start) ? start : null));
+  const entriesFor = k => override && mondayOf(k) === override.ws ? (override.entries[k] || []) : entriesOn(store, emp.id, k);
+  const p = periodOf(store, emp, view, cursor, entriesFor);
+  const focus = view === 'day' ? cursor : sel || cursor;
+  const fws = mondayOf(focus);
+  const step = n => { setSel(null); setCursor(view === 'day' ? addDays(cursor, n) : view === 'week' ? addDays(cursor, 7 * n) : firstOf(addMonths(monthOf(cursor), n))); };
+  const totLogged = p.days.reduce((t, k) => t + sumMins(entriesFor(k)), 0);
+  const totExp = p.days.reduce((t, k) => t + expectedFor(store, emp, k), 0);
+  return html`<div>
+    <div className="ts-top">
+      <${Calendar3} emp=${emp} cursor=${cursor} sel=${view === 'day' ? cursor : sel} rangeFn=${p.rangeFn} onPick=${k => { setCursor(k); setSel(view === 'day' ? null : k); }}
+        onShift=${n => { setCursor(firstOf(addMonths(monthOf(cursor), n))); setSel(null); }} onToday=${() => { setCursor(TODAY); setSel(view === 'day' ? null : TODAY); }} />
+      <div className="ts-side">
+        ${statusFor(fws)}
+        <${UnloggedCard} emp=${emp} days=${p.days} entriesFor=${entriesFor} view=${view} who=${first(emp.name)} onPick=${k => { if (view === 'day') setCursor(k); else setSel(k); }} />
+        ${approvalOn(store) && html`<${HistoryCard} key=${fws} week=${readWeek(store, emp.id, fws)} />`}
+      </div>
+    </div>
+    <div className="viewbar" style=${{ marginTop: '18px' }}>
+      <${Seg} label="View" value=${view} onChange=${v => { setView(v); if (v === 'day') { setCursor(sel || cursor); setSel(null); } }} options=${[['day', 'Day'], ['week', 'Week'], ['month', 'Month']]} />
+      <button className="btn sm" aria-label="Previous" onClick=${() => step(-1)}>‹</button>
+      <span className="range">${p.label}</span>
+      <button className="btn sm" aria-label="Next" onClick=${() => step(1)}>›</button>
+      <span className="spacer"></span>
+      <span className="small" style=${{ color: 'var(--ink-2)' }}>Logged <b style=${{ fontWeight: 500 }}>${dur(totLogged)}</b> of ${dur(totExp)} expected</span>
+    </div>
+    <${DayLines} emp=${emp} days=${p.days} entriesFor=${entriesFor} view=${view} sel=${sel} onToggle=${k => { if (view !== 'day') setSel(sel === k ? null : k); }}
+      panel=${k => html`<${EntriesPanel} emp=${emp} k=${k} list=${entriesFor(k)} editable=${false} onSave=${() => {}} onDelete=${() => {}} />`} />
+  </div>`;
+}
+function weekStatusText(store, emp, w) {
+  const mgr = emp.mgr ? EMAP[emp.mgr] : null;
+  if (!approvalOn(store)) return 'Approval is off for timesheets.';
+  if (w.change) return 'Asked to change this approved week: ' + w.change.reason;
+  if (w.status === 'submitted') { const sub = w.history.slice().reverse().find(h => /submit/i.test(h.text)); return 'Submitted' + (sub ? ' on ' + fmtShort(sub.at) : '') + '. Waiting for ' + (mgr ? mgr.name : 'approval') + '.'; }
+  if (w.status === 'approved') return 'Approved.';
+  if (w.status === 'rejected') return 'Sent back: ' + w.comment;
+  return 'Not submitted yet.';
+}
+function TimesheetViewer({ emp, start, startView, onClose, onReview }) {
+  const { store } = useApp();
+  return html`<${Modal} wide title=${emp.name + "'s timesheet"} onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Close</button>`]}>
+    <${TimesheetBrowser} emp=${emp} start=${start} startView=${startView}
+      statusFor=${ws => { const w = readWeek(store, emp.id, ws); const pending = approvalOn(store) && (w.change || w.status === 'submitted');
+        return html`<section className="panel pad" aria-label="Week status"><div className="row"><h3>Week of ${fmtShort(ws)}</h3><span className="spacer"></span><${WeekChip} w=${w} /></div>
+          <div className="small" style=${{ margin: '8px 0', color: 'var(--ink-2)' }}>${weekStatusText(store, emp, w)}</div>
+          ${pending && onReview ? html`<button className="btn sm primary" onClick=${() => onReview({ id: emp.id, ws, kind: w.change ? 'change' : 'week' })}>${w.change ? 'Review change' : 'Review and approve'}</button>` : null}</section>`; }} />
+  <//>`;
+}
+function WeekReview({ item, mgr, onClose }) {
+  const { store, update, notify } = useApp();
+  const emp = EMAP[item.id];
+  const w = readWeek(store, item.id, item.ws);
+  const isChange = item.kind === 'change' && w.change;
+  const [tab, setTab] = useState(isChange ? 'changes' : 'sheet');
+  const [rejecting, setRejecting] = useState(false);
+  if (!isChange && w.status !== 'submitted') return null;
+  const shown = isChange ? w.change.entries : w.entries;
+  const diffs = isChange ? diffEntries(w.approved || w.entries, w.change.entries) : [];
+  const lockedChange = isChange && diffs.some(d => isLocked(store, d.day));
+  const approve = () => {
+    update(s => { const x = writeWeek(s, item.id, item.ws);
+      if (isChange) { x.entries = clone(x.change.entries); x.approved = clone(x.change.entries); x.change = null; hist(x, TODAY, mgr.name, 'Approved the change'); }
+      else { x.status = 'approved'; x.approved = clone(x.entries); hist(x, TODAY, mgr.name, 'Approved'); } });
+    notify((isChange ? 'Change approved for ' : 'Timesheet approved for ') + emp.name); onClose();
+  };
+  const reject = c => {
+    update(s => { const x = writeWeek(s, item.id, item.ws);
+      if (isChange) { x.change = null; hist(x, TODAY, mgr.name, 'Rejected the change, approved version kept: ' + c); }
+      else { x.status = 'rejected'; x.comment = c; hist(x, TODAY, mgr.name, 'Sent back: ' + c); } });
+    notify((isChange ? 'Change rejected for ' : 'Timesheet sent back to ') + emp.name); setRejecting(false); onClose();
+  };
+  const weekTotal = Object.values(shown).reduce((t, l) => t + sumMins(l), 0);
+  const cell = r => html`<span>${timed(r) ? r.start + ' – ' + r.end : 'No set time'}<span className="muted"> · ${dur(entryMins(r))}</span></span>`;
+  return html`<${Modal} wide title=${emp.name + ', week of ' + weekRange(item.ws)} onClose=${onClose} footer=${[
+      html`<span key="n" className="muted small" style=${{ marginRight: 'auto' }}>${isChange ? 'Rejecting keeps the approved version.' : 'Your approval is final for timesheets.'}</span>`,
+      html`<button key="r" className="btn" onClick=${() => setRejecting(true)}>${isChange ? 'Reject change' : 'Send back'}</button>`,
+      html`<button key="a" className="btn good" disabled=${lockedChange} onClick=${approve}>${isChange ? 'Approve change' : 'Approve timesheet'}</button>`]}>
+    <div className="row" style=${{ marginBottom: '14px' }}>
+      ${isChange ? html`<${Seg} label="Review" value=${tab} onChange=${setTab} options=${[['changes', 'What changed'], ['sheet', 'Full timesheet']]} />` : null}
+      <span className="spacer"></span><span className="muted small">${dur(weekTotal)} logged this week${isChange ? ' after the change' : ''}</span></div>
+    ${isChange && html`<div className="banner blue"><div><b>${first(emp.name)}'s reason</b><div>${w.change.reason}</div></div></div>`}
+    ${lockedChange && html`<div className="banner grey">${Icon.lock}<div>Payroll is already processed for part of this change, so it can't be approved. Reject it and ask ${first(emp.name)} to raise it for next month.</div></div>`}
+    ${tab === 'changes' && html`<div>${diffs.map(d => html`<div key=${d.day} className="diffday">
+        <div className="row"><b style=${{ fontWeight: 500 }}>${fmtDate(d.day)}</b><span className="muted small">${dur(d.before)} → ${dur(d.after)}</span></div>
+        ${d.rows.map((r, i) => r.kind === 'add' ? html`<div key=${i} className="drow add"><span>+</span>${cell(r.after)}<span>${r.after.desc}</span></div>`
+          : r.kind === 'del' ? html`<div key=${i} className="drow del"><span>−</span><span className="x">${cell(r.before)}</span><span className="x">${r.before.desc}</span></div>`
+          : html`<div key=${i} className="drow edit"><span>~</span>
+              <span>${entTime(r.before) !== entTime(r.after) || entryMins(r.before) !== entryMins(r.after) ? kids(html`<span className="old">${cell(r.before)}</span><br/>${cell(r.after)}`) : cell(r.after)}</span>
+              <span>${r.before.desc !== r.after.desc ? kids(html`<span className="old">${r.before.desc}</span><br/>${r.after.desc}`) : r.after.desc}</span></div>`)}
+      </div>`)}</div>`}
+    ${tab === 'sheet' && html`<${TimesheetBrowser} emp=${emp} start=${item.ws} startView="week" override=${{ ws: item.ws, entries: shown }}
+      statusFor=${ws => { const x = readWeek(store, emp.id, ws); return html`<section className="panel pad" aria-label="Week status"><div className="row"><h3>Week of ${fmtShort(ws)}</h3><span className="spacer"></span><${WeekChip} w=${x} /></div>
+        <div className="small" style=${{ marginTop: '8px', color: 'var(--ink-2)' }}>${ws === item.ws ? (isChange ? 'Showing the week with the proposed change. Approve or reject below.' : 'This is the week you’re reviewing. Approve or send back below.') : weekStatusText(store, emp, x)}</div></section>`; }} />`}
+    ${rejecting && html`<${CommentModal} title=${isChange ? 'Reject change' : 'Send timesheet back'} label=${'What should ' + first(emp.name) + ' fix?'} confirm=${isChange ? 'Reject change' : 'Send back'} danger required onClose=${() => setRejecting(false)} onSubmit=${reject} />`}
+  <//>`;
+}
+
+/* ---------------- Overtime tab ---------------- */
+function MyOvertime({ emp }) {
+  const { store } = useApp();
+  const [modal, setModal] = useState(null);
+  const mine = store.requests.filter(r => r.empId === emp.id && r.type === 'overtime');
+  const m = monthOf(TODAY);
+  const approvedMin = mine.filter(r => r.status === 'approved' && monthOf(r.data.date) === m).reduce((t, r) => t + r.data.minutes, 0);
+  const waiting = mine.filter(r => r.status === 'pending_l1' || r.status === 'pending_l2').length;
+  const sugg = [];
+  for (let i = 1; i <= 35; i++) { const k = addDays(TODAY, -i); if (isLocked(store, k)) continue; const o = otSuggestion(store, emp, k); if (o && !otRequestFor(store, emp.id, k)) sugg.push({ k, o }); }
+  const basis = store.settings.mode === 'timesheet' ? 'hours logged in your timesheet' : 'your check-in and check-out times';
+  return html`<div>
+    <div className="stats" style=${{ gridTemplateColumns: 'repeat(3,minmax(0,1fr))' }}>
+      <div className="panel stat"><div className="k">Approved in ${fmtMonth(m)}</div><div className="v">${dur(approvedMin)}</div><div className="k">goes into this month's payroll</div></div>
+      <div className="panel stat"><div className="k">Waiting for approval</div><div className="v">${waiting}</div><div className="k">request${waiting === 1 ? '' : 's'}</div></div>
+      <div className="panel stat"><div className="k">Suggested</div><div className="v">${sugg.length}</div><div className="k">day${sugg.length === 1 ? '' : 's'} with extra hours, not claimed</div></div>
+    </div>
+    <div className="row" style=${{ marginBottom: '10px' }}><h3>Suggested overtime</h3><span className="spacer"></span>
+      <button className="btn" onClick=${() => setModal({ kind: 'planned' })}>Plan overtime</button><button className="btn primary" onClick=${() => setModal({ kind: 'worked' })}>Request overtime</button></div>
+    <div className="small muted" style=${{ marginBottom: '10px' }}>Based on ${basis}. Overtime is anything over your ${dur(store.settings.mode === 'timesheet' ? shiftLen(emp) - store.settings.breakMin : shiftLen(emp))} day, by at least ${dur(store.settings.otMin)}. Weekends and holidays count in full.</div>
+    <div className="panel" style=${{ marginBottom: '22px' }}>
+      ${sugg.length ? sugg.map(({ k, o }) => html`<div key=${k} className="req"><div><div className="title">${fmtLong(k)}${holidayOf(k) ? ', ' + holidayOf(k) : ''}</div><div style=${{ color: 'var(--ink-2)', marginTop: '2px' }}>${otText(o, emp)}</div></div>
+        <div className="row" style=${{ alignItems: 'flex-start' }}><button className="btn sm primary" onClick=${() => setModal({ kind: 'worked', prefill: { k, o, mins: o.extra } })}>Request ${dur(o.extra)}</button></div></div>`)
+        : html`<${Empty} title="Nothing to claim">Days where you work beyond your standard hours show up here.<//>`}
+    </div>
+    <h3 style=${{ marginBottom: '10px' }}>My overtime requests</h3>
+    <div className="panel">${mine.length ? mine.map(r => html`<${ReqRow} key=${r.id} r=${r} />`) : html`<${Empty} title="No requests yet">Request overtime for extra hours, or plan it in advance.<//>`}</div>
+    ${modal && html`<${OvertimeModal} emp=${emp} kind=${modal.kind} prefill=${modal.prefill} onClose=${() => setModal(null)} />`}
+  </div>`;
+}
+
+/* ---------------- other ESS services (unchanged flows) ---------------- */
+function MyRequests({ emp, type }) {
+  const { store } = useApp();
+  const [open, setOpen] = useState(false);
+  const mine = store.requests.filter(r => r.empId === emp.id && r.type === type);
+  const verb = { leave: 'Apply for leave', reimbursement: 'New claim' }[type];
+  return html`<div>
+    <div className="row" style=${{ marginBottom: '14px' }}><span className="muted">${mine.length} request${mine.length === 1 ? '' : 's'}</span><span className="spacer"></span><button className="btn primary" onClick=${() => setOpen(true)}>${verb}</button></div>
+    <div className="panel">${mine.length ? mine.map(r => html`<${ReqRow} key=${r.id} r=${r} />`) : html`<${Empty} title="Nothing here yet">Use ${verb} to raise one.<//>`}</div>
+    ${open && type === 'leave' && html`<${LeaveModal} emp=${emp} onClose=${() => setOpen(false)} />`}
+    ${open && type === 'reimbursement' && html`<${ClaimModal} emp=${emp} onClose=${() => setOpen(false)} />`}
+  </div>`;
+}
+function LeaveModal({ emp, onClose }) {
+  const { store, update, notify } = useApp();
+  const [lt, setLt] = useState('Casual'); const [from, setFrom] = useState(addDays(TODAY, 1)); const [to, setTo] = useState(addDays(TODAY, 1));
+  const [reason, setReason] = useState(''); const [err, setErr] = useState('');
+  const go = () => {
+    if (to < from) return setErr('The end date is before the start date.');
+    if (!reason.trim()) return setErr('Add a short reason.');
+    let days = 0; for (let k = from; k <= to; k = addDays(k, 1)) if (!isOff(k)) days++;
+    if (!days) return setErr('Those dates are all weekly offs or holidays.');
+    update(s => createRequest(s, 'leave', emp.id, { leaveType: lt, from, to, days, reason: reason.trim() }));
+    notify('Leave request sent'); onClose();
+  };
+  return html`<${Modal} title="Apply for leave" onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="o" className="btn primary" onClick=${go}>Send request</button>`]}>
+    <div className="field"><label htmlFor="lt">Leave type</label><select id="lt" className="input" value=${lt} onChange=${e => setLt(e.target.value)}>${['Casual', 'Sick', 'Earned'].map(x => html`<option key=${x}>${x}</option>`)}</select></div>
+    <div className="row" style=${{ flexWrap: 'nowrap' }}>
+      <div className="field" style=${{ flex: 1 }}><label htmlFor="lf">From</label><input id="lf" className="input" type="date" value=${from} onInput=${e => { setFrom(e.target.value); setErr(''); }} /></div>
+      <div className="field" style=${{ flex: 1 }}><label htmlFor="lto">To</label><input id="lto" className="input" type="date" value=${to} onInput=${e => { setTo(e.target.value); setErr(''); }} /></div></div>
+    <div className="field"><label htmlFor="lr">Reason</label><textarea id="lr" className="input" value=${reason} onInput=${e => { setReason(e.target.value); setErr(''); }}></textarea></div>
+    <div className="small muted">${approvalLine(store, emp, 'leave')}</div>${err && html`<div className="err">${err}</div>`}
+  <//>`;
+}
+function ClaimModal({ emp, onClose }) {
+  const { store, update, notify } = useApp();
+  const [cat, setCat] = useState('Travel'); const [amount, setAmount] = useState(''); const [date, setDate] = useState(TODAY);
+  const [desc, setDesc] = useState(''); const [err, setErr] = useState('');
+  const go = () => {
+    if (!(Number(amount) > 0)) return setErr('Enter the amount you spent.');
+    if (!desc.trim()) return setErr('Describe what the expense was for.');
+    update(s => createRequest(s, 'reimbursement', emp.id, { category: cat, amount: Math.round(Number(amount)), date, description: desc.trim() }));
+    notify('Claim sent'); onClose();
+  };
+  return html`<${Modal} title="New reimbursement claim" onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="o" className="btn primary" onClick=${go}>Send claim</button>`]}>
+    <div className="field"><label htmlFor="cc">Category</label><select id="cc" className="input" value=${cat} onChange=${e => setCat(e.target.value)}>${['Travel', 'Meals', 'Internet', 'Client entertainment', 'Office supplies'].map(x => html`<option key=${x}>${x}</option>`)}</select></div>
+    <div className="row" style=${{ flexWrap: 'nowrap' }}>
+      <div className="field" style=${{ flex: 1 }}><label htmlFor="ca">Amount (₹)</label><input id="ca" className="input" type="number" min="1" value=${amount} onInput=${e => { setAmount(e.target.value); setErr(''); }} /></div>
+      <div className="field" style=${{ flex: 1 }}><label htmlFor="cd">Date spent</label><input id="cd" className="input" type="date" max=${TODAY} value=${date} onInput=${e => setDate(e.target.value)} /></div></div>
+    <div className="field"><label htmlFor="cx">What was it for?</label><textarea id="cx" className="input" value=${desc} onInput=${e => { setDesc(e.target.value); setErr(''); }}></textarea></div>
+    <div className="small muted">${approvalLine(store, emp, 'reimbursement')}</div>${err && html`<div className="err">${err}</div>`}
+  <//>`;
+}
+
+/* ---------------- manager: team ---------------- */
+function TeamToday({ mgr }) {
+  const { store } = useApp();
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick(x => x + 1), 30000); return () => clearInterval(t); }, []);
+  const reports = EMP.filter(e => e.mgr === mgr.id);
+  const now = nowMin();
+  const rows = reports.map(e => { const st = dayStatus(store, e, TODAY); const a = store.attendance[e.id + '|' + TODAY]; return { e, st, a }; });
+  const c = { in: rows.filter(r => r.a && r.a.in).length, late: rows.filter(r => r.st.late).length, notin: rows.filter(r => r.st.key === 'notin').length, leave: rows.filter(r => r.st.key === 'leave').length };
+  const ts = store.settings.mode !== 'attendance';
+  const att = store.settings.mode !== 'timesheet';
+  return html`<div>
+    ${isOff(TODAY) && html`<div className="banner grey"><div>${holidayOf(TODAY) ? 'Today is ' + holidayOf(TODAY) + '.' : 'Today is a weekly off.'} Anyone who checks in is working overtime.</div></div>`}
+    ${att && html`<div className="stats" style=${{ gridTemplateColumns: 'repeat(4,minmax(0,1fr))' }}>
+      <div className="panel stat"><div className="k">Checked in</div><div className="v">${c.in} of ${reports.length}</div></div>
+      <div className="panel stat"><div className="k">Late today</div><div className="v">${c.late}</div></div>
+      <div className="panel stat"><div className="k">Not checked in</div><div className="v">${c.notin}</div></div>
+      <div className="panel stat"><div className="k">On leave</div><div className="v">${c.leave}</div></div></div>`}
+    <div className="panel scroll-x"><table>
+      <thead><tr><th>Team member</th><th>Shift</th>${att && html`<th>Status</th>`}${att && html`<th>Checked in</th>`}${att && html`<th>Time at work</th>`}${ts && html`<th>Logged today</th>`}</tr></thead>
+      <tbody>${rows.map(({ e, st, a }) => html`<tr key=${e.id}>
+        <td><div className="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><span className="avatar" style=${{ width: '28px', height: '28px', fontSize: '11px' }}>${initials(e.name)}</span><div><b style=${{ fontWeight: 500 }}>${e.name}</b><div className="muted small">${e.title}</div></div></div></td>
+        <td className="muted">${SHIFTS[e.dept].join('–')}</td>
+        ${att && html`<td><span className=${'mini ' + st.key}>${st.label}</span></td>`}
+        ${att && html`<td>${a && a.in ? a.in + (a.out ? ' – ' + a.out : '') : '–'}</td>`}
+        ${att && html`<td>${a && a.in ? dur((a.out ? toMin(a.out) : now) - toMin(a.in)) : '–'}</td>`}
+        ${ts && html`<td>${dur(sumMins(entriesOn(store, e.id, TODAY)))}</td>`}
+      </tr>`)}</tbody></table></div>
+  </div>`;
+}
+function TeamTimesheets({ mgr, onReview }) {
+  const { store } = useApp();
+  const [view, setView] = useState('week');
+  const [cursor, setCursor] = useState(TODAY);
+  const [open, setOpen] = useState(null);
+  const reports = EMP.filter(e => e.mgr === mgr.id);
+  const ws = mondayOf(cursor), m = monthOf(cursor);
+  const appr = approvalOn(store);
+  const step = n => setCursor(view === 'week' ? addDays(cursor, 7 * n) : firstOf(addMonths(m, n)));
+  const cellFor = (e, k) => {
+    const l = sumMins(entriesOn(store, e.id, k));
+    const lv = leaveOn(store, e.id, k);
+    const ot = k < TODAY ? otSuggestion(store, e, k) : null;
+    let note = null;
+    if (lv) note = html`<span className="mini leave">Leave</span>`;
+    else if (holidayOf(k) && !l) note = html`<span className="mini holiday">Holiday</span>`;
+    else if (isWeekend(k) && !l) note = html`<span className="muted small">Off</span>`;
+    else if (!l && k < TODAY) note = html`<span className="mini absent">Nothing logged</span>`;
+    return { l, note, ot };
+  };
+  const monthDays = []; for (let k = firstOf(m); monthOf(k) === m; k = addDays(k, 1)) monthDays.push(k);
+  const monthWeeks = Array.from(new Set(monthDays.map(mondayOf))).filter(x => x <= THIS_WEEK);
+  return html`<div>
+    <div className="viewbar">
+      <${Seg} label="Team view" value=${view} onChange=${setView} options=${[['week', 'Week'], ['month', 'Month']]} />
+      <button className="btn sm" aria-label="Previous" onClick=${() => step(-1)}>‹</button>
+      <span className="range">${view === 'week' ? weekRange(ws) : fmtMonth(m)}</span>
+      <button className="btn sm" aria-label="Next" onClick=${() => step(1)}>›</button>
+      ${cursor !== TODAY && html`<button className="btn sm ghost" onClick=${() => setCursor(TODAY)}>${view === 'week' ? 'This week' : 'This month'}</button>`}
+      <span className="spacer"></span><span className="muted small">Click a name or a day to open the full timesheet.</span>
+    </div>
+    ${view === 'week' ? html`<div className="panel scroll-x"><table>
+      <thead><tr><th>Team member</th>${weekDays(ws).map(k => html`<th key=${k} style=${{ textAlign: 'center', color: k === TODAY ? 'var(--red)' : undefined }}>${DAY_SHORT[dow(k)]} ${fromKey(k).getDate()}</th>`)}<th>Total</th>${appr && html`<th>Status</th>`}</tr></thead>
+      <tbody>${reports.map(e => { const w = readWeek(store, e.id, ws); const total = weekDays(ws).reduce((t, k) => t + sumMins(entriesOn(store, e.id, k)), 0);
+        return html`<tr key=${e.id}>
+          <td><button className="btn link" onClick=${() => setOpen({ emp: e, start: ws, view: 'week' })}>${e.name}</button><div className="muted small">${e.title}</div></td>
+          ${weekDays(ws).map(k => { const c = cellFor(e, k); return html`<td key=${k} style=${{ textAlign: 'center' }}>
+            <button className="btn ghost sm" style=${{ flexDirection: 'column', gap: '2px', width: '100%' }} onClick=${() => setOpen({ emp: e, start: k, view: 'day' })} aria-label=${e.name + ', ' + fmtDate(k)}>
+              ${c.l ? html`<b style=${{ fontWeight: 500, fontVariantNumeric: 'tabular-nums' }}>${dur(c.l)}</b>` : null}${c.note}${c.ot ? html`<span className="mini ot">+${dur(c.ot.extra)}</span>` : null}</button></td>`; })}
+          <td><b style=${{ fontWeight: 500 }}>${dur(total)}</b></td>
+          ${appr && html`<td><${WeekChip} w=${w} /></td>`}
+        </tr>`; })}</tbody></table></div>`
+    : html`<div className="panel scroll-x"><table>
+      <thead><tr><th>Team member</th><th>Logged</th><th>Days with nothing logged</th><th>Extra hours</th>${appr && html`<th>Weeks</th>`}</tr></thead>
+      <tbody>${reports.map(e => { let l = 0, missing = 0, ot = 0;
+        monthDays.forEach(k => { const c = cellFor(e, k); l += c.l; if (!c.l && k < TODAY && !isOff(k) && !leaveOn(store, e.id, k)) missing++; if (c.ot) ot += c.ot.extra; });
+        return html`<tr key=${e.id}>
+          <td><button className="btn link" onClick=${() => setOpen({ emp: e, start: firstOf(m) <= TODAY ? (m === monthOf(TODAY) ? TODAY : firstOf(m)) : firstOf(m), view: 'month' })}>${e.name}</button><div className="muted small">${e.title}</div></td>
+          <td><b style=${{ fontWeight: 500 }}>${dur(l)}</b></td>
+          <td>${missing ? html`<span className="chip red">${missing}</span>` : html`<span className="muted">None</span>`}</td>
+          <td>${ot ? html`<span className="chip amber">${dur(ot)}</span>` : html`<span className="muted">None</span>`}</td>
+          ${appr && html`<td><div className="row" style=${{ gap: '6px' }}>${monthWeeks.map(x => html`<button key=${x} className="btn ghost sm" style=${{ padding: 0 }} onClick=${() => setOpen({ emp: e, start: x, view: 'week' })}><${WeekChip} w=${readWeek(store, e.id, x)} /></button>`)}</div></td>`}
+        </tr>`; })}</tbody></table></div>`}
+    ${open && html`<${TimesheetViewer} key=${open.emp.id + open.start + open.view} emp=${open.emp} start=${open.start} startView=${open.view} onClose=${() => setOpen(null)} onReview=${it => { setOpen(null); onReview(it); }} />`}
+  </div>`;
+}
+function TeamPage({ mgr }) {
+  const { store } = useApp();
+  const [tab, setTab] = useState('today');
+  const [review, setReview] = useState(null);
+  const [showDone, setShowDone] = useState(false);
+  const mode = store.settings.mode;
+  const reports = EMP.filter(e => e.mgr === mgr.id).map(e => e.id);
+  const ts = teamTimesheetItems(store, mgr.id);
+  const reqs = t => store.requests.filter(r => r.type === t && reports.includes(r.empId));
+  const pend = t => reqs(t).filter(r => r.status === 'pending_l1');
+  const TABS = [
+    { k: 'today', label: 'Team today' },
+    mode !== 'attendance' && { k: 'teamts', label: 'Team timesheets' },
+    approvalOn(store) && { k: 'timesheet', label: 'Timesheet approvals', n: ts.length },
+    mode !== 'timesheet' && { k: 'attendance', label: 'Attendance', n: pend('attendance').length },
+    { k: 'overtime', label: 'Overtime', n: pend('overtime').length },
+    { k: 'leave', label: 'Leave', n: pend('leave').length },
+    { k: 'reimbursement', label: 'Reimbursements', n: pend('reimbursement').length },
+  ].filter(Boolean);
+  const cur = TABS.find(t => t.k === tab) ? tab : TABS[0].k;
+  const isReq = !['today', 'teamts', 'timesheet'].includes(cur);
+  const list = isReq ? (showDone ? reqs(cur) : pend(cur)) : [];
+  return html`<div>
+    <${Tabs} tabs=${TABS} value=${cur} onChange=${setTab} />
+    ${cur === 'today' && html`<${TeamToday} mgr=${mgr} />`}
+    ${cur === 'timesheet' && html`<div className="panel">${ts.length ? ts.map(it => { const e = EMAP[it.id]; const w = store.weeks[it.id + '|' + it.ws];
+        return html`<div key=${it.id + it.ws} className="req"><div><div className="row" style=${{ gap: '8px' }}><span className="avatar" style=${{ width: '26px', height: '26px', fontSize: '11px' }}>${initials(e.name)}</span><span className="title">${e.name}</span><span className="muted small">Week of ${weekRange(it.ws)}</span></div>
+          <div style=${{ marginTop: '4px', color: 'var(--ink-2)' }}>${it.kind === 'change' ? 'Changed an approved week: ' + w.change.reason : dur(Object.values(w.entries).reduce((t, l) => t + sumMins(l), 0)) + ' logged'}</div></div>
+          <div className="row" style=${{ alignItems: 'flex-start' }}>${it.kind === 'change' ? html`<span className="chip amber">Change request</span>` : html`<span className="chip blue">Submitted</span>`}<button className="btn sm primary" onClick=${() => setReview(it)}>Review</button></div></div>`; })
+      : html`<${Empty} title="You're all caught up">Timesheets your team submits each ${DAY_LONG[store.settings.submitDay]} show up here.<//>`}</div>`}
+    ${cur === 'teamts' && html`<${TeamTimesheets} mgr=${mgr} onReview=${setReview} />`}
+    ${isReq && html`<div>
+      <div className="row" style=${{ marginBottom: '12px' }}><${Seg} label="Filter" value=${showDone ? 'all' : 'wait'} onChange=${v => setShowDone(v === 'all')} options=${[['wait', 'Waiting for you'], ['all', 'All requests']]} /></div>
+      <div className="panel">${list.map(r => html`<${ReqRow} key=${r.id} r=${r} showEmp level=${1} actor=${mgr.name} />`)}${list.length === 0 && html`<${Empty} title="You're all caught up">New ${TYPE_LABEL[cur].toLowerCase()} requests from your team show up here.<//>`}</div></div>`}
+    ${review && html`<${WeekReview} item=${review} mgr=${mgr} onClose=${() => setReview(null)} />`}
+  </div>`;
+}
+
+/* ---------------- ESS: dashboard & sections ---------------- */
+function TimeSection({ emp }) {
+  const { store } = useApp();
+  const mode = store.settings.mode;
+  const [tab, setTab] = useState(mode === 'timesheet' ? 'timesheet' : 'attendance');
+  const TABS = [mode !== 'timesheet' && { k: 'attendance', label: 'Attendance' }, mode !== 'attendance' && { k: 'timesheet', label: 'Timesheet' }, { k: 'overtime', label: 'Overtime' }].filter(Boolean);
+  const cur = TABS.find(t => t.k === tab) ? tab : TABS[0].k;
+  return html`<div><${Tabs} tabs=${TABS} value=${cur} onChange=${setTab} />
+    ${cur === 'attendance' && html`<${MyAttendance} emp=${emp} />`}
+    ${cur === 'timesheet' && html`<${MyTimesheet} key=${emp.id} emp=${emp} />`}
+    ${cur === 'overtime' && html`<${MyOvertime} emp=${emp} />`}</div>`;
+}
+function Home({ emp, isManager, go }) {
+  const { store, update, notify } = useApp();
+  const mode = store.settings.mode;
+  const a = store.attendance[emp.id + '|' + TODAY] || {};
+  const lv = leaveOn(store, emp.id, TODAY);
+  const logged = sumMins(entriesOn(store, emp.id, TODAY));
+  const nowT = toTime(Math.min(1435, r5(nowMin())));
+  const mine = t => store.requests.filter(r => r.empId === emp.id && r.type === t);
+  const pend = t => mine(t).filter(r => r.status === 'pending_l1' || r.status === 'pending_l2');
+  const nextLeave = mine('leave').filter(r => r.status === 'approved' && r.data.to >= TODAY).sort((x, y) => x.data.from < y.data.from ? -1 : 1)[0];
+  const claimAmt = pend('reimbursement').reduce((t, r) => t + r.data.amount, 0);
+  const w = readWeek(store, emp.id, THIS_WEEK);
+  let line1, line2, action = null;
+  if (mode !== 'timesheet') {
+    line1 = lv ? 'On leave today' : !a.in ? 'Not checked in' : a.out ? 'Checked out at ' + a.out : 'Checked in at ' + a.in;
+    line2 = mode === 'both' ? dur(logged) + ' logged in your timesheet today' : 'Shift ' + SHIFTS[emp.dept].join('–');
+    if (!lv && !a.in && !isOff(TODAY)) action = html`<button className="btn primary sm" onClick=${e => { e.stopPropagation(); update(s => { s.attendance[emp.id + '|' + TODAY] = { in: nowT }; }); notify('Checked in at ' + nowT); }}>Check in</button>`;
+    else if (a.in && !a.out) action = html`<button className="btn primary sm" onClick=${e => { e.stopPropagation(); update(s => { s.attendance[emp.id + '|' + TODAY].out = nowT; }); notify('Checked out at ' + nowT); }}>Check out</button>`;
+  } else { line1 = dur(logged) + ' logged today'; line2 = approvalOn(store) ? 'This week: ' + WEEK_STATUS[weekStatusKey(w)].label.toLowerCase() : 'Shift ' + SHIFTS[emp.dept].join('–'); }
+  const reports = EMP.filter(e => e.mgr === emp.id);
+  const teamWaiting = isManager ? teamTimesheetItems(store, emp.id).length + store.requests.filter(r => reports.some(x => x.id === r.empId) && r.status === 'pending_l1' && reqVisible(store, r)).length : 0;
+  const teamIn = reports.filter(e => store.attendance[e.id + '|' + TODAY]).length;
+  const card = (k, title, value, sub, foot, feature) => html`<div key=${k} className=${'hcard link' + (feature ? ' feature' : '')} role="button" tabIndex="0" onClick=${() => go(k)} onKeyDown=${e => { if (e.key === 'Enter') go(k); }}>
+    <div className="hk">${title}</div><div className="hv">${value}</div><div className="hs">${sub}</div><div className="hf">${kids(foot)}</div></div>`;
+  return html`<div className="home-grid">
+    ${card('time', kids(html`${Icon.clock}<span>${SECTION_NAME[mode]}</span>`), line1, line2, [action, html`<span key="o" className="btn link small">Open</span>`], true)}
+    ${isManager && card('team', 'My team', mode !== 'timesheet' ? teamIn + ' of ' + reports.length + ' checked in' : reports.length + ' people', teamWaiting + ' waiting for your approval', [html`<span key="o" className="btn link small">Open</span>`])}
+    ${card('leave', 'Leave', nextLeave ? 'Next: ' + fmtShort(nextLeave.data.from) : 'No leave booked', pend('leave').length + ' request' + (pend('leave').length === 1 ? '' : 's') + ' waiting', [html`<span key="o" className="btn link small">Open</span>`])}
+    ${card('reimbursement', 'Reimbursements', claimAmt ? inr(claimAmt) + ' pending' : 'Nothing pending', pend('reimbursement').length + ' claim' + (pend('reimbursement').length === 1 ? '' : 's') + ' in approval', [html`<span key="o" className="btn link small">Open</span>`])}
+    <div className="hcard dim"><div className="hk">Payslips</div><div className="hs">Not part of this prototype.</div></div>
+  </div>`;
+}
+function Ess({ emp, isManager }) {
+  const { store } = useApp();
+  const [page, setPage] = useState('home');
+  const names = { time: SECTION_NAME[store.settings.mode], team: 'My team', leave: 'Leave', reimbursement: 'Reimbursements' };
+  return html`<div>
+    ${page !== 'home' && html`<div className="crumb"><button onClick=${() => setPage('home')}>Home</button><span>›</span><span>${names[page]}</span></div>`}
+    ${page === 'home' && html`<${Home} emp=${emp} isManager=${isManager} go=${setPage} />`}
+    ${page === 'time' && html`<${TimeSection} emp=${emp} />`}
+    ${page === 'team' && html`<${TeamPage} mgr=${emp} />`}
+    ${page === 'leave' && html`<${MyRequests} key="leave" emp=${emp} type="leave" />`}
+    ${page === 'reimbursement' && html`<${MyRequests} key="reimb" emp=${emp} type="reimbursement" />`}
+  </div>`;
+}
+
+/* ---------------- payroll ---------------- */
+function PayrollApprovals() {
+  const { store } = useApp();
+  const [team, setTeam] = useState('HR');
+  const [showDone, setShowDone] = useState(false);
+  const inTeam = r => r.l2 === team && reqVisible(store, r);
+  const list = store.requests.filter(r => inTeam(r) && (showDone ? (r.status === 'pending_l2' || r.trail.some(t => t.level === 2)) : r.status === 'pending_l2'));
+  const count = t => store.requests.filter(r => r.status === 'pending_l2' && r.l2 === t && reqVisible(store, r)).length;
+  const comps = Object.keys(store.settings.l2).filter(k => store.settings.l2[k] === team).map(k => k === 'timesheet' ? 'Timesheets' : TYPE_LABEL[k]);
+  return html`<div>
+    <div className="row" style=${{ marginBottom: '12px' }}>
+      <${Seg} label="Team" value=${team} onChange=${setTeam} options=${[['HR', 'HR (' + count('HR') + ')'], ['Finance', 'Finance (' + count('Finance') + ')']]} />
+      <${Seg} label="Filter" value=${showDone ? 'all' : 'wait'} onChange=${v => setShowDone(v === 'all')} options=${[['wait', 'Waiting'], ['all', 'All']]} />
+      <span className="muted small">${team} approves: ${comps.join(', ') || 'nothing (change in settings)'}. Managers approve first.</span>
+    </div>
+    <div className="panel">${list.map(r => html`<${ReqRow} key=${r.id} r=${r} showEmp level=${2} actor=${team + ' team'} />`)}${list.length === 0 && html`<${Empty} title="Nothing waiting">Requests appear here after the reporting manager approves them.<//>`}</div>
+  </div>`;
+}
+function TimesheetSummary() {
+  const { store } = useApp();
+  const months = [0, -1, -2].map(n => addMonths(monthOf(TODAY), n));
+  const [m, setM] = useState(months[1]);
+  if (!approvalOn(store)) return html`<${Empty} title="Timesheet approval is off">Timesheets are recorded but don't need approval, so they don't hold up payroll. Turn approval on in settings.<//>`;
+  const wks = weeksIn(store, m);
+  const counts = { approved: 0, submitted: 0, change: 0, rejected: 0, draft: 0 };
+  const behind = []; let ready = 0;
+  EMP.forEach(e => { const st = wks.filter(ws => store.weeks[e.id + '|' + ws]).map(ws => ({ ws, s: weekStatusKey(store.weeks[e.id + '|' + ws]) })); st.forEach(x => counts[x.s]++); const open = st.filter(x => x.s !== 'approved'); if (!open.length) ready++; else behind.push({ e, open }); });
+  const blockers = payrollBlockers(store, m);
+  const locked = m <= store.settings.lastProcessed;
+  return html`<div>
+    <div className="row" style=${{ marginBottom: '16px' }}><${Seg} label="Month" value=${m} onChange=${setM} options=${months.map(x => [x, fmtMonth(x)])} />
+      ${locked && html`<span className="chip">${Icon.lock} Payroll processed</span>`}<span className="spacer"></span><span className="muted small">Status only. Managers review the entries.</span></div>
+    ${!locked && html`<div className=${'banner ' + (blockers.length ? 'amber' : 'blue')}><div>${blockers.length ? html`<span><b>Payroll for ${fmtMonth(m)} is blocked.</b> ${blockers.length} employee${blockers.length === 1 ? ' has' : 's have'} timesheets that aren't approved yet.</span>` : html`<span><b>Timesheets for ${fmtMonth(m)} are all approved.</b> Payroll can be processed.</span>`}</div></div>`}
+    <div className="headline"><span className="num">${ready} of ${EMP.length}</span><span className="muted">employees have every week in ${fmtMonth(m)} approved</span></div>
+    <div className="stats">${[['approved', 'Approved'], ['submitted', 'Awaiting manager'], ['change', 'Change pending'], ['rejected', 'Sent back'], ['draft', 'Not submitted yet']].map(([k, l]) => html`<div key=${k} className="panel stat"><div className="k">${l}</div><div className="v">${counts[k]}</div><div className="k">weeks</div></div>`)}</div>
+    <div className="panel scroll-x"><table><thead><tr><th>Employee</th><th>Department</th><th>Reporting manager</th><th>Weeks not approved</th></tr></thead>
+      <tbody>${behind.map(({ e, open }) => html`<tr key=${e.id}><td><b style=${{ fontWeight: 500 }}>${e.name}</b><div className="muted small">${e.id}</div></td><td>${e.dept}</td><td>${e.mgr ? EMAP[e.mgr].name : 'None'}</td>
+        <td><div className="row" style=${{ gap: '6px' }}>${open.map(x => html`<span key=${x.ws} className=${'chip ' + WEEK_STATUS[x.s].cls}>${fmtShort(x.ws)}: ${WEEK_STATUS[x.s].label}</span>`)}</div></td></tr>`)}
+      ${behind.length === 0 && html`<tr><td colSpan=${4}><${Empty} title="Everyone is approved">${fmtMonth(m)} is ready for payroll.<//></td></tr>`}</tbody></table></div>
+  </div>`;
+}
+function NumField({ id, label, value, onChange, unit, step }) {
+  return html`<div className="field"><label htmlFor=${id}>${label}</label><div className="row" style=${{ flexWrap: 'nowrap', gap: '6px' }}><input id=${id} className="input" type="number" min="0" step=${step || 1} value=${value} onChange=${e => onChange(Number(e.target.value))} /><span className="muted small">${unit}</span></div></div>`;
+}
+function Settings() {
+  const { store, update, notify, reset } = useApp();
+  const st = store.settings;
+  const lastMonth = addMonths(monthOf(TODAY), -1);
+  const blockers = st.lastProcessed < lastMonth ? payrollBlockers(store, lastMonth) : [];
+  const set = (k, v) => update(s => { s.settings[k] = v; });
+  const modes = [['attendance', 'Attendance only', 'Employees check in and out. No timesheets.'], ['both', 'Attendance + timesheet', 'Check in and out, then log what you worked on. Each day runs from check-in to check-out.'], ['timesheet', 'Timesheet only', 'No check-in. Each day runs on the shift times, and timesheets count as days worked.']];
+  const comps = [['attendance', 'Attendance corrections'], ['overtime', 'Overtime'], ['leave', 'Leave'], ['reimbursement', 'Reimbursements'], ['timesheet', 'Timesheets']];
+  return html`<div className="setgrid">
+    <div className="panel pad"><h2 style=${{ marginBottom: '4px' }}>How Acme tracks time</h2><div className="muted small" style=${{ marginBottom: '14px' }}>Changes apply to everyone straight away.</div>
+      <div className="modes">${modes.map(([k, t, d]) => html`<button key=${k} className="mode" aria-pressed=${st.mode === k} onClick=${() => { set('mode', k); notify('Switched to ' + t.toLowerCase()); }}><b>${t}</b><span>${d}</span></button>`)}</div></div>
+    <div className="panel pad"><h2 style=${{ marginBottom: '4px' }}>Working day rules</h2><div className="muted small" style=${{ marginBottom: '14px' }}>Used for late marks, half days and overtime suggestions.</div>
+      <div className="rules">
+        <${NumField} id="g" label="Grace period after shift start" value=${st.graceMin} unit="min" onChange=${v => set('graceMin', v)} />
+        <${NumField} id="h" label="Half day if time at work is under" value=${st.halfDayMin / 60} unit="hours" step="0.5" onChange=${v => set('halfDayMin', Math.round(v * 60))} />
+        <${NumField} id="b" label="Break included in each shift" value=${st.breakMin} unit="min" onChange=${v => set('breakMin', v)} />
+        <${NumField} id="o" label="Suggest overtime from" value=${st.otMin} unit="min extra" onChange=${v => set('otMin', v)} />
+      </div>
+      <div className="small muted">A 9h shift includes the break. Overtime is time beyond the shift length, whatever time someone checks in. Weekends and holidays count in full. Days without a check-out close automatically at shift end.</div></div>
+    ${st.mode !== 'attendance' && html`<div className="panel pad"><div className="row"><div style=${{ flex: 1, minWidth: '240px' }}><h2 style=${{ marginBottom: '4px' }}>Timesheet approval</h2>
+        <div className="muted small">When on, timesheets go to the reporting manager every ${DAY_LONG[st.submitDay]}, and payroll for a month can't be processed until every timesheet in it is approved.</div></div>
+        <button className="switch" role="switch" aria-checked=${st.tsApproval} aria-label="Timesheet approval" onClick=${() => { set('tsApproval', !st.tsApproval); notify('Timesheet approval ' + (st.tsApproval ? 'off' : 'on')); }}></button></div>
+      ${st.tsApproval && html`<div className="row" style=${{ marginTop: '14px' }}><label htmlFor="sd" className="small" style=${{ fontWeight: 500 }}>Submit every</label>
+        <select id="sd" className="input" style=${{ width: 'auto' }} value=${st.submitDay} onChange=${e => set('submitDay', Number(e.target.value))}>${[1, 2, 3, 4, 5, 6, 0].map(d => html`<option key=${d} value=${d}>${DAY_LONG[d]}</option>`)}</select>
+        <button className="btn" onClick=${() => { update(runSubmission); notify('Submission run done'); }}>Simulate submission day</button></div>`}</div>`}
+    <div className="panel"><div className="pad" style=${{ paddingBottom: '8px' }}><h2 style=${{ marginBottom: '4px' }}>Approvals</h2><div className="muted small">Level 1 is always the reporting manager. The CEO has no manager, so their requests skip to level 2.</div></div>
+      <div className="scroll-x"><table><thead><tr><th>Request</th><th>Level 1</th><th>Level 2</th></tr></thead>
+        <tbody>${comps.map(([k, l]) => { const off = (k === 'timesheet' && (st.mode === 'attendance' || !st.tsApproval)) || (k === 'attendance' && st.mode === 'timesheet');
+          return html`<tr key=${k} style=${{ opacity: off ? 0.5 : 1 }}><td>${l}${off && html`<div className="muted small">Not in use</div>`}</td><td>Reporting manager</td>
+            <td><select className="input" style=${{ width: 'auto' }} aria-label=${'Level 2 for ' + l} value=${st.l2[k]} disabled=${off} onChange=${e => update(s => { s.settings.l2[k] = e.target.value; })}>${['HR', 'Finance', 'None'].map(x => html`<option key=${x} value=${x}>${x === 'None' ? 'None (manager is final)' : x + ' team'}</option>`)}</select></td></tr>`; })}</tbody></table></div></div>
+    <div className="panel pad"><h2 style=${{ marginBottom: '4px' }}>Run payroll</h2><div className="muted small" style=${{ marginBottom: '12px' }}>Once payroll is processed for a month, its timesheets and attendance can't be edited.</div>
+      <div className="row"><span>Processed up to <b style=${{ fontWeight: 500 }}>${fmtMonth(st.lastProcessed)}</b></span><span className="spacer"></span>
+        ${st.lastProcessed < lastMonth ? html`<button className="btn primary" disabled=${blockers.length > 0} onClick=${() => { set('lastProcessed', lastMonth); notify('Payroll processed for ' + fmtMonth(lastMonth)); }}>Process payroll for ${fmtMonth(lastMonth)}</button>`
+          : html`<button className="btn" onClick=${() => { set('lastProcessed', addMonths(lastMonth, -1)); notify('Undid ' + fmtMonth(lastMonth) + ' payroll (demo)'); }}>Undo ${fmtMonth(lastMonth)} (demo)</button>`}</div>
+      ${blockers.length > 0 && html`<div><div className="banner amber" style=${{ marginTop: '12px', marginBottom: 0 }}><div><b>Can't process ${fmtMonth(lastMonth)} yet.</b> These timesheets need approval first.</div></div>
+        <div className="blockers">${blockers.map(b => html`<div key=${b.e.id}><b style=${{ fontWeight: 500 }}>${b.e.name}</b><span className="muted">manager: ${b.e.mgr ? EMAP[b.e.mgr].name : 'none'}</span>${b.open.map(o => html`<span key=${o.ws} className=${'chip ' + WEEK_STATUS[o.st].cls}>${fmtShort(o.ws)}: ${WEEK_STATUS[o.st].label}</span>`)}</div>`)}</div></div>`}</div>
+    <div className="panel pad row"><div><h2 style=${{ marginBottom: '4px' }}>Demo data</h2><div className="muted small">Puts every timesheet and request back to the starting state.</div></div><span className="spacer"></span><button className="btn" onClick=${reset}>Reset demo data</button></div>
+  </div>`;
+}
+function Employees() {
+  return html`<div className="panel scroll-x"><table><thead><tr><th>Employee</th><th>ID</th><th>Department</th><th>Designation</th><th>Reports to</th><th>Shift</th></tr></thead>
+    <tbody>${EMP.map(e => html`<tr key=${e.id}><td><b style=${{ fontWeight: 500 }}>${e.name}</b>${e.id === EMPLOYEE_ID ? html` <span className="chip blue">ESS - Employee</span>` : e.id === MANAGER_ID ? html` <span className="chip blue">ESS - Manager</span>` : null}</td><td className="muted">${e.id}</td><td>${e.dept}</td><td>${e.title}</td><td>${e.mgr ? EMAP[e.mgr].name : 'None'}</td><td className="muted">${SHIFTS[e.dept].join('–')}</td></tr>`)}</tbody></table></div>`;
+}
+function Payroll() {
+  const { store } = useApp();
+  const [tab, setTab] = useState('approvals');
+  const pending = store.requests.filter(r => r.status === 'pending_l2' && reqVisible(store, r)).length;
+  const TABS = [{ k: 'approvals', label: 'Approvals', n: pending }, approvalOn(store) && { k: 'summary', label: 'Timesheet status' }, { k: 'settings', label: 'Attendance & timesheet settings' }, { k: 'employees', label: 'Employees', n: EMP.length }].filter(Boolean);
+  const cur = TABS.find(t => t.k === tab) ? tab : TABS[0].k;
+  return html`<div><${Tabs} tabs=${TABS} value=${cur} onChange=${setTab} />
+    ${cur === 'approvals' && html`<${PayrollApprovals} />`}${cur === 'summary' && html`<${TimesheetSummary} />`}${cur === 'settings' && html`<${Settings} />`}${cur === 'employees' && html`<${Employees} />`}</div>`;
+}
+
+/* ---------------- demo controls & app ---------------- */
+function DemoControls() {
+  const { store, update, notify, reset } = useApp();
+  const [open, setOpen] = useState(false);
+  return html`<div className="demo">
+    ${open && html`<div className="panel demo-pop" role="dialog" aria-label="Demo controls"><h3 style=${{ marginBottom: '10px' }}>Demo controls</h3>
+      <div className="field"><label>Tracking mode</label><${Seg} label="Tracking mode" value=${store.settings.mode} onChange=${k => { update(s => { s.settings.mode = k; }); notify(MODE_LABEL[k]); }} options=${[['attendance', 'Attendance'], ['both', 'Both'], ['timesheet', 'Timesheet']]} /></div>
+      <div className="row">${approvalOn(store) && html`<button className="btn sm" onClick=${() => { update(runSubmission); notify('Submission run done'); }}>Simulate submission day</button>`}<button className="btn sm" onClick=${reset}>Reset demo data</button></div>
+      <div className="small muted" style=${{ marginTop: '10px' }}>Changes are saved in this browser, so approvals carry across the three tabs.</div></div>`}
+    <button className="demo-btn" aria-expanded=${open} onClick=${() => setOpen(o => !o)}>${open ? 'Close' : 'Demo controls'}</button>
+  </div>`;
+}
+function App() {
+  const [store, setStore] = useState(loadStore);
+  const [section, setSection] = useState('ess-employee');
+  const [toast, setToast] = useState(null);
+  useEffect(() => { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* ignore */ } }, [store]);
+  useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2600); return () => clearTimeout(t); }, [toast]);
+  const update = useCallback(fn => setStore(prev => { const s = clone(prev); fn(s); return s; }), []);
+  const notify = useCallback(msg => setToast({ msg, id: Date.now() }), []);
+  const reset = useCallback(() => { setStore(buildDemo()); setToast({ msg: 'Demo data reset', id: Date.now() }); }, []);
+  const ctx = useMemo(() => ({ store, update, notify, reset }), [store, update, notify, reset]);
+  const mgrReports = EMP.filter(e => e.mgr === MANAGER_ID).map(e => e.id);
+  const mgrCount = teamTimesheetItems(store, MANAGER_ID).length + store.requests.filter(r => mgrReports.includes(r.empId) && r.status === 'pending_l1' && reqVisible(store, r)).length;
+  const payCount = store.requests.filter(r => r.status === 'pending_l2' && reqVisible(store, r)).length;
+  const NAV = [{ k: 'payroll', label: 'Payroll', icon: Icon.payroll, n: payCount }, { k: 'ess-employee', label: 'ESS - Employee', icon: Icon.emp }, { k: 'ess-manager', label: 'ESS - Manager', icon: Icon.mgr, n: mgrCount }];
+  const persona = section === 'ess-employee' ? EMAP[EMPLOYEE_ID] : section === 'ess-manager' ? EMAP[MANAGER_ID] : null;
+  const titles = { payroll: ['Payroll', 'Approvals, timesheet status and settings for Acme'], 'ess-employee': ['ESS - Employee', 'Signed in as ' + EMAP[EMPLOYEE_ID].name], 'ess-manager': ['ESS - Manager', 'Signed in as ' + EMAP[MANAGER_ID].name + ', manages ' + mgrReports.length + ' people'] };
+  return html`<${Ctx.Provider} value=${ctx}>
+    <div className="app">
+      <nav className="side" aria-label="Services">
+        <div className="logo"><span className="logo-mark" aria-hidden="true"></span>Peko</div>
+        ${NAV.map(n => html`<button key=${n.k} className="nav" aria-current=${section === n.k ? 'page' : undefined} onClick=${() => setSection(n.k)}>${n.icon}<span>${n.label}</span>${n.n ? html`<span className="count">${n.n}</span>` : null}</button>`)}
+        <div className="side-foot">Attendance & Timesheet prototype<br/>Mode: ${MODE_LABEL[store.settings.mode]}</div>
+      </nav>
+      <div className="main">
+        <header className="top"><div><h1>${titles[section][0]}</h1><div className="sub">${titles[section][1]}</div></div>
+          <div className="who"><span className="avatar">${persona ? initials(persona.name) : 'A'}</span><div><b>${persona ? persona.name : 'Acme Technologies Pvt Ltd'}</b><span>${persona ? persona.title : 'Corporate'}</span></div></div></header>
+        <main className="content">
+          ${section === 'payroll' && html`<${Payroll} />`}
+          ${section === 'ess-employee' && html`<${Ess} key="emp" emp=${EMAP[EMPLOYEE_ID]} />`}
+          ${section === 'ess-manager' && html`<${Ess} key="mgr" emp=${EMAP[MANAGER_ID]} isManager />`}
+        </main>
+      </div>
+    </div>
+    <${DemoControls} />
+    ${toast && html`<div className="toast" role="status" key=${toast.id}>${toast.msg}</div>`}
+  <//>`;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(html`<${App} />`);
+})();
+
+</script>
+</body>
+</html>

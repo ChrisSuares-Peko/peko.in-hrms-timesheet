@@ -1,3 +1,5 @@
+// PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
+// frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
 // PROTOTYPE-SETUP: ESS Service 1 — the week's status bar (range, status, totals, actions, approval copy) and
 // its notices (locked, sent back with the manager's comment, submitted). Shared by the tab and the viewer;
 // `perspective` only changes the wording.
@@ -8,10 +10,10 @@ import { Alert, Tag } from 'antd';
 
 import { formatDuration } from '@src/prototype/rules/attendance';
 
-import { TimesheetPerspective, weekdayLabel } from './helpers';
-import { fmtDate, fmtWeekRange } from '../components/format';
-import { WeekStatusTag } from '../components/StatusTags';
-import type { TimesheetWeekView } from '../types';
+import { TimesheetPerspective, weekdayLabel } from './managerHelpers';
+import { fmtDate, fmtWeekRange } from '../../components/format';
+import { WeekStatusTag } from '../../components/StatusTags';
+import type { TimesheetWeekView } from '../../types';
 
 export interface WeekStatusBarProps {
     view: TimesheetWeekView;

@@ -24,7 +24,8 @@ import {
     dayWindow,
     deriveDay,
     editModeFor,
-    entryMinutes,
+    entryMins,
+    sortEntries,
     lockReasonFor,
     monthLabel,
     monthOf,
@@ -163,11 +164,10 @@ export const saveWeek = (mode: DataMode, week: TimesheetWeek) =>
 
 export const entriesOn = (mode: DataMode, e: MockEmployee, date: string) =>
     weekOf(mode, e, weekStartOf(date))
-        .entries.filter(x => x.date === date)
-        .sort((a, b) => a.start.localeCompare(b.start));
+        .entries.filter(x => x.date === date);
 
 export const loggedOn = (mode: DataMode, e: MockEmployee, date: string) =>
-    entriesOn(mode, e, date).reduce((s, x) => s + entryMinutes(x), 0);
+    entriesOn(mode, e, date).reduce((s, x) => s + entryMins(x), 0);
 
 export const pendingChangeRequest = (mode: DataMode, week: TimesheetWeek) =>
     week.pendingChangeRequestId
@@ -260,12 +260,12 @@ export const timesheetDay = (mode: DataMode, e: MockEmployee, date: string, entr
     const settings = getSettings(mode);
     const t = today();
     const attendance = attendanceDay(mode, e, date);
-    const dayEntries = entries.filter(x => x.date === date).sort((a, b) => a.start.localeCompare(b.start));
+    const dayEntries = sortEntries(entries.filter(x => x.date === date));
     const window =
         date < e.dateOfJoin
             ? { kind: 'none' as const, label: 'Before joining', expectedMinutes: 0 }
-            : dayWindow({ mode: settings.mode, settings, day: attendance, today: t });
-    const logged = dayEntries.reduce((s, x) => s + entryMinutes(x), 0);
+            : dayWindow({ mode: settings.mode, settings, day: attendance, today: t, dateOfJoin: e.dateOfJoin });
+    const logged = dayEntries.reduce((s, x) => s + entryMins(x), 0);
     const flag = outsideCheckInFlag({ mode: settings.mode, day: attendance, entries: dayEntries });
     const pending = attendance.correction?.state === 'pending' ? attendance.correction : undefined;
     let { locked } = attendance;

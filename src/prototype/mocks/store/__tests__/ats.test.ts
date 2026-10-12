@@ -9,6 +9,7 @@ import { findEmployee } from '../../data/employees';
 import { isWorkingDay } from '../../data/time-calendar';
 import {
     addEntry,
+    editEntry,
     attendanceMonthOf,
     createCorrection,
     createOvertime,
@@ -134,5 +135,53 @@ describe('flows', () => {
 
     it('months before last month are processed and locked', () => {
         expect(payrollMonthStatus(M, addMonths(currentMonth(), -2)).processed).toBe(true);
+    });
+});
+
+// PROTOTYPE-SETUP (V2): hours-only entries end to end.
+describe('hours-only entries', () => {
+    it('the sent-back week has "Writing release notes" (1h, no set time)', () => {
+        const e = weekView(M, sneha, s.sentBackWeek).week.entries.find(x => x.description === 'Writing release notes');
+        expect(e).toMatchObject({ start: null, end: null, mins: 60 });
+    });
+    it('count in day and week totals and unlogged hours; edit keeps the hours', () => {
+        const date = s.thisWeek < s.today ? s.thisWeek : s.today;
+        const before = weekView(M, sneha, s.thisWeek);
+        const dayBefore = before.days.find(d => d.date === date)!;
+        const after = addEntry(M, sneha, { date, mins: 90, description: 'Reading the RFC' });
+        const dayAfter = after.days.find(d => d.date === date)!;
+        expect(dayAfter.loggedMinutes - dayBefore.loggedMinutes).toBe(90);
+        expect(after.totals.loggedMinutes - before.totals.loggedMinutes).toBe(90);
+        const added = dayAfter.entries.find(x => x.description === 'Reading the RFC')!;
+        expect(added).toMatchObject({ start: null, end: null, mins: 90 });
+        expect(dayAfter.entries[dayAfter.entries.length - 1].id).toBe(added.id); // after the timed entries
+        const edited = editEntry(M, sneha, added.id, { date, mins: 120, description: 'Reading the RFC' });
+        expect(edited.days.find(d => d.date === date)!.entries.find(x => x.id === added.id)).toMatchObject({ mins: 120, start: null });
+    });
+    it('start + hours is saved with the end calculated', () => {
+        const date = s.thisWeek < s.today ? s.thisWeek : s.today;
+        const v = addEntry(M, sneha, { date, start: '21:00', mins: 45, description: 'Late call' });
+        expect(v.days.find(d => d.date === date)!.entries.find(x => x.description === 'Late call')).toMatchObject({ start: '21:00', end: '21:45', mins: 45 });
+    });
+    it('timesheet-only overtime counts hours-only entries', () => {
+        // Approval off, so any unlocked week can be edited directly.
+        updateSettings(M, { mode: 'timesheet', timesheetApproval: { enabled: false, submissionWeekday: 'FRIDAY' } });
+        const date = s.overtimeDay;
+        const extraBefore = overtimeViewOf(M, sneha, currentMonth()).suggestions.find(x => x.date === date)?.minutes ?? 0;
+        expect(weekView(M, sneha, weekStartOf(date)).editMode).toBe('direct');
+        addEntry(M, sneha, { date, mins: 120, description: 'Extra hours, no set time' });
+        const extraAfter = overtimeViewOf(M, sneha, currentMonth()).suggestions.find(x => x.date === date)?.minutes ?? 0;
+        expect(extraAfter - extraBefore).toBe(120);
+    });
+});
+
+// PROTOTYPE-SETUP (V2): no manual submit — the message names the configured submission day.
+describe('manual submit', () => {
+    it('names the configured submission day', () => {
+        const day = new Date().getDay() === 3 ? 'TUESDAY' : 'WEDNESDAY';
+        updateSettings(M, { timesheetApproval: { enabled: true, submissionWeekday: day } });
+        expect(weekView(M, sneha, s.thisWeek).week.status).toBe('DRAFT');
+        const label = day === 'TUESDAY' ? 'Tuesday' : 'Wednesday';
+        expect(() => submitWeek(M, sneha, s.thisWeek)).toThrow(`Weeks go to your manager automatically every ${label}.`);
     });
 });

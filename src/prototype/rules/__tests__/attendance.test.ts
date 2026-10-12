@@ -13,17 +13,24 @@ import {
     diffEntries,
     diffSummary,
     dayWindow,
+    ENTRY_MESSAGES,
     editModeFor,
     effectiveCheckOut,
+    entryMins,
+    entriesOverlap,
+    expectedMinutes,
     formatDuration,
     isSubmissionDay,
     outsideCheckInFlag,
     overtimeMinutes,
+    parseHours,
     payrollBlockers,
     shouldSuggestOvertime,
+    sortEntries,
     startTrail,
     tabsFor,
     titleFor,
+    toMinutes,
     validateEntry,
     validateOvertimeInput,
     weekStartOf,
@@ -39,6 +46,16 @@ const entry = (id: string, date: string, start: string, end: string, description
     date,
     start,
     end,
+    mins: toMinutes(end) - toMinutes(start),
+    description,
+});
+/** PROTOTYPE-SETUP (V2): an hours-only entry. */
+const hoursOnly = (id: string, date: string, mins: number, description = 'Work'): TimesheetEntry => ({
+    id,
+    date,
+    start: null,
+    end: null,
+    mins,
     description,
 });
 const day = (over: Partial<AttendanceDay>): AttendanceDay => ({
@@ -152,7 +169,7 @@ describe('timesheet entries', () => {
     const existing = [entry('a', '2026-10-05', '09:30', '12:00')];
     it('requires end after start and a description', () => {
         expect(() => validateEntry({ date: '2026-10-05', start: '13:00', end: '12:00', description: 'x' }, [])).toThrow(/after the start/);
-        expect(() => validateEntry({ date: '2026-10-05', start: '13:00', end: '14:00', description: ' ' }, [])).toThrow(/description/);
+        expect(() => validateEntry({ date: '2026-10-05', start: '13:00', end: '14:00', description: ' ' }, [])).toThrow(/Describe what you worked on/);
     });
     it('blocks overlaps but allows touching entries and editing itself', () => {
         expect(() => validateEntry({ date: '2026-10-05', start: '11:00', end: '13:00', description: 'x' }, existing)).toThrow(/Overlaps/);
@@ -200,8 +217,9 @@ describe('weeks, change requests and locks', () => {
         expect(editModeFor({ approvalEnabled: false, status: 'DRAFT', allDaysLocked: false })).toBe('direct');
         expect(editModeFor({ approvalEnabled: true, status: 'SENT_BACK', allDaysLocked: true })).toBe('locked');
     });
-    it('submit only drafts and sent-back weeks, only with approval on', () => {
+    it('the employee only resubmits sent-back weeks (drafts go out on submission day), only with approval on', () => {
         expect(canSubmitWeek({ approvalEnabled: true, status: 'SENT_BACK', allDaysLocked: false })).toBe(true);
+        expect(canSubmitWeek({ approvalEnabled: true, status: 'DRAFT', allDaysLocked: false })).toBe(false);
         expect(canSubmitWeek({ approvalEnabled: true, status: 'SUBMITTED', allDaysLocked: false })).toBe(false);
         expect(canSubmitWeek({ approvalEnabled: false, status: 'DRAFT', allDaysLocked: false })).toBe(false);
     });
@@ -259,5 +277,151 @@ describe('approval chain', () => {
         expect(startTrail('overtime', null, S).status).toBe('PENDING_FINANCE');
         expect(startTrail('timesheet', null, S).status).toBe('APPROVED');
         expect(startTrail('timesheet', manager, S).steps).toHaveLength(1);
+    });
+});
+
+// ---- PROTOTYPE-SETUP (V2): hours-only entries, the entry form's rules and expected hours -----------------
+
+describe('entry minutes and sorting', () => {
+    it('uses the times when present, otherwise the minutes entered', () => {
+        expect(entryMins(entry('a', '2026-10-05', '09:30', '11:00'))).toBe(90);
+        expect(entryMins(hoursOnly('h', '2026-10-05', 60))).toBe(60);
+        expect(entryMins({ start: '09:00', end: '10:00', mins: 999 })).toBe(60);
+    });
+    it('sorts timed entries by start, then hours-only entries', () => {
+        const list = [hoursOnly('h1', '2026-10-05', 30), entry('b', '2026-10-05', '14:00', '15:00'), hoursOnly('h2', '2026-10-05', 15), entry('a', '2026-10-05', '09:00', '10:00'), entry('z', '2026-10-04', '16:00', '17:00')];
+        expect(sortEntries(list).map(e => e.id)).toEqual(['z', 'a', 'b', 'h1', 'h2']);
+    });
+    it('hours-only entries never overlap', () => {
+        expect(entriesOverlap(hoursOnly('h', '2026-10-05', 600), entry('a', '2026-10-05', '09:00', '10:00'))).toBe(false);
+    });
+});
+
+describe('parseHours', () => {
+    it('reads 1:30, 1.5, 1,5, 1h 30m, 1h, 90m and 2', () => {
+        expect(parseHours('1:30')).toBe(90);
+        expect(parseHours('1.5')).toBe(90);
+        expect(parseHours('1,5')).toBe(90);
+        expect(parseHours('1h 30m')).toBe(90);
+        expect(parseHours('1h30m')).toBe(90);
+        expect(parseHours('1h')).toBe(60);
+        expect(parseHours('90m')).toBe(90);
+        expect(parseHours('2')).toBe(120);
+        expect(parseHours('0:45')).toBe(45);
+    });
+    it('returns null when it can’t read the value', () => {
+        expect(parseHours('abc')).toBeNull();
+        expect(parseHours('1:75')).toBeNull();
+        expect(parseHours('')).toBeNull();
+    });
+});
+
+describe('validateEntry (entry form)', () => {
+    const D = '2026-10-05';
+    const ok = (input: Parameters<typeof validateEntry>[0], others: TimesheetEntry[] = []) => validateEntry(input, others);
+    const msg = (input: Parameters<typeof validateEntry>[0], others: TimesheetEntry[] = []) => {
+        try {
+            validateEntry(input, others);
+            return 'no error';
+        } catch (e) {
+            return (e as Error).message;
+        }
+    };
+    it('start + end → minutes calculated', () => {
+        expect(ok({ date: D, start: '09:00', end: '10:30', description: 'x' })).toMatchObject({ start: '09:00', end: '10:30', mins: 90 });
+    });
+    it('start + hours → end calculated', () => {
+        expect(ok({ date: D, start: '14:00', hoursText: '1h 30m', description: 'x' })).toMatchObject({ start: '14:00', end: '15:30', mins: 90 });
+    });
+    it('hours only → saved as hours-only', () => {
+        expect(ok({ date: D, hoursText: '1.5', description: 'x' })).toMatchObject({ start: null, end: null, mins: 90 });
+        expect(ok({ date: D, mins: 60, description: 'x' })).toMatchObject({ start: null, end: null, mins: 60 });
+    });
+    it('start + end wins over the hours field', () => {
+        expect(ok({ date: D, start: '09:00', end: '10:00', hoursText: 'abc', description: 'x' })).toMatchObject({ mins: 60 });
+    });
+    it('rejects each invalid combination with its message', () => {
+        expect(msg({ date: D, start: '13:00', end: '12:00', description: 'x' })).toBe(ENTRY_MESSAGES.endBeforeStart);
+        expect(msg({ date: D, end: '12:00', description: 'x' })).toBe(ENTRY_MESSAGES.endWithoutStart);
+        expect(msg({ date: D, start: '12:00', description: 'x' })).toBe(ENTRY_MESSAGES.startWithoutEnd);
+        expect(msg({ date: D, hoursText: 'abc', description: 'x' })).toBe(ENTRY_MESSAGES.unreadableHours);
+        expect(msg({ date: D, hoursText: '0', description: 'x' })).toBe(ENTRY_MESSAGES.zeroHours);
+        expect(msg({ date: D, hoursText: '25', description: 'x' })).toBe(ENTRY_MESSAGES.over24);
+        expect(msg({ date: D, hoursText: '1', description: ' ' })).toBe(ENTRY_MESSAGES.description);
+        expect(msg({ date: D, description: 'x' })).toBe(ENTRY_MESSAGES.missing);
+        expect(msg({ date: D, start: '23:00', hoursText: '2', description: 'x' })).toBe(ENTRY_MESSAGES.pastMidnight);
+    });
+    it('rejects a day over 24h (hours-only entries count)', () => {
+        expect(msg({ date: D, hoursText: '5', description: 'x' }, [hoursOnly('h', D, 20 * 60)])).toBe(ENTRY_MESSAGES.dayOver24);
+        expect(msg({ date: D, hoursText: '4', description: 'x' }, [hoursOnly('h', D, 20 * 60)])).toBe('no error');
+    });
+    it('overlap applies to timed entries only', () => {
+        const others = [entry('a', D, '09:00', '12:00'), hoursOnly('h', D, 120)];
+        expect(msg({ date: D, start: '11:00', end: '13:00', description: 'x' }, others)).toBe('Overlaps with 09:00–12:00 (Work).');
+        expect(msg({ date: D, hoursText: '2', description: 'x' }, others)).toBe('no error');
+        expect(msg({ id: 'a', date: D, start: '10:00', end: '12:30', description: 'x' }, others)).toBe('no error');
+    });
+});
+
+describe('hours-only entries in the other rules', () => {
+    it('are never outside check-in hours', () => {
+        const f = outsideCheckInFlag({ mode: 'both', day: day({ checkOut: '18:00' }), entries: [hoursOnly('h', '2026-10-05', 600)] });
+        expect(f).toBeUndefined();
+    });
+    it('still prompt a correction on a past day with no check-in', () => {
+        const f = outsideCheckInFlag({ mode: 'both', day: day({ status: 'absent', checkIn: null, checkOut: null }), entries: [hoursOnly('h', '2026-10-05', 60)] });
+        expect(f).toEqual({ entryIds: ['h'], action: 'request-correction', suggested: { checkIn: null, checkOut: null } });
+    });
+    it('count toward timesheet-only overtime', () => {
+        const logged = entryMins(entry('a', '2026-10-05', '09:30', '17:30')) + entryMins(hoursOnly('h', '2026-10-05', 90));
+        expect(overtimeMinutes({ mode: 'timesheet', settings: S, isOffDay: false, checkIn: null, checkOut: null, loggedMinutes: logged })).toBe(90);
+    });
+    it('the change diff compares minutes too', () => {
+        const before = hoursOnly('h', '2026-10-05', 60);
+        expect(diffSummary(diffEntries([before], [{ ...before, mins: 90 }]))).toBe('1 edited');
+        expect(diffSummary(diffEntries([before], [before]))).toBe('no changes');
+    });
+});
+
+describe('expected hours — one rule, eight edge cases', () => {
+    const exp = (over: Partial<AttendanceDay>, mode: 'both' | 'timesheet' | 'attendance' = 'both', dateOfJoin?: string) =>
+        expectedMinutes({ mode, settings: S, day: day(over), today: TODAY, dateOfJoin });
+    it('normal days: both = window − break, timesheet = shift − break, off/holiday/leave = 0', () => {
+        expect(exp({ checkIn: '09:30', checkOut: '19:00' })).toBe(510);
+        expect(exp({}, 'timesheet')).toBe(480);
+        expect(exp({ status: 'weekly-off', checkIn: null, checkOut: null })).toBe(0);
+        expect(exp({ status: 'holiday', checkIn: null, checkOut: null })).toBe(0);
+        expect(exp({ status: 'on-leave', checkIn: null, checkOut: null })).toBe(0);
+        expect(exp({ date: '2026-10-08', status: 'upcoming', checkIn: null, checkOut: null })).toBe(480);
+    });
+    it('#1 both mode, past working day with no check-in (absent) → 0', () => {
+        expect(exp({ status: 'absent', checkIn: null, checkOut: null })).toBe(0);
+    });
+    it('#2 both mode, today, checked in and not out → check-in to shift end, minus break', () => {
+        expect(exp({ date: TODAY, status: 'present', checkIn: '09:00', checkOut: null })).toBe(510);
+    });
+    it('#3 approved leave but checked in → the check-in window applies', () => {
+        // status isn't on-leave when there's a check-in (deriveDay), so the window is used
+        expect(exp({ status: 'present', label: 'Casual Leave', checkIn: '10:00', checkOut: '15:00' })).toBe(240);
+    });
+    it('#4 half-day leave (works the other half) → the check-in window', () => {
+        expect(exp({ status: 'half-day', checkIn: '14:00', checkOut: '18:30' })).toBe(210);
+    });
+    it('#5 worked on a weekly off or holiday → 0 (all that time is overtime instead)', () => {
+        expect(exp({ status: 'worked-off-day', checkIn: '10:00', checkOut: '14:00' })).toBe(0);
+        expect(overtimeMinutes({ mode: 'both', settings: S, isOffDay: true, checkIn: '10:00', checkOut: '14:00', loggedMinutes: 0 })).toBe(240);
+    });
+    it('#6 before the joining date → 0', () => {
+        expect(exp({}, 'timesheet', '2026-10-06')).toBe(0);
+    });
+    it('#7 check-in after the shift ends (window shorter than the break) → 0, never negative', () => {
+        expect(exp({ checkIn: '18:40', checkOut: '19:10' })).toBe(0);
+    });
+    it('#8 attendance-only mode → 0', () => {
+        expect(exp({}, 'attendance')).toBe(0);
+    });
+    it('dayWindow uses the same number', () => {
+        expect(dayWindow({ mode: 'both', settings: S, day: day({ status: 'absent', checkIn: null, checkOut: null }), today: TODAY }).expectedMinutes).toBe(0);
+        expect(dayWindow({ mode: 'both', settings: S, day: day({ checkIn: '09:42', checkOut: '19:12' }), today: TODAY }).expectedMinutes).toBe(510);
     });
 });

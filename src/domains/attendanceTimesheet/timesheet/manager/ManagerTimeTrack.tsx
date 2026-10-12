@@ -1,12 +1,14 @@
+// PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
+// frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
 // PROTOTYPE-SETUP: ESS Service 1 — a day's horizontal time track: the window (check-in → check-out, or the
 // shift) shaded, entries drawn as blocks, blocks outside the window in the warning colour. Positions are
 // percentages, so the track always scales to its container (works at 375px).
 import { Tooltip } from 'antd';
 
-import { displayTime, entryMinutes, formatDuration, toMinutes } from '@src/prototype/rules/attendance';
+import { displayTime, entryMinutes, formatDuration, isTimed, toMinutes } from '@src/prototype/rules/attendance';
 
-import type { TimesheetDay } from '../types';
-import { isOutsideWindow, nowMinutes, trackRange } from './helpers';
+import { isOutsideWindow, nowMinutes, trackRange } from './managerHelpers';
+import type { TimesheetDay } from '../../types';
 
 export interface TimeTrackProps {
     day: TimesheetDay;
@@ -21,7 +23,7 @@ export interface TimeTrackProps {
 const pct = (minutes: number, [lo, hi]: [number, number]) =>
     Math.max(0, Math.min(100, ((minutes - lo) / Math.max(1, hi - lo)) * 100));
 
-const TimeTrack = ({ day, range, isToday, compact }: TimeTrackProps) => {
+const ManagerTimeTrack = ({ day, range, isToday, compact }: TimeTrackProps) => {
     const r = range ?? trackRange([day]);
     const span = r[1] - r[0];
     const step = span > 12 * 60 ? 180 : 120;
@@ -58,7 +60,7 @@ const TimeTrack = ({ day, range, isToday, compact }: TimeTrackProps) => {
                         }}
                     />
                 )}
-                {day.entries.map(e => {
+                {day.entries.filter(isTimed).map(e => {
                     const outside = flagged.has(e.id) || isOutsideWindow(e, w);
                     return (
                         <Tooltip
@@ -135,4 +137,4 @@ export const TimeTrackLegend = ({ windowKind }: { windowKind: TimesheetDay['wind
     </div>
 );
 
-export default TimeTrack;
+export default ManagerTimeTrack;

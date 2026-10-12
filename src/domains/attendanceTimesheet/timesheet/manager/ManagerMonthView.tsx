@@ -1,3 +1,5 @@
+// PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
+// frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
 // PROTOTYPE-SETUP: ESS Service 1 — the Month view: totals, then a calendar-like grid, one row per week with its
 // status (and "Change pending"). Each day shows hours logged (and expected on wider screens), its status and a
 // marker for time logged outside check-in hours. Clicking a day opens it in the Day view.
@@ -7,10 +9,10 @@ import dayjs from 'dayjs';
 
 import { DAY_STATUS_LABEL, formatDuration, weekDates } from '@src/prototype/rules/attendance';
 
-import { shortHours } from './helpers';
-import { fmtWeekRange } from '../components/format';
-import { WeekStatusTag } from '../components/StatusTags';
-import type { AtsMode, DayStatus, TimesheetMonthView } from '../types';
+import { shortHours } from './managerHelpers';
+import { fmtWeekRange } from '../../components/format';
+import { WeekStatusTag } from '../../components/StatusTags';
+import type { AtsMode, DayStatus, TimesheetMonthView } from '../../types';
 
 export interface MonthViewProps {
     month: TimesheetMonthView;
@@ -49,7 +51,7 @@ const Stat = ({ label, value, tone }: { label: string; value: string; tone?: str
     </div>
 );
 
-const MonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWeek }: MonthViewProps) => {
+const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWeek }: MonthViewProps) => {
     const byDate = new Map(month.days.map(d => [d.date, d]));
     const { totals } = month;
 
@@ -179,4 +181,4 @@ const MonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWeek }: M
     );
 };
 
-export default MonthView;
+export default ManagerMonthView;

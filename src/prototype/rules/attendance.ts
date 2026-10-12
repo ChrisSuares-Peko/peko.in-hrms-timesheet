@@ -314,47 +314,184 @@ export const validateOvertimeInput = (input: OvertimeInput, today: string) => {
 };
 
 // ---- timesheet entries ----------------------------------------------------------------------------------
+// PROTOTYPE-SETUP (ESS Service 1, V2): entries are timed (start + end) or hours-only (start = end = null, mins
+// as entered). Hours-only entries count in every total but never overlap, never fall "outside check-in" and
+// aren't drawn on a time bar.
 
-export const entryMinutes = (e: Pick<TimesheetEntry, 'start' | 'end'>) =>
-    Math.max(0, toMinutes(e.end) - toMinutes(e.start));
+/** A timed entry has both times. */
+export const isTimed = <E extends Pick<TimesheetEntry, 'start' | 'end'>>(e: E): e is E & { start: string; end: string } =>
+    Boolean(e.start && e.end);
+
+/** Minutes of an entry: end − start when timed, otherwise the minutes entered. */
+export const entryMins = (e: Pick<TimesheetEntry, 'start' | 'end' | 'mins'>) =>
+    isTimed(e) ? Math.max(0, toMinutes(e.end) - toMinutes(e.start)) : Math.max(0, Math.round(e.mins ?? 0));
+
+/** @deprecated alias kept for existing callers — use entryMins. */
+export const entryMinutes = entryMins;
 
 export const loggedMinutesOn = (entries: TimesheetEntry[], date: string) =>
-    entries.filter(e => e.date === date).reduce((s, e) => s + entryMinutes(e), 0);
+    entries.filter(e => e.date === date).reduce((s, e) => s + entryMins(e), 0);
 
+/** By date, then timed entries by start, then hours-only entries (in their original order). */
+export const sortEntries = <E extends Pick<TimesheetEntry, 'date' | 'start' | 'end'>>(list: E[]) =>
+    list
+        .map((e, i) => ({ e, i }))
+        .sort((a, b) => {
+            if (a.e.date !== b.e.date) return a.e.date.localeCompare(b.e.date);
+            const ta = isTimed(a.e);
+            const tb = isTimed(b.e);
+            if (ta && tb) return (a.e.start ?? '').localeCompare(b.e.start ?? '') || a.i - b.i;
+            if (ta !== tb) return ta ? -1 : 1;
+            return a.i - b.i;
+        })
+        .map(x => x.e);
+
+/** Two timed entries on the same day that share time. Hours-only entries never overlap. */
 export const entriesOverlap = (
     a: Pick<TimesheetEntry, 'date' | 'start' | 'end'>,
     b: Pick<TimesheetEntry, 'date' | 'start' | 'end'>
 ) =>
     a.date === b.date &&
+    isTimed(a) &&
+    isTimed(b) &&
     toMinutes(a.start) < toMinutes(b.end) &&
     toMinutes(b.start) < toMinutes(a.end);
 
-export const findOverlap = (
-    entries: TimesheetEntry[],
+export const findOverlap = <E extends TimesheetEntry>(
+    entries: E[],
     candidate: Pick<TimesheetEntry, 'date' | 'start' | 'end'> & { id?: string }
 ) => entries.find(e => e.id !== candidate.id && entriesOverlap(e, candidate));
 
-/** Blocks end-before-start, a missing description and overlaps. Returns the cleaned fields. */
+/**
+ * Reads an hours value: "1:30", "1.5", "1,5", "1h 30m", "1h", "90m", "2". Returns minutes, or null when it
+ * can't be read. (Zero comes back as 0 — validateEntry rejects it with its own message.)
+ */
+export const parseHours = (text: string | null | undefined): number | null => {
+    const t = (text ?? '').trim().toLowerCase();
+    if (!t) return null;
+    const colon = /^(\d{1,2}):([0-5]\d)$/.exec(t);
+    if (colon) return Number(colon[1]) * 60 + Number(colon[2]);
+    const decimal = /^(\d{1,2}(?:[.,]\d{1,2})?)\s*h?$/.exec(t);
+    if (decimal) return Math.round(Number(decimal[1].replace(',', '.')) * 60);
+    const hm = /^(?:(\d{1,2})\s*h(?:rs?|ours?)?)?\s*(?:(\d{1,4})\s*m(?:ins?)?)?$/.exec(t);
+    if (hm && (hm[1] || hm[2])) return Number(hm[1] ?? 0) * 60 + Number(hm[2] ?? 0);
+    return null;
+};
+
+/** 90 → "1:30" (the form's Hours field). */
+export const formatHoursInput = (mins: number) => `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, '0')}`;
+
+const MAX_DAY_MINUTES = 24 * 60;
+const HHMM_RE = /^\d{2}:\d{2}$/;
+
+/**
+ * Validation messages — the prototype's wording (docs/prototypes/attendance-timesheet.html), plus two of ours:
+ * `missing` (nothing entered at all) and `pastMidnight` (start + hours would run past midnight).
+ */
+export const ENTRY_MESSAGES = {
+    date: 'Pick a valid date.',
+    time: 'Enter times as HH:mm.',
+    endWithoutStart: 'Add a start time too, or clear the end time.',
+    endBeforeStart: 'End time must be after the start time.',
+    startWithoutEnd: 'Add an end time or the hours.',
+    unreadableHours: 'Write hours like 1:30, 1.5 or 1h 30m.',
+    zeroHours: 'Add the hours worked, or a start and end time.',
+    missing: 'Enter a start and end time, or just the hours.',
+    over24: 'One entry can’t be more than 24 hours.',
+    pastMidnight: 'This entry would run past midnight. Split it across two days.',
+    description: 'Describe what you worked on.',
+    dayOver24: 'That takes the day over 24 hours.',
+} as const;
+
+/** "Overlaps with 09:00–12:00 (Code review)." */
+export const overlapMessage = (clash: { start: string; end: string; description: string }) =>
+    `Overlaps with ${clash.start}–${clash.end} (${clash.description}).`;
+
+/**
+ * Validates and normalises an entry, checking in the prototype's order. Start + end → mins = end − start (the
+ * hours field is ignored); start + hours → end = start + hours; hours alone → hours-only.
+ * Order: end without start · end before start · start without end or hours · unreadable hours · zero hours ·
+ * over 24h · past midnight · description · day over 24h · overlap with another timed entry.
+ * `others` = the day's (or week's) entries; the edited entry itself is skipped by id. `hoursText` is what the
+ * user typed in Hours (or pass `mins`).
+ */
 export const validateEntry = (
-    input: { date: string; start: string; end: string; description: string; id?: string },
+    input: {
+        date: string;
+        start?: string | null;
+        end?: string | null;
+        mins?: number | null;
+        hoursText?: string;
+        description: string;
+        id?: string;
+    },
     others: TimesheetEntry[]
-) => {
+): Omit<TimesheetEntry, 'id'> => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date ?? '')) throw new RuleError(ENTRY_MESSAGES.date, 400);
+    const start = input.start || null;
+    const typedEnd = input.end || null;
+    if ((start && !HHMM_RE.test(start)) || (typedEnd && !HHMM_RE.test(typedEnd))) {
+        throw new RuleError(ENTRY_MESSAGES.time, 400);
+    }
+    if (typedEnd && !start) throw new RuleError(ENTRY_MESSAGES.endWithoutStart, 400);
+    if (start && typedEnd && toMinutes(typedEnd) <= toMinutes(start)) throw new RuleError(ENTRY_MESSAGES.endBeforeStart, 400);
+
+    const text = input.hoursText?.trim() ?? '';
+    let hours: number | null = input.mins ?? null;
+    if (text) hours = parseHours(text);
+    const timed = Boolean(start && typedEnd);
+    if (!timed) {
+        if (start && !text && input.mins == null) throw new RuleError(ENTRY_MESSAGES.startWithoutEnd, 400);
+        if (text && hours === null) throw new RuleError(ENTRY_MESSAGES.unreadableHours, 400);
+        if (!start && !text && input.mins == null) throw new RuleError(ENTRY_MESSAGES.missing, 400);
+    }
+    const minutes = timed ? toMinutes(typedEnd as string) - toMinutes(start as string) : (hours ?? 0);
+    if (!Number.isFinite(minutes) || minutes <= 0) throw new RuleError(ENTRY_MESSAGES.zeroHours, 400);
+    if (minutes > MAX_DAY_MINUTES) throw new RuleError(ENTRY_MESSAGES.over24, 400);
+    if (start && !timed && toMinutes(start) + minutes > MAX_DAY_MINUTES) throw new RuleError(ENTRY_MESSAGES.pastMidnight, 400);
     const description = input.description?.trim() ?? '';
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date)) throw new RuleError('Pick a valid date.', 400);
-    if (!/^\d{2}:\d{2}$/.test(input.start) || !/^\d{2}:\d{2}$/.test(input.end)) {
-        throw new RuleError('Enter a start and end time.', 400);
+    if (!description) throw new RuleError(ENTRY_MESSAGES.description, 400);
+
+    const sameDay = others.filter(o => o.date === input.date && o.id !== input.id);
+    if (sameDay.reduce((sum, o) => sum + entryMins(o), 0) + minutes > MAX_DAY_MINUTES) {
+        throw new RuleError(ENTRY_MESSAGES.dayOver24, 400);
     }
-    if (toMinutes(input.end) <= toMinutes(input.start)) {
-        throw new RuleError('End time must be after the start time.', 400);
-    }
-    if (!description) throw new RuleError('A description is required.', 400);
-    const clash = findOverlap(others, input);
-    if (clash) {
-        throw new RuleError(
-            `Overlaps with ${displayTime(clash.start)}–${displayTime(clash.end)} · ${clash.description}.`
-        );
-    }
-    return { date: input.date, start: input.start, end: input.end, description };
+    const end = start ? typedEnd ?? fromMinutes(toMinutes(start) + minutes) : null;
+    const clash = findOverlap(sameDay, { id: input.id, date: input.date, start, end });
+    if (clash && isTimed(clash)) throw new RuleError(overlapMessage(clash));
+    return { date: input.date, start, end, mins: Math.round(minutes), description };
+};
+
+// ---- expected hours -----------------------------------------------------------------------------------
+
+/**
+ * Expected minutes for a day — the single rule behind totals, unlogged hours, the team grid and payroll.
+ * See docs/api/attendance-timesheet.md ("Expected hours") for the eight edge cases.
+ *   attendance-only mode, or before the joining date ............................. 0
+ *   weekly off, holiday, full-day leave (status on-leave), worked on an off day .. 0
+ *   timesheet-only mode .......................................................... shift − break
+ *   both mode, checked in ............................... (check-out − check-in) − break, never below 0
+ *       (still on the clock today → check-out = shift end; an auto check-out is the shift end;
+ *        approved leave but checked in, or half-day leave → the check-in window applies)
+ *   both mode, no check-in, today or later ...................................... shift − break
+ *   both mode, no check-in, past working day (absent) ........................... 0 (absence shows in Attendance)
+ */
+export const expectedMinutes = (input: {
+    mode: AtsMode;
+    settings: Pick<AtsSettings, 'shift' | 'breakMinutes'>;
+    day: Pick<AttendanceDay, 'date' | 'status' | 'checkIn' | 'checkOut'>;
+    today: string;
+    dateOfJoin?: string;
+}) => {
+    const { mode, settings, day } = input;
+    const span = (start: string, end: string) => Math.max(0, toMinutes(end) - toMinutes(start) - settings.breakMinutes);
+    if (mode === 'attendance') return 0;
+    if (input.dateOfJoin && day.date < input.dateOfJoin) return 0;
+    if (['on-leave', 'holiday', 'weekly-off', 'worked-off-day'].includes(day.status)) return 0;
+    if (mode === 'timesheet') return span(settings.shift.start, settings.shift.end);
+    if (day.checkIn) return span(day.checkIn, day.checkOut ?? settings.shift.end);
+    if (day.date < input.today) return 0;
+    return span(settings.shift.start, settings.shift.end);
 };
 
 /**
@@ -368,19 +505,20 @@ export const dayWindow = (input: {
     settings: Pick<AtsSettings, 'shift' | 'breakMinutes'>;
     day: Pick<AttendanceDay, 'date' | 'status' | 'checkIn' | 'checkOut' | 'checkOutAuto' | 'label'>;
     today: string;
+    dateOfJoin?: string;
 }): DayWindow => {
     const { mode, settings, day } = input;
     const shiftLabel = `Shift ${displayTime(settings.shift.start)}–${displayTime(settings.shift.end)}`;
-    const span = (start: string, end: string) =>
-        Math.max(0, toMinutes(end) - toMinutes(start) - settings.breakMinutes);
+    const expected = expectedMinutes(input);
     const offOrLeave = ['on-leave', 'holiday', 'weekly-off'].includes(day.status);
 
     if (mode === 'attendance') return { kind: 'none', label: 'Timesheets are off', expectedMinutes: 0 };
+    if (input.dateOfJoin && day.date < input.dateOfJoin) return { kind: 'none', label: 'Before joining', expectedMinutes: 0 };
     if (mode === 'timesheet') {
         if (offOrLeave || day.status === 'worked-off-day') {
             return { kind: 'none', label: day.label ?? 'No working hours', expectedMinutes: 0 };
         }
-        return { kind: 'shift', start: settings.shift.start, end: settings.shift.end, label: shiftLabel, expectedMinutes: span(settings.shift.start, settings.shift.end) };
+        return { kind: 'shift', start: settings.shift.start, end: settings.shift.end, label: shiftLabel, expectedMinutes: expected };
     }
     // both
     if (day.checkIn) {
@@ -391,12 +529,11 @@ export const dayWindow = (input: {
                 ? `Checked in ${displayTime(day.checkIn)} – auto check-out ${displayTime(day.checkOut)}`
                 : `Checked in ${displayTime(day.checkIn)} – out ${displayTime(day.checkOut)}`;
         }
-        const expected = day.status === 'worked-off-day' ? 0 : span(day.checkIn, end);
         return { kind: 'attendance', start: day.checkIn, end, label, checkOutAuto: day.checkOutAuto, expectedMinutes: expected };
     }
     if (offOrLeave) return { kind: 'none', label: day.label ?? 'No working hours', expectedMinutes: 0 };
     if (day.date >= input.today) {
-        return { kind: 'shift', start: settings.shift.start, end: settings.shift.end, label: `${shiftLabel} · not checked in yet`, expectedMinutes: span(settings.shift.start, settings.shift.end) };
+        return { kind: 'shift', start: settings.shift.start, end: settings.shift.end, label: `${shiftLabel} · not checked in yet`, expectedMinutes: expected };
     }
     return { kind: 'none', label: 'No check-in', expectedMinutes: 0 };
 };
@@ -416,21 +553,25 @@ export const outsideCheckInFlag = (input: {
     if (!dayEntries.length) return undefined;
     const { checkIn, checkOut } = input.day;
     if (['on-leave', 'holiday', 'weekly-off', 'upcoming', 'not-checked-in'].includes(input.day.status)) return undefined;
-    const earliest = Math.min(...dayEntries.map(e => toMinutes(e.start)));
-    const latest = Math.max(...dayEntries.map(e => toMinutes(e.end)));
+    // Only timed entries can be outside check-in hours — hours-only entries have no times.
+    const timed = dayEntries.filter(isTimed);
+    const earliest = timed.length ? Math.min(...timed.map(e => toMinutes(e.start))) : null;
+    const latest = timed.length ? Math.max(...timed.map(e => toMinutes(e.end))) : null;
     if (!checkIn) {
-        // A past day without a check-in but with time logged.
+        // A past day with time logged (timed or hours-only) but no check-in: prompt a correction, pre-filled
+        // from the timed entries when there are any.
         return {
             entryIds: dayEntries.map(e => e.id),
             action: 'request-correction',
-            suggested: { checkIn: fromMinutes(earliest), checkOut: fromMinutes(latest) },
+            suggested: {
+                checkIn: earliest === null ? null : fromMinutes(earliest),
+                checkOut: latest === null ? null : fromMinutes(latest),
+            },
         };
     }
     if (!checkOut) return undefined; // today, still on the clock
-    const outside = dayEntries.filter(
-        e => toMinutes(e.start) < toMinutes(checkIn) || toMinutes(e.end) > toMinutes(checkOut)
-    );
-    if (!outside.length) return undefined;
+    const outside = timed.filter(e => toMinutes(e.start) < toMinutes(checkIn) || toMinutes(e.end) > toMinutes(checkOut));
+    if (!outside.length || earliest === null || latest === null) return undefined;
     const afterOut = latest > toMinutes(checkOut);
     const beforeIn = earliest < toMinutes(checkIn);
     if (input.day.checkOutAuto && afterOut && !beforeIn) {
@@ -458,8 +599,13 @@ export interface EntryDiff {
     edited: { before: TimesheetEntry; after: TimesheetEntry }[];
 }
 
+/** Compares date, start, end, minutes and description. */
 const sameEntry = (a: TimesheetEntry, b: TimesheetEntry) =>
-    a.date === b.date && a.start === b.start && a.end === b.end && a.description === b.description;
+    a.date === b.date &&
+    a.start === b.start &&
+    a.end === b.end &&
+    entryMins(a) === entryMins(b) &&
+    a.description === b.description;
 
 export const diffEntries = (base: TimesheetEntry[], proposed: TimesheetEntry[]): EntryDiff => {
     const byId = new Map(base.map(e => [e.id, e]));
@@ -539,8 +685,12 @@ export const editModeFor = (input: {
     return input.status === 'APPROVED' ? 'change-request' : 'direct';
 };
 
+/**
+ * PROTOTYPE-SETUP (V2): timesheets go out on the submission day only (weeksDueForSubmission). The employee's one
+ * manual action is resubmitting a week the manager sent back.
+ */
 export const canSubmitWeek = (input: { approvalEnabled: boolean; status: TimesheetStatus; allDaysLocked: boolean }) =>
-    input.approvalEnabled && !input.allDaysLocked && (input.status === 'DRAFT' || input.status === 'SENT_BACK');
+    input.approvalEnabled && !input.allDaysLocked && input.status === 'SENT_BACK';
 
 export const isSubmissionDay = (today: string, s: Pick<AtsSettings, 'timesheetApproval'>) =>
     s.timesheetApproval.enabled && weekdayOf(today) === s.timesheetApproval.submissionWeekday;

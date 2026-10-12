@@ -77,14 +77,71 @@ On weekly offs and holidays, all time worked counts as overtime.
 - Corrections go through the approval chain. Once fully approved, they replace the day's check-in and check-out (`source: 'correction'`).
 - Only one pending correction is allowed per day.
 
+**Timesheet entries**
+
+`TimesheetEntry` is `{ id, date, start: string | null, end: string | null, mins, description }`.
+- **Timed entry:** `start` and `end` are set, and `mins` always equals end − start.
+- **Hours-only entry:** `start` and `end` are `null`, and `mins` is what the employee entered. Use it when they don't track exact times.
+
+`TimesheetEntryInput` (add, edit, change request) is `{ date, start?, end?, mins?, description }`. The server normalises it:
+
+| Sent | Saved as |
+|---|---|
+| `start` + `end` | Timed; `mins` = end − start |
+| `start` + `mins` | Timed; `end` = start + mins |
+| `mins` only | Hours-only |
+
+The form's Hours field accepts `1:30`, `1.5` or `1h 30m` (`parseHours` in the rules module).
+
+Validation (`validateEntry`). The messages are `ENTRY_MESSAGES`, which the form shows as-is:
+
+| Problem | Message |
+|---|---|
+| End before start | End time must be after the start time. |
+| End without start | Add a start time, or clear the end time to log hours only. |
+| Start without end or hours | Add an end time or the number of hours. |
+| Nothing entered | Enter a start and end time, or just the hours. |
+| Unreadable hours | Enter hours like 1:30, 1.5 or 1h 30m. |
+| Zero hours | Hours must be more than 0. |
+| More than 24h in one entry | One entry can’t be more than 24 hours. |
+| Start + hours runs past midnight | This entry would run past midnight — split it across two days. |
+| Day total over 24h | This would take the day over 24 hours. |
+| Overlap with another **timed** entry | Overlaps with 9:00–12:00 · *description*. |
+| Missing description | A description is required. |
+
+How hours-only entries behave:
+- They count everywhere hours are summed: day and week totals, unlogged hours, overtime in Timesheet-only mode, and the payroll and team figures.
+- They never overlap anything and are never "outside check-in hours". Only timed entries are checked for either.
+- Within a day, timed entries are sorted by start, then hours-only entries follow (`sortEntries`).
+- The change diff compares start, end, mins and description.
+
+**Expected hours**
+
+`expectedMinutes` in the rules module is the single rule behind totals, unlogged hours, the team grid and payroll:
+- Weekly off, holiday or full-day leave: **0**.
+- Timesheet-only mode: **shift length − break**.
+- Both mode: **(check-out − check-in) − break**. With no check-in, today or later: **shift length − break**.
+
+Edge cases. Each one has a unit test in `src/prototype/rules/__tests__/attendance.test.ts`:
+
+| # | Case | Expected |
+|---|---|---|
+| 1 | Both mode, past working day with no check-in (absent) | **0**. The absence shows in the Attendance tab, not as unlogged timesheet hours. If time was logged that day, the "no check-in recorded" flag still offers an attendance correction. |
+| 2 | Both mode, today, checked in but not out | Check-in → **shift end**, minus break, until the employee checks out |
+| 3 | Approved full-day leave but checked in anyway | The **check-in window** applies (they worked) |
+| 4 | Half-day leave (works the other half) | The **check-in window**, e.g. about 3h |
+| 5 | Worked on a weekly off or holiday | **0**; all the time worked counts as overtime instead |
+| 6 | Before the joining date | **0** |
+| 7 | Check-in after the shift ends (window shorter than the break) | **0**, never negative |
+| 8 | Attendance-only mode | **0** (no timesheets) |
+
 **Timesheet rules**
-- Every entry needs a start, an end and a description. The end must be after the start.
-- Entries can't overlap on the same day.
 - Past, present and future days can all be logged.
-- In `both` mode, entries outside check-in and check-out set `TimesheetDay.outsideCheckIn`:
+- In `both` mode, timed entries outside check-in and check-out set `TimesheetDay.outsideCheckIn`:
   - The flag carries a pre-filled `suggested` check-in and check-out.
   - Its `action` is `update-check-out` on an auto-closed day, otherwise `request-correction`.
   - This time never counts as overtime.
+  - On a past day with entries but no check-in, the flag prompts a correction. `suggested` comes from the timed entries, or is `null` when there are only hours-only entries.
 - Week statuses: `DRAFT → SUBMITTED → APPROVED | SENT_BACK` (sent back with a required comment).
 - Editing a SUBMITTED week updates it in place.
 - An APPROVED week returns `editMode: 'change-request'`. The employee sends the whole proposed week with a required reason.
@@ -154,9 +211,9 @@ For the "What changed" view, the week view's `changeRequest` carries `baseEntrie
 Demo data is relative to today. Sneha Iyer (ACME-004, reports to Arjun Mehta) has:
 - A sent-back week in last month, which blocks last month's payroll.
 - A late day in that week with a pending correction.
-- A day in that week with time logged after her check-out.
+- A day in that week with time logged after her check-out, and an hours-only entry ("Writing release notes", 1h).
 - An approved week with a pending change request.
-- A day this week with unclaimed overtime.
+- A day this week (or last week) with unclaimed overtime.
 - An auto check-out day yesterday, with entries after it.
 - A planned entry on the next working day.
 - An approved leave in the next fortnight.

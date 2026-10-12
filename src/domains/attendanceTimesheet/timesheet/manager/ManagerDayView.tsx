@@ -1,3 +1,5 @@
+// PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
+// frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
 // PROTOTYPE-SETUP: ESS Service 1 — one timesheet day as a card: date, window label, logged vs expected, the
 // time track, the outside-check-in flag, and the entries with inline add / edit / delete when `edit` is given.
 // Used on its own (Day view) and seven times over (Week view) by both the tab and the read-only viewer.
@@ -8,14 +10,14 @@ import { Button, Tag, Tooltip } from 'antd';
 
 import { formatDuration } from '@src/prototype/rules/attendance';
 
-import { fmtDay } from '../components/format';
-import { DayStatusTag } from '../components/StatusTags';
-import type { AtsMode, DayStatus, TimesheetDay, TimesheetEntryInput } from '../types';
-import EntryEditor from './EntryEditor';
-import EntryRow, { EntryMark } from './EntryRow';
-import { TimesheetPerspective, isOutsideWindow } from './helpers';
-import OutsideFlagBanner from './OutsideFlagBanner';
-import TimeTrack, { TimeTrackLegend } from './TimeTrack';
+import ManagerEntryEditor from './ManagerEntryEditor';
+import ManagerEntryRow, { EntryMark } from './ManagerEntryRow';
+import { TimesheetPerspective, isOutsideWindow } from './managerHelpers';
+import ManagerOutsideFlagBanner from './ManagerOutsideFlagBanner';
+import ManagerTimeTrack, { TimeTrackLegend } from './ManagerTimeTrack';
+import { fmtDay } from '../../components/format';
+import { DayStatusTag } from '../../components/StatusTags';
+import type { AtsMode, DayStatus, TimesheetDay, TimesheetEntryInput } from '../../types';
 
 export interface DayEditHandlers {
     busy?: boolean;
@@ -45,7 +47,7 @@ export interface DayViewProps {
 
 const ALWAYS_SHOWN: DayStatus[] = ['on-leave', 'holiday', 'weekly-off', 'worked-off-day'];
 
-const DayView = ({
+const ManagerDayView = ({
     day,
     today,
     atsMode,
@@ -127,7 +129,7 @@ const DayView = ({
                 </div>
             </div>
 
-            <TimeTrack day={day} range={range} isToday={isToday} compact={compact} />
+            <ManagerTimeTrack day={day} range={range} isToday={isToday} compact={compact} />
             {!compact && <TimeTrackLegend windowKind={day.window.kind} />}
 
             {day.locked && day.lockReason && !compact && (
@@ -138,7 +140,7 @@ const DayView = ({
             )}
 
             {day.outsideCheckIn && (
-                <OutsideFlagBanner
+                <ManagerOutsideFlagBanner
                     day={day}
                     perspective={perspective}
                     onAction={onFlagAction ? () => onFlagAction(day) : undefined}
@@ -148,7 +150,7 @@ const DayView = ({
             <div className="flex min-w-0 flex-col gap-1.5">
                 {day.entries.map(entry =>
                     editing === entry.id && edit ? (
-                        <EntryEditor
+                        <ManagerEntryEditor
                             key={entry.id}
                             date={day.date}
                             initial={entry}
@@ -158,7 +160,7 @@ const DayView = ({
                             onCancel={() => setEditing(null)}
                         />
                     ) : (
-                        <EntryRow
+                        <ManagerEntryRow
                             key={entry.id}
                             entry={entry}
                             outside={
@@ -177,7 +179,7 @@ const DayView = ({
                     <span className="text-xs text-gray-400">{emptyText}</span>
                 )}
                 {canEdit && edit && editing === 'new' && (
-                    <EntryEditor
+                    <ManagerEntryEditor
                         date={day.date}
                         others={day.entries}
                         busy={edit.busy}
@@ -201,4 +203,4 @@ const DayView = ({
     );
 };
 
-export default DayView;
+export default ManagerDayView;

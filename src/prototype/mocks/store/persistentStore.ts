@@ -11,7 +11,8 @@ import type { DataMode } from '../envelope';
 
 const PREFIX = 'prototype:';
 // Bump when seeds change shape or coverage, so stale browser data reseeds (v2: seed back to last month's start).
-const VERSION = 'v3';
+// v4 (V2): entries gained `mins` and may be hours-only — older saved data reseeds.
+const VERSION = 'v4';
 
 /** The day the demo data is built for — the real current date. */
 export const demoDay = () => toIsoDate(new Date());

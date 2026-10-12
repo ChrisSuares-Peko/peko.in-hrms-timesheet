@@ -1,3 +1,5 @@
+// PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
+// frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
 // PROTOTYPE-SETUP: ESS Service 1 — inline add / edit form for one timesheet entry (start, end, description —
 // all required). Validates instantly with the shared rules module (end after start, no overlap, description);
 // the server applies the same rules and its message is toasted if it still says no.
@@ -8,7 +10,7 @@ import dayjs, { Dayjs } from 'dayjs';
 
 import { RuleError, validateEntry } from '@src/prototype/rules/attendance';
 
-import type { TimesheetEntry, TimesheetEntryInput } from '../types';
+import type { TimesheetEntry, TimesheetEntryInput } from '../../types';
 
 const FORMAT = 'HH:mm';
 
@@ -26,7 +28,7 @@ export interface EntryEditorProps {
 
 const messageOf = (e: unknown) => (e instanceof RuleError || e instanceof Error ? e.message : 'Check the entry.');
 
-const EntryEditor = ({ date, initial, others, busy, onSave, onCancel }: EntryEditorProps) => {
+const ManagerEntryEditor = ({ date, initial, others, busy, onSave, onCancel }: EntryEditorProps) => {
     const [start, setStart] = useState<Dayjs | null>(initial ? dayjs(`${date}T${initial.start}`) : null);
     const [end, setEnd] = useState<Dayjs | null>(initial ? dayjs(`${date}T${initial.end}`) : null);
     const [description, setDescription] = useState(initial?.description ?? '');
@@ -136,4 +138,4 @@ const EntryEditor = ({ date, initial, others, busy, onSave, onCancel }: EntryEdi
     );
 };
 
-export default EntryEditor;
+export default ManagerEntryEditor;

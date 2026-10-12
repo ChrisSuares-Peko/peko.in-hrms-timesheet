@@ -29,7 +29,9 @@ import {
     diffEntries,
     diffSummary,
     displayTime,
+    entryMins,
     formatDuration,
+    sortEntries,
     hasCheckIn,
     hasTimesheets,
     lockReasonFor,
@@ -91,8 +93,11 @@ const event = (e: MockEmployee, action: HistoryEvent['action'], detail?: string)
     ...(detail ? { detail } : {}),
 });
 
-const entryLabel = (x: Pick<TimesheetEntry, 'date' | 'start' | 'end'>) =>
-    `${dayLabel(x.date)} ${displayTime(x.start)}–${displayTime(x.end)}`;
+// PROTOTYPE-SETUP (V2): hours-only entries have no times — label them by their hours.
+const entryLabel = (x: Pick<TimesheetEntry, 'date' | 'start' | 'end' | 'mins'>) =>
+    x.start && x.end
+        ? `${dayLabel(x.date)} ${displayTime(x.start)}–${displayTime(x.end)}`
+        : `${dayLabel(x.date)} ${formatDuration(entryMins(x))} (no set time)`;
 
 // ---- overview & attendance --------------------------------------------------------------------------
 
@@ -259,9 +264,6 @@ const assertWeekDirect = (mode: DataMode, week: TimesheetWeek) => {
     }
 };
 
-const sortEntries = (list: TimesheetEntry[]) =>
-    [...list].sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start));
-
 export const addEntry = (mode: DataMode, e: MockEmployee, input: TimesheetEntryInput) => {
     assertTimesheets(mode);
     const week = weekOf(mode, e, weekStartOf(input?.date ?? ''));
@@ -340,7 +342,12 @@ export const submitWeek = (mode: DataMode, e: MockEmployee, weekStart: string) =
     if (!settings.timesheetApproval.enabled) throw new RuleError('Timesheet approval is off — your hours are recorded as you log them.');
     if (ws > weekStartOf(today())) throw new RuleError("You can't submit a future week.");
     if (!canSubmitWeek({ approvalEnabled: true, status: view.week.status, allDaysLocked: view.days.every(d => d.locked) })) {
-        throw new RuleError(view.week.status === 'SUBMITTED' ? 'This week is already with your manager.' : 'This week can no longer be submitted.');
+        // PROTOTYPE-SETUP (V2): drafts go out on submission day; only a sent-back week is resubmitted by hand.
+        const why: Record<string, string> = {
+            SUBMITTED: 'This week is already with your manager.',
+            DRAFT: `Weeks go to your manager automatically every ${view.submissionWeekday.charAt(0)}${view.submissionWeekday.slice(1).toLowerCase()}.`,
+        };
+        throw new RuleError(why[view.week.status] ?? 'This week can no longer be submitted.');
     }
     saveWeek(mode, submitWeekRecord(view.week, e, false));
     return weekView(mode, e, ws);

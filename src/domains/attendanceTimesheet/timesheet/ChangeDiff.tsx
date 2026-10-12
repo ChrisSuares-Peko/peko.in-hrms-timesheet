@@ -9,6 +9,7 @@ import {
     diffSummary,
     displayTime,
     entryMinutes,
+    entryMins,
     formatDuration,
 } from '@src/prototype/rules/attendance';
 
@@ -20,7 +21,9 @@ export interface ChangeDiffProps {
     proposed: TimesheetEntry[];
 }
 
-const span = (e: TimesheetEntry) => `${displayTime(e.start)}–${displayTime(e.end)}`;
+// PROTOTYPE-SETUP (V2): hours-only entries show their hours instead of times.
+const span = (e: TimesheetEntry) =>
+    e.start && e.end ? `${displayTime(e.start)}–${displayTime(e.end)}` : `No set time · ${formatDuration(entryMins(e))}`;
 
 const Line = ({ entry, tone }: { entry: TimesheetEntry; tone: 'added' | 'removed' }) => (
     <div

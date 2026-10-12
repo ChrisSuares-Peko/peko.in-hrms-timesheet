@@ -1,3 +1,5 @@
+// PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
+// frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
 // PROTOTYPE-SETUP: ESS Service 1 — the layout shared by the employee's Timesheet tab and the read-only viewer:
 // toolbar (Day / Week / Month, prev / next, Today), the week's status bar and notices, the main view, and the
 // side column (Unlogged hours, History) — right on web, below on mobile. Editing is passed in by the tab.
@@ -8,18 +10,18 @@ import { Button, Empty, Segmented, Skeleton } from 'antd';
 
 import { addDays, monthLabel, weekStartOf } from '@src/prototype/rules/attendance';
 
-import { fmtWeekRange } from '../components/format';
-import type { TimesheetDay } from '../types';
-import DayStrip from './DayStrip';
-import DayView, { DayEditHandlers } from './DayView';
-import type { EntryMark } from './EntryRow';
-import { TimesheetPerspective, TimesheetViewMode } from './helpers';
-import MonthView from './MonthView';
-import UnloggedCard, { UnloggedItem } from './UnloggedCard';
-import type { TimesheetNav } from './useTimesheetNav';
-import { WeekNotices, WeekStatusBar } from './WeekHeader';
-import WeekHistory from './WeekHistory';
-import WeekView from './WeekView';
+import ManagerDayStrip from './ManagerDayStrip';
+import ManagerDayView, { DayEditHandlers } from './ManagerDayView';
+import type { EntryMark } from './ManagerEntryRow';
+import { TimesheetPerspective, TimesheetViewMode } from './managerHelpers';
+import ManagerMonthView from './ManagerMonthView';
+import ManagerUnloggedCard, { UnloggedItem } from './ManagerUnloggedCard';
+import { WeekNotices, WeekStatusBar } from './ManagerWeekHeader';
+import ManagerWeekHistory from './ManagerWeekHistory';
+import ManagerWeekView from './ManagerWeekView';
+import type { TimesheetNav } from './useManagerTimesheetNav';
+import { fmtWeekRange } from '../../components/format';
+import type { TimesheetDay } from '../../types';
 
 export interface TimesheetFrameProps {
     nav: TimesheetNav;
@@ -53,7 +55,7 @@ const LoadError = ({ what, onRetry }: { what: string; onRetry: () => void }) => 
     </Panel>
 );
 
-const TimesheetFrame = ({
+const ManagerTimesheetFrame = ({
     nav,
     perspective,
     days: daysOverride,
@@ -97,7 +99,7 @@ const TimesheetFrame = ({
     if (isMonth) {
         if (nav.monthView) {
             main = (
-                <MonthView
+                <ManagerMonthView
                     month={nav.monthView}
                     today={today}
                     atsMode={atsMode}
@@ -125,7 +127,7 @@ const TimesheetFrame = ({
         );
     } else if (mode === 'week') {
         main = (
-            <WeekView
+            <ManagerWeekView
                 days={days}
                 today={today}
                 atsMode={atsMode}
@@ -139,7 +141,7 @@ const TimesheetFrame = ({
     } else {
         main = (
             <div className="flex min-w-0 flex-col gap-2.5">
-                <DayStrip
+                <ManagerDayStrip
                     days={days}
                     selected={nav.date}
                     today={today}
@@ -148,7 +150,7 @@ const TimesheetFrame = ({
                     onNextWeek={() => nav.setDate(d => addDays(d, 7))}
                 />
                 {selectedDay && (
-                    <DayView
+                    <ManagerDayView
                         key={selectedDay.date}
                         day={selectedDay}
                         today={today}
@@ -199,18 +201,18 @@ const TimesheetFrame = ({
             <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
                 <div className="min-w-0">{main}</div>
                 <div className="flex min-w-0 flex-col gap-3">
-                    <UnloggedCard
+                    <ManagerUnloggedCard
                         periodLabel={periodLabel}
                         items={unlogged}
                         loading={isMonth ? !nav.monthView && nav.monthState === 'loading' : weekLoading}
                         onOpenDay={nav.openDay}
                         perspective={perspective}
                     />
-                    {!isMonth && view && <WeekHistory history={view.week.history} />}
+                    {!isMonth && view && <ManagerWeekHistory history={view.week.history} />}
                 </div>
             </div>
         </div>
     );
 };
 
-export default TimesheetFrame;
+export default ManagerTimesheetFrame;
