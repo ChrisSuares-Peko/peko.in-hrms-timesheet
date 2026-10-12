@@ -2,7 +2,7 @@
 // (the same functions the endpoints call). Dates are relative to the real today.
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { addMonths, weekStartOf } from '@src/prototype/rules/attendance';
+import { addMonths, toMinutes, weekStartOf } from '@src/prototype/rules/attendance';
 
 import { atsScenario } from '../../data/ats-seed';
 import { findEmployee } from '../../data/employees';
@@ -70,10 +70,19 @@ describe('seed scenarios', () => {
         if (!isWorkingDay(s.today)) return;
         const view = teamToday(M, arjun);
         const by = (code: string) => view.rows.find(r => r.employee.employeeId === code)!.status;
-        expect(by('ACME-003')).toBe('late');
         expect(by('ACME-005')).toBe('not-checked-in');
         expect(by('ACME-006')).toBe('on-leave');
-        expect(view.counts.late).toBe(1);
+        // PROTOTYPE-SETUP (Overview v2, Slice 1): today's seeded punches only exist once their time has passed.
+        const now = new Date().getHours() * 60 + new Date().getMinutes();
+        if (now >= 9 * 60 + 55) {
+            expect(by('ACME-003')).toBe('late');
+            expect(view.counts.late).toBe(1);
+        } else {
+            expect(by('ACME-003')).toBe('not-checked-in');
+        }
+        // Sneha's 09:24 check-in is never ahead of the clock.
+        const snehaToday = recordOf(M, sneha, s.today);
+        expect(snehaToday ? toMinutes(snehaToday.checkIn!) <= now : now < 9 * 60 + 24).toBe(true);
     });
 });
 

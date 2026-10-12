@@ -111,7 +111,18 @@ const hasOvertimeRequest = (e: MockEmployee, date: string) =>
 
 const seedAttendance = (s: ReturnType<typeof atsScenario>): Record<string, AttendanceRecord> => {
     const records: Record<string, AttendanceRecord> = {};
+    // PROTOTYPE-SETUP (Overview v2, Slice 1): today's punches are only seeded once their time has passed on the
+    // real clock, so a seeded check-in is never ahead of now (the timer always counts from check-in to now).
+    const now = new Date().getHours() * 60 + new Date().getMinutes();
     const put = (e: MockEmployee, date: string, checkIn: string | null, checkOut: string | null, source: AttendanceRecord['source'] = 'ess') => {
+        if (date === s.today && checkIn && toMinutes(checkIn) > now) {
+            delete records[recordKey(e.id, date)];
+            return;
+        }
+        if (date === s.today && checkOut && toMinutes(checkOut) > now) {
+            put(e, date, checkIn, null, source);
+            return;
+        }
         if (!checkIn) {
             delete records[recordKey(e.id, date)];
             return;

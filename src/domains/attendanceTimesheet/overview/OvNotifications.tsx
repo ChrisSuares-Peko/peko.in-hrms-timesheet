@@ -3,6 +3,8 @@
 //                      overtime ("Review overtime"); the header counts them ("N to do")
 //   Your requests      latest status of each request, newest first (max 6); each opens its page
 //   Announcements      the next weekday office holiday and two notices
+import { useEffect, useRef } from 'react';
+
 import { Button } from 'antd';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
@@ -35,6 +37,11 @@ const OvNotifications = ({
 }) => {
     const navigate = useNavigate();
     const { actions, requests, announcements } = home;
+    // PROTOTYPE-SETUP (Overview v2, Slice 1): always start at the top, so the first item is fully visible on load.
+    const feed = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (feed.current) feed.current.scrollTop = 0;
+    }, [home]);
     return (
         <section aria-label="Notifications" className={`flex min-h-0 min-w-0 flex-col gap-3 rounded-2xl border border-solid border-gray-100 bg-white p-4 shadow-sm ${className}`}>
             <div className="flex items-center gap-2">
@@ -43,7 +50,7 @@ const OvNotifications = ({
                     <span className="rounded-full bg-[#FF4F4F] px-2 py-0.5 text-[11px] font-semibold text-white">{actions.length} to do</span>
                 )}
             </div>
-            <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pr-1">
+            <div ref={feed} className="-mx-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1 pb-1 pt-1">
                 <Group title="Needs your action">
                     {actions.length ? (
                         actions.map(a => (
