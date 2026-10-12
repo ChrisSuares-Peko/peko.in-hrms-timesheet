@@ -2,7 +2,7 @@
 // (the same functions the endpoints call). Dates are relative to the real today.
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { addMonths, toMinutes, weekStartOf } from '@src/prototype/rules/attendance';
+import { addDays, addMonths, toMinutes, weekStartOf } from '@src/prototype/rules/attendance';
 
 import { atsScenario } from '../../data/ats-seed';
 import { findEmployee } from '../../data/employees';
@@ -267,10 +267,11 @@ describe('profile updates', () => {
 
 // PROTOTYPE-SETUP (Overview, Slice 3): the Overview's table, notifications and shortcut summaries.
 describe('overview home', () => {
-    it('lists the last 10 working days, newest first, with the missed check-out and unclaimed overtime', () => {
+    it("lists this week's and last week's working days up to today, newest first", () => {
         const h = homeOf(M, sneha);
-        expect(h.recentDays.length).toBe(10);
+        expect(h.recentDays.length).toBeGreaterThan(0);
         expect(h.recentDays[0].date).toBe(s.today);
+        expect(h.recentDays.every(d => d.date >= addDays(weekStartOf(s.today), -7) && d.date <= s.today)).toBe(true);
         expect(h.recentDays.map(d => d.date)).toEqual([...h.recentDays.map(d => d.date)].sort().reverse());
         const auto = h.recentDays.find(d => d.date === s.autoDay)!;
         expect(auto.attendance).toMatchObject({ checkOutAuto: true, checkOut: '23:59' });
@@ -292,11 +293,10 @@ describe('overview home', () => {
         expect(h.requests[0]).toMatchObject({ type: 'profile', state: 'pending', statusText: 'Waiting with HR team', link: { page: 'profile' } });
         expect(h.requests.map(r => r.at)).toEqual([...h.requests.map(r => r.at)].sort().reverse());
     });
-    it('shortcuts and announcements', () => {
+    it('announcements: the next holiday (with its date) and two notices', () => {
         const h = homeOf(M, sneha);
-        expect(h.shortcuts.documents.count).toBeGreaterThan(0);
-        expect(h.shortcuts.reimbursement.inApproval).toBeGreaterThanOrEqual(0);
         expect(h.announcements.length).toBeGreaterThanOrEqual(2);
+        if (h.announcements.length === 3) expect(h.announcements[0].date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
         expect(h.announcements.slice(-2).map(a => a.title)).toEqual(['New: log hours without start and end times', 'Overtime policy']);
     });
 });

@@ -54,8 +54,6 @@
     .ess-ov--one {
         grid-template-areas: 'p w w' 'c c n' 's s n';
     }
-    /* The notifications run down the right column next to the shortcuts and the table; the feed scrolls. */
-    .ess-ov__n {
-        max-height: 760px;
-    }
+    /* PROTOTYPE-SETUP (Overview v2, Slice 3): the notifications run down the right column next to the shortcuts
+       and the table, as tall as their content (no inner scrolling). */
 }

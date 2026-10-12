@@ -49,7 +49,8 @@ export const essBreadcrumbItems = (tab: EssTab, pathname: string, atsMode?: AtsM
     // PROTOTYPE-SETUP (Overview, Slice 3): ESS - Employee reads "Overview › {page}" (names as in the sidebar).
     const isEmployeeTab = tab.base === paths.essEmployee.index;
     const homeLabel = isEmployeeTab ? 'Overview' : tab.label;
-    if (!page) return [currentItem('ess-home', homeLabel)];
+    // PROTOTYPE-SETUP (Overview v2, Slice 3): no breadcrumb on the Overview itself.
+    if (!page) return isEmployeeTab ? [] : [currentItem('ess-home', homeLabel)];
     const home = linkItem('ess-home', tab.base, homeLabel);
     if (isEmployeeTab && page === 'profile') return [home, currentItem(page, 'My profile')];
     // My team > <member name>

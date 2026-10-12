@@ -1,11 +1,12 @@
 // PROTOTYPE-SETUP (Overview, Slice 3): what the ESS - Employee Overview shows below the three cards —
-//   recentDays    "Last 10 working days" (weekends / holidays only when worked)
+//   recentDays    "Recent days": this week's and last week's working days up to today, newest first
+//                 (weekends / holidays only when worked) — Overview v2, Slice 3
 //   actions       "Needs your action": sent-back weeks, missed check-outs (last 14 days, no correction yet),
 //                 unclaimed overtime
 //   requests      "Your requests": latest status of leave, overtime, reimbursement, attendance correction and
 //                 profile update requests, newest first (max 6)
 //   announcements the next weekday office holiday plus two notices
-//   shortcuts     the summary lines on the Leave / Reimbursements / Overtime / Payslips / Documents cards
+// (Overview v2: the shortcut tiles are icon + title only, so there are no shortcut summaries any more.)
 // Leave and reimbursements are read from the (non-persisting) mock data, like their own ESS pages.
 import dayjs from 'dayjs';
 
@@ -21,7 +22,6 @@ import {
     formatDuration,
     hasCheckIn,
     hasTimesheets,
-    monthLabel,
     requestState,
     trailLabel,
     weekStartOf,
@@ -44,15 +44,11 @@ import {
     weekOf,
 } from './atsStore';
 import { MockEmployee } from '../data/employees';
-import { documentsOf } from '../data/employees-records';
-import { linesForEmployee } from '../data/salary-payroll';
 import { holidaysForYear } from '../data/time-calendar';
 import { leavesOf } from '../data/time-leaves';
 import { reimbursementsOf } from '../data/time-requests';
 import type { DataMode } from '../envelope';
 
-const RECENT_DAYS = 10;
-const LOOKBACK_DAYS = 40;
 const MISSED_CHECK_OUT_DAYS = 14;
 const MAX_REQUESTS = 6;
 
@@ -69,11 +65,13 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const recentDaysOf = (mode: DataMode, e: MockEmployee): OverviewDay[] => {
     const t = today();
     const suggestions = new Map(overtimeViewOf(mode, e, currentMonth()).suggestions.map(s => [s.date, s.minutes]));
-    const dates = Array.from({ length: LOOKBACK_DAYS }, (_, i) => addDays(t, -i)).filter(d => d >= e.dateOfJoin);
+    // From last week's Monday up to today.
+    const from = addDays(weekStartOf(t), -7);
+    const count = Math.round((new Date(`${t}T00:00:00`).getTime() - new Date(`${from}T00:00:00`).getTime()) / 86400000) + 1;
+    const dates = Array.from({ length: count }, (_, i) => addDays(t, -i)).filter(d => d >= e.dateOfJoin);
     const days = dates
         .map(date => ({ date, a: attendanceDay(mode, e, date), logged: loggedOn(mode, e, date) }))
-        .filter(({ a, logged }) => !['holiday', 'weekly-off'].includes(a.status) || logged > 0 || Boolean(a.checkIn))
-        .slice(0, RECENT_DAYS);
+        .filter(({ a, logged }) => !['holiday', 'weekly-off'].includes(a.status) || logged > 0 || Boolean(a.checkIn));
     return days.map(({ date, a, logged }) => {
         const week = weekOf(mode, e, weekStartOf(date));
         const request = activeOvertimeOn(mode, e, date);
@@ -267,39 +265,13 @@ const announcementsOf = () => {
         .filter(h => ![0, 6].includes(new Date(`${h.date}T00:00:00`).getDay()))
         .sort((a, b) => a.date.localeCompare(b.date))[0];
     return [
-        ...(holiday ? [{ title: `Office closed for ${holiday.title}`, text: `${longDate(holiday.date)}. No check-in needed.` }] : []),
+        ...(holiday ? [{ title: `Office closed for ${holiday.title}`, text: `${longDate(holiday.date)}. No check-in needed.`, date: holiday.date }] : []),
         { title: 'New: log hours without start and end times', text: 'Timesheet entries now take hours on their own, if you don’t track times.' },
         {
             title: 'Overtime policy',
             text: 'Overtime counts beyond your standard day, and weekends and holidays count in full. Claim it within the month.',
         },
     ];
-};
-
-const shortcutsOf = (mode: DataMode, e: MockEmployee): EssHomeView['shortcuts'] => {
-    const t = today();
-    const empty = mode === 'empty';
-    const leaves = empty ? [] : leavesOf(e);
-    const nextLeave = leaves
-        .filter(l => l.status === 'approved' && l.end >= t)
-        .sort((a, b) => a.start.localeCompare(b.start))[0];
-    const claims = empty ? [] : reimbursementsOf(e).filter(r => r.status === 'requestedByEmployee');
-    const ot = overtimeViewOf(mode, e, currentMonth());
-    const paid = empty
-        ? []
-        : linesForEmployee(e)
-              .filter(l => l.status === 'PAID')
-              .sort((a, b) => b.pm.year - a.pm.year || b.pm.month - a.pm.month);
-    return {
-        leave: {
-            nextLeave: nextLeave ? { start: nextLeave.start, end: nextLeave.end, type: nextLeave.type.name } : null,
-            waiting: leaves.filter(l => l.status === 'applied').length,
-        },
-        reimbursement: { pendingAmount: claims.reduce((s, r) => s + r.totalPay, 0), inApproval: claims.length },
-        overtime: { approvedMinutes: ot.stats.approvedMinutesThisMonth, waiting: ot.stats.waitingCount, monthLabel: monthLabel(currentMonth()) },
-        payslip: { latest: paid[0] ? { year: paid[0].pm.year, month: paid[0].pm.month } : null },
-        documents: { count: empty ? 0 : documentsOf(e).length },
-    };
 };
 
 export const homeOf = (mode: DataMode, e: MockEmployee): EssHomeView => {
@@ -311,6 +283,5 @@ export const homeOf = (mode: DataMode, e: MockEmployee): EssHomeView => {
         actions: actionsOf(mode, e),
         requests: requestsOf(mode, e),
         announcements: announcementsOf(),
-        shortcuts: shortcutsOf(mode, e),
     };
 };

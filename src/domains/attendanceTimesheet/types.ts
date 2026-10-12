@@ -592,7 +592,7 @@ export interface MyProfileView {
 /** Where an Overview link goes: a tab of the Attendance & Timesheet section (optionally on a day), or a page. */
 export type OverviewLink = { tab: AtsTab; date?: string } | { page: 'leaves' | 'reimbursements' | 'profile' };
 
-/** One row of "Last 10 working days". */
+/** One row of "Recent days" (this week and last week, up to today). */
 export interface OverviewDay {
     date: string;
     attendance: Pick<AttendanceDay, 'status' | 'label' | 'checkIn' | 'checkOut' | 'checkOutAuto' | 'lateMinutes'>;
@@ -627,22 +627,14 @@ export interface OverviewRequest {
     link: OverviewLink;
 }
 
-export interface OverviewShortcuts {
-    leave: { nextLeave: { start: string; end: string; type: string } | null; waiting: number };
-    reimbursement: { pendingAmount: number; inApproval: number };
-    overtime: { approvedMinutes: number; waiting: number; monthLabel: string };
-    payslip: { latest: { year: number; month: number } | null };
-    documents: { count: number };
-}
-
 export interface EssHomeView {
     mode: AtsMode;
     approvalEnabled: boolean;
     recentDays: OverviewDay[];
     actions: OverviewAction[];
     requests: OverviewRequest[];
-    announcements: { title: string; text: string }[];
-    shortcuts: OverviewShortcuts;
+    /** The office holiday (first, when there is one) carries its date. */
+    announcements: { title: string; text: string; date?: string }[];
 }
 
 export interface ApprovalCounts {

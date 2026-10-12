@@ -13,7 +13,7 @@ import './overview.css';
 import OvAttendanceCard from './OvAttendanceCard';
 import OvNotifications from './OvNotifications';
 import OvProfileCard from './OvProfileCard';
-import OvShortcuts, { shortcutCards } from './OvShortcuts';
+import OvShortcuts from './OvShortcuts';
 import OvStatusTable from './OvStatusTable';
 import OvTimesheetCard from './OvTimesheetCard';
 import { getEssHome, getMyProfile, getOverview, getTimesheetWeek } from '../api';
@@ -108,19 +108,18 @@ const EssOverviewPage = () => {
             {home && (
                 <>
                     <OvShortcuts
-                        cards={shortcutCards(home.shortcuts, {
+                        to={{
                             leave: `${paths.home}/leaves`,
                             reimbursements: `${paths.home}/reimbursements`,
                             overtime: paths.section('overtime'),
                             payslips: `${paths.home}/payslips`,
                             documents: `${paths.home}/documents`,
-                        })}
+                        }}
                         className="ess-ov__c"
                     />
                     <OvStatusTable
                         days={home.recentDays}
                         mode={mode}
-                        approvalEnabled={home.approvalEnabled}
                         today={today}
                         linkTo={paths.section}
                         className="ess-ov__s"

@@ -1,15 +1,16 @@
-// PROTOTYPE-SETUP (Overview, Slice 3): section 5 — notifications (prototype "OvNotifications"), in three groups:
-//   Needs your action  sent-back week ("Fix and resubmit"), missed check-out ("Update check-out"), unclaimed
-//                      overtime ("Review overtime"); the header counts them ("N to do")
-//   Your requests      latest status of each request, newest first (max 6); each opens its page
-//   Announcements      the next weekday office holiday and two notices
-import { useEffect, useRef } from 'react';
+// PROTOTYPE-SETUP (Overview, Slice 3; decluttered in Overview v2, Slice 3): section 5 — notifications:
+//   Needs your action  all of them: sent-back week ("Fix and resubmit"), missed check-out ("Update check-out"),
+//                      unclaimed overtime ("Review overtime"); the header counts them ("N to do")
+//   Your requests      the latest 3, plus "View all" (the requests' page when they're all one kind, else Leaves)
+//   Announcements      one line at the bottom ("Office closed for {holiday} on {date}"), "N more" expands the rest
+// No inner scrolling: the card is as tall as its content.
+import { useState } from 'react';
 
 import { Button } from 'antd';
 import dayjs from 'dayjs';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
-import type { EssHomeView, OverviewLink } from '../types';
+import type { EssHomeView, OverviewLink, OverviewRequest } from '../types';
 
 const TONE = {
     back: 'bg-[#FFF4E8] border-[#FFD9A8]',
@@ -19,9 +20,26 @@ const TONE = {
 
 const DOT = { pending: 'bg-[#2E62E8]', approved: 'bg-green-500', rejected: 'bg-red-500' } as const;
 
-const Group = ({ title, children }: { title: string; children: React.ReactNode }) => (
+const SHOWN_REQUESTS = 3;
+
+/** "View all": the requests' own page when they're all one kind, else Leaves. */
+export const viewAllLink = (requests: OverviewRequest[]): OverviewLink => {
+    const kinds = new Set(requests.map(r => r.type));
+    if (kinds.size !== 1) return { page: 'leaves' };
+    const [kind] = [...kinds];
+    if (kind === 'reimbursement') return { page: 'reimbursements' };
+    if (kind === 'profile') return { page: 'profile' };
+    if (kind === 'overtime' || kind === 'attendance') return { tab: kind };
+    return { page: 'leaves' };
+};
+
+const Group = ({ title, extra, children }: { title: string; extra?: React.ReactNode; children: React.ReactNode }) => (
     <div className="flex flex-col gap-2">
-        <h4 className="m-0 text-xs font-semibold uppercase tracking-wide text-titleText">{title}</h4>
+        <div className="flex items-center gap-2">
+            <h4 className="m-0 text-[11px] font-medium uppercase tracking-wide text-gray-400">{title}</h4>
+            <span className="flex-1" />
+            {extra}
+        </div>
         {children}
     </div>
 );
@@ -36,74 +54,91 @@ const OvNotifications = ({
     className?: string;
 }) => {
     const navigate = useNavigate();
+    const [allNews, setAllNews] = useState(false);
     const { actions, requests, announcements } = home;
-    // PROTOTYPE-SETUP (Overview v2, Slice 1): always start at the top, so the first item is fully visible on load.
-    const feed = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        if (feed.current) feed.current.scrollTop = 0;
-    }, [home]);
+    const [first, ...rest] = announcements;
+    const firstLine = first?.date ? `${first.title} on ${dayjs(first.date).format('ddd D MMM')}` : first?.title;
+
     return (
-        <section aria-label="Notifications" className={`flex min-h-0 min-w-0 flex-col gap-3 rounded-2xl border border-solid border-gray-100 bg-white p-4 shadow-sm ${className}`}>
+        <section aria-label="Notifications" className={`flex min-w-0 flex-col gap-4 self-start rounded-2xl border border-solid border-gray-100 bg-white p-4 shadow-sm ${className}`}>
             <div className="flex items-center gap-2">
                 <h3 className="m-0 text-base font-semibold text-valueText">Notifications</h3>
                 {actions.length > 0 && (
                     <span className="rounded-full bg-[#FF4F4F] px-2 py-0.5 text-[11px] font-semibold text-white">{actions.length} to do</span>
                 )}
             </div>
-            <div ref={feed} className="-mx-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1 pb-1 pt-1">
-                <Group title="Needs your action">
-                    {actions.length ? (
-                        actions.map(a => (
-                            <div key={`${a.kind}-${a.title}`} className={`flex flex-wrap items-center gap-2 rounded-xl border border-solid px-3 py-2.5 ${TONE[a.tone]}`}>
-                                <div className="min-w-0 flex-1 basis-40">
-                                    <b className="block text-sm font-semibold text-valueText">{a.title}</b>
-                                    <span className="block text-xs text-[#475467]">{a.text}</span>
-                                </div>
-                                <Button size="small" onClick={() => navigate(hrefOf(a.link))}>
-                                    {a.button}
-                                </Button>
+            <Group title="Needs your action">
+                {actions.length ? (
+                    actions.map(a => (
+                        <div key={`${a.kind}-${a.title}`} className={`flex flex-wrap items-center gap-2 rounded-xl border border-solid px-3 py-2.5 ${TONE[a.tone]}`}>
+                            <div className="min-w-0 flex-1 basis-40">
+                                <b className="block text-sm font-semibold text-[#101828]">{a.title}</b>
+                                <span className="block text-xs text-gray-500">{a.text}</span>
                             </div>
-                        ))
-                    ) : (
-                        <span className="text-sm text-titleText">Nothing needs your attention.</span>
-                    )}
-                </Group>
-                <Group title="Your requests">
-                    {requests.length ? (
-                        <ul className="m-0 flex list-none flex-col p-0">
-                            {requests.map(r => (
-                                <li key={`${r.type}-${r.id}`}>
-                                    <button
-                                        type="button"
-                                        onClick={() => navigate(hrefOf(r.link))}
-                                        className="flex w-full cursor-pointer items-start gap-2.5 rounded-lg border-0 bg-transparent px-1.5 py-2 text-left hover:bg-gray-50"
-                                    >
-                                        <span aria-hidden className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${DOT[r.state]}`} />
-                                        <span className="min-w-0 flex-1">
-                                            <span className="block text-sm">
-                                                <b className="font-semibold text-valueText">{r.title}</b>{' '}
-                                                <span className="text-titleText">{r.detail}</span>
-                                            </span>
-                                            <span className="block text-xs text-[#475467]">{r.statusText}</span>
-                                        </span>
-                                        <span className="shrink-0 text-xs text-titleText">{dayjs(r.at).format('D MMM')}</span>
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <span className="text-sm text-titleText">No requests yet.</span>
-                    )}
-                </Group>
-                <Group title="Announcements">
-                    {announcements.map(n => (
-                        <div key={n.title} className="border-0 border-l-[3px] border-solid border-[#FF4F4F] py-0.5 pl-3">
-                            <b className="block text-sm font-semibold text-valueText">{n.title}</b>
-                            <span className="block text-xs text-[#475467]">{n.text}</span>
+                            <Button size="small" onClick={() => navigate(hrefOf(a.link))}>
+                                {a.button}
+                            </Button>
                         </div>
-                    ))}
-                </Group>
-            </div>
+                    ))
+                ) : (
+                    <span className="text-sm text-gray-500">Nothing needs your attention.</span>
+                )}
+            </Group>
+            <Group
+                title="Your requests"
+                extra={
+                    requests.length > 0 && (
+                        <Link to={hrefOf(viewAllLink(requests))} className="text-xs font-medium text-[#2E62E8] hover:underline">
+                            View all
+                        </Link>
+                    )
+                }
+            >
+                {requests.length ? (
+                    <ul className="m-0 flex list-none flex-col p-0">
+                        {requests.slice(0, SHOWN_REQUESTS).map(r => (
+                            <li key={`${r.type}-${r.id}`}>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(hrefOf(r.link))}
+                                    className="flex w-full cursor-pointer items-start gap-2.5 rounded-lg border-0 bg-transparent px-1.5 py-1.5 text-left hover:bg-gray-50"
+                                >
+                                    <span aria-hidden className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${DOT[r.state]}`} />
+                                    <span className="min-w-0 flex-1">
+                                        <span className="block text-sm text-[#101828]">
+                                            {r.title} <span className="text-gray-500">{r.detail}</span>
+                                        </span>
+                                        <span className="block text-xs text-gray-500">{r.statusText}</span>
+                                    </span>
+                                    <span className="shrink-0 text-xs text-gray-400">{dayjs(r.at).format('D MMM')}</span>
+                                </button>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <span className="text-sm text-gray-500">No requests yet.</span>
+                )}
+            </Group>
+            {first && (
+                <div aria-label="Announcements" className="flex flex-col gap-1.5 border-0 border-t border-solid border-gray-100 pt-3">
+                    <div className="flex items-baseline gap-2 text-sm">
+                        <span aria-hidden className="inline-block h-3 w-[3px] shrink-0 self-center rounded bg-[#FF4F4F]" />
+                        <span className="min-w-0 flex-1 text-[#101828]">{firstLine}</span>
+                        {rest.length > 0 && (
+                            <Button type="link" size="small" className="!h-auto !p-0 !text-xs" onClick={() => setAllNews(v => !v)} aria-expanded={allNews}>
+                                {allNews ? 'Show less' : `${rest.length} more`}
+                            </Button>
+                        )}
+                    </div>
+                    {allNews &&
+                        rest.map(n => (
+                            <div key={n.title} className="pl-[11px]">
+                                <span className="block text-sm text-[#101828]">{n.title}</span>
+                                <span className="block text-xs text-gray-500">{n.text}</span>
+                            </div>
+                        ))}
+                </div>
+            )}
         </section>
     );
 };
