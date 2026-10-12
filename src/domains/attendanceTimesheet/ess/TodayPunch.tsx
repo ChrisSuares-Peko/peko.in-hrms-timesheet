@@ -204,6 +204,13 @@ const TodayPunch = ({ overview, onOverview }: TodayPunchProps) => {
                             Check out
                         </Button>
                     )}
+                    {/* PROTOTYPE-SETUP (V2): say what happens if they forget to check out. */}
+                    {t.canCheckOut && (
+                        <Text className="text-xs text-center text-[#616161]">
+                            If you forget to check out, the day closes automatically at{' '}
+                            {displayTime(overview.shift.end)}. You can update it to the real time later.
+                        </Text>
+                    )}
                     {t.hint && (
                         <Text className="text-xs text-center text-titleText">{t.hint}</Text>
                     )}

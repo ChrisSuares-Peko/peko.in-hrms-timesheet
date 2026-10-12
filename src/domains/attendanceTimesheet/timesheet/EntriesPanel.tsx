@@ -58,7 +58,8 @@ const EntryLine = ({
                 {isTimed(entry) ? `${entry.start} – ${entry.end}` : 'No set time'}
             </span>
             <span className="w-[56px] shrink-0 tabular-nums text-gray-500">{formatDuration(entryMins(entry))}</span>
-            <span className="min-w-0 flex-1 break-words text-gray-700">
+            {/* PROTOTYPE-SETUP (V2): on phones the description gets its own full-width line under the times. */}
+            <span className="order-last min-w-0 basis-full break-words text-gray-700 md:order-none md:flex-1 md:basis-0">
                 {entry.description}
                 {outside && (
                     <Tag color="blue" className="!ml-1.5 !mr-0 align-middle">
@@ -67,7 +68,7 @@ const EntryLine = ({
                 )}
             </span>
             {editable && (
-                <span className="flex gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
+                <span className="ml-auto flex gap-1 opacity-0 transition-opacity md:ml-0 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
                     <Button size="small" type="text" onClick={onEdit} aria-label={`Edit ${entry.description}`}>
                         Edit
                     </Button>

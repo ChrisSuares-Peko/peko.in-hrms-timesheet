@@ -31,9 +31,12 @@ const ViewBar = ({ mode, label, logged, expected, editingChange, showingProposed
                 { label: 'Month', value: 'month' },
             ]}
         />
-        <Button size="small" icon={<LeftOutlined />} aria-label="Previous" onClick={() => onStep(-1)} />
-        <span className="min-w-0 text-sm font-medium text-gray-900">{label}</span>
-        <Button size="small" icon={<RightOutlined />} aria-label="Next" onClick={() => onStep(1)} />
+        {/* PROTOTYPE-SETUP (V2): the arrows and the label wrap as one unit, so › never drops onto its own line. */}
+        <span className="inline-flex items-center gap-2 whitespace-nowrap">
+            <Button size="small" icon={<LeftOutlined />} aria-label="Previous" onClick={() => onStep(-1)} />
+            <span className="text-sm font-medium text-gray-900">{label}</span>
+            <Button size="small" icon={<RightOutlined />} aria-label="Next" onClick={() => onStep(1)} />
+        </span>
         <span className="hidden flex-1 sm:block" />
         <span className="basis-full text-[13px] text-gray-600 sm:basis-auto">
             Logged <b className="font-medium text-gray-900">{formatDuration(logged)}</b> of {formatDuration(expected)} expected

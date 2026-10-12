@@ -59,6 +59,14 @@ const tooltipFor = (d: AttendanceDay) => {
     return parts.filter(Boolean).join(' · ');
 };
 
+// PROTOTYPE-SETUP (V2): the day's times under the status (tablet and up), like the prototype:
+// "09:20–18:30", "09:20–18:30 auto" after an automatic check-out, "In 09:24" while still checked in.
+export const cellTimes = (d: AttendanceDay) => {
+    if (!d.checkIn) return '';
+    if (!d.checkOut) return `In ${d.checkIn}`;
+    return `${d.checkIn}–${d.checkOut}${d.checkOutAuto ? ' auto' : ''}`;
+};
+
 const DayCell = ({
     day,
     isToday,
@@ -75,6 +83,7 @@ const DayCell = ({
     const ring = (isSelected && 'ring-2 ring-[#1e293b]') || (isToday && 'ring-2 ring-[#FF4F4F]') || '';
     const dashed = day.status === 'not-checked-in' || day.status === 'upcoming';
     const pendingFix = day.correction?.state === 'pending';
+    const times = cellTimes(day);
 
     return (
         <Tooltip title={tooltipFor(day)} mouseEnterDelay={0.4}>
@@ -105,6 +114,11 @@ const DayCell = ({
                         >
                             {look.short}
                         </span>
+                        {times && (
+                            <span className="hidden sm:block text-[10px] leading-tight tabular-nums text-[#616161]">
+                                {times}
+                            </span>
+                        )}
                         <span
                             className="sm:hidden text-[10px] font-semibold leading-none"
                             style={{ color: look.fg }}

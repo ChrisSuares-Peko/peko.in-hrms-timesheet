@@ -58,7 +58,7 @@ On weekly offs and holidays, all time worked counts as overtime.
 | POST | `timesheet/entries` | `TimesheetEntryInput` | `TimesheetWeekView` |
 | PUT | `timesheet/entries/{entryId}` | `TimesheetEntryInput` (same week) | `TimesheetWeekView` |
 | DELETE | `timesheet/entries/{entryId}` | — | `TimesheetWeekView` |
-| POST | `timesheet/weeks/{weekStart}/submit` | — | `TimesheetWeekView` |
+| POST | `timesheet/weeks/{weekStart}/submit` | — (resubmits a SENT_BACK week only) | `TimesheetWeekView` |
 | POST | `timesheet/weeks/{weekStart}/change-request` | `ChangeRequestInput` (full proposed week + reason) | `TimesheetWeekView` |
 | POST | `timesheet/weeks/{weekStart}/change-request/cancel` | — | `TimesheetWeekView` |
 | GET | `overtime` | `?month=` (stats month; default current) | `OvertimeView` |
@@ -93,21 +93,22 @@ On weekly offs and holidays, all time worked counts as overtime.
 
 The form's Hours field accepts `1:30`, `1.5` or `1h 30m` (`parseHours` in the rules module).
 
-Validation (`validateEntry`). The messages are `ENTRY_MESSAGES`, which the form shows as-is:
+Validation (`validateEntry`), in the order it checks. The messages are `ENTRY_MESSAGES`, which the form shows as-is. They use the prototype's wording; the two marked * are extras the prototype doesn't have:
 
 | Problem | Message |
 |---|---|
+| Bad date / bad time format (API only) | Pick a valid date. / Enter times as HH:mm. |
+| End without start | Add a start time too, or clear the end time. |
 | End before start | End time must be after the start time. |
-| End without start | Add a start time, or clear the end time to log hours only. |
-| Start without end or hours | Add an end time or the number of hours. |
-| Nothing entered | Enter a start and end time, or just the hours. |
-| Unreadable hours | Enter hours like 1:30, 1.5 or 1h 30m. |
-| Zero hours | Hours must be more than 0. |
+| Start without end or hours | Add an end time or the hours. |
+| Unreadable hours | Write hours like 1:30, 1.5 or 1h 30m. |
+| Nothing entered * | Enter a start and end time, or just the hours. |
+| Zero hours | Add the hours worked, or a start and end time. |
 | More than 24h in one entry | One entry can’t be more than 24 hours. |
-| Start + hours runs past midnight | This entry would run past midnight — split it across two days. |
-| Day total over 24h | This would take the day over 24 hours. |
-| Overlap with another **timed** entry | Overlaps with 9:00–12:00 · *description*. |
-| Missing description | A description is required. |
+| Start + hours runs past midnight * | This entry would run past midnight. Split it across two days. |
+| Missing description | Describe what you worked on. |
+| Day total over 24h | That takes the day over 24 hours. |
+| Overlap with another **timed** entry | Overlaps with 09:00–12:00 (*description*). |
 
 How hours-only entries behave:
 - They count everywhere hours are summed: day and week totals, unlogged hours, overtime in Timesheet-only mode, and the payroll and team figures.
@@ -143,6 +144,7 @@ Edge cases. Each one has a unit test in `src/prototype/rules/__tests__/attendanc
   - This time never counts as overtime.
   - On a past day with entries but no check-in, the flag prompts a correction. `suggested` comes from the timed entries, or is `null` when there are only hours-only entries.
 - Week statuses: `DRAFT → SUBMITTED → APPROVED | SENT_BACK` (sent back with a required comment).
+- No manual submit. Open (DRAFT) weeks go to the manager automatically on the configured submission day (`timesheetApproval.submissionWeekday`). The submit endpoint only resubmits a SENT_BACK week. On a DRAFT week it returns 409 "Weeks go to your manager automatically every {day}." with the configured day.
 - Editing a SUBMITTED week updates it in place.
 - An APPROVED week returns `editMode: 'change-request'`. The employee sends the whole proposed week with a required reason.
   - The manager approves the change request, or rejects it and the approved version stays.

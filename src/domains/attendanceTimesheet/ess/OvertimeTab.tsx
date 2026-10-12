@@ -223,7 +223,8 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                                         })
                                     }
                                 >
-                                    Request
+                                    {/* PROTOTYPE-SETUP (V2): the button names the hours, e.g. "Request 1h 45m". */}
+                                    Request {formatDuration(s.minutes)}
                                 </Button>
                             </div>
                         ))}
