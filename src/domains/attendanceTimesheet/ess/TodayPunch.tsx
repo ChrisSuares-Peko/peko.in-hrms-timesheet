@@ -103,7 +103,9 @@ const TodayPunch = ({ overview, onOverview }: TodayPunchProps) => {
     const scope = useAtsScope();
     const dispatch = useAppDispatch();
     const t = overview.today;
-    const onClock = Boolean(t.checkIn) && !t.checkOut;
+    // PROTOTYPE-SETUP: only tick when the data's "today" is the browser's today, so a check-in can never be timed
+    // from another day (e.g. data left over from a previous day).
+    const onClock = Boolean(t.checkIn) && !t.checkOut && t.date === dayjs().format('YYYY-MM-DD');
     const now = useNow(onClock);
     const [confirm, setConfirm] = useState<'in' | 'out' | null>(null);
     const [busy, setBusy] = useState(false);

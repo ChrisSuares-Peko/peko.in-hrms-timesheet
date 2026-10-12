@@ -5,9 +5,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { ReloadOutlined } from '@ant-design/icons';
-import { Badge, Breadcrumb, Button, Empty, Skeleton, Tabs, Typography } from 'antd';
-import { FiChevronRight } from 'react-icons/fi';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Badge, Button, Empty, Skeleton, Tabs, Typography } from 'antd';
+import { useNavigate, useParams } from 'react-router-dom';
 
 import { getOverview } from '../api';
 import { displayTime } from '../components/format';
@@ -55,14 +54,7 @@ const AtsSectionPage = () => {
 
     const header = (
         <div className="flex flex-col gap-2 mb-1">
-            <Breadcrumb
-                separator={
-                    <div className="-mx-1 pt-[2px]">
-                        <FiChevronRight className="text-base" />
-                    </div>
-                }
-                items={[{ title: <Link to={paths.home}>Home</Link> }, { title }]}
-            />
+            {/* PROTOTYPE-SETUP: no section breadcrumb — the layout's ESS breadcrumb leads back to Home. */}
             <div>
                 <Title level={4} className="!mb-0.5 text-valueText">
                     {title}

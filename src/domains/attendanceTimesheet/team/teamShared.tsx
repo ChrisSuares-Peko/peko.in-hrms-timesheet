@@ -3,9 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { Avatar, Breadcrumb, Empty, Flex, Typography } from 'antd';
-import { FiChevronRight } from 'react-icons/fi';
-import { Link } from 'react-router-dom';
+import { Avatar, Empty, Flex, Typography } from 'antd';
 
 import { getAtsSettings } from '../api';
 import type { AtsScope } from '../api';
@@ -138,14 +136,6 @@ export const CountTile = ({
         </button>
     );
 };
-
-export const TeamBreadcrumb = ({ items }: { items: { title: string; to?: string }[] }) => (
-    <Breadcrumb
-        className="mb-3"
-        separator={<FiChevronRight className="align-middle text-gray-400" />}
-        items={items.map(i => ({ title: i.to ? <Link to={i.to}>{i.title}</Link> : i.title }))}
-    />
-);
 
 export const NoTeamEmpty = () => (
     <Empty

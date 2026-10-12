@@ -7,12 +7,12 @@
 // few that the manager already approved — so the HR and Finance queues in Payroll have work in them.
 import type { ApprovalTrail, Level2Component } from '@src/domains/timesheet/types';
 
+import { createCollection } from './persistentStore';
 import { MockEmployee, managerOf } from '../data/employees';
 import { DISPUTES, DisputeStatus, MockDispute } from '../data/time-attendance';
 import { LEAVES, LeaveStatus, MockLeave } from '../data/time-leaves';
 import { MockReimbursement, REIMBURSEMENTS, ReimbursementStatus } from '../data/time-requests';
 import type { DataMode } from '../envelope';
-import { createCollection } from './persistentStore';
 
 export type StoredLeave = MockLeave & { trail: ApprovalTrail };
 export type StoredReimbursement = MockReimbursement & { trail: ApprovalTrail };

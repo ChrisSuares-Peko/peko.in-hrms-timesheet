@@ -1,4 +1,9 @@
 import { Flex } from 'antd';
+import { useLocation, useOutletContext } from 'react-router-dom';
+
+import type { EssOutletContext } from '@src/domains/dashboard/Ess/pages/EssLayout';
+import { essTabFor } from '@src/prototype/persona/essPersonas';
+import { titleFor } from '@src/prototype/rules/attendance';
 
 import ServiceShortcutCard from './ServiceShortcutCard';
 import AttendanceIcon from '../../assets/icons/attendance.svg';
@@ -20,17 +25,22 @@ const shortcuts: { title: string; icon: string; pathKey: string }[] = [
     { title: 'My Profile', icon: ProfileIcon, pathKey: 'profile' },
 ];
 
+// PROTOTYPE-SETUP: ESS Service 1 — on the ESS tabs the Attendance card opens the Attendance & Timesheet section
+// (named per mode); with the in-page tab row gone, these cards are how every ESS page is reached.
 const ServiceShortcuts = () => {
     const employeePaths = useEmployeePaths();
+    const essContext = useOutletContext<EssOutletContext | undefined>();
+    const essTab = essTabFor(useLocation().pathname);
+    const items = shortcuts.map(item => {
+        if (essContext && essTab && item.pathKey === 'attendance') {
+            return { ...item, title: titleFor(essContext.atsMode ?? 'both'), path: essTab.paths.attendanceTimesheet };
+        }
+        return { ...item, path: employeePaths[item.pathKey] };
+    });
     return (
         <Flex align="flex-start" justify="space-between" gap={20} wrap="wrap" className="w-full px-2">
-            {shortcuts.map(item => (
-                <ServiceShortcutCard
-                    key={item.title}
-                    icon={item.icon}
-                    title={item.title}
-                    path={employeePaths[item.pathKey]}
-                />
+            {items.map(item => (
+                <ServiceShortcutCard key={item.pathKey} icon={item.icon} title={item.title} path={item.path} />
             ))}
         </Flex>
     );

@@ -11,7 +11,7 @@ import type { MenuProps } from 'antd';
 import { getAtsSettings, simulateSubmissionDay, updateAtsSettings } from '@src/domains/attendanceTimesheet/api';
 import type { AtsMode } from '@src/domains/attendanceTimesheet/types';
 import { useAppDispatch, useAppSelector } from '@src/hooks/store';
-import { resetAllCollections } from '@src/prototype/mocks/store/persistentStore';
+import { demoDay, resetAllCollections } from '@src/prototype/mocks/store/persistentStore';
 import { DataMode, setDataMode } from '@src/slices/dataModeSlice';
 import { persistor } from '@store/store';
 
@@ -23,6 +23,10 @@ const reloadAfterPersist = async () => {
     }
     window.location.reload();
 };
+
+// PROTOTYPE-SETUP: the demo's "today" is the real date. If the page stays open past midnight, reload so every
+// screen and the mock data move to the new day together (the mock layer reseeds around it).
+const DAY_CHECK_MS = 60_000;
 
 const MODE_LABEL: Record<AtsMode, string> = {
     attendance: 'Attendance only',
@@ -41,6 +45,14 @@ const DataModeToggle = () => {
         getAtsSettings(scope).then(s => s && setAtsMode(s.mode));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [role, id]);
+
+    useEffect(() => {
+        const loadedOn = demoDay();
+        const timer = window.setInterval(() => {
+            if (demoDay() !== loadedOn) window.location.reload();
+        }, DAY_CHECK_MS);
+        return () => window.clearInterval(timer);
+    }, []);
 
     const changeMode = (next: DataMode) => {
         if (next === mode) return;

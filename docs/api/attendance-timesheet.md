@@ -158,7 +158,7 @@ Demo data is relative to today. Sneha Iyer (ACME-004, reports to Arjun Mehta) ha
 - An approved week with a pending change request.
 - A day this week with unclaimed overtime.
 - An auto check-out day yesterday, with entries after it.
-- A planned entry later this week.
+- A planned entry on the next working day.
 - An approved leave in the next fortnight.
 
 Arjun's team today: Rahul is late, Karthik hasn't checked in, and Ananya is on leave.

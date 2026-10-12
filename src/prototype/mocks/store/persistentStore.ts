@@ -2,14 +2,21 @@
 // and persisted to localStorage so an action taken in one sidebar tab (e.g. ESS - Employee submits a week)
 // is visible in the others (ESS - Manager, Payroll) and survives a reload. A `storage` listener drops the
 // cache when another browser tab writes, so open tabs stay in sync too.
-// Keys: `prototype:<collection>:<mode>:v1`. "Reset demo data" clears every prototype key (both modes).
+// Keys: `prototype:<collection>:<mode>:<version>:<YYYY-MM-DD>`. "Reset demo data" clears every prototype key.
+// PROTOTYPE-SETUP: the demo's "today" is the real current date. Seeds are built relative to it, so a collection
+// belongs to the day it was seeded: on a new day the keys change, the old day's data is dropped and everything
+// reseeds around the new today (otherwise data seeded on, say, the 7th would freeze the demo on the 7th).
+import { toIsoDate } from '../data/dates';
 import type { DataMode } from '../envelope';
 
 const PREFIX = 'prototype:';
 // Bump when seeds change shape or coverage, so stale browser data reseeds (v2: seed back to last month's start).
-const VERSION = 'v2';
+const VERSION = 'v3';
 
-const keyFor = (name: string, mode: DataMode) => `${PREFIX}${name}:${mode}:${VERSION}`;
+/** The day the demo data is built for — the real current date. */
+export const demoDay = () => toIsoDate(new Date());
+
+const keyFor = (name: string, mode: DataMode) => `${PREFIX}${name}:${mode}:${VERSION}:${demoDay()}`;
 
 const cache = new Map<string, unknown>();
 
@@ -27,6 +34,26 @@ if (typeof window !== 'undefined') {
         else if (event.key.startsWith(PREFIX)) cache.delete(event.key);
     });
 }
+
+let checkedDay = '';
+
+/** Once per day (and on first use): forget data seeded for another day or an older version. */
+const dropStaleDays = () => {
+    const day = demoDay();
+    if (checkedDay === day) return;
+    checkedDay = day;
+    cache.clear();
+    const storage = safeStorage();
+    if (!storage) return;
+    try {
+        const suffix = `:${VERSION}:${day}`;
+        Array.from({ length: storage.length }, (_, i) => storage.key(i))
+            .filter((k): k is string => !!k && k.startsWith(PREFIX) && !k.endsWith(suffix))
+            .forEach(k => storage.removeItem(k));
+    } catch {
+        // nothing more to do
+    }
+};
 
 export interface PersistentCollection<T> {
     get: (mode: DataMode) => T;
@@ -50,6 +77,7 @@ export const createCollection = <T>(
     };
 
     const read = (mode: DataMode): T => {
+        dropStaleDays();
         const key = keyFor(name, mode);
         if (cache.has(key)) return cache.get(key) as T;
         let value: T | undefined;

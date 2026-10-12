@@ -15,7 +15,7 @@ import { useAtsPaths } from '../hooks/useAtsPaths';
 import { useAtsScope } from '../hooks/useAtsScope';
 import TimesheetViewer from '../timesheet/TimesheetViewer';
 import type { AttendanceMonthView, PersonRef, TimesheetWeekView } from '../types';
-import { CountTile, PersonCell, TeamBreadcrumb, useTeamSettings } from './teamShared';
+import { CountTile, PersonCell, useTeamSettings } from './teamShared';
 import TimesheetReviewDrawer from './TimesheetReviewDrawer';
 import type { ReviewTarget } from './TimesheetReviewDrawer';
 
@@ -168,16 +168,9 @@ const MemberTimesheetPage = () => {
     };
 
     const backTab = settings.mode === 'attendance' ? 'today' : 'timesheets';
-    const crumbs = [
-        { title: 'Home', to: paths.home },
-        { title: 'My team', to: paths.myTeam(backTab) },
-        { title: person?.name ?? 'Team member' },
-    ];
-
     if (state === 'error') {
         return (
             <div className="w-full min-w-0">
-                <TeamBreadcrumb items={crumbs} />
                 <Result
                     status="403"
                     title="You can't view this timesheet"
@@ -194,7 +187,7 @@ const MemberTimesheetPage = () => {
 
     return (
         <div className="w-full min-w-0">
-            <TeamBreadcrumb items={crumbs} />
+            {/* PROTOTYPE-SETUP: no section breadcrumb — the layout's ESS breadcrumb (… > My team > name) is the one. */}
             <Flex justify="space-between" align="center" wrap="wrap" gap={12} className="mb-4">
                 {person ? (
                     <PersonCell

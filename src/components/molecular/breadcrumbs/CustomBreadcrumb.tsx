@@ -5,6 +5,7 @@ import { FiChevronRight } from 'react-icons/fi';
 import { useLocation, Link } from 'react-router-dom';
 
 import { useAppSelector } from '@src/hooks/store';
+import { useEssBreadcrumb } from '@src/prototype/persona/essBreadcrumb';
 import { paths } from '@src/routes/paths';
 
 type BreadCrumbProps = object;
@@ -17,6 +18,8 @@ const CustomBreadCrumb: React.FC<BreadCrumbProps> = () => {
     );
     // const { role } = useAppSelector(state => state.reducer.auth);
     const { pathname } = location;
+    // PROTOTYPE-SETUP: ESS tabs get one breadcrumb: "ESS - Employee" (→ ESS Home) > the page's proper name.
+    const essItems = useEssBreadcrumb(pathname);
     const pathnames = pathname
         .split('/')
         .filter(item => item)
@@ -704,7 +707,7 @@ const CustomBreadCrumb: React.FC<BreadCrumbProps> = () => {
         });
     }
 
-    const breadcrumbs = [...extraBreadcrumbItems];
+    const breadcrumbs = essItems ?? [...extraBreadcrumbItems];
 
     if (pathname.includes('/proposals/compare') && navState?.proposalId) {
         const viewPath = `/procure/proposals/${navState.proposalId}${navState.rfqId ? `?rfqId=${navState.rfqId}` : ''}`;
@@ -733,7 +736,7 @@ const CustomBreadCrumb: React.FC<BreadCrumbProps> = () => {
                             <FiChevronRight className="text-base " />
                         </div>
                     }
-                    className={` ${extraBreadcrumbItems.length > 0 ? 'mb-4' : 'mb-0'}`}
+                    className={` ${breadcrumbs.length > 0 ? 'mb-4' : 'mb-0'}`}
                 />
             </div>
         )

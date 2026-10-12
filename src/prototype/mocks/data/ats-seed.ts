@@ -10,7 +10,7 @@
 //   crWeek           the week before this one: Approved, with a pending change request (client call added).
 //   overtimeDay      Monday this week: checked out 20:05, no overtime request → suggested overtime.
 //   autoDay          the working day before today: no check-out (auto 18:30), entries until 20:15.
-//   plannedDay       next working day this week: a planned timesheet entry.
+//   plannedDay       next working day: a planned timesheet entry (later this week, or next week on a Friday).
 //   + an approved leave in the next fortnight (data/time-leaves.ts) and a rejected change request in the past.
 // ESS - Manager (Arjun) team today: Rahul late, Karthik not checked in, Ananya on leave; Sneha checked in.
 // Payroll: every week of last month is Approved except Sneha's sent-back week; a correction and an overtime
@@ -87,7 +87,8 @@ export const atsScenario = () => {
         rejectedCrWeek: addDays(sentBackWeek, -7),
         overtimeDay,
         autoDay,
-        plannedDay: weekStartOf(next) === w0 ? next : null,
+        // PROTOTYPE-SETUP: the next working day (later this week, or next week when today is the last working day).
+        plannedDay: next,
         /** Vikram worked the Saturday of crWeek. */
         workedSaturday: addDays(crWeek, 5),
         /** Vikram's auto check-out day with an Update check-out request. */
@@ -355,11 +356,13 @@ const snehaScenarios = (s: ReturnType<typeof atsScenario>, seed: AtsSeed) => {
         if (isWorkingDay(s.today)) {
             extra.push({ id: `te-${sneha.id}-${s.today}-0`, date: s.today, start: '09:30', end: '11:00', description: 'Sprint standup & planning' });
         }
-        if (s.plannedDay) {
-            extra.push({ id: `te-${sneha.id}-${s.plannedDay}-0`, date: s.plannedDay, start: '10:00', end: '11:30', description: 'Sprint demo – payments release' });
-        }
         weeks[tw.id] = { ...tw, entries: [...tw.entries, ...extra].sort(byDate) };
     }
+    // The planned entry goes in its own week (next week when today is the last working day).
+    const plannedWeekStart = weekStartOf(s.plannedDay);
+    const planned: TimesheetEntry = { id: `te-${sneha.id}-${s.plannedDay}-0`, date: s.plannedDay, start: '10:00', end: '11:30', description: 'Sprint demo – payments release' };
+    const pwk = weeks[weekId(sneha.id, plannedWeekStart)] ?? draftWeek(sneha, plannedWeekStart, []);
+    weeks[pwk.id] = { ...pwk, entries: [...pwk.entries, planned].sort(byDate) };
     if (s.autoDay < s.thisWeek) {
         // Auto day fell in last week (today is Monday): the entry goes there.
         const pw = weeks[weekId(sneha.id, weekStartOf(s.autoDay))];
@@ -516,10 +519,12 @@ const seedOvertime = (s: ReturnType<typeof atsScenario>): OvertimeRequest[] => {
 };
 
 /** The whole dummy-mode seed, built once per page load. */
-let cached: AtsSeed | null = null;
+// PROTOTYPE-SETUP: per day — the seed is built around the real current date (see persistentStore demoDay()).
+let cached: { day: string; seed: AtsSeed } | null = null;
 
 export const buildAtsSeed = (): AtsSeed => {
-    if (cached) return cached;
+    const day = todayIso();
+    if (cached?.day === day) return cached.seed;
     const s = atsScenario();
     const attendance = seedAttendance(s);
     const seed: AtsSeed = {
@@ -531,7 +536,7 @@ export const buildAtsSeed = (): AtsSeed => {
     };
     snehaScenarios(s, seed);
     teamScenarios(s, seed);
-    cached = seed;
+    cached = { day, seed };
     return seed;
 };
 

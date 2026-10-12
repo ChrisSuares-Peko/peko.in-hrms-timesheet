@@ -10,7 +10,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { decideTeamRequest, getTeamApprovalCounts, getTeamRequests } from '../api';
 import type { AtsRequestType } from '../api';
-import { ALL_TEAM_TABS, TeamBreadcrumb, useTeamSettings, visibleTeamTabs } from './teamShared';
+import { ALL_TEAM_TABS, useTeamSettings, visibleTeamTabs } from './teamShared';
 import RequestQueue from '../components/RequestQueue';
 import { useAtsPaths } from '../hooks/useAtsPaths';
 import type { MyTeamTab } from '../hooks/useAtsPaths';
@@ -83,7 +83,7 @@ const MyTeamPage = () => {
 
     return (
         <div className="w-full min-w-0">
-            <TeamBreadcrumb items={[{ title: 'Home', to: paths.home }, { title: 'My team' }]} />
+            {/* PROTOTYPE-SETUP: no section breadcrumb — the layout's ESS breadcrumb leads back to Home. */}
             <div className="mb-4">
                 <Typography.Title level={4} className="text-valueText !mb-0.5">
                     My team
