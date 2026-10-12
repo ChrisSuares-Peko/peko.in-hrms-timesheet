@@ -7,6 +7,7 @@ import { lazy } from 'react';
 import { Navigate } from 'react-router-dom';
 
 import { ESS_TABS } from '@src/prototype/persona/essPersonas';
+import { paths } from '@src/routes/paths';
 
 const EssLayout = lazy(() => import('@src/domains/dashboard/Ess/pages/EssLayout'));
 
@@ -23,13 +24,16 @@ const Profile = lazy(() => import('@src/domains/employee/pages/Profile'));
 const AtsSectionPage = lazy(() => import('@src/domains/attendanceTimesheet/ess/AtsSectionPage'));
 const MyTeamPage = lazy(() => import('@src/domains/attendanceTimesheet/team/MyTeamPage'));
 const MemberTimesheetPage = lazy(() => import('@src/domains/attendanceTimesheet/team/MemberTimesheetPage'));
+// PROTOTYPE-SETUP (Overview, Slice 2): ESS - Employee's home is the new Overview; ESS - Manager keeps the
+// employee dashboard for now.
+const EssOverviewPage = lazy(() => import('@src/domains/attendanceTimesheet/overview/EssOverviewPage'));
 
 /** One route tree per tab; `key` remounts the pages on a tab switch so each persona's data loads fresh. */
 const essTabRoutes = (base: string) => [
     {
         element: <EssLayout key={base} />,
         children: [
-            { element: <EmployeeDashboard />, index: true },
+            { element: base === paths.essEmployee.index ? <EssOverviewPage /> : <EmployeeDashboard />, index: true },
             { element: <AtsSectionPage />, path: 'attendance-timesheet' },
             { element: <AtsSectionPage />, path: 'attendance-timesheet/:tab' },
             { element: <MyTeamPage />, path: 'my-team' },

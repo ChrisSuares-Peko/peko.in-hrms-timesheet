@@ -29,6 +29,8 @@ export interface EntryFormProps {
     others: TimesheetEntry[];
     /** Quick-add row at the bottom of a day (resets after saving). */
     quick?: boolean;
+    /** PROTOTYPE-SETUP (Overview, Slice 2): the phone layout at every width (Start | End | Hours, then the rest). */
+    compact?: boolean;
     busy?: boolean;
     /** Resolves true when saved. */
     onSave: (value: EntryFormValue) => Promise<boolean> | boolean;
@@ -37,7 +39,7 @@ export interface EntryFormProps {
 
 const LAST_MINUTE = 24 * 60 - 1;
 
-const EntryForm = ({ date, initial, others, quick, busy, onSave, onCancel }: EntryFormProps) => {
+const EntryForm = ({ date, initial, others, quick, compact, busy, onSave, onCancel }: EntryFormProps) => {
     const [start, setStart] = useState(initial?.start ?? '');
     const [end, setEnd] = useState(initial?.end ?? '');
     const [hours, setHours] = useState(initial ? formatHoursInput(initial.mins) : '');
@@ -111,24 +113,23 @@ const EntryForm = ({ date, initial, others, quick, busy, onSave, onCancel }: Ent
             'Times are optional. Enter hours alone if you don’t track start and end.'
         );
 
+    let layout = 'grid-cols-3 md:grid-cols-[104px_104px_78px_minmax(0,1fr)_auto]';
+    if (quick) layout = 'mt-1 grid-cols-3 border-0 border-t border-dashed border-gray-200 md:grid-cols-[18px_104px_104px_78px_minmax(0,1fr)_auto]';
+    if (compact) layout = 'grid-cols-3';
+    const wide = compact ? '' : 'md:col-span-1';
+    const span = quick ? 'md:col-start-2 md:col-end-[-1]' : 'md:col-span-5';
+    const lineSpan = compact ? '' : span;
+
     return (
         // eslint-disable-next-line jsx-a11y/no-static-element-interactions
-        <div
-            onKeyDown={onKeyDown}
-            className={`grid items-center gap-2 py-2 ${
-                quick
-                    ? 'mt-1 grid-cols-3 border-0 border-t border-dashed border-gray-200 md:grid-cols-[18px_104px_104px_78px_minmax(0,1fr)_auto]'
-                    : 'grid-cols-3 md:grid-cols-[104px_104px_78px_minmax(0,1fr)_auto]'
-            }`}
-            onClick={e => e.stopPropagation()}
-        >
-            {quick && <PlusOutlined aria-hidden className="hidden text-gray-400 md:block" />}
+        <div onKeyDown={onKeyDown} className={`grid items-center gap-2 py-2 ${layout}`} onClick={e => e.stopPropagation()}>
+            {quick && !compact && <PlusOutlined aria-hidden className="hidden text-gray-400 md:block" />}
             <Input type="time" size="small" aria-label="Start time (optional)" title="Start (optional)" value={start} onChange={e => onStart(e.target.value)} />
             <Input type="time" size="small" aria-label="End time (optional)" title="End (optional)" value={end} onChange={e => onEnd(e.target.value)} />
             <Input size="small" inputMode="decimal" placeholder="Hours" aria-label="Hours" value={hours} onChange={e => onHours(e.target.value)} />
             <Input
                 size="small"
-                className="col-span-3 md:col-span-1"
+                className={`col-span-3 ${wide}`}
                 placeholder="What did you work on?"
                 aria-label="Description"
                 autoFocus={!quick}
@@ -138,7 +139,7 @@ const EntryForm = ({ date, initial, others, quick, busy, onSave, onCancel }: Ent
                     setError('');
                 }}
             />
-            <div className="col-span-3 flex gap-1 md:col-span-1">
+            <div className={`col-span-3 flex gap-1 ${wide}`}>
                 <Button size="small" type="primary" loading={busy} onClick={save}>
                     {quick ? 'Add' : 'Save'}
                 </Button>
@@ -148,9 +149,9 @@ const EntryForm = ({ date, initial, others, quick, busy, onSave, onCancel }: Ent
                     </Button>
                 )}
             </div>
-            <span className={`col-span-3 text-xs text-gray-500 ${quick ? 'md:col-start-2 md:col-end-[-1]' : 'md:col-span-5'}`}>{hint}</span>
+            <span className={`col-span-3 text-xs text-gray-500 ${lineSpan}`}>{hint}</span>
             {error && (
-                <span role="alert" className={`col-span-3 text-xs text-red-600 ${quick ? 'md:col-start-2 md:col-end-[-1]' : 'md:col-span-5'}`}>
+                <span role="alert" className={`col-span-3 text-xs text-red-600 ${lineSpan}`}>
                     {error}
                 </span>
             )}

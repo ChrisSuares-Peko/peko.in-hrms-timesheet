@@ -31,7 +31,7 @@ import {
 
 const STRIPES = 'repeating-linear-gradient(135deg,#F59E0B 0 4px,#FFD27A 4px 8px)';
 
-const BarTrack = ({ day, mode }: { day: TimesheetDay; mode: AtsMode }) => {
+export const BarTrack = ({ day, mode }: { day: TimesheetDay; mode: AtsMode }) => {
     const win = windowRange(day);
     return (
         <div aria-hidden className="relative h-3.5 overflow-hidden rounded bg-gray-100">
@@ -55,7 +55,7 @@ const BarTrack = ({ day, mode }: { day: TimesheetDay; mode: AtsMode }) => {
     );
 };
 
-const Meter = ({ logged, expected }: { logged: number; expected: number }) => {
+export const Meter = ({ logged, expected }: { logged: number; expected: number }) => {
     let fill = 0;
     if (expected) fill = Math.min(100, (logged / expected) * 100);
     else if (logged) fill = 100;

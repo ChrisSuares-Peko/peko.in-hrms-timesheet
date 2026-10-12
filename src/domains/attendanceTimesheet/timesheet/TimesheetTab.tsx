@@ -48,6 +48,8 @@ import WeekStatusCard from './WeekStatusCard';
 export interface TimesheetTabProps {
     /** Called after anything changes (entries, submit, change request, correction) so the section can refresh counts. */
     onChanged?: () => void;
+    /** PROTOTYPE-SETUP (Overview, Slice 2): open on this day (Week view, the day's panel open). */
+    initialDate?: string;
 }
 
 interface CorrectionTarget {
@@ -65,12 +67,12 @@ interface Draft {
 
 const DRAFT_PREFIX = 'draft-';
 
-const TimesheetTab = ({ onChanged }: TimesheetTabProps) => {
+const TimesheetTab = ({ onChanged, initialDate }: TimesheetTabProps) => {
     const scope = useAtsScope();
     const dispatch = useAppDispatch();
     const loadWeek = useCallback((d: string) => getTimesheetWeek(scope, d), [scope]);
     const loadMonth = useCallback((m: string) => getTimesheetMonth(scope, m), [scope]);
-    const nav = useTimesheetNav({ loadWeek });
+    const nav = useTimesheetNav({ loadWeek, initialDate });
     const { today, focusWeek, setWeek, reload } = nav;
 
     const [busy, setBusy] = useState(false);

@@ -29,6 +29,8 @@ export interface AttendanceTabProps {
     onOverview: (next: AtsOverview) => void;
     /** Something changed (correction raised or cancelled) — the section refreshes its counts. */
     onChanged?: () => void;
+    /** PROTOTYPE-SETUP (Overview, Slice 2): open on this day (its month, with the day's details open). */
+    initialDate?: string;
 }
 
 interface ModalState {
@@ -37,14 +39,14 @@ interface ModalState {
     current: { checkIn: string | null; checkOut: string | null; checkOutAuto: boolean };
 }
 
-const AttendanceTab = ({ overview, onOverview, onChanged }: AttendanceTabProps) => {
+const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: AttendanceTabProps) => {
     const scope = useAtsScope();
     const today = todayIso();
-    const [month, setMonth] = useState(today.slice(0, 7));
+    const [month, setMonth] = useState((initialDate ?? today).slice(0, 7));
     const [view, setView] = useState<AttendanceMonthView | null>(null);
     const [loading, setLoading] = useState(true);
     const [corrections, setCorrections] = useState<CorrectionWithStatus[] | null>(null);
-    const [selected, setSelected] = useState<string | null>(null);
+    const [selected, setSelected] = useState<string | null>(initialDate ?? null);
     const [modal, setModal] = useState<ModalState | null>(null);
     const [cancelling, setCancelling] = useState(false);
 

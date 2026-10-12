@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ReloadOutlined } from '@ant-design/icons';
 import { Badge, Button, Empty, Skeleton, Tabs, Typography } from 'antd';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { getOverview } from '../api';
 import { displayTime } from '../components/format';
@@ -36,6 +36,9 @@ const AtsSectionPage = () => {
     const paths = useAtsPaths();
     const navigate = useNavigate();
     const { tab: tabParam } = useParams<{ tab?: string }>();
+    // PROTOTYPE-SETUP (Overview, Slice 2): ?date=YYYY-MM-DD opens the tab on that day (Overview deep links).
+    const [search] = useSearchParams();
+    const dateParam = /^\d{4}-\d{2}-\d{2}$/.test(search.get('date') ?? '') ? search.get('date')! : undefined;
     const [overview, setOverview] = useState<AtsOverview | null>(null);
     const [failed, setFailed] = useState(false);
 
@@ -106,10 +109,16 @@ const AtsSectionPage = () => {
         if (tab !== active) return null;
         if (tab === 'attendance') {
             return (
-                <AttendanceTab overview={overview} onOverview={setOverview} onChanged={onChanged} />
+                <AttendanceTab
+                    key={dateParam ?? 'today'}
+                    overview={overview}
+                    onOverview={setOverview}
+                    onChanged={onChanged}
+                    initialDate={dateParam}
+                />
             );
         }
-        if (tab === 'timesheet') return <TimesheetTab onChanged={onChanged} />;
+        if (tab === 'timesheet') return <TimesheetTab key={dateParam ?? 'today'} onChanged={onChanged} initialDate={dateParam} />;
         return <OvertimeTab onChanged={onChanged} />;
     };
 
