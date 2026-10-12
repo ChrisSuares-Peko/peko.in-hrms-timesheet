@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import logo from '@assets/mainLogo/standard';
 import { PekoPackages } from '@customtypes/general';
 import { useAppSelector } from '@src/hooks/store';
+import { activeNavKey, navOpenKeys, withGroupTitleClick } from '@src/prototype/persona/essNav';
 
 import { useNavData } from './SidebarData';
 
@@ -25,7 +26,11 @@ const SideBarModal = ({ drawerOpen, handleCancel }: Props) => {
     const navData = useNavData();
 
     const navigate = useNavigate();
-    const transformedNavData = transformNavData(navData!);
+    // PROTOTYPE-SETUP (Overview, Slice 3): ESS - Employee's sub-items; its title opens the Overview and closes the drawer.
+    const transformedNavData = withGroupTitleClick(transformNavData(navData!), to => {
+        navigate(to);
+        handleCancel();
+    });
 
     const { packageName, role } = useAppSelector(state => state.reducer.auth);
 
@@ -58,7 +63,8 @@ const SideBarModal = ({ drawerOpen, handleCancel }: Props) => {
                 <Menu
                     mode="inline"
                     items={transformedNavData}
-                    selectedKeys={[`/${location.pathname.split('/')[1]}`, location.pathname]}
+                    selectedKeys={[activeNavKey(transformedNavData ?? [], location.pathname), location.pathname]}
+                    openKeys={navOpenKeys(location.pathname)}
                     onClick={({ key }) => {
                         if (key !== '') {
                             navigate(key, { state: { initialActiveTab: '1' } });

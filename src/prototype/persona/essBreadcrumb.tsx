@@ -1,5 +1,6 @@
 // PROTOTYPE-SETUP: the one breadcrumb on the ESS tabs (rendered by the layout's CustomBreadcrumb). The first item
-// is the tab ("ESS - Employee" / "ESS - Manager") and links to that tab's Home dashboard; the last item is the
+// is the tab's home — "Overview" on ESS - Employee (Overview, Slice 3), "ESS - Manager" on the manager tab — and
+// links to it; the last item is the
 // page's proper name ("Attendance & Timesheet" — named per mode —, "My team", "Leaves", ...). Section sub-tabs in
 // the URL (attendance-timesheet/overtime, my-team/today) don't get their own crumb.
 import { useEffect, useState } from 'react';
@@ -11,6 +12,7 @@ import { getAtsSettings } from '@src/domains/attendanceTimesheet/api';
 import type { AtsMode } from '@src/domains/attendanceTimesheet/types';
 import { findEmployee } from '@src/prototype/mocks/data/employees';
 import { titleFor } from '@src/prototype/rules/attendance';
+import { paths } from '@src/routes/paths';
 
 import { EssTab, essTabFor } from './essPersonas';
 
@@ -44,8 +46,12 @@ const pageName = (segment: string, atsMode: AtsMode | undefined) => {
 
 export const essBreadcrumbItems = (tab: EssTab, pathname: string, atsMode?: AtsMode) => {
     const [page, sub, id] = pathname.slice(tab.base.length).split('/').filter(Boolean);
-    if (!page) return [currentItem('ess-home', tab.label)];
-    const home = linkItem('ess-home', tab.base, tab.label);
+    // PROTOTYPE-SETUP (Overview, Slice 3): ESS - Employee reads "Overview › {page}" (names as in the sidebar).
+    const isEmployeeTab = tab.base === paths.essEmployee.index;
+    const homeLabel = isEmployeeTab ? 'Overview' : tab.label;
+    if (!page) return [currentItem('ess-home', homeLabel)];
+    const home = linkItem('ess-home', tab.base, homeLabel);
+    if (isEmployeeTab && page === 'profile') return [home, currentItem(page, 'My profile')];
     // My team > <member name>
     if (page === 'my-team' && sub === 'members') {
         const member = findEmployee(id);

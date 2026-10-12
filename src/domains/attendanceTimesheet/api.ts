@@ -13,6 +13,7 @@ import type {
     AttendanceMonthView,
     ChangeRequestInput,
     CorrectionInput,
+    EssHomeView,
     Level2Role,
     MyProfileView,
     OvertimeContext,
@@ -81,6 +82,8 @@ export const resetTodayCheckIn = (s: AtsScope) => call<{ cleared: number }>(s, '
 // ---- ESS: my profile (PROTOTYPE-SETUP: Overview, Slice 1) ------------------------------------------------
 
 export const getMyProfile = (s: AtsScope) => call<MyProfileView>(s, 'get', 'profile');
+/** PROTOTYPE-SETUP (Overview, Slice 3): the Overview's status table, notifications and shortcut summaries. */
+export const getEssHome = (s: AtsScope) => call<EssHomeView>(s, 'get', 'home');
 /** Send the changed personal details to HR; the profile changes when HR approves. */
 export const sendProfileUpdate = (s: AtsScope, body: Partial<PersonalDetails>) =>
     call<MyProfileView>(s, 'post', 'profile/update-request', { body });

@@ -54,7 +54,8 @@ const LUNAR_DATES: Record<number, Record<string, string>> = {
     2027: { holi: '03-22', ugadi: '04-07', eid: '03-10', goodFriday: '03-26', ganesh: '09-04', dussehra: '10-09', diwali: '10-29', guruNanak: '11-14' },
 };
 
-const holidaysForYear = (year: number): MockHoliday[] => {
+// PROTOTYPE-SETUP (Overview, Slice 3): exported so the Overview can find the next holiday across a year end.
+export const holidaysForYear = (year: number): MockHoliday[] => {
     const lunar = LUNAR_DATES[year] ?? LUNAR_DATES[2026];
     const on = (monthDay: string) => `${year}-${monthDay}`;
     const seeds: { title: string; date: string; category: HolidayCategory }[] = [

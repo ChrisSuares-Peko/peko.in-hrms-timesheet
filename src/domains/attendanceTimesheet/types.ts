@@ -587,6 +587,64 @@ export interface MyProfileView {
     lastDecided: (ProfileUpdateRequest & { statusLabel: string }) | null;
 }
 
+// ---- ESS - Employee Overview (PROTOTYPE-SETUP: Overview, Slice 3) ----------------------------------------------
+
+/** Where an Overview link goes: a tab of the Attendance & Timesheet section (optionally on a day), or a page. */
+export type OverviewLink = { tab: AtsTab; date?: string } | { page: 'leaves' | 'reimbursements' | 'profile' };
+
+/** One row of "Last 10 working days". */
+export interface OverviewDay {
+    date: string;
+    attendance: Pick<AttendanceDay, 'status' | 'label' | 'checkIn' | 'checkOut' | 'checkOutAuto' | 'lateMinutes'>;
+    timesheet: { weekStatus: TimesheetStatus; changePending: boolean; loggedMinutes: number };
+    /** No overtime / extra time not claimed yet / the day's overtime request. */
+    overtime:
+        | { kind: 'none' }
+        | { kind: 'unclaimed'; minutes: number }
+        /** statusLabel: "Overtime approved" / "Overtime with Arjun Mehta" / "Overtime with Finance team" */
+        | { kind: 'request'; minutes: number; statusLabel: string; state: RequestState };
+}
+
+export interface OverviewAction {
+    kind: 'sent-back' | 'missed-check-out' | 'overtime';
+    title: string;
+    text: string;
+    button: string;
+    link: OverviewLink;
+    tone: 'back' | 'info' | 'amber';
+}
+
+export interface OverviewRequest {
+    type: 'leave' | 'overtime' | 'reimbursement' | 'attendance' | 'profile';
+    id: string;
+    title: string;
+    detail: string;
+    /** "Approved by Arjun Mehta" / "Rejected by HR team: …" / "Waiting with Arjun Mehta" */
+    statusText: string;
+    state: 'pending' | 'approved' | 'rejected';
+    /** Latest change. */
+    at: string;
+    link: OverviewLink;
+}
+
+export interface OverviewShortcuts {
+    leave: { nextLeave: { start: string; end: string; type: string } | null; waiting: number };
+    reimbursement: { pendingAmount: number; inApproval: number };
+    overtime: { approvedMinutes: number; waiting: number; monthLabel: string };
+    payslip: { latest: { year: number; month: number; netPay: number } | null };
+    documents: { count: number };
+}
+
+export interface EssHomeView {
+    mode: AtsMode;
+    approvalEnabled: boolean;
+    recentDays: OverviewDay[];
+    actions: OverviewAction[];
+    requests: OverviewRequest[];
+    announcements: { title: string; text: string }[];
+    shortcuts: OverviewShortcuts;
+}
+
 export interface ApprovalCounts {
     timesheets: number;
     changeRequests: number;

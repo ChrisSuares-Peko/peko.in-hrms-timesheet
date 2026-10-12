@@ -6,6 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import logo from '@assets/mainLogo/standard';
 import { PekoPackages } from '@customtypes/general';
 import { useAppSelector } from '@src/hooks/store';
+import { activeNavKey, navOpenKeys, withGroupTitleClick } from '@src/prototype/persona/essNav';
 import { paths } from '@src/routes/paths';
 
 import { useNavData } from './SidebarData';
@@ -20,20 +21,16 @@ const Sidebar = () => {
     const location = useLocation();
     const navData = useNavData();
     const navigate = useNavigate();
-    const transformedNavData = useMemo(() => transformNavData(navData || []), [navData]);
+    // PROTOTYPE-SETUP (Overview, Slice 3): clicking the ESS - Employee group title opens its Overview.
+    const transformedNavData = useMemo(
+        () => withGroupTitleClick(transformNavData(navData || []), to => navigate(to)),
+        [navData, navigate]
+    );
     const { packageName, role } = useAppSelector(state => state.reducer.auth);
 
+    // PROTOTYPE-SETUP (Overview, Slice 3): the longest matching key, sub-items included.
     const activeKey = useMemo(
-        () =>
-            transformedNavData
-                ?.filter(
-                    item =>
-                        item.key &&
-                        (location.pathname === item.key ||
-                            location.pathname.startsWith(`${item.key}/`))
-                )
-                .sort((a, b) => b.key.length - a.key.length)[0]?.key ??
-            `/${location.pathname.split('/')[1]}`,
+        () => activeNavKey(transformedNavData ?? [], location.pathname),
         [transformedNavData, location.pathname]
     );
     return (
@@ -61,6 +58,7 @@ const Sidebar = () => {
                 mode="inline"
                 items={transformedNavData}
                 selectedKeys={[activeKey, location.pathname]}
+                openKeys={navOpenKeys(location.pathname)}
                 onClick={({ key }) => {
                     if (key !== '') {
                         navigate(key, { state: { initialActiveTab: '1' } });

@@ -19,6 +19,7 @@ import {
     overviewOf,
     submitWeek,
 } from '../atsEss';
+import { homeOf } from '../atsHome';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../atsProfile';
 import { attendanceDay, currentMonth, lastMonth, recordOf, resetTodayCheckIn, weekView } from '../atsStore';
 import {
@@ -252,5 +253,41 @@ describe('profile updates', () => {
     it('refuse nothing changed and invalid details', () => {
         expect(() => createProfileRequest(M, sneha, { mobile: myProfileOf(M, sneha).personal.mobile })).toThrow('Nothing has changed.');
         expect(() => createProfileRequest(M, sneha, { mobile: '123' })).toThrow(/at least 10 digits/);
+    });
+});
+
+// PROTOTYPE-SETUP (Overview, Slice 3): the Overview's table, notifications and shortcut summaries.
+describe('overview home', () => {
+    it('lists the last 10 working days, newest first, with the missed check-out and unclaimed overtime', () => {
+        const h = homeOf(M, sneha);
+        expect(h.recentDays.length).toBe(10);
+        expect(h.recentDays[0].date).toBe(s.today);
+        expect(h.recentDays.map(d => d.date)).toEqual([...h.recentDays.map(d => d.date)].sort().reverse());
+        const auto = h.recentDays.find(d => d.date === s.autoDay)!;
+        expect(auto.attendance).toMatchObject({ checkOutAuto: true, checkOut: '23:59' });
+        expect(auto.overtime).toEqual({ kind: 'none' });
+        expect(h.recentDays.find(d => d.date === s.overtimeDay)?.overtime.kind ?? 'unclaimed').toBe('unclaimed');
+    });
+    it('needs your action: the missed check-out and unclaimed overtime, each with a deep link', () => {
+        const h = homeOf(M, sneha);
+        expect(h.actions.find(a => a.kind === 'missed-check-out')).toMatchObject({ button: 'Update check-out', link: { tab: 'attendance', date: s.autoDay } });
+        expect(h.actions.find(a => a.kind === 'overtime')).toMatchObject({ button: 'Review overtime', link: { tab: 'overtime' } });
+        // once a correction is raised, the missed check-out is no longer an action
+        createCorrection(M, sneha, { date: s.autoDay, kind: 'update-check-out', checkOut: '19:00', reason: 'Left at 7' });
+        expect(homeOf(M, sneha).actions.some(a => a.kind === 'missed-check-out' && 'tab' in a.link && a.link.date === s.autoDay)).toBe(false);
+    });
+    it('your requests: newest first, max 6, including a profile update', () => {
+        createProfileRequest(M, sneha, { emergencyRelation: 'Mother' });
+        const h = homeOf(M, sneha);
+        expect(h.requests.length).toBeLessThanOrEqual(6);
+        expect(h.requests[0]).toMatchObject({ type: 'profile', state: 'pending', statusText: 'Waiting with HR team', link: { page: 'profile' } });
+        expect(h.requests.map(r => r.at)).toEqual([...h.requests.map(r => r.at)].sort().reverse());
+    });
+    it('shortcuts and announcements', () => {
+        const h = homeOf(M, sneha);
+        expect(h.shortcuts.documents.count).toBeGreaterThan(0);
+        expect(h.shortcuts.reimbursement.inApproval).toBeGreaterThanOrEqual(0);
+        expect(h.announcements.length).toBeGreaterThanOrEqual(2);
+        expect(h.announcements.slice(-2).map(a => a.title)).toEqual(['New: log hours without start and end times', 'Overtime policy']);
     });
 });

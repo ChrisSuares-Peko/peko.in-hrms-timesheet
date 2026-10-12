@@ -11,13 +11,16 @@ import { Button, Empty, Skeleton } from 'antd';
 
 import './overview.css';
 import OvAttendanceCard from './OvAttendanceCard';
+import OvNotifications from './OvNotifications';
 import OvProfileCard from './OvProfileCard';
+import OvShortcuts, { shortcutCards } from './OvShortcuts';
+import OvStatusTable from './OvStatusTable';
 import OvTimesheetCard from './OvTimesheetCard';
-import { getMyProfile, getOverview, getTimesheetWeek } from '../api';
+import { getEssHome, getMyProfile, getOverview, getTimesheetWeek } from '../api';
 import { useAtsPaths } from '../hooks/useAtsPaths';
 import { useAtsScope } from '../hooks/useAtsScope';
 import { todayIso } from '../timesheet/helpers';
-import type { AtsOverview, MyProfileView, TimesheetWeekView } from '../types';
+import type { AtsOverview, EssHomeView, MyProfileView, OverviewLink, TimesheetWeekView } from '../types';
 
 const EssOverviewPage = () => {
     const scope = useAtsScope();
@@ -26,7 +29,14 @@ const EssOverviewPage = () => {
     const [profile, setProfile] = useState<MyProfileView | null>(null);
     const [overview, setOverview] = useState<AtsOverview | null>(null);
     const [week, setWeek] = useState<TimesheetWeekView | null>(null);
+    const [home, setHome] = useState<EssHomeView | null>(null);
     const [failed, setFailed] = useState(false);
+
+    // PROTOTYPE-SETUP (Overview, Slice 3): the table, notifications and shortcut summaries.
+    const loadHome = useCallback(async () => {
+        const h = await getEssHome(scope);
+        if (h) setHome(h);
+    }, [scope]);
 
     const loadWeek = useCallback(async () => {
         const w = await getTimesheetWeek(scope, today);
@@ -35,11 +45,11 @@ const EssOverviewPage = () => {
 
     const load = useCallback(async () => {
         setFailed(false);
-        const [p, o] = await Promise.all([getMyProfile(scope), getOverview(scope), loadWeek()]);
+        const [p, o] = await Promise.all([getMyProfile(scope), getOverview(scope), loadWeek(), loadHome()]);
         if (p) setProfile(p);
         if (o) setOverview(o);
         if (!p || !o) setFailed(true);
-    }, [scope, loadWeek]);
+    }, [scope, loadWeek, loadHome]);
 
     useEffect(() => {
         load();
@@ -71,7 +81,13 @@ const EssOverviewPage = () => {
     const onOverview = (next: AtsOverview) => {
         setOverview(next);
         loadWeek();
+        loadHome();
     };
+    const onWeek = (next: TimesheetWeekView) => {
+        setWeek(next);
+        loadHome();
+    };
+    const hrefOf = (link: OverviewLink) => ('tab' in link ? paths.section(link.tab, link.date) : `${paths.home}/${link.page}`);
 
     return (
         <div className={`ess-ov ${mode === 'both' ? '' : 'ess-ov--one'}`}>
@@ -84,10 +100,33 @@ const EssOverviewPage = () => {
                     week={week}
                     mode={mode}
                     today={today}
-                    onWeek={setWeek}
+                    onWeek={onWeek}
                     fullPath={paths.section('timesheet', today)}
                     className="ess-ov__t"
                 />
+            )}
+            {home && (
+                <>
+                    <OvShortcuts
+                        cards={shortcutCards(home.shortcuts, {
+                            leave: `${paths.home}/leaves`,
+                            reimbursements: `${paths.home}/reimbursements`,
+                            overtime: paths.section('overtime'),
+                            payslips: `${paths.home}/payslips`,
+                            documents: `${paths.home}/documents`,
+                        })}
+                        className="ess-ov__c"
+                    />
+                    <OvStatusTable
+                        days={home.recentDays}
+                        mode={mode}
+                        approvalEnabled={home.approvalEnabled}
+                        today={today}
+                        linkTo={paths.section}
+                        className="ess-ov__s"
+                    />
+                    <OvNotifications home={home} hrefOf={hrefOf} className="ess-ov__n" />
+                </>
             )}
         </div>
     );

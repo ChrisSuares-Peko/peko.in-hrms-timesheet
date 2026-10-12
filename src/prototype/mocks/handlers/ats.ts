@@ -29,6 +29,7 @@ import {
     submitWeek,
     timesheetMonthOf,
 } from '../store/atsEss';
+import { homeOf } from '../store/atsHome';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../store/atsProfile';
 import { currentMonth, getSettings, overtimeContext, resetTodayCheckIn, today, weekView } from '../store/atsStore';
 import {
@@ -116,6 +117,8 @@ export const atsRoutes: MockRoute[] = [
 
     // ---- ESS: overview, check-in / out, attendance ------------------------------------------------------
     route('GET', `${A}/overview`, ess((ctx, me) => overviewOf(ctx.mode, me))),
+    // PROTOTYPE-SETUP (Overview, Slice 3): the Overview's table, notifications and shortcut summaries.
+    route('GET', `${A}/home`, ess((ctx, me) => homeOf(ctx.mode, me))),
     route('POST', `${A}/check-in`, ess((ctx, me) => checkIn(ctx.mode, me))),
     route('POST', `${A}/check-out`, ess((ctx, me) => checkOut(ctx.mode, me))),
     route('GET', `${A}/attendance`, ess((ctx, me) => attendanceMonthOf(ctx.mode, me, monthParam(ctx.query)))),

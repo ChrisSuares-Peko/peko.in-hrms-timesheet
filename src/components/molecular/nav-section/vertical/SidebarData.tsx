@@ -27,6 +27,8 @@ import {
 } from '@src/domains/dashboard/corporateCards/utils/activeRole';
 // import { ComingSoon } from '@src/domains/dashboard/MoreServices/utils/data';
 import { useAppSelector } from '@src/hooks/store';
+import { atsSettings } from '@src/prototype/mocks/store/atsStore';
+import { ESS_EMPLOYEE_GROUP, essEmployeeSubItems } from '@src/prototype/persona/essNav';
 import { paths } from '@src/routes/paths';
 import { checkRole, checkSidebarkAccess } from '@utils/checkAccess';
 import { toServiceRoute } from '@utils/serviceRoute';
@@ -40,6 +42,8 @@ interface NavItem {
     icon?: ReactElement<CustomIconComponentProps, string | JSXElementConstructor<any>>;
     stringLabel?: string;
     alwaysShow?: boolean;
+    /** PROTOTYPE-SETUP (Overview, Slice 3): sub-items (only ESS - Employee has them). */
+    children?: NavItem[];
 }
 
 /**
@@ -69,6 +73,9 @@ export function useNavData() {
     useAppSelector(state => state.reducer.services.services?.data);
     const navData = useRef<NavItem[]>();
     const { services } = useAppSelector(state => state.reducer.services);
+    // PROTOTYPE-SETUP (Overview, Slice 3): the ESS - Employee sub-items name the section per mode (a mode
+    // switch reloads the page, so reading the prototype's settings once per render is enough).
+    const dataMode = useAppSelector(state => state.reducer.dataMode?.mode ?? 'dummy');
 
     const checkRouteIsActive = useCallback(
         (route: string) => {
@@ -490,6 +497,20 @@ export function useNavData() {
             .map(service => {
                 const route = toServiceRoute(service.label, service.enableMoreService);
                 const isActive = checkRouteIsActive(route);
+                if (route === paths.essEmployee.index) {
+                    // PROTOTYPE-SETUP (Overview, Slice 3): ESS - Employee expands into its pages.
+                    const subItems = essEmployeeSubItems(atsSettings.get(dataMode).mode);
+                    const activeSub = subItems
+                        .filter(s => location.pathname === s.key || location.pathname.startsWith(`${s.key}/`))
+                        .sort((a, b) => b.key.length - a.key.length)[0]?.key;
+                    return {
+                        key: ESS_EMPLOYEE_GROUP,
+                        label: NavText(service.alias || service.label, isActive),
+                        icon: NavIcon(service.icon, isActive),
+                        stringLabel: service.label,
+                        children: subItems.map(s => ({ key: s.key, label: NavText(s.text, s.key === activeSub) })),
+                    };
+                }
                 return {
                     key: route,
                     label: NavText(service.alias || service.label, isActive),
@@ -537,7 +558,7 @@ export function useNavData() {
         // }
 
         navData.current = items;
-    }, [services, checkRouteIsActive, employeeModeOnly]);
+    }, [services, checkRouteIsActive, employeeModeOnly, dataMode, location.pathname]);
 
     const generateSystemData = useCallback(() => {
         const items = adminSidebarConfig
