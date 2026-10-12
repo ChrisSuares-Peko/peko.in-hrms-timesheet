@@ -3,21 +3,22 @@
 // Payroll → Attendance. Approve / Reject only show on requests waiting for that role.
 import { useCallback } from 'react';
 
-import { type AtsRequestType, decideLevel2, getLevel2Queue } from '../api';
+import { type Level2RequestType, decideLevel2, getLevel2Queue } from '../api';
 import { usePayrollScope } from './usePayrollAts';
 import RequestQueue from '../components/RequestQueue';
 import type { Level2Role, QueueScope, RequestItem } from '../types';
 
 export const ROLE_NAME: Record<Level2Role, 'HR' | 'Finance'> = { HR: 'HR', FINANCE: 'Finance' };
 
-export const TYPE_LABEL: Record<AtsRequestType, string> = {
+export const TYPE_LABEL: Record<Level2RequestType, string> = {
     attendance: 'Attendance corrections',
     overtime: 'Overtime',
+    profile: 'Profile updates', // PROTOTYPE-SETUP (Overview, Slice 4)
 };
 
 type Level2QueueProps = {
     role: Level2Role;
-    type: AtsRequestType;
+    type: Level2RequestType;
     defaultScope?: QueueScope;
     onChanged?: () => void;
 };

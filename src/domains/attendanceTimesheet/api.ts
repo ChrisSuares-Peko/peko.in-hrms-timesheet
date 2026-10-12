@@ -41,6 +41,8 @@ export interface AtsScope {
 }
 
 export type AtsRequestType = 'attendance' | 'overtime';
+/** PROTOTYPE-SETUP (Overview, Slice 4): level 2 (HR) also decides profile updates. */
+export type Level2RequestType = AtsRequestType | 'profile';
 
 export type CorrectionWithStatus = AttendanceCorrection & { statusLabel: string };
 
@@ -168,13 +170,13 @@ export const decideTeamRequest = (
 // ---- Payroll ----------------------------------------------------------------------------------------------
 
 export const getLevel2Counts = (s: AtsScope, role: Level2Role) =>
-    call<Record<AtsRequestType, number>>(s, 'get', 'payroll/approvals/counts', { params: { role } });
-export const getLevel2Queue = (s: AtsScope, role: Level2Role, type: AtsRequestType, scope: QueueScope) =>
+    call<Record<Level2RequestType, number>>(s, 'get', 'payroll/approvals/counts', { params: { role } });
+export const getLevel2Queue = (s: AtsScope, role: Level2Role, type: Level2RequestType, scope: QueueScope) =>
     call<RequestItem[]>(s, 'get', `payroll/approvals/${type}`, { params: { role, scope } });
 export const decideLevel2 = (
     s: AtsScope,
     role: Level2Role,
-    type: AtsRequestType,
+    type: Level2RequestType,
     id: string,
     decision: 'approve' | 'reject',
     comment?: string

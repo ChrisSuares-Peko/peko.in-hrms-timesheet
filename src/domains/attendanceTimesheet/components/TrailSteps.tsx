@@ -36,7 +36,8 @@ const TrailSteps = ({ trail }: { trail: ApprovalTrail }) => (
                     <Flex gap={4} align="center">
                         {iconFor(trail, s)}
                         <Typography.Text className="text-xs">
-                            {ROLE[s.role]}
+                            {/* PROTOTYPE-SETUP (Overview, Slice 4): profile updates go straight to the HR team. */}
+                            {trail.type === 'profile' && s.role === 'HR' ? 'HR team' : ROLE[s.role]}
                             {s.role === 'MANAGER' && s.approverName ? ` (${s.approverName})` : ''}
                             {s.skipped ? ' — skipped' : ''}
                         </Typography.Text>
@@ -44,6 +45,11 @@ const TrailSteps = ({ trail }: { trail: ApprovalTrail }) => (
                 </Tooltip>
             </Flex>
         ))}
+        {trail.type === 'profile' && (
+            <Typography.Text type="secondary" className="text-xs">
+                Profile changes go straight to HR
+            </Typography.Text>
+        )}
     </Flex>
 );
 

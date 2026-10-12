@@ -1,5 +1,11 @@
 import { Avatar, Flex, Skeleton, Typography } from 'antd';
 import dayjs from 'dayjs';
+import { useLocation } from 'react-router-dom';
+
+import EssProfileEditor from '@src/domains/attendanceTimesheet/profile/EssProfileEditor';
+import { essTabFor } from '@src/prototype/persona/essPersonas';
+import { useEssPersonaPhoto } from '@src/prototype/persona/useEssPersonaPhoto';
+import { paths } from '@src/routes/paths';
 
 import { EmployeeDepartment } from '../api/onboarding';
 import BankDetailsTab from '../components/profile/BankDetailsTab';
@@ -45,6 +51,11 @@ const StatDivider = () => <div className="hidden h-12 w-px bg-[#e5e5e5] sm:block
 
 const Profile = () => {
     const { profile, loading, reload } = useEmployeeProfile();
+    // PROTOTYPE-SETUP (Overview, Slice 4): on ESS - Employee the personal details are edited here and sent to HR
+    // for approval (EssProfileEditor), and the photo is the approved one. Elsewhere the page is unchanged.
+    const essTab = essTabFor(useLocation().pathname);
+    const isEssEmployee = essTab?.base === paths.essEmployee.index;
+    const essPhoto = useEssPersonaPhoto(isEssEmployee ? essTab?.persona : undefined);
     const personal = profile?.personalInformation;
     const info = profile?.employeeInformation;
 
@@ -65,7 +76,7 @@ const Profile = () => {
                                     size={72}
                                     shape="square"
                                     style={{ borderRadius: 12, background: '#f9f6ff' }}
-                                    src={profile?.profileImage}
+                                    src={isEssEmployee ? essPhoto ?? undefined : profile?.profileImage}
                                 >
                                     <Text
                                         style={{ color: '#af9ed4' }}
@@ -136,7 +147,7 @@ const Profile = () => {
                 )}
             </div>
 
-            <PersonalInfoTab profile={profile} onRequestSubmitted={reload} />
+            {isEssEmployee ? <EssProfileEditor /> : <PersonalInfoTab profile={profile} onRequestSubmitted={reload} />}
             <BankDetailsTab
                 bankDetails={profile?.bankDetails}
                 bankUpdateRequestPending={profile?.bankUpdateRequestPending}

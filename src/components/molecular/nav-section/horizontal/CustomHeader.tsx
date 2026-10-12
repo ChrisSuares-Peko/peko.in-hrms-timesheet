@@ -34,6 +34,7 @@ import useNotificationApi from '@src/hooks/useNotificationApi';
 import useSubUserLogout from '@src/hooks/useSubUserLogout';
 import useUserInfo from '@src/hooks/useUserInfo';
 import { essTabFor } from '@src/prototype/persona/essPersonas';
+import { useEssPersonaPhoto } from '@src/prototype/persona/useEssPersonaPhoto';
 import { paths } from '@src/routes/paths';
 import { handleLogout } from '@src/services/handleLogout';
 import {
@@ -86,6 +87,8 @@ const CustomHeader = () => {
     // PROTOTYPE-SETUP: on an ESS tab the header shows that tab's persona (e.g. Sneha Iyer), not the company.
     const essTab = essTabFor(useLocation().pathname);
     const resolvedName = essTab ? essTab.persona.fullName : companyFallbackName;
+    // PROTOTYPE-SETUP (Overview, Slice 4): ESS tabs show the persona's approved photo; Payroll keeps the logo.
+    const essPhoto = useEssPersonaPhoto(essTab?.persona);
     const isFreelancer = user?.accountType === 'freelancer';
     // An employee is a person, not a company: their own name is on the session, and the company-name
     // fallbacks below are never going to resolve for them.
@@ -393,7 +396,7 @@ const CustomHeader = () => {
                             className="h-12 px-3 py-2 border cursor-pointer rounded-xl"
                         >
                             <Avatar
-                                src={user?.logo}
+                                src={essTab ? essPhoto ?? undefined : user?.logo}
                                 size="large"
                                 draggable={false}
                                 className="bg-[#ffeeee]"

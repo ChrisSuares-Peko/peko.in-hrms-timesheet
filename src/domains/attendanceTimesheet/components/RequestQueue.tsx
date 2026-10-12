@@ -8,7 +8,7 @@ import { Alert, Avatar, Button, Empty, Flex, Input, Modal, Segmented, Skeleton, 
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
-import type { AtsRequestType } from '../api';
+import type { Level2RequestType } from '../api';
 import type { OvertimeContext, QueueScope, RequestItem } from '../types';
 import { displayTime, fmtDate, fmtStamp, formatDuration } from './format';
 import { RequestStatusTag } from './StatusTags';
@@ -17,7 +17,7 @@ import TrailSteps from './TrailSteps';
 dayjs.extend(relativeTime);
 
 export interface RequestQueueProps {
-    type: AtsRequestType;
+    type: Level2RequestType;
     /** Load the list for a scope. */
     load: (scope: QueueScope) => Promise<RequestItem[] | false>;
     /** Approve / reject. Approve/Reject buttons show only on items with `waitingForYou`; reject needs a comment. */
@@ -29,9 +29,42 @@ export interface RequestQueueProps {
     actingAs?: 'Manager' | 'HR' | 'Finance';
 }
 
-const TYPE_COPY: Record<AtsRequestType, { plural: string; single: string }> = {
+const TYPE_COPY: Record<Level2RequestType, { plural: string; single: string }> = {
     attendance: { plural: 'attendance corrections', single: 'attendance correction' },
     overtime: { plural: 'overtime requests', single: 'overtime request' },
+    profile: { plural: 'profile updates', single: 'profile update' },
+};
+
+/** PROTOTYPE-SETUP (Overview, Slice 4): a profile update, field by field (old → new), with the new photo. */
+const ProfileChanges = ({ item }: { item: RequestItem }) => {
+    const changes = item.profile?.changes ?? [];
+    return (
+        <div className="max-w-[520px] rounded-xl bg-[#F9FAFB] px-3 py-2">
+            <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
+                {changes.map(c => (
+                    <Fragment key={c.field}>
+                        <Typography.Text type="secondary">{c.label}</Typography.Text>
+                        {c.field === 'photo' ? (
+                            <Flex gap={8} align="center">
+                                {c.to ? (
+                                    <img src={c.to} alt="New profile" className="h-12 w-12 rounded-full object-cover" />
+                                ) : (
+                                    <Typography.Text>Photo removed</Typography.Text>
+                                )}
+                                {c.to && <Typography.Text type="secondary">New photo</Typography.Text>}
+                            </Flex>
+                        ) : (
+                            <Typography.Text className="break-words">
+                                <span className="text-[#667085] line-through decoration-[#98A2B3]">{c.from || '—'}</span>
+                                {' → '}
+                                <b className="font-semibold !text-[#1570EF]">{c.to || '—'}</b>
+                            </Typography.Text>
+                        )}
+                    </Fragment>
+                ))}
+            </div>
+        </div>
+    );
 };
 
 const t = (v: string | null) => (v ? displayTime(v) : '—');
@@ -207,11 +240,9 @@ const RequestQueue = ({ type, load, decide, onChanged, defaultScope = 'waiting',
                                         </Typography.Text>
                                     </Flex>
                                     <Typography.Text className="font-medium text-[#171717]">{item.title}</Typography.Text>
-                                    {item.correction ? (
-                                        <CorrectionTimes item={item} />
-                                    ) : (
-                                        item.detail && <Typography.Text>{item.detail}</Typography.Text>
-                                    )}
+                                    {item.correction && <CorrectionTimes item={item} />}
+                                    {item.profile && <ProfileChanges item={item} />}
+                                    {!item.correction && !item.profile && item.detail && <Typography.Text>{item.detail}</Typography.Text>}
                                     {item.overtimeContext && (
                                         <Typography.Text
                                             type="secondary"

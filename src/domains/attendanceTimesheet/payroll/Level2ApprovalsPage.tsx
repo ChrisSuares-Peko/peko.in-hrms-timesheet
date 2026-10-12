@@ -7,14 +7,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Flex, Segmented, Skeleton, Tabs, Typography } from 'antd';
 import { Link, useSearchParams } from 'react-router-dom';
 
-import { type AtsRequestType, getLevel2Counts } from '../api';
+import { type Level2RequestType, getLevel2Counts } from '../api';
 import type { Level2Role } from '../types';
 import Level2Queue, { ROLE_NAME, TYPE_LABEL } from './Level2Queue';
 import { payrollLinks, useAtsSettings, usePayrollScope } from './usePayrollAts';
 
 const { Text } = Typography;
 
-type Counts = Record<AtsRequestType, number>;
+type Counts = Record<Level2RequestType, number>;
 const ROLES: Level2Role[] = ['HR', 'FINANCE'];
 
 const Level2ApprovalsPage = () => {
@@ -24,11 +24,14 @@ const Level2ApprovalsPage = () => {
     const [counts, setCounts] = useState<Partial<Record<Level2Role, Counts>>>({});
 
     const role: Level2Role = params.get('role') === 'FINANCE' ? 'FINANCE' : 'HR';
-    const types: AtsRequestType[] =
-        settings?.mode === 'timesheet' ? ['overtime'] : ['attendance', 'overtime'];
-    const routed = types.filter(t => settings?.level2[t] === role);
-    const requested = params.get('type') as AtsRequestType | null;
-    const type: AtsRequestType =
+    // PROTOTYPE-SETUP (Overview, Slice 4): HR also gets profile updates (no manager step, always HR).
+    const types: Level2RequestType[] = [
+        ...(settings?.mode === 'timesheet' ? ['overtime' as const] : ['attendance' as const, 'overtime' as const]),
+        ...(role === 'HR' ? ['profile' as const] : []),
+    ];
+    const routed = types.filter(t => (t === 'profile' ? role === 'HR' : settings?.level2[t] === role));
+    const requested = params.get('type') as Level2RequestType | null;
+    const type: Level2RequestType =
         requested && types.includes(requested) ? requested : (routed[0] ?? types[0]);
 
     const loadCounts = useCallback(async () => {
@@ -60,7 +63,8 @@ const Level2ApprovalsPage = () => {
                 <Text type="secondary" className="text-xs sm:text-sm">
                     HR and Finance see a request after the employee&apos;s reporting manager approves
                     it. Their approval is final. Timesheets are approved by managers only — see{' '}
-                    <Link to={payrollLinks.timesheetStatus()}>Timesheet status</Link>.
+                    <Link to={payrollLinks.timesheetStatus()}>Timesheet status</Link>. Profile updates
+                    go straight to HR, with no manager step.
                 </Text>
             </Flex>
 

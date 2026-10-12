@@ -48,6 +48,7 @@ On weekly offs and holidays, all time worked counts as overtime.
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
 | GET | `overview` | — | `AtsOverview` (card name, tabs, today, this week, counts) |
+| GET | `home` | — | `EssHomeView`: the Overview's "Last 10 working days" (`recentDays`), "Needs your action" (`actions`: sent-back weeks, missed check-outs in the last 14 days without a correction, unclaimed overtime), "Your requests" (latest status of leave, overtime, reimbursement, attendance correction and profile update requests, newest first, max 6), announcements and the shortcut-card summaries |
 | POST | `check-in` / `check-out` | — | `AtsOverview` |
 | GET | `attendance` | `?month=YYYY-MM` | `AttendanceMonthView` |
 | GET | `corrections` | — | `(AttendanceCorrection & { statusLabel })[]` |

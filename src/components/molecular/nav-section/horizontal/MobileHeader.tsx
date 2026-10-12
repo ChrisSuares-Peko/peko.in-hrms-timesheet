@@ -14,6 +14,7 @@ import { useCompanyNameFallback } from '@domains/dashboard/profile/hooks/useComp
 import { useAppSelector } from '@src/hooks/store';
 import useNotificationApi from '@src/hooks/useNotificationApi';
 import { essTabFor } from '@src/prototype/persona/essPersonas';
+import { useEssPersonaPhoto } from '@src/prototype/persona/useEssPersonaPhoto';
 import { paths } from '@src/routes/paths';
 import { handleLogout } from '@src/services/handleLogout';
 import { formatNumberWithLocalString } from '@utils/priceFormat';
@@ -30,6 +31,8 @@ const MobileHeader = ({ handleDraggerOpen }: MobileHeaderType) => {
     // PROTOTYPE-SETUP: on an ESS tab the header shows that tab's persona (e.g. Sneha Iyer), not the company.
     const essTab = essTabFor(useLocation().pathname);
     const resolvedName = essTab ? essTab.persona.fullName : companyFallbackName;
+    // PROTOTYPE-SETUP (Overview, Slice 4): ESS tabs show the persona's approved photo; Payroll keeps the logo.
+    const essPhoto = useEssPersonaPhoto(essTab?.persona);
     const displayName = resolvedName || applicationId || null;
     const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -137,7 +140,7 @@ const MobileHeader = ({ handleDraggerOpen }: MobileHeaderType) => {
                     />
                 </Badge>
                 <Avatar
-                    src={user?.logo}
+                    src={essTab ? essPhoto ?? undefined : user?.logo}
                     alt="profile"
                     className="cursor-pointer bg-[#ffeeee]"
                     draggable={false}
