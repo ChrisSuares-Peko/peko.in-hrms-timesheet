@@ -1,58 +1,43 @@
-// PROTOTYPE-SETUP (Overview, Slice 2): section 1 — who you are. Photo (initials fallback), name, employee ID,
-// work email, role and grade, department and reporting manager (with their title). "Edit profile" opens the
-// Profile page.
-import { Button } from 'antd';
-import { useNavigate } from 'react-router-dom';
+// PROTOTYPE-SETUP (Overview, Slice 2; decluttered in Overview v2, Slice 2): section 1 — who you are.
+// Photo (initials fallback), name and role, then work email, reporting manager and department. Employee ID and
+// grade live on the Profile page. "Edit profile" is a small link in the top-right corner; the card is only as
+// tall as its content.
+import { Link } from 'react-router-dom';
 
 import { OvCard } from './OvCard';
 import ProfilePhoto from './ProfilePhoto';
 import type { MyProfileView } from '../types';
 
-const Item = ({ label, children }: { label: string; children: React.ReactNode }) => (
+export const OvItem = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <>
-        <dt className="text-xs text-titleText">{label}</dt>
-        <dd className="m-0 min-w-0 break-words text-sm text-valueText">{children}</dd>
+        <dt className="text-[11px] text-gray-400">{label}</dt>
+        <dd className="m-0 min-w-0 text-sm font-normal text-[#101828]">{children}</dd>
     </>
 );
 
-const OvProfileCard = ({ profile, profilePath, className }: { profile: MyProfileView; profilePath: string; className?: string }) => {
-    const navigate = useNavigate();
+const OvProfileCard = ({ profile, profilePath, className = '' }: { profile: MyProfileView; profilePath: string; className?: string }) => {
     const { work, personal } = profile;
     return (
-        <OvCard label="Employee profile" className={className}>
-            <div className="flex min-w-0 items-center gap-3">
-                <ProfilePhoto name={work.name} photo={personal.photo} />
-                <div className="min-w-0">
+        <OvCard label="Employee profile" className={`self-start ${className}`}>
+            <div className="flex min-w-0 items-start gap-3">
+                <ProfilePhoto name={work.name} photo={personal.photo} size={48} />
+                <div className="min-w-0 flex-1">
                     <div className="truncate text-base font-semibold text-valueText">{work.name}</div>
-                    <div className="truncate text-xs text-titleText">{work.designation}</div>
+                    <div className="truncate text-xs text-gray-500">{work.designation}</div>
                 </div>
+                <Link to={profilePath} className="shrink-0 text-xs font-medium text-[#2E62E8] hover:underline">
+                    Edit profile
+                </Link>
             </div>
-            <dl className="m-0 grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-1.5">
-                <Item label="Employee ID">{work.employeeId}</Item>
-                <Item label="Work email">
+            <dl className="m-0 grid grid-cols-[84px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2">
+                <OvItem label="Work email">
                     <span className="block truncate" title={work.workEmail}>
                         {work.workEmail}
                     </span>
-                </Item>
-                <Item label="Role and grade">
-                    {work.designation} · {work.grade}
-                </Item>
-                <Item label="Department">{work.department}</Item>
-                <Item label="Reports to">
-                    {work.manager ? (
-                        <>
-                            {work.manager.name}
-                            <span className="block text-xs text-titleText">{work.manager.designation}</span>
-                        </>
-                    ) : (
-                        'No reporting manager'
-                    )}
-                </Item>
+                </OvItem>
+                <OvItem label="Manager">{work.manager?.name ?? 'No reporting manager'}</OvItem>
+                <OvItem label="Department">{work.department}</OvItem>
             </dl>
-            <span className="flex-1" />
-            <Button block onClick={() => navigate(profilePath)}>
-                Edit profile
-            </Button>
         </OvCard>
     );
 };

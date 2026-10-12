@@ -1,21 +1,23 @@
-// PROTOTYPE-SETUP (Overview, Slice 2): section 2 — today's attendance (prototype "OvAttendance").
-// Date and shift; a status strip (Not checked in / Checked in on time / Checked in late / Checked out / On leave /
-// Holiday / Weekly off) with a running timer; Check in / Check out / At work cells; and both buttons, always
-// visible. One check-in and one check-out per day: Check in is red until used, then grey "Checked in 09:24";
-// Check out is grey until checked in, red while checked in, then grey "Checked out 18:40".
+// PROTOTYPE-SETUP (Overview, Slice 2; decluttered in Overview v2, Slice 2): section 2 — today's attendance.
+// One status strip carries everything:
+//   Not checked in · Shift 09:30–18:30            (grey)
+//   Checked in at 09:24 · 3h 12m                   (live; green on time, amber late)
+//   Checked out at 18:40 · 9h 16m at work          (green)
+//   On casual leave / {holiday} / Weekly off       (blue / blue / grey)
+// Both buttons stay, one use each per day: Check in is red until used, then grey "Checked in 09:24"; Check out
+// is grey until checked in, red while checked in, then grey "Checked out 18:40".
 import { useState } from 'react';
 
 import { Button, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
 
 import { useAppDispatch } from '@src/hooks/store';
-import { AUTO_CHECK_OUT_NOTE } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
 
 import { OvCard } from './OvCard';
 import { checkIn, checkOut } from '../api';
 import { formatDuration } from '../components/format';
-import { fmtClock, secondsSince, useNow } from '../ess/ui';
+import { secondsSince, useNow } from '../ess/ui';
 import { useAtsScope } from '../hooks/useAtsScope';
 import type { AtsOverview } from '../types';
 
@@ -30,25 +32,28 @@ const TONE: Record<Tone, { bg: string; fg: string }> = {
     grey: { bg: '#F0F2F5', fg: '#475467' },
 };
 
-/** The status strip's headline and colour. */
-export const attendanceHeadline = (t: AtsOverview['today']): { text: string; tone: Tone } => {
+/** Minutes from check-in to check-out, or to now while still checked in (never negative). */
+export const minutesAtWork = (t: Pick<AtsOverview['today'], 'date' | 'checkIn' | 'checkOut'>, now: number) => {
+    if (!t.checkIn) return 0;
+    if (t.checkOut) return Math.max(0, dayjs(`${t.date}T${t.checkOut}`).diff(dayjs(`${t.date}T${t.checkIn}`), 'minute'));
+    return Math.floor(secondsSince(t.date, t.checkIn, now) / 60);
+};
+
+/** The status strip's text and colour. */
+export const attendanceStrip = (t: AtsOverview['today'], shift: { start: string; end: string }, now: number): { text: string; tone: Tone } => {
     if (t.status === 'on-leave') return { text: `On ${(t.label ?? 'leave').toLowerCase()}`, tone: 'blue' };
     if (t.status === 'holiday' && !t.checkIn) return { text: t.label ?? 'Holiday', tone: 'blue' };
     if (t.status === 'weekly-off' && !t.checkIn) return { text: 'Weekly off', tone: 'grey' };
-    if (t.checkOut) return { text: 'Checked out', tone: 'green' };
-    if (t.checkIn && (t.lateMinutes > 0 || t.status === 'late')) return { text: 'Checked in late', tone: 'amber' };
-    if (t.checkIn) return { text: 'Checked in on time', tone: 'green' };
-    return { text: 'Not checked in', tone: 'grey' };
+    const worked = formatDuration(minutesAtWork(t, now));
+    if (t.checkIn && t.checkOut) return { text: `Checked out at ${t.checkOut} · ${worked} at work`, tone: 'green' };
+    if (t.checkIn) {
+        const late = t.lateMinutes > 0 || t.status === 'late';
+        return { text: `Checked in at ${t.checkIn} · ${worked}`, tone: late ? 'amber' : 'green' };
+    }
+    return { text: `Not checked in · Shift ${shift.start}–${shift.end}`, tone: 'grey' };
 };
 
 const RED = { backgroundColor: '#FF4F4F', borderColor: '#FF4F4F', color: '#fff' };
-
-const Cell = ({ label, value }: { label: string; value: string }) => (
-    <div className="min-w-0">
-        <div className="text-[11px] uppercase tracking-wide text-titleText">{label}</div>
-        <div className="truncate text-sm font-semibold tabular-nums text-valueText">{value}</div>
-    </div>
-);
 
 const OvAttendanceCard = ({
     overview,
@@ -69,14 +74,8 @@ const OvAttendanceCard = ({
     const t = overview.today;
     const onClock = Boolean(t.checkIn) && !t.checkOut;
     const now = useNow(onClock);
-    const headline = attendanceHeadline(t);
-    const tone = TONE[headline.tone];
-
-    let atWorkSeconds = 0;
-    if (t.checkIn && t.checkOut) atWorkSeconds = Math.max(0, dayjs(`${t.date}T${t.checkOut}`).diff(dayjs(`${t.date}T${t.checkIn}`), 'second'));
-    else if (t.checkIn) atWorkSeconds = secondsSince(t.date, t.checkIn, now);
-    const atWork = formatDuration(Math.floor(atWorkSeconds / 60));
-    const timer = onClock ? fmtClock(atWorkSeconds) : atWork;
+    const strip = attendanceStrip(t, overview.shift, now);
+    const tone = TONE[strip.tone];
 
     const punch = async (kind: 'in' | 'out') => {
         setBusy(kind);
@@ -96,22 +95,16 @@ const OvAttendanceCard = ({
         <OvCard
             label="Attendance today"
             title="Attendance"
-            sub={`${dayjs(t.date).format('dddd, D MMMM')} · Shift ${overview.shift.start}–${overview.shift.end}`}
+            sub={dayjs(t.date).format('dddd, D MMMM')}
             link={{ to: openPath, text: 'Open ›' }}
             className={className}
         >
-            <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5" style={{ backgroundColor: tone.bg, color: tone.fg }}>
-                <Text className="min-w-0 truncate text-sm font-semibold" style={{ color: tone.fg }}>
-                    {headline.text}
-                </Text>
-                <b className="shrink-0 text-xl font-semibold tabular-nums" title="Time at work so far">
-                    {t.checkIn ? timer : '0h'}
-                </b>
-            </div>
-            <div className="grid grid-cols-3 gap-2">
-                <Cell label="Check in" value={t.checkIn ?? '—'} />
-                <Cell label="Check out" value={t.checkOut ?? '—'} />
-                <Cell label="At work" value={t.checkIn ? atWork : '—'} />
+            <div
+                role="status"
+                className="rounded-xl px-3 py-2.5 text-sm font-semibold tabular-nums"
+                style={{ backgroundColor: tone.bg, color: tone.fg }}
+            >
+                {strip.text}
             </div>
             <div className="grid grid-cols-2 gap-2">
                 <Tooltip title={t.checkIn ? `Checked in at ${t.checkIn}` : t.hint}>
@@ -139,7 +132,7 @@ const OvAttendanceCard = ({
                     </Button>
                 </Tooltip>
             </div>
-            <Text className="text-xs text-titleText">{AUTO_CHECK_OUT_NOTE}</Text>
+            <Text className="text-xs text-gray-500">Auto check-out at 11:59 PM if you forget.</Text>
         </OvCard>
     );
 };

@@ -31,6 +31,8 @@ export interface EntryFormProps {
     quick?: boolean;
     /** PROTOTYPE-SETUP (Overview, Slice 2): the phone layout at every width (Start | End | Hours, then the rest). */
     compact?: boolean;
+    /** PROTOTYPE-SETUP (Overview v2, Slice 2): leave out the "Times are optional…" hint (the Overview card). */
+    hideHint?: boolean;
     busy?: boolean;
     /** Resolves true when saved. */
     onSave: (value: EntryFormValue) => Promise<boolean> | boolean;
@@ -39,7 +41,7 @@ export interface EntryFormProps {
 
 const LAST_MINUTE = 24 * 60 - 1;
 
-const EntryForm = ({ date, initial, others, quick, compact, busy, onSave, onCancel }: EntryFormProps) => {
+const EntryForm = ({ date, initial, others, quick, compact, hideHint, busy, onSave, onCancel }: EntryFormProps) => {
     const [start, setStart] = useState(initial?.start ?? '');
     const [end, setEnd] = useState(initial?.end ?? '');
     const [hours, setHours] = useState(initial ? formatHoursInput(initial.mins) : '');
@@ -149,7 +151,7 @@ const EntryForm = ({ date, initial, others, quick, compact, busy, onSave, onCanc
                     </Button>
                 )}
             </div>
-            <span className={`col-span-3 text-xs text-gray-500 ${lineSpan}`}>{hint}</span>
+            {!hideHint && <span className={`col-span-3 text-xs text-gray-500 ${lineSpan}`}>{hint}</span>}
             {error && (
                 <span role="alert" className={`col-span-3 text-xs text-red-600 ${lineSpan}`}>
                     {error}

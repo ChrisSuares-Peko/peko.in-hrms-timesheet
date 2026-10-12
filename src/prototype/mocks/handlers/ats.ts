@@ -3,7 +3,7 @@
 // ESS - Manager and Payroll see the same data. ESS and manager endpoints answer as the requesting persona
 // (requester.ts); Payroll level-2 endpoints act as the role in `?role=HR|FINANCE`.
 import type { Level2Role, QueueScope } from '@src/domains/attendanceTimesheet/types';
-import { RuleError } from '@src/prototype/rules/attendance';
+import { RuleError, weekStartOf } from '@src/prototype/rules/attendance';
 
 import { findEmployee } from '../data/employees';
 import type { DataMode } from '../envelope';
@@ -132,7 +132,8 @@ export const atsRoutes: MockRoute[] = [
     route('POST', `${A}/profile/update-request/:id/withdraw`, ess((ctx, me) => withdrawProfileRequest(ctx.mode, me, ctx.params.id!))),
 
     // ---- ESS: timesheet ---------------------------------------------------------------------------------
-    route('GET', `${A}/timesheet/week`, ess((ctx, me) => weekView(ctx.mode, me, dateParam(ctx.query)))),
+    // PROTOTYPE-SETUP (Overview v2, Slice 2): ?date= may be any day of the week (as documented) — use its Monday.
+    route('GET', `${A}/timesheet/week`, ess((ctx, me) => weekView(ctx.mode, me, weekStartOf(dateParam(ctx.query))))),
     route('GET', `${A}/timesheet/month`, ess((ctx, me) => timesheetMonthOf(ctx.mode, me, monthParam(ctx.query)))),
     route('POST', `${A}/timesheet/entries`, ess((ctx, me) => addEntry(ctx.mode, me, ctx.body))),
     route('PUT', `${A}/timesheet/entries/:entryId`, ess((ctx, me) => editEntry(ctx.mode, me, ctx.params.entryId!, ctx.body))),
