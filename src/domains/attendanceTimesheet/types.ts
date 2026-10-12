@@ -631,7 +631,7 @@ export interface OverviewShortcuts {
     leave: { nextLeave: { start: string; end: string; type: string } | null; waiting: number };
     reimbursement: { pendingAmount: number; inApproval: number };
     overtime: { approvedMinutes: number; waiting: number; monthLabel: string };
-    payslip: { latest: { year: number; month: number; netPay: number } | null };
+    payslip: { latest: { year: number; month: number } | null };
     documents: { count: number };
 }
 

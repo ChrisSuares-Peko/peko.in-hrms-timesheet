@@ -53,8 +53,9 @@ export const shortcutCards = (s: OverviewShortcuts, to: Record<'leave' | 'reimbu
             key: 'payslips',
             icon: <FileTextOutlined />,
             label: 'Payslips',
-            value: latest ? dayjs(`${latest.year}-${String(latest.month).padStart(2, '0')}-01`).format('MMMM YYYY') : 'None yet',
-            sub: latest ? `Latest payslip · ₹${latest.netPay.toLocaleString('en-IN')} net` : 'Payslips appear after payroll runs',
+            // PROTOTYPE-SETUP (Overview follow-ups): no amount here — net pay shows on the Payslips page only.
+            value: latest ? `${dayjs(`${latest.year}-${String(latest.month).padStart(2, '0')}-01`).format('MMMM YYYY')} payslip ready` : 'None yet',
+            sub: latest ? 'View and download your payslips' : 'Payslips appear after payroll runs',
             to: to.payslips,
         },
         {

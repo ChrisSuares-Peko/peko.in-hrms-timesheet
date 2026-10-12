@@ -107,7 +107,15 @@ const OvStatusTable = ({
                       tab: 'timesheet' as const,
                       withDate: true,
                       hint: 'Open in Timesheet',
-                      cell: (d: OverviewDay) => <WeekStatusTag status={d.timesheet.weekStatus} changePending={d.timesheet.changePending} />,
+                      // PROTOTYPE-SETUP (Overview follow-ups): a pending change shows one chip, coloured as in the calendar.
+                      cell: (d: OverviewDay) =>
+                          d.timesheet.changePending ? (
+                              <Tag bordered={false} className="!m-0 !bg-[#E4F6EC] !text-[#067647]">
+                                  Change pending
+                              </Tag>
+                          ) : (
+                              <WeekStatusTag status={d.timesheet.weekStatus} />
+                          ),
                   },
               ]
             : []),

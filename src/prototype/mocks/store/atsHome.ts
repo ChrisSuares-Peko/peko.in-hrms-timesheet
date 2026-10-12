@@ -297,7 +297,7 @@ const shortcutsOf = (mode: DataMode, e: MockEmployee): EssHomeView['shortcuts'] 
         },
         reimbursement: { pendingAmount: claims.reduce((s, r) => s + r.totalPay, 0), inApproval: claims.length },
         overtime: { approvedMinutes: ot.stats.approvedMinutesThisMonth, waiting: ot.stats.waitingCount, monthLabel: monthLabel(currentMonth()) },
-        payslip: { latest: paid[0] ? { year: paid[0].pm.year, month: paid[0].pm.month, netPay: paid[0].netPayable } : null },
+        payslip: { latest: paid[0] ? { year: paid[0].pm.year, month: paid[0].pm.month } : null },
         documents: { count: empty ? 0 : documentsOf(e).length },
     };
 };
