@@ -53,6 +53,9 @@ On weekly offs and holidays, all time worked counts as overtime.
 | GET | `corrections` | — | `(AttendanceCorrection & { statusLabel })[]` |
 | POST | `corrections` | `CorrectionInput` | `AttendanceCorrection` |
 | POST | `corrections/{id}/cancel` | — | list as above |
+| GET | `profile` | — | `MyProfileView` (work details, approved personal details, the pending update, the last decided one) |
+| POST | `profile/update-request` | `Partial<PersonalDetails>` (any subset; only changed fields are kept) | `MyProfileView` |
+| POST | `profile/update-request/{id}/withdraw` | — | `MyProfileView` |
 | GET | `timesheet/week` | `?date=` (any day of the week) | `TimesheetWeekView` |
 | GET | `timesheet/month` | `?month=` | `TimesheetMonthView` |
 | POST | `timesheet/entries` | `TimesheetEntryInput` | `TimesheetWeekView` |
@@ -67,8 +70,13 @@ On weekly offs and holidays, all time worked counts as overtime.
 | POST | `overtime/{id}/cancel` | — | `OvertimeView` |
 
 **Attendance rules**
-- One check-in and one check-out per day.
-- A past day with no check-out is closed automatically at shift end (`checkOutAuto: true`). The fix is a `kind: 'update-check-out'` correction.
+- One check-in and one check-out per day. Each works once: a second check-in or check-out for the same day returns 409 ("You've already checked in today." / "You've already checked out today."). `AtsOverview.today.canCheckIn` / `canCheckOut` say which button is enabled.
+- **Missed check-out:** a past day with a check-in and no check-out is closed automatically at **11:59 PM** (`checkOut: '23:59'`, `checkOutAuto: true`). Shown as "Missed (closed automatically at 11:59 PM)".
+  - Time at work is unknown ("Not known until you update the check-out"), so `minutesAtWork` is 0 and the day is never a half day.
+  - It never counts as overtime (and is never suggested) until the real check-out is updated.
+  - Expected hours use the shift (case #9 below), not check-in → 11:59 PM.
+  - For the timesheet bar and the outside-check-in flag the day runs to the shift end: entries after it show as "{dur} after shift end" with "Update check-out".
+  - The fix is a `kind: 'update-check-out'` correction. Its "Actual check-out" is pre-filled with the shift end (from the timesheet flag: the latest entry's end).
 - Statuses:
   - **Late:** check-in after shift start + grace.
   - **Half day:** time at work under the threshold.
@@ -121,7 +129,7 @@ How hours-only entries behave:
 `expectedMinutes` in the rules module is the single rule behind totals, unlogged hours, the team grid and payroll:
 - Weekly off, holiday or full-day leave: **0**.
 - Timesheet-only mode: **shift length − break**.
-- Both mode: **(check-out − check-in) − break**. With no check-in, today or later: **shift length − break**.
+- Both mode: **(check-out − check-in) − break**. With no check-in, today or later: **shift length − break**. A missed check-out: **shift length − break**.
 
 Edge cases. Each one has a unit test in `src/prototype/rules/__tests__/attendance.test.ts`:
 
@@ -135,12 +143,13 @@ Edge cases. Each one has a unit test in `src/prototype/rules/__tests__/attendanc
 | 6 | Before the joining date | **0** |
 | 7 | Check-in after the shift ends (window shorter than the break) | **0**, never negative |
 | 8 | Attendance-only mode | **0** (no timesheets) |
+| 9 | Both mode, missed check-out (closed automatically at 11:59 PM) | **Shift length − break**, not check-in → 11:59 PM |
 
 **Timesheet rules**
 - Past, present and future days can all be logged.
 - In `both` mode, timed entries outside check-in and check-out set `TimesheetDay.outsideCheckIn`:
   - The flag carries a pre-filled `suggested` check-in and check-out.
-  - Its `action` is `update-check-out` on an auto-closed day, otherwise `request-correction`.
+  - Its `action` is `update-check-out` on a missed check-out day (entries after the shift end), otherwise `request-correction`. A missed check-out counts as the shift end here, never 11:59 PM.
   - This time never counts as overtime.
   - On a past day with entries but no check-in, the flag prompts a correction. `suggested` comes from the timed entries, or is `null` when there are only hours-only entries.
 - Week statuses: `DRAFT → SUBMITTED → APPROVED | SENT_BACK` (sent back with a required comment).
@@ -187,8 +196,8 @@ For the "What changed" view, the week view's `changeRequest` carries `baseEntrie
 
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
-| GET | `payroll/approvals/counts` | `?role=HR\|FINANCE` | `{ attendance, overtime }` waiting for that role |
-| GET | `payroll/approvals/{attendance\|overtime}` | `?role=&scope=waiting\|all` | `RequestItem[]` (requests whose chain includes that role) |
+| GET | `payroll/approvals/counts` | `?role=HR\|FINANCE` | `{ attendance, overtime, profile }` waiting for that role |
+| GET | `payroll/approvals/{attendance\|overtime\|profile}` | `?role=&scope=waiting\|all` | `RequestItem[]` (requests whose chain includes that role; profile items carry `profile.changes`) |
 | POST | `payroll/approvals/{type}/{id}/approve` / `reject` | `?role=`, `{ comment? }` | `RequestItem` |
 | GET | `payroll/timesheet-status` | `?month=` (default: earliest unprocessed) | `TimesheetStatusView` (status only, never entries) |
 | GET | `payroll/months` | — | `PayrollMonthStatus[]` (two months ago, last month, this month) |
@@ -200,6 +209,8 @@ For the "What changed" view, the week view's `changeRequest` carries `baseEntrie
 - Level 2 comes from settings: attendance goes to HR, overtime to Finance, and timesheets have no level 2.
 - Rejecting at any level needs a comment and is final.
 - The CEO skips level 1 and goes straight to level 2.
+- **Profile updates** have no manager step: HR is the only step ("HR team"). The request holds only the changed fields as `{ from, to }` (photo included, as a data URL). The profile changes only when HR approves. One pending update per employee (a second returns 409); the employee can withdraw it.
+- Profile validation (`validatePersonalDetails`): mobile needs at least 10 digits; personal email must look like an email; emergency contact needs a name and a 10-digit number; a photo is at most 1 MB.
 - HR and Finance only ever see timesheet statuses, never entries.
 
 **Payroll blockers:** with approval on, a month can't be processed until every week that overlaps it is APPROVED. A week with a pending change request still counts as approved. Each blocker lists the employee, the manager, the week and its status.
@@ -209,6 +220,7 @@ For the "What changed" view, the week view's `changeRequest` carries `baseEntrie
 | Method | Path | Returns |
 |---|---|---|
 | POST | `demo/simulate-submission-day` | `SubmissionRunResult`. Runs the submission-day rule now. |
+| POST | `demo/reset-today-check-in` | `{ cleared }`. Clears today's check-in and check-out for both ESS personas (Sneha and Arjun). |
 
 Demo data is relative to today. Sneha Iyer (ACME-004, reports to Arjun Mehta) has:
 - A sent-back week in last month, which blocks last month's payroll.
@@ -216,8 +228,10 @@ Demo data is relative to today. Sneha Iyer (ACME-004, reports to Arjun Mehta) ha
 - A day in that week with time logged after her check-out, and an hours-only entry ("Writing release notes", 1h).
 - An approved week with a pending change request.
 - A day this week (or last week) with unclaimed overtime.
-- An auto check-out day yesterday, with entries after it.
+- A missed check-out yesterday (closed automatically at 11:59 PM), with entries after the shift end.
 - A planned entry on the next working day.
 - An approved leave in the next fortnight.
 
 Arjun's team today: Rahul is late, Karthik hasn't checked in, and Ananya is on leave.
+
+HR's queue has one profile update waiting (Karthik: new mobile number and address).

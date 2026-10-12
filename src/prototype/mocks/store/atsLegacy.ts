@@ -37,7 +37,7 @@ export const legacyDay = (mode: DataMode, e: MockEmployee, date: string): MockAt
     const notes = [
         d.status === 'worked-off-day' ? d.label : null,
         d.status === 'on-leave' ? d.label : null,
-        d.checkOutAuto ? 'Auto check-out at shift end' : null,
+        d.checkOutAuto ? 'Missed check-out (closed automatically at 11:59 PM)' : null,
         recordOf(mode, e, date)?.source === 'correction' ? 'Corrected (approved)' : null,
     ].filter(Boolean);
     return {

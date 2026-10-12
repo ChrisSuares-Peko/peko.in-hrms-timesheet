@@ -7,6 +7,8 @@ import { InfoCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { Alert, Button, Drawer, Popconfirm, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 
+import { MISSED_AT_WORK_TEXT, MISSED_CHECK_OUT_TEXT } from '@src/prototype/rules/attendance';
+
 import type { CorrectionWithStatus } from '../api';
 import { BEFORE_JOINING } from './AttendanceCalendar';
 import { isPending } from './CorrectionsList';
@@ -59,6 +61,9 @@ const DayDetailDrawer = ({
         const canAct = !day.locked && !future && !beforeJoining && !pending;
         const onClock = day.date === today && Boolean(day.checkIn) && !day.checkOut;
         const showLabel = day.label && day.status !== 'holiday' && !beforeJoining;
+        const checkOutText = day.checkOut ? displayTime(day.checkOut) : '—';
+        let atWorkText = day.checkIn ? formatDuration(day.minutesAtWork) : '—';
+        if (day.checkOutAuto) atWorkText = MISSED_AT_WORK_TEXT;
 
         return (
             <div className="flex flex-col gap-5">
@@ -83,18 +88,12 @@ const DayDetailDrawer = ({
                 {!future && !beforeJoining && (
                     <div className="rounded-xl bg-[#F7F9FB] px-4 py-1">
                         <Row label="Check-in">{day.checkIn ? displayTime(day.checkIn) : '—'}</Row>
+                        {/* PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out closes at 11:59 PM. */}
                         <Row label="Check-out">
-                            {day.checkOut ? displayTime(day.checkOut) : '—'}
-                            {day.checkOutAuto && (
-                                <Tag color="blue" className="!ml-2 !mr-0" bordered={false}>
-                                    auto
-                                </Tag>
-                            )}
+                            {day.checkOutAuto ? MISSED_CHECK_OUT_TEXT : checkOutText}
                             {onClock && <span className="text-titleText font-normal"> (still at work)</span>}
                         </Row>
-                        <Row label="Time at work">
-                            {day.checkIn ? formatDuration(day.minutesAtWork) : '—'}
-                        </Row>
+                        <Row label="Time at work">{atWorkText}</Row>
                         {day.lateMinutes > 0 && (
                             <Row label="Late by">{formatDuration(day.lateMinutes)}</Row>
                         )}
@@ -109,9 +108,7 @@ const DayDetailDrawer = ({
                         type="warning"
                         showIcon
                         message="You didn't check out"
-                        description={`The day was closed automatically at ${
-                            day.checkOut ? displayTime(day.checkOut) : 'shift end'
-                        }. If you left later, update your check-out.`}
+                        description="The day closed automatically at 11:59 PM. Update it to when you actually left."
                     />
                 )}
 

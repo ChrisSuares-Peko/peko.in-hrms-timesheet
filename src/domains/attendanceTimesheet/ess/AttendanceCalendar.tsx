@@ -54,13 +54,13 @@ const tooltipFor = (d: AttendanceDay) => {
     const parts = [
         d.status === 'holiday' && d.label ? d.label : DAY_STATUS_LABEL[d.status],
         d.correction && `Correction: ${d.correction.statusLabel}`,
-        d.checkOutAuto && 'Automatic check-out',
+        d.checkOutAuto && 'Missed check-out (closed automatically at 11:59 PM)',
     ];
     return parts.filter(Boolean).join(' · ');
 };
 
 // PROTOTYPE-SETUP (V2): the day's times under the status (tablet and up), like the prototype:
-// "09:20–18:30", "09:20–18:30 auto" after an automatic check-out, "In 09:24" while still checked in.
+// "09:20–18:30", "09:20–23:59 auto" after a missed check-out, "In 09:24" while still checked in.
 export const cellTimes = (d: AttendanceDay) => {
     if (!d.checkIn) return '';
     if (!d.checkOut) return `In ${d.checkIn}`;
@@ -244,7 +244,7 @@ const AttendanceCalendar = ({
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-[#616161]">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
-                    Automatic check-out
+                    Missed check-out (auto 11:59 PM)
                 </span>
             </div>
         </div>

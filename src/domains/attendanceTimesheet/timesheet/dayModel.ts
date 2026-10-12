@@ -70,10 +70,11 @@ export const entryOutsideMinutes = (e: TimesheetEntry, day: TimesheetDay) => {
 export const outsideMinutes = (day: TimesheetDay, mode: AtsMode) =>
     mode === 'both' && day.outsideCheckIn ? day.entries.reduce((s, e) => s + entryOutsideMinutes(e, day), 0) : 0;
 
-/** "1h 15m after auto check-out" / "… with no check-in" / "… outside check-in". */
+/** "1h 15m after shift end" (missed check-out) / "… with no check-in" / "… outside check-in". */
 export const outsideChipText = (day: TimesheetDay, mins: number) => {
     let where = 'outside check-in';
-    if (day.attendance.checkOutAuto) where = 'after auto check-out';
+    // PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out counts as the shift end for this flag.
+    if (day.attendance.checkOutAuto) where = 'after shift end';
     else if (!day.attendance.checkIn) where = 'with no check-in';
     return `${formatDuration(mins)} ${where}`;
 };
@@ -94,8 +95,9 @@ export const dayMeta = (day: TimesheetDay, mode: AtsMode, shift: { start: string
         if (['holiday', 'weekly-off', 'worked-off-day'].includes(a.status)) return a.status === 'holiday' ? a.label ?? 'Holiday' : 'Weekly off';
         return `Shift ${shift.start}–${shift.end}`;
     }
+    if (a.checkIn && a.checkOutAuto) return `In ${a.checkIn} · Out missed (auto 11:59 PM)`;
     if (a.checkIn) {
-        const out = a.checkOut ? `${a.checkOut}${a.checkOutAuto ? ' (auto)' : ''}` : '—';
+        const out = a.checkOut ?? '—';
         const atWork = a.checkOut ? ` · At work ${formatDuration(a.minutesAtWork)}` : '';
         return `In ${a.checkIn} · Out ${out}${atWork}`;
     }

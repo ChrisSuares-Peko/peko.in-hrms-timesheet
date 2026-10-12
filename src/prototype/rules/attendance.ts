@@ -16,6 +16,9 @@ import type {
     OutsideCheckInFlag,
     OvertimeBasis,
     OvertimeInput,
+    PersonalDetails,
+    PersonalField,
+    ProfileChange,
     TimesheetEditMode,
     TimesheetEntry,
     TimesheetStatus,
@@ -173,23 +176,37 @@ export const isWeeklyOff = (date: string, s: Pick<AtsSettings, 'weeklyOff'>) => 
 
 // ---- attendance ---------------------------------------------------------------------------------------------
 
+// PROTOTYPE-SETUP (Overview, Slice 1): the automatic check-out moved from shift end to 11:59 PM.
+/** The time a missed check-out is closed at. */
+export const AUTO_CHECK_OUT = '23:59';
+/** Shown wherever a missed check-out is described. */
+export const MISSED_CHECK_OUT_TEXT = 'Missed (closed automatically at 11:59 PM)';
+export const MISSED_AT_WORK_TEXT = 'Not known until you update the check-out';
+/** Under the Check out button. */
+export const AUTO_CHECK_OUT_NOTE =
+    'There’s an automatic check-out at 11:59 PM every day. If you forget to check out, update it to the real time afterwards.';
+
 /**
- * Auto check-out: a past day with a check-in but no check-out closes at shift end, marked "auto".
- * (If the check-in was after shift end, the day closes at the check-in time.)
+ * Auto check-out: a past day with a check-in but no check-out closes at 11:59 PM, marked "auto" (a missed
+ * check-out). The time at work is unknown until the real check-out is updated, so a missed check-out never
+ * counts as overtime, isn't a half day, and expects the shift (shift − break) — see expectedMinutes case #9.
  */
-export const effectiveCheckOut = (input: {
-    date: string;
-    today: string;
-    checkIn: string | null;
-    checkOut: string | null;
-    settings: Pick<AtsSettings, 'shift'>;
-}) => {
+export const effectiveCheckOut = (input: { date: string; today: string; checkIn: string | null; checkOut: string | null }) => {
     if (input.checkOut) return { checkOut: input.checkOut, auto: false };
-    if (input.checkIn && input.date < input.today) {
-        const end = Math.max(toMinutes(input.checkIn), toMinutes(input.settings.shift.end));
-        return { checkOut: fromMinutes(end), auto: true };
-    }
+    if (input.checkIn && input.date < input.today) return { checkOut: AUTO_CHECK_OUT, auto: true };
     return { checkOut: null, auto: false };
+};
+
+/**
+ * The end used for the timesheet bar and the outside-check-in flag: a missed check-out counts as the shift end
+ * (or the check-in, if that was later), not 11:59 PM.
+ */
+export const windowEnd = (
+    day: Pick<AttendanceDay, 'checkIn' | 'checkOut' | 'checkOutAuto'>,
+    settings: Pick<AtsSettings, 'shift'>
+) => {
+    if (!day.checkOutAuto || !day.checkIn) return day.checkOut;
+    return fromMinutes(Math.max(toMinutes(day.checkIn), toMinutes(settings.shift.end)));
 };
 
 export interface DayInput {
@@ -223,7 +240,7 @@ export const deriveDay = (input: DayInput): DerivedDay => {
     const { checkOut, auto } = effectiveCheckOut(input);
     const base = { checkIn: input.checkIn, checkOut, checkOutAuto: auto, isOffDay: !!off };
     const atWork = (() => {
-        if (!input.checkIn) return 0;
+        if (!input.checkIn || auto) return 0; // a missed check-out: unknown until it's updated
         if (checkOut) return Math.max(0, toMinutes(checkOut) - toMinutes(input.checkIn));
         if (date === today && input.nowMinutes !== undefined) {
             return Math.max(0, input.nowMinutes - toMinutes(input.checkIn));
@@ -255,7 +272,7 @@ export const deriveDay = (input: DayInput): DerivedDay => {
     }
     const lateBy = toMinutes(input.checkIn) - toMinutes(settings.shift.start);
     const lateMinutes = lateBy > settings.graceMinutes ? lateBy : 0;
-    const completed = !!checkOut;
+    const completed = !!checkOut && !auto;
     let status: DayStatus = lateMinutes ? 'late' : 'present';
     if (completed && atWork < settings.halfDayThresholdMinutes) status = 'half-day';
     return { ...base, status, minutesAtWork: atWork, lateMinutes };
@@ -268,6 +285,7 @@ export const deriveDay = (input: DayInput): DerivedDay => {
  * attendance / both: (check-out − check-in) − shift length (the shift includes the break).
  * timesheet: hours logged − (shift length − break).
  * Weekly offs and holidays: all time worked counts.
+ * A missed check-out (auto 11:59 PM) never counts until the real check-out is updated.
  */
 export const overtimeMinutes = (input: {
     mode: AtsMode;
@@ -275,6 +293,7 @@ export const overtimeMinutes = (input: {
     isOffDay: boolean;
     checkIn: string | null;
     checkOut: string | null;
+    checkOutAuto?: boolean;
     loggedMinutes: number;
 }) => {
     if (overtimeBasisFor(input.mode) === 'timesheet') {
@@ -282,7 +301,7 @@ export const overtimeMinutes = (input: {
             ? input.loggedMinutes
             : Math.max(0, input.loggedMinutes - workMinutes(input.settings));
     }
-    if (!input.checkIn || !input.checkOut) return 0;
+    if (!input.checkIn || !input.checkOut || input.checkOutAuto) return 0;
     const worked = Math.max(0, toMinutes(input.checkOut) - toMinutes(input.checkIn));
     return input.isOffDay ? worked : Math.max(0, worked - shiftMinutes(input.settings));
 };
@@ -466,20 +485,21 @@ export const validateEntry = (
 
 /**
  * Expected minutes for a day — the single rule behind totals, unlogged hours, the team grid and payroll.
- * See docs/api/attendance-timesheet.md ("Expected hours") for the eight edge cases.
+ * See docs/api/attendance-timesheet.md ("Expected hours") for the nine edge cases.
  *   attendance-only mode, or before the joining date ............................. 0
  *   weekly off, holiday, full-day leave (status on-leave), worked on an off day .. 0
  *   timesheet-only mode .......................................................... shift − break
  *   both mode, checked in ............................... (check-out − check-in) − break, never below 0
- *       (still on the clock today → check-out = shift end; an auto check-out is the shift end;
+ *       (still on the clock today → check-out = shift end;
  *        approved leave but checked in, or half-day leave → the check-in window applies)
+ *   both mode, missed check-out (auto 11:59 PM) .................................. shift − break (case #9)
  *   both mode, no check-in, today or later ...................................... shift − break
  *   both mode, no check-in, past working day (absent) ........................... 0 (absence shows in Attendance)
  */
 export const expectedMinutes = (input: {
     mode: AtsMode;
     settings: Pick<AtsSettings, 'shift' | 'breakMinutes'>;
-    day: Pick<AttendanceDay, 'date' | 'status' | 'checkIn' | 'checkOut'>;
+    day: Pick<AttendanceDay, 'date' | 'status' | 'checkIn' | 'checkOut'> & { checkOutAuto?: boolean };
     today: string;
     dateOfJoin?: string;
 }) => {
@@ -489,6 +509,7 @@ export const expectedMinutes = (input: {
     if (input.dateOfJoin && day.date < input.dateOfJoin) return 0;
     if (['on-leave', 'holiday', 'weekly-off', 'worked-off-day'].includes(day.status)) return 0;
     if (mode === 'timesheet') return span(settings.shift.start, settings.shift.end);
+    if (day.checkIn && day.checkOutAuto) return span(settings.shift.start, settings.shift.end);
     if (day.checkIn) return span(day.checkIn, day.checkOut ?? settings.shift.end);
     if (day.date < input.today) return 0;
     return span(settings.shift.start, settings.shift.end);
@@ -496,8 +517,8 @@ export const expectedMinutes = (input: {
 
 /**
  * The day's timesheet window.
- * timesheet mode: the shift. both mode: check-in → check-out (auto check-out included); today while on the
- * clock runs to shift end; no check-in yet (today / future) falls back to the shift; a past day without a
+ * timesheet mode: the shift. both mode: check-in → check-out; a missed check-out runs to shift end (not 11:59 PM);
+ * today while on the clock runs to shift end; no check-in yet (today / future) falls back to the shift; a past day without a
  * check-in has no window. Leave, holidays and weekly offs have no window (time logged there still counts).
  */
 export const dayWindow = (input: {
@@ -522,11 +543,11 @@ export const dayWindow = (input: {
     }
     // both
     if (day.checkIn) {
-        const end = day.checkOut ?? settings.shift.end;
+        const end = windowEnd(day, settings) ?? settings.shift.end;
         let label = `Checked in ${displayTime(day.checkIn)} – not checked out yet`;
         if (day.checkOut) {
             label = day.checkOutAuto
-                ? `Checked in ${displayTime(day.checkIn)} – auto check-out ${displayTime(day.checkOut)}`
+                ? `Checked in ${displayTime(day.checkIn)}, no check-out (closed automatically at 11:59 PM)`
                 : `Checked in ${displayTime(day.checkIn)} – out ${displayTime(day.checkOut)}`;
         }
         return { kind: 'attendance', start: day.checkIn, end, label, checkOutAuto: day.checkOutAuto, expectedMinutes: expected };
@@ -540,18 +561,20 @@ export const dayWindow = (input: {
 
 /**
  * 'both' mode: entries outside check-in / check-out are flagged "logged outside check-in hours". The flag
- * offers an attendance correction pre-filled from the entries — or "Update check-out" on an auto-closed day
- * when the entries run past the auto check-out. Never overtime.
+ * offers an attendance correction pre-filled from the entries — or "Update check-out" on a missed check-out day
+ * when the entries run past the shift end (a missed check-out counts as the shift end here). Never overtime.
  */
 export const outsideCheckInFlag = (input: {
     mode: AtsMode;
+    settings: Pick<AtsSettings, 'shift'>;
     day: Pick<AttendanceDay, 'date' | 'status' | 'checkIn' | 'checkOut' | 'checkOutAuto'>;
     entries: TimesheetEntry[];
 }): OutsideCheckInFlag | undefined => {
     if (input.mode !== 'both') return undefined;
     const dayEntries = input.entries.filter(e => e.date === input.day.date);
     if (!dayEntries.length) return undefined;
-    const { checkIn, checkOut } = input.day;
+    const { checkIn } = input.day;
+    const checkOut = windowEnd(input.day, input.settings);
     if (['on-leave', 'holiday', 'weekly-off', 'upcoming', 'not-checked-in'].includes(input.day.status)) return undefined;
     // Only timed entries can be outside check-in hours — hours-only entries have no times.
     const timed = dayEntries.filter(isTimed);
@@ -734,12 +757,17 @@ export const payrollBlockers = <E extends { id: number; dateOfJoin: string }>(in
 /**
  * Level 1 is always the reporting manager; level 2 per HR settings (timesheets: none). The CEO has no
  * manager: level 1 is skipped and the request goes straight to level 2 (or is approved if there is none).
+ * PROTOTYPE-SETUP (Overview, Slice 1): a profile update has no manager step — HR only.
  */
 export const startTrail = (
     type: ApprovalType,
     manager: { id: number; name: string } | null,
     settings: Pick<AtsSettings, 'level2'>
 ): ApprovalTrail => {
+    if (type === 'profile') {
+        const hrOnly: ApprovalTrail['steps'] = [{ level: 2, role: 'HR' }];
+        return { type, status: nextStatus(hrOnly), steps: hrOnly };
+    }
     const l2 = type === 'timesheet' ? 'NONE' : settings.level2[type];
     const steps: ApprovalTrail['steps'] = [
         manager
@@ -820,6 +848,65 @@ export const trailLabel = (trail: ApprovalTrail) => {
             return 'Rejected';
     }
 };
+
+// ---- profile updates (PROTOTYPE-SETUP: Overview, Slice 1) -------------------------------------------------
+
+export const PROFILE_LABEL: Record<PersonalField, string> = {
+    mobile: 'Mobile number',
+    personalEmail: 'Personal email',
+    address: 'Current address',
+    emergencyName: 'Emergency contact',
+    emergencyRelation: 'Relationship',
+    emergencyPhone: 'Emergency phone',
+    photo: 'Photo',
+};
+
+const PROFILE_FIELDS = Object.keys(PROFILE_LABEL) as PersonalField[];
+
+/** A photo may be at most 1 MB. */
+export const MAX_PHOTO_BYTES = 1024 * 1024;
+
+export const PROFILE_MESSAGES = {
+    mobile: 'Enter a mobile number with at least 10 digits.',
+    personalEmail: 'That personal email doesn’t look right.',
+    emergency: 'Add an emergency contact name and a 10-digit number.',
+    photo: 'Pick a photo under 1 MB.',
+    nothing: 'Nothing has changed.',
+    pending: 'Your last update is still with HR. You can make more changes once HR responds.',
+};
+
+const digits = (v: string) => v.replace(/\D/g, '').length;
+/** Bytes in a data URL's payload. */
+const dataUrlBytes = (url: string) => Math.floor(((url.split(',')[1] ?? '').length * 3) / 4);
+
+/** Throws the first problem, in the prototype's order (mobile, personal email, emergency contact, photo). */
+export const validatePersonalDetails = (p: PersonalDetails) => {
+    if (digits(p.mobile) < 10) throw new RuleError(PROFILE_MESSAGES.mobile, 400);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.personalEmail.trim())) throw new RuleError(PROFILE_MESSAGES.personalEmail, 400);
+    if (!p.emergencyName.trim() || digits(p.emergencyPhone) < 10) throw new RuleError(PROFILE_MESSAGES.emergency, 400);
+    if (p.photo && dataUrlBytes(p.photo) > MAX_PHOTO_BYTES) throw new RuleError(PROFILE_MESSAGES.photo, 400);
+};
+
+/** Only the fields that changed, old → new (text trimmed). */
+export const profileChanges = (current: PersonalDetails, next: Partial<PersonalDetails>): ProfileChange[] =>
+    PROFILE_FIELDS.filter(f => f in next).flatMap(field => {
+        const to = field === 'photo' ? next.photo ?? null : String(next[field] ?? '').trim();
+        const from = current[field];
+        return to === from ? [] : [{ field, label: PROFILE_LABEL[field], from, to }];
+    });
+
+/** "Mobile number: +91 98450 23817 → +91 98450 11111; New photo" */
+export const profileChangeSummary = (changes: ProfileChange[]) =>
+    changes
+        .map(c => {
+            if (c.field === 'photo') return c.to ? 'New photo' : 'Photo removed';
+            return `${c.label}: ${c.from || '—'} → ${c.to || '—'}`;
+        })
+        .join('; ');
+
+/** HR approved: the new values replace the old ones. */
+export const applyProfileChanges = (current: PersonalDetails, changes: ProfileChange[]): PersonalDetails =>
+    changes.reduce((acc, c) => ({ ...acc, [c.field]: c.to }), current);
 
 // ---- team today -------------------------------------------------------------------------------------------
 

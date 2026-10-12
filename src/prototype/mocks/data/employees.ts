@@ -76,11 +76,16 @@ export interface MockEmployee {
     departmentId: number;
     designation: string;
     seniority: Seniority;
+    /** PROTOTYPE-SETUP (Overview, Slice 1): placeholder grade ("L4") until Peko confirms its real format. */
+    grade: string;
     isDepartmentManager: boolean;
     /** employeeId of the manager; null for department managers (they report to leadership). */
     managerEmployeeId: string | null;
     location: OfficeLocation;
+    /** The office address. */
     address: string;
+    /** PROTOTYPE-SETUP (Overview, Slice 1): where they live (personal details, editable via HR approval). */
+    homeAddress: string;
     dateOfJoin: string;
     status: EmploymentStatus;
     /** Set only for the employee serving notice. */
@@ -209,6 +214,20 @@ const reportingManagerOf = (employeeId: string, isDepartmentManager: boolean, de
     return employeeId === CEO_CODE ? null : CEO_CODE;
 };
 
+// PROTOTYPE-SETUP (Overview, Slice 1): placeholder grades — CEO L8, managers L6, senior L4, mid L3, junior L2.
+const GRADE: Record<Seniority, string> = { Manager: 'L6', Senior: 'L4', Mid: 'L3', Junior: 'L2' };
+const gradeOf = (n: number, seniority: Seniority) => (code(n) === CEO_CODE ? 'L8' : GRADE[seniority]);
+
+/** A home address in the office's city (seeded, so every employee has one). */
+const HOME_STREETS: Record<OfficeLocation, string[]> = {
+    Bengaluru: ['3rd Cross, Indiranagar, Bengaluru, Karnataka 560038', '12th Main, HSR Layout, Bengaluru, Karnataka 560102', '5th Block, Koramangala, Bengaluru, Karnataka 560095', '2nd Stage, BTM Layout, Bengaluru, Karnataka 560076'],
+    Mumbai: ['Linking Road, Bandra West, Mumbai, Maharashtra 400050', 'Chakala, Andheri East, Mumbai, Maharashtra 400099', 'Hiranandani Gardens, Powai, Mumbai, Maharashtra 400076', 'Sector 17, Vashi, Navi Mumbai, Maharashtra 400703'],
+};
+const homeAddressOf = (n: number, location: OfficeLocation) => {
+    const streets = HOME_STREETS[location];
+    return `${(n * 7) % 90 + 4}, ${streets[n % streets.length]}`;
+};
+
 const toEmployee = (s: Seed): MockEmployee => {
     const employeeId = code(s.n);
     const dept = departmentOf(s.department);
@@ -232,10 +251,12 @@ const toEmployee = (s: Seed): MockEmployee => {
         departmentId: dept.id,
         designation: s.designation,
         seniority: s.seniority,
+        grade: gradeOf(s.n, s.seniority),
         isDepartmentManager,
         managerEmployeeId: reportingManagerOf(employeeId, isDepartmentManager, dept.managerEmployeeId),
         location: s.location,
         address: `${office.line1}, ${office.city}, ${office.state} ${office.pincode}`,
+        homeAddress: homeAddressOf(s.n, s.location),
         dateOfJoin: s.joinedMonthsAgo === null ? startOfThisMonth() : monthsAgo(s.joinedMonthsAgo, s.joinDay),
         status,
         lastWorkingDay: status === 'notice' ? daysFromToday(21) : null,

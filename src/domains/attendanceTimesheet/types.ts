@@ -8,8 +8,14 @@ export type AtsMode = 'attendance' | 'both' | 'timesheet';
 
 export type Weekday = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
 
-/** Everything that goes through an approval chain. Leave and reimbursement plug in later. */
-export type ApprovalType = 'attendance' | 'overtime' | 'timesheet' | 'leave' | 'reimbursement';
+/**
+ * Everything that goes through an approval chain. Leave and reimbursement plug in later.
+ * PROTOTYPE-SETUP (Overview, Slice 1): 'profile' = a profile update — no manager step, straight to HR.
+ */
+export type ApprovalType = 'attendance' | 'overtime' | 'timesheet' | 'leave' | 'reimbursement' | 'profile';
+
+/** Request types whose level 2 HR configures (profile updates always go to HR). */
+export type Level2ConfigurableType = Exclude<ApprovalType, 'timesheet' | 'profile'>;
 
 export type Level2Approver = 'HR' | 'FINANCE' | 'NONE';
 
@@ -31,7 +37,7 @@ export interface AtsSettings {
         submissionWeekday: Weekday;
     };
     /** Level 2 per request type (level 1 is always the reporting manager). Timesheets: manager only. */
-    level2: Record<Exclude<ApprovalType, 'timesheet'>, Level2Approver> & { timesheet: 'NONE' };
+    level2: Record<Level2ConfigurableType, Level2Approver> & { timesheet: 'NONE' };
     updatedAt: string;
 }
 
@@ -80,10 +86,11 @@ export interface AttendanceDay {
     date: string;
     status: DayStatus;
     checkIn: string | null;
-    /** Effective check-out (the shift end when auto-closed). */
+    /** Effective check-out ('23:59' when auto-closed). */
     checkOut: string | null;
-    /** A past day with a check-in but no check-out, closed at shift end. */
+    /** A missed check-out: a past day with a check-in but no check-out, closed automatically at 11:59 PM. */
     checkOutAuto: boolean;
+    /** 0 on a missed check-out day (not known until the check-out is updated). */
     minutesAtWork: number;
     lateMinutes: number;
     /** Extra time per the overtime rule for the current mode (0 if none). */
@@ -347,7 +354,7 @@ export interface DayWindow {
     kind: 'shift' | 'attendance' | 'none';
     start?: string;
     end?: string;
-    /** "Shift 9:30–18:30" / "Checked in 9:42 – out 19:10" / "Checked in 9:31 – auto check-out 18:30" */
+    /** "Shift 9:30–18:30" / "Checked in 9:42 – out 19:10" / "Checked in 9:31, no check-out (closed automatically at 11:59 PM)" */
     label: string;
     checkOutAuto?: boolean;
     /** Minutes expected to be logged (window minus break; 0 for 'none'). */
@@ -517,9 +524,67 @@ export interface RequestItem {
     /** Overtime: that day's attendance / timesheet hours. Correction: current vs requested times. */
     overtimeContext?: OvertimeContext;
     correction?: Pick<AttendanceCorrection, 'kind' | 'current' | 'requested'>;
+    /** Profile update: each changed field, old → new (the photo as a data URL, or null when removed). */
+    profile?: { changes: ProfileChange[] };
     /** Set when the day's payroll is processed: it can't be approved (attendance corrections and overtime). */
     blockedReason?: string;
     waitingForYou: boolean;
+}
+
+// ---- profile updates (PROTOTYPE-SETUP: Overview, Slice 1) ---------------------------------------------------
+
+/** What an employee can change on their profile. Each change goes to HR for approval. */
+export interface PersonalDetails {
+    mobile: string;
+    personalEmail: string;
+    address: string;
+    emergencyName: string;
+    emergencyRelation: string;
+    emergencyPhone: string;
+    /** Data URL, or null for none (initials show instead). */
+    photo: string | null;
+}
+
+export type PersonalField = keyof PersonalDetails;
+
+export interface ProfileChange {
+    field: PersonalField;
+    label: string;
+    from: string | null;
+    to: string | null;
+}
+
+export interface ProfileUpdateRequest {
+    id: string;
+    employeeId: number;
+    /** Only the changed fields. */
+    changes: ProfileChange[];
+    trail: ApprovalTrail;
+    createdAt: string;
+    updatedAt: string;
+}
+
+/** Work details are managed by HR (read-only for the employee). */
+export interface WorkDetails {
+    employeeId: string;
+    name: string;
+    designation: string;
+    grade: string;
+    department: string;
+    workEmail: string;
+    dateOfJoin: string;
+    manager: { name: string; designation: string } | null;
+    shift: { start: string; end: string };
+}
+
+export interface MyProfileView {
+    work: WorkDetails;
+    /** The approved values (what everyone sees). */
+    personal: PersonalDetails;
+    /** Waiting for HR — the fields are locked while it is. */
+    pending: (ProfileUpdateRequest & { statusLabel: string }) | null;
+    /** The most recent decided request, for the approved / rejected banner. */
+    lastDecided: (ProfileUpdateRequest & { statusLabel: string }) | null;
 }
 
 export interface ApprovalCounts {

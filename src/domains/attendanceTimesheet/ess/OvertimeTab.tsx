@@ -13,6 +13,7 @@ import {
 import { Alert, Button, Empty, Popconfirm, Skeleton, Tag, Typography } from 'antd';
 
 import { useAppDispatch } from '@src/hooks/store';
+import { MISSED_AT_WORK_TEXT } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
 
 import { cancelOvertime, getOvertime } from '../api';
@@ -53,12 +54,12 @@ const DayContext = ({ r }: { r: RequestRow }) => {
     }
     const parts: string[] = [];
     if (ctx.basis === 'attendance') {
-        if (ctx.checkIn) {
-            parts.push(
-                `${displayTime(ctx.checkIn)} → ${ctx.checkOut ? displayTime(ctx.checkOut) : 'still at work'}${
-                    ctx.checkOutAuto ? ' (auto)' : ''
-                }`
-            );
+        if (ctx.checkIn && ctx.checkOutAuto) {
+            // PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out (auto 11:59 PM).
+            parts.push(`${displayTime(ctx.checkIn)} → check-out missed (auto 11:59 PM)`);
+            parts.push(`At work: ${MISSED_AT_WORK_TEXT.toLowerCase()}`);
+        } else if (ctx.checkIn) {
+            parts.push(`${displayTime(ctx.checkIn)} → ${ctx.checkOut ? displayTime(ctx.checkOut) : 'still at work'}`);
             parts.push(`At work ${formatDuration(ctx.minutesAtWork)}`);
         } else {
             parts.push('No check-in recorded');

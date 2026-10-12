@@ -29,7 +29,8 @@ import {
     submitWeek,
     timesheetMonthOf,
 } from '../store/atsEss';
-import { currentMonth, getSettings, overtimeContext, today, weekView } from '../store/atsStore';
+import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../store/atsProfile';
+import { currentMonth, getSettings, overtimeContext, resetTodayCheckIn, today, weekView } from '../store/atsStore';
 import {
     RequestType,
     approveChangeRequest,
@@ -81,6 +82,9 @@ const typeParam = (p: MockContext['params']): RequestType => {
     if (p.requestType === 'attendance' || p.requestType === 'overtime') return p.requestType;
     throw fail(404, 'Unknown request type');
 };
+/** PROTOTYPE-SETUP (Overview, Slice 1): level 2 also handles profile updates (HR only). */
+const level2TypeParam = (p: MockContext['params']): RequestType =>
+    p.requestType === 'profile' ? 'profile' : typeParam(p);
 
 const monthOrFail = (m: string | undefined) => {
     if (!MONTH.test(m ?? '')) throw fail(400, 'month must be YYYY-MM');
@@ -108,6 +112,7 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/settings`, ctx => run(ctx.mode, () => getSettings(ctx.mode))),
     route('PUT', `${A}/settings`, ctx => run(ctx.mode, () => updateSettings(ctx.mode, ctx.body))),
     route('POST', `${A}/demo/simulate-submission-day`, ctx => run(ctx.mode, () => runSubmissionDay(ctx.mode))),
+    route('POST', `${A}/demo/reset-today-check-in`, ctx => run(ctx.mode, () => resetTodayCheckIn(ctx.mode))),
 
     // ---- ESS: overview, check-in / out, attendance ------------------------------------------------------
     route('GET', `${A}/overview`, ess((ctx, me) => overviewOf(ctx.mode, me))),
@@ -117,6 +122,11 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/corrections`, ess((ctx, me) => correctionsView(ctx.mode, me))),
     route('POST', `${A}/corrections`, ess((ctx, me) => createCorrection(ctx.mode, me, ctx.body))),
     route('POST', `${A}/corrections/:id/cancel`, ess((ctx, me) => cancelCorrection(ctx.mode, me, ctx.params.id!))),
+
+    // ---- ESS: my profile (PROTOTYPE-SETUP: Overview, Slice 1) ---------------------------------------------
+    route('GET', `${A}/profile`, ess((ctx, me) => myProfileOf(ctx.mode, me))),
+    route('POST', `${A}/profile/update-request`, ess((ctx, me) => createProfileRequest(ctx.mode, me, ctx.body))),
+    route('POST', `${A}/profile/update-request/:id/withdraw`, ess((ctx, me) => withdrawProfileRequest(ctx.mode, me, ctx.params.id!))),
 
     // ---- ESS: timesheet ---------------------------------------------------------------------------------
     route('GET', `${A}/timesheet/week`, ess((ctx, me) => weekView(ctx.mode, me, dateParam(ctx.query)))),
@@ -153,9 +163,9 @@ export const atsRoutes: MockRoute[] = [
 
     // ---- Payroll: level 2, timesheet status, payroll months ---------------------------------------------
     route('GET', `${A}/payroll/approvals/counts`, ctx => run(ctx.mode, () => level2Counts(ctx.mode, roleParam(ctx.query)))),
-    route('GET', `${A}/payroll/approvals/:requestType`, ctx => run(ctx.mode, () => level2Requests(ctx.mode, roleParam(ctx.query), typeParam(ctx.params), scopeParam(ctx.query)))),
-    route('POST', `${A}/payroll/approvals/:requestType/:id/approve`, ctx => run(ctx.mode, () => decideRequest(ctx.mode, typeParam(ctx.params), ctx.params.id!, { role: roleParam(ctx.query) }, 'APPROVED', ctx.body?.comment))),
-    route('POST', `${A}/payroll/approvals/:requestType/:id/reject`, ctx => run(ctx.mode, () => decideRequest(ctx.mode, typeParam(ctx.params), ctx.params.id!, { role: roleParam(ctx.query) }, 'REJECTED', ctx.body?.comment))),
+    route('GET', `${A}/payroll/approvals/:requestType`, ctx => run(ctx.mode, () => level2Requests(ctx.mode, roleParam(ctx.query), level2TypeParam(ctx.params), scopeParam(ctx.query)))),
+    route('POST', `${A}/payroll/approvals/:requestType/:id/approve`, ctx => run(ctx.mode, () => decideRequest(ctx.mode, level2TypeParam(ctx.params), ctx.params.id!, { role: roleParam(ctx.query) }, 'APPROVED', ctx.body?.comment))),
+    route('POST', `${A}/payroll/approvals/:requestType/:id/reject`, ctx => run(ctx.mode, () => decideRequest(ctx.mode, level2TypeParam(ctx.params), ctx.params.id!, { role: roleParam(ctx.query) }, 'REJECTED', ctx.body?.comment))),
     route('GET', `${A}/payroll/timesheet-status`, ctx => run(ctx.mode, () => timesheetStatusOrDefault(ctx))),
     route('GET', `${A}/payroll/months`, ctx => run(ctx.mode, () => payrollMonths(ctx.mode))),
     route('GET', `${A}/payroll/months/:month`, ctx => run(ctx.mode, () => payrollMonthStatus(ctx.mode, monthOrFail(ctx.params.month)))),

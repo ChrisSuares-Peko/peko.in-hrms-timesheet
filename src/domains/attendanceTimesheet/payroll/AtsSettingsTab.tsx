@@ -34,13 +34,13 @@ import { showToast } from '@src/slices/apiSlice';
 import { updateAtsSettings } from '../api';
 import { usePayrollScope, useAtsSettings } from './usePayrollAts';
 import { fmtStamp } from '../components/format';
-import type { ApprovalType, AtsMode, AtsSettings, Level2Approver, Weekday } from '../types';
+import type { ApprovalType, AtsMode, AtsSettings, Level2Approver, Level2ConfigurableType, Weekday } from '../types';
 
 dayjs.extend(customParseFormat);
 
 const { Text } = Typography;
 
-type Level2Key = Exclude<ApprovalType, 'timesheet'>;
+type Level2Key = Level2ConfigurableType;
 
 interface FormValues {
     mode: AtsMode;
@@ -335,6 +335,11 @@ const AtsSettingsTab = () => {
                     </Row>
                     <Text type="secondary" className="text-xs">
                         The shift includes the break. Working time is the shift minus the break.
+                    </Text>
+                    {/* PROTOTYPE-SETUP (Overview, Slice 1): the automatic check-out moved to 11:59 PM. */}
+                    <Text type="secondary" className="block text-xs">
+                        Anyone who doesn’t check out is checked out automatically at 11:59 PM, and that day never
+                        counts as overtime until the real time is updated.
                     </Text>
                 </Card>
 

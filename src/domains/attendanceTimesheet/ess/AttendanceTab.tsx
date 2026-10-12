@@ -232,6 +232,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged }: AttendanceTabProps) 
                 date={modal?.date ?? null}
                 kind={modal?.kind ?? 'correction'}
                 current={modal?.current}
+                shiftEnd={overview.shift.end}
                 onClose={() => setModal(null)}
                 onSubmitted={() => {
                     setSelected(null);

@@ -1,7 +1,7 @@
 // PROTOTYPE-SETUP: ESS Service 1 — unit tests for the Attendance & Timesheet rules.
 import { describe, expect, it } from 'vitest';
 
-import type { AttendanceDay, TimesheetEntry } from '@src/domains/attendanceTimesheet/types';
+import type { AttendanceDay, PersonalDetails, TimesheetEntry } from '@src/domains/attendanceTimesheet/types';
 
 import {
     DEFAULT_SETTINGS,
@@ -23,6 +23,11 @@ import {
     isSubmissionDay,
     outsideCheckInFlag,
     overtimeMinutes,
+    PROFILE_MESSAGES,
+    profileChanges,
+    profileChangeSummary,
+    applyProfileChanges,
+    validatePersonalDetails,
     parseHours,
     payrollBlockers,
     shouldSuggestOvertime,
@@ -124,12 +129,15 @@ describe('attendance status', () => {
         expect(deriveDay({ ...base, date: '2026-10-03', checkIn: null, checkOut: null }).status).toBe('weekly-off');
         expect(deriveDay({ ...base, date: '2026-10-03', checkIn: '10:00', checkOut: '14:00' }).status).toBe('worked-off-day');
     });
-    it('auto check-out at shift end for a past day only', () => {
-        expect(effectiveCheckOut({ date: '2026-10-05', today: TODAY, checkIn: '09:35', checkOut: null, settings: S })).toEqual({ checkOut: '18:30', auto: true });
-        expect(effectiveCheckOut({ date: TODAY, today: TODAY, checkIn: '09:35', checkOut: null, settings: S })).toEqual({ checkOut: null, auto: false });
+    // PROTOTYPE-SETUP (Overview, Slice 1): the automatic check-out moved to 11:59 PM.
+    it('a missed check-out closes at 11:59 PM, for a past day only', () => {
+        expect(effectiveCheckOut({ date: '2026-10-05', today: TODAY, checkIn: '09:35', checkOut: null })).toEqual({ checkOut: '23:59', auto: true });
+        expect(effectiveCheckOut({ date: TODAY, today: TODAY, checkIn: '09:35', checkOut: null })).toEqual({ checkOut: null, auto: false });
+    });
+    it('a missed check-out: time at work is unknown (0) and it is never a half day', () => {
         const d = deriveDay({ ...base, checkIn: '09:35', checkOut: null });
-        expect(d.checkOutAuto).toBe(true);
-        expect(d.minutesAtWork).toBe(535);
+        expect(d).toMatchObject({ checkOut: '23:59', checkOutAuto: true, minutesAtWork: 0, status: 'present' });
+        expect(deriveDay({ ...base, checkIn: '15:00', checkOut: null }).status).toBe('late');
     });
     it('counts time on the clock today', () => {
         expect(deriveDay({ ...base, date: TODAY, nowMinutes: 12 * 60, checkIn: '09:30', checkOut: null }).minutesAtWork).toBe(150);
@@ -144,6 +152,12 @@ describe('overtime', () => {
     });
     it('timesheet basis: logged minus (shift − break)', () => {
         expect(overtimeMinutes({ mode: 'timesheet', settings: S, isOffDay: false, checkIn: null, checkOut: null, loggedMinutes: 9 * 60 })).toBe(60);
+    });
+    it('a missed check-out never counts as overtime, even on an off day', () => {
+        expect(overtimeMinutes({ mode: 'both', settings: S, isOffDay: false, checkIn: '09:30', checkOut: '23:59', checkOutAuto: true, loggedMinutes: 0 })).toBe(0);
+        expect(overtimeMinutes({ mode: 'attendance', settings: S, isOffDay: true, checkIn: '10:00', checkOut: '23:59', checkOutAuto: true, loggedMinutes: 0 })).toBe(0);
+        // a missed day never reaches the minimum, so it's never suggested
+        expect(shouldSuggestOvertime({ date: '2026-10-05', today: TODAY, extraMinutes: 0, minimumMinutes: 30, hasRequest: false })).toBe(false);
     });
     it('off days: all time counts', () => {
         expect(overtimeMinutes({ mode: 'both', settings: S, isOffDay: true, checkIn: '10:00', checkOut: '14:00', loggedMinutes: 0 })).toBe(240);
@@ -188,25 +202,33 @@ describe('day window', () => {
         expect(w).toMatchObject({ kind: 'attendance', start: '09:42', end: '19:12', expectedMinutes: 510 });
         expect(w.label).toBe('Checked in 9:42 – out 19:12');
     });
-    it('labels auto check-out', () => {
-        const w = dayWindow({ mode: 'both', settings: S, day: day({ checkIn: '09:31', checkOutAuto: true }), today: TODAY });
-        expect(w.label).toBe('Checked in 9:31 – auto check-out 18:30');
+    it('a missed check-out: the window runs to shift end, not 11:59 PM', () => {
+        const w = dayWindow({ mode: 'both', settings: S, day: day({ checkIn: '09:31', checkOut: '23:59', checkOutAuto: true }), today: TODAY });
+        expect(w).toMatchObject({ kind: 'attendance', start: '09:31', end: '18:30', expectedMinutes: 480 });
+        expect(w.label).toBe('Checked in 9:31, no check-out (closed automatically at 11:59 PM)');
     });
 });
 
 describe('logged outside check-in hours (both mode)', () => {
     it('flags entries after a manual check-out as a correction, never overtime', () => {
-        const f = outsideCheckInFlag({ mode: 'both', day: day({ checkOut: '18:00' }), entries: [entry('a', '2026-10-05', '09:30', '13:00'), entry('b', '2026-10-05', '17:00', '19:30')] });
+        const f = outsideCheckInFlag({ settings: S, mode: 'both', day: day({ checkOut: '18:00' }), entries: [entry('a', '2026-10-05', '09:30', '13:00'), entry('b', '2026-10-05', '17:00', '19:30')] });
         expect(f).toEqual({ entryIds: ['b'], action: 'request-correction', suggested: { checkIn: '09:30', checkOut: '19:30' } });
     });
-    it('offers Update check-out on an auto check-out day', () => {
-        const f = outsideCheckInFlag({ mode: 'both', day: day({ checkOutAuto: true }), entries: [entry('b', '2026-10-05', '18:00', '20:15')] });
-        expect(f?.action).toBe('update-check-out');
-        expect(f?.suggested.checkOut).toBe('20:15');
+    it('a missed check-out day: entries after the shift end offer Update check-out', () => {
+        const missed = day({ checkIn: '09:31', checkOut: '23:59', checkOutAuto: true });
+        const f = outsideCheckInFlag({ settings: S, mode: 'both', day: missed, entries: [entry('a', '2026-10-05', '09:31', '18:00'), entry('b', '2026-10-05', '18:00', '20:15')] });
+        expect(f).toEqual({ entryIds: ['b'], action: 'update-check-out', suggested: { checkIn: '09:31', checkOut: '20:15' } });
+        // inside the shift: nothing to flag
+        expect(outsideCheckInFlag({ settings: S, mode: 'both', day: missed, entries: [entry('a', '2026-10-05', '09:31', '18:30')] })).toBeUndefined();
+    });
+    it('a missed check-out day with time before check-in: a correction, never pre-filled with 23:59', () => {
+        const missed = day({ checkIn: '10:00', checkOut: '23:59', checkOutAuto: true });
+        const f = outsideCheckInFlag({ settings: S, mode: 'both', day: missed, entries: [entry('a', '2026-10-05', '09:00', '12:00')] });
+        expect(f).toMatchObject({ action: 'request-correction', suggested: { checkIn: '09:00', checkOut: '18:30' } });
     });
     it('does nothing in timesheet mode or inside the window', () => {
-        expect(outsideCheckInFlag({ mode: 'timesheet', day: day({ checkOut: '18:00' }), entries: [entry('b', '2026-10-05', '17:00', '19:30')] })).toBeUndefined();
-        expect(outsideCheckInFlag({ mode: 'both', day: day({}), entries: [entry('b', '2026-10-05', '10:00', '18:30')] })).toBeUndefined();
+        expect(outsideCheckInFlag({ settings: S, mode: 'timesheet', day: day({ checkOut: '18:00' }), entries: [entry('b', '2026-10-05', '17:00', '19:30')] })).toBeUndefined();
+        expect(outsideCheckInFlag({ settings: S, mode: 'both', day: day({}), entries: [entry('b', '2026-10-05', '10:00', '18:30')] })).toBeUndefined();
     });
 });
 
@@ -365,11 +387,11 @@ describe('validateEntry (entry form)', () => {
 
 describe('hours-only entries in the other rules', () => {
     it('are never outside check-in hours', () => {
-        const f = outsideCheckInFlag({ mode: 'both', day: day({ checkOut: '18:00' }), entries: [hoursOnly('h', '2026-10-05', 600)] });
+        const f = outsideCheckInFlag({ settings: S, mode: 'both', day: day({ checkOut: '18:00' }), entries: [hoursOnly('h', '2026-10-05', 600)] });
         expect(f).toBeUndefined();
     });
     it('still prompt a correction on a past day with no check-in', () => {
-        const f = outsideCheckInFlag({ mode: 'both', day: day({ status: 'absent', checkIn: null, checkOut: null }), entries: [hoursOnly('h', '2026-10-05', 60)] });
+        const f = outsideCheckInFlag({ settings: S, mode: 'both', day: day({ status: 'absent', checkIn: null, checkOut: null }), entries: [hoursOnly('h', '2026-10-05', 60)] });
         expect(f).toEqual({ entryIds: ['h'], action: 'request-correction', suggested: { checkIn: null, checkOut: null } });
     });
     it('count toward timesheet-only overtime', () => {
@@ -383,7 +405,7 @@ describe('hours-only entries in the other rules', () => {
     });
 });
 
-describe('expected hours — one rule, eight edge cases', () => {
+describe('expected hours — one rule, nine edge cases', () => {
     const exp = (over: Partial<AttendanceDay>, mode: 'both' | 'timesheet' | 'attendance' = 'both', dateOfJoin?: string) =>
         expectedMinutes({ mode, settings: S, day: day(over), today: TODAY, dateOfJoin });
     it('normal days: both = window − break, timesheet = shift − break, off/holiday/leave = 0', () => {
@@ -420,8 +442,58 @@ describe('expected hours — one rule, eight edge cases', () => {
     it('#8 attendance-only mode → 0', () => {
         expect(exp({}, 'attendance')).toBe(0);
     });
+    it('#9 a missed check-out (auto 11:59 PM) → shift − break, not check-in to 11:59 PM', () => {
+        expect(exp({ checkIn: '09:31', checkOut: '23:59', checkOutAuto: true })).toBe(480);
+        expect(exp({ checkIn: '11:00', checkOut: '23:59', checkOutAuto: true })).toBe(480);
+    });
     it('dayWindow uses the same number', () => {
         expect(dayWindow({ mode: 'both', settings: S, day: day({ status: 'absent', checkIn: null, checkOut: null }), today: TODAY }).expectedMinutes).toBe(0);
         expect(dayWindow({ mode: 'both', settings: S, day: day({ checkIn: '09:42', checkOut: '19:12' }), today: TODAY }).expectedMinutes).toBe(510);
+    });
+});
+
+// PROTOTYPE-SETUP (Overview, Slice 1): profile updates go straight to HR and hold only the changed fields.
+describe('profile updates', () => {
+    const current: PersonalDetails = {
+        mobile: '+91 98450 23817',
+        personalEmail: 'sneha.iyer96@gmail.com',
+        address: '32, 3rd Cross, Indiranagar',
+        emergencyName: 'Ramesh Iyer',
+        emergencyRelation: 'Father',
+        emergencyPhone: '+91 97410 00000',
+        photo: null,
+    };
+    it('skip the manager: HR is the only step', () => {
+        const t = startTrail('profile', { id: 1001, name: 'Arjun Mehta' }, S);
+        expect(t).toMatchObject({ type: 'profile', status: 'PENDING_HR' });
+        expect(t.steps).toEqual([{ level: 2, role: 'HR' }]);
+        expect(decide(t, 'HR', 'APPROVED', undefined, 'now').status).toBe('APPROVED');
+        expect(() => decide(t, 'MANAGER', 'APPROVED', undefined, 'now')).toThrow(RuleError);
+    });
+    it('hold only the changed fields, old → new (photo included)', () => {
+        const changes = profileChanges(current, { mobile: '+91 98450 11111', personalEmail: current.personalEmail, photo: 'data:image/png;base64,AAAA' });
+        expect(changes).toEqual([
+            { field: 'mobile', label: 'Mobile number', from: '+91 98450 23817', to: '+91 98450 11111' },
+            { field: 'photo', label: 'Photo', from: null, to: 'data:image/png;base64,AAAA' },
+        ]);
+        expect(profileChangeSummary(changes)).toBe('Mobile number: +91 98450 23817 → +91 98450 11111; New photo');
+        expect(applyProfileChanges(current, changes)).toMatchObject({ mobile: '+91 98450 11111', photo: 'data:image/png;base64,AAAA' });
+        expect(profileChanges(current, { mobile: ' +91 98450 23817 ' })).toEqual([]);
+    });
+    it('validate mobile, personal email, emergency contact and photo size', () => {
+        const err = (over: Partial<PersonalDetails>) => {
+            try {
+                validatePersonalDetails({ ...current, ...over });
+                return 'ok';
+            } catch (e) {
+                return (e as Error).message;
+            }
+        };
+        expect(err({})).toBe('ok');
+        expect(err({ mobile: '98450' })).toBe(PROFILE_MESSAGES.mobile);
+        expect(err({ personalEmail: 'sneha@' })).toBe(PROFILE_MESSAGES.personalEmail);
+        expect(err({ emergencyName: ' ' })).toBe(PROFILE_MESSAGES.emergency);
+        expect(err({ emergencyPhone: '12345' })).toBe(PROFILE_MESSAGES.emergency);
+        expect(err({ photo: `data:image/png;base64,${'A'.repeat(1_500_000)}` })).toBe(PROFILE_MESSAGES.photo);
     });
 });

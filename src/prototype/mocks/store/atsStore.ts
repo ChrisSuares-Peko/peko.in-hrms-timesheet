@@ -41,7 +41,7 @@ import {
 import { createCollection } from './persistentStore';
 import { buildAtsSeed, recordKey, weekId } from '../data/ats-seed';
 import { isoDateTime, monthsAgo, toIsoDate } from '../data/dates';
-import { EMPLOYEES, MockEmployee, findEmployee, managerOf } from '../data/employees';
+import { EMPLOYEES, ESS_EMPLOYEE, ESS_MANAGER, MockEmployee, findEmployee, managerOf } from '../data/employees';
 import { holidayOn, todayIso } from '../data/time-calendar';
 import { LEAVES } from '../data/time-leaves';
 import type { DataMode } from '../envelope';
@@ -194,6 +194,13 @@ export const recordOf = (mode: DataMode, e: MockEmployee, date: string) =>
 export const saveRecord = (mode: DataMode, record: AttendanceRecord) =>
     atsAttendance.update(mode, all => ({ ...all, [recordKey(record.employeeId, record.date)]: record }));
 
+/** PROTOTYPE-SETUP (Overview, Slice 1) — demo control: clear today's check-in and check-out for both personas. */
+export const resetTodayCheckIn = (mode: DataMode) => {
+    const keys = [ESS_EMPLOYEE, ESS_MANAGER].map(e => recordKey(e.id, today()));
+    atsAttendance.update(mode, all => Object.fromEntries(Object.entries(all).filter(([k]) => !keys.includes(k))));
+    return { cleared: keys.length };
+};
+
 export const correctionsOf = (mode: DataMode, e: MockEmployee) =>
     atsCorrections
         .get(mode)
@@ -244,7 +251,7 @@ export const attendanceDay = (mode: DataMode, e: MockEmployee, date: string): At
         lateMinutes: d.lateMinutes,
         overtimeMinutes:
             date < t || (date === t && d.checkOut)
-                ? overtimeMinutes({ mode: settings.mode, settings, isOffDay: d.isOffDay, checkIn: d.checkIn, checkOut: d.checkOut, loggedMinutes: logged })
+                ? overtimeMinutes({ mode: settings.mode, settings, isOffDay: d.isOffDay, checkIn: d.checkIn, checkOut: d.checkOut, checkOutAuto: d.checkOutAuto, loggedMinutes: logged })
                 : 0,
         ...(label ? { label } : {}),
         ...lock,
@@ -266,7 +273,7 @@ export const timesheetDay = (mode: DataMode, e: MockEmployee, date: string, entr
             ? { kind: 'none' as const, label: 'Before joining', expectedMinutes: 0 }
             : dayWindow({ mode: settings.mode, settings, day: attendance, today: t, dateOfJoin: e.dateOfJoin });
     const logged = dayEntries.reduce((s, x) => s + entryMins(x), 0);
-    const flag = outsideCheckInFlag({ mode: settings.mode, day: attendance, entries: dayEntries });
+    const flag = outsideCheckInFlag({ mode: settings.mode, settings, day: attendance, entries: dayEntries });
     const pending = attendance.correction?.state === 'pending' ? attendance.correction : undefined;
     let { locked } = attendance;
     let { lockReason } = attendance;

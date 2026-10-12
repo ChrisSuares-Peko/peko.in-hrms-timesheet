@@ -14,11 +14,13 @@ import type {
     ChangeRequestInput,
     CorrectionInput,
     Level2Role,
+    MyProfileView,
     OvertimeContext,
     OvertimeInput,
     OvertimeRequest,
     OvertimeView,
     PayrollMonthStatus,
+    PersonalDetails,
     QueueScope,
     RequestItem,
     SubmissionRunResult,
@@ -73,6 +75,17 @@ export const updateAtsSettings = (s: AtsScope, body: Partial<AtsSettings>) =>
 /** Demo control: every open week goes to the manager now, as if today were the submission day. */
 export const simulateSubmissionDay = (s: AtsScope) =>
     call<SubmissionRunResult>(s, 'post', 'demo/simulate-submission-day');
+/** PROTOTYPE-SETUP (Overview, Slice 1) — demo control: clear today's check-in for both ESS personas. */
+export const resetTodayCheckIn = (s: AtsScope) => call<{ cleared: number }>(s, 'post', 'demo/reset-today-check-in');
+
+// ---- ESS: my profile (PROTOTYPE-SETUP: Overview, Slice 1) ------------------------------------------------
+
+export const getMyProfile = (s: AtsScope) => call<MyProfileView>(s, 'get', 'profile');
+/** Send the changed personal details to HR; the profile changes when HR approves. */
+export const sendProfileUpdate = (s: AtsScope, body: Partial<PersonalDetails>) =>
+    call<MyProfileView>(s, 'post', 'profile/update-request', { body });
+export const withdrawProfileUpdate = (s: AtsScope, id: string) =>
+    call<MyProfileView>(s, 'post', `profile/update-request/${id}/withdraw`);
 
 // ---- ESS ------------------------------------------------------------------------------------------------
 

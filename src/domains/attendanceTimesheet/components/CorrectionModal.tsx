@@ -26,6 +26,8 @@ export interface CorrectionModalProps {
     current?: { checkIn: string | null; checkOut: string | null; checkOutAuto: boolean };
     /** Raised from the timesheet's "logged outside check-in hours" flag. */
     fromTimesheet?: boolean;
+    /** PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out's "Actual check-out" starts at the shift end. */
+    shiftEnd?: string;
     onClose: () => void;
     /** Called after the request was created (the modal closes itself first). */
     onSubmitted: () => void;
@@ -55,6 +57,7 @@ const CorrectionModal = ({
     initial,
     current,
     fromTimesheet,
+    shiftEnd,
     onClose,
     onSubmitted,
 }: CorrectionModalProps) => {
@@ -65,12 +68,13 @@ const CorrectionModal = ({
     const updateOnly = kind === 'update-check-out';
 
     const seed = initial ?? current;
+    // A missed check-out (auto 11:59 PM) isn't the time they left: start at the shift end unless pre-filled.
+    let checkOutSeed = current?.checkOut ?? null;
+    if (current?.checkOutAuto) checkOutSeed = shiftEnd ?? null;
+    if (initial) checkOutSeed = initial.checkOut;
     const initialValues: FormValues = {
         checkIn: updateOnly ? null : toDayjs(seed?.checkIn),
-        // An auto check-out is a placeholder, not the time they left — start empty unless pre-filled.
-        checkOut: toDayjs(
-            initial ? initial.checkOut : (!current?.checkOutAuto && current?.checkOut) || null
-        ),
+        checkOut: toDayjs(checkOutSeed),
         reason: '',
     };
 
@@ -114,7 +118,7 @@ const CorrectionModal = ({
 
     const title = updateOnly ? 'Update check-out' : 'Request attendance correction';
     const intro = updateOnly
-        ? "You didn't check out, so the day was closed at shift end. Tell us when you actually left."
+        ? "You didn't check out, so the day closed automatically at 11:59 PM. Enter the time you actually left."
         : 'Enter the correct times. Your manager reviews the request before it changes your attendance.';
 
     return (
@@ -164,9 +168,10 @@ const CorrectionModal = ({
                         </Text>
                         <Text className="text-sm text-valueText">
                             Check-in <b>{show(current.checkIn)}</b> · Check-out{' '}
-                            <b>{show(current.checkOut)}</b>
-                            {current.checkOutAuto && (
-                                <span className="text-titleText"> (automatic)</span>
+                            {current.checkOutAuto ? (
+                                <b>missed (auto 11:59 PM)</b>
+                            ) : (
+                                <b>{show(current.checkOut)}</b>
                             )}
                         </Text>
                     </div>

@@ -8,7 +8,7 @@ import { DownOutlined } from '@ant-design/icons';
 import { Button, Dropdown, Flex, Modal, Segmented, Tooltip, message } from 'antd';
 import type { MenuProps } from 'antd';
 
-import { getAtsSettings, simulateSubmissionDay, updateAtsSettings } from '@src/domains/attendanceTimesheet/api';
+import { getAtsSettings, resetTodayCheckIn, simulateSubmissionDay, updateAtsSettings } from '@src/domains/attendanceTimesheet/api';
 import type { AtsMode } from '@src/domains/attendanceTimesheet/types';
 import { useAppDispatch, useAppSelector } from '@src/hooks/store';
 import { demoDay, resetAllCollections } from '@src/prototype/mocks/store/persistentStore';
@@ -88,6 +88,14 @@ const DataModeToggle = () => {
         setTimeout(reloadAfterPersist, 800);
     };
 
+    // PROTOTYPE-SETUP (Overview, Slice 1): start today's check-in over, for both ESS personas.
+    const resetCheckIn = async () => {
+        const res = await resetTodayCheckIn(scope);
+        if (!res) return;
+        message.success('Today’s check-in cleared for both personas.');
+        setTimeout(reloadAfterPersist, 800);
+    };
+
     const items: MenuProps['items'] = [
         {
             key: 'mode',
@@ -100,12 +108,14 @@ const DataModeToggle = () => {
         },
         { type: 'divider' },
         { key: 'simulate', label: 'Simulate submission day' },
+        { key: 'reset-check-in', label: 'Reset today’s check-in' },
         { key: 'reset', label: 'Reset demo data', danger: true },
     ];
 
     const onClick: MenuProps['onClick'] = ({ key }) => {
         if (key.startsWith('mode:')) switchAtsMode(key.slice(5) as AtsMode);
         else if (key === 'simulate') simulate();
+        else if (key === 'reset-check-in') resetCheckIn();
         else if (key === 'reset') reset();
     };
 

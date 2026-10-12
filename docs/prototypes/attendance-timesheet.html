@@ -405,6 +405,86 @@ tr:last-child td{border-bottom:0}
   .ef,.ef.qa{grid-template-columns:1fr 1fr 1fr}.ef .qa-plus{display:none}
   .ef .desc{grid-column:1/-1}.ef>.row{grid-column:1/-1}.ef.qa .err,.ef.qa .ef-hint{grid-column:1/-1}
 }
+
+/* v5 overview + sidebar sub-nav */
+.navgrp{display:flex;flex-direction:column}
+.subnav{display:flex;flex-direction:column;margin:2px 0 6px 28px;border-left:1px solid var(--line);padding-left:6px}
+.subnav-i{border:0;background:none;text-align:left;padding:7px 10px;border-radius:6px;color:var(--ink-2);font-size:13px}
+.subnav-i:hover{background:var(--surface-2)}
+.subnav-i[aria-current="page"]{color:var(--red-ink);background:var(--red-soft);font-weight:500}
+.ov{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1fr) minmax(0,1.25fr);grid-template-areas:"p a t" "c c n" "s s n";grid-template-rows:auto auto 1fr;gap:16px;align-items:stretch}
+.ov.one{grid-template-areas:"p w w" "c c n" "s s n"}
+.ov>[aria-label="Employee profile"]{grid-area:p}
+.ov>[aria-label="Attendance today"]{grid-area:a}
+.ov>[aria-label="Today's timesheet"]{grid-area:t}
+.ov.one>[aria-label="Attendance today"],.ov.one>[aria-label="Today's timesheet"]{grid-area:w}
+.ov>.ov-cards{grid-area:c}
+.ov>.ov-table{grid-area:s}
+.ov>.ov-notes{grid-area:n}
+.ov-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.ov-sc{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px;min-width:0}
+.ov-sc:hover:not(:disabled){border-color:var(--line-2);box-shadow:var(--shadow)}
+.ov-sc.dim{opacity:.55;cursor:default}
+.ov-sc-i{width:30px;height:30px;border-radius:8px;background:var(--red-soft);color:var(--red-ink);display:grid;place-items:center;margin-bottom:6px}
+.ov-sc-i svg{width:17px;height:17px}
+.ov-sc-l{font-size:12px;color:var(--muted)}
+.ov-sc b{font-weight:500;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.ov-sc-s{font-size:11px;color:var(--ink-2)}
+.ov-card{min-width:0}
+.ov-notes{display:flex;flex-direction:column;max-height:720px}
+.ov-prof{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.ov-photo{width:56px;height:56px;border-radius:50%;background:var(--red-soft);color:var(--red-ink);display:grid;place-items:center;font-size:20px;font-weight:500;flex:none}
+.ov-name{font-size:16px;font-weight:500}
+.ov-kv{grid-template-columns:96px 1fr;row-gap:10px}
+.ov-mail{overflow-wrap:anywhere}
+.ov-status{display:flex;align-items:center;justify-content:space-between;gap:10px;border-radius:10px;padding:12px 14px;margin:12px 0;background:var(--track);font-weight:500}
+.ov-status.green{background:var(--green-soft);color:var(--green-ink)}
+.ov-status.amber{background:var(--amber-soft);color:var(--amber-ink)}
+.ov-status.blue{background:var(--blue-soft);color:var(--blue-ink)}
+.ov-timer{font-size:20px;font-variant-numeric:tabular-nums}
+.ov-cells{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+.ov-cells div{display:flex;flex-direction:column;gap:2px}
+.ov-cells span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+.ov-cells b{font-weight:500;font-variant-numeric:tabular-nums}
+.ov-btn{width:100%;justify-content:center}
+.ov-entries{margin:10px 0 2px;display:flex;flex-direction:column;gap:4px}
+.ov-entry{display:grid;grid-template-columns:auto auto minmax(0,1fr);gap:8px;font-size:13px;align-items:baseline}
+.ov-entry .t{font-weight:500;font-variant-numeric:tabular-nums}.ov-entry .t.nt{font-weight:400;font-style:italic;color:var(--muted)}
+.ov-entry .d{color:var(--ink-2)}.ov-entry .desc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ef.compact{grid-template-columns:1fr 1fr 1fr}
+.ef.compact .qa-plus{display:none}
+.ef.compact .desc,.ef.compact>.row,.ef.compact .err,.ef.compact .ef-hint{grid-column:1/-1}
+.ov-row{cursor:pointer}
+.ov-row:hover td{background:var(--surface-2)}
+.ov-feed{overflow-y:auto;padding:0 12px 12px}
+.ov-grp{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:12px 6px 6px}
+.ov-note{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:10px;border-radius:8px;font-size:13px;margin-bottom:6px}
+.ov-note b{font-weight:500}
+.ov-note.act{background:var(--surface-2);border:1px solid var(--line)}
+.ov-note.act.back{background:var(--cal-back);border-color:transparent;color:var(--cal-back-ink)}
+.ov-note.act.amber{background:var(--amber-soft);border-color:transparent;color:var(--amber-ink)}
+.ov-note.act.info{background:var(--blue-soft);border-color:transparent;color:var(--blue-ink)}
+.ov-note.upd{width:100%;border:0;background:none;text-align:left;border-bottom:1px solid var(--line);border-radius:0;margin:0;align-items:center}
+.ov-note.upd>div{flex:1;min-width:0}
+.ov-note.upd:hover{background:var(--surface-2)}
+.ov-note.news{border-left:3px solid var(--red);border-radius:0 8px 8px 0;background:var(--surface-2)}
+.dot-s{width:8px;height:8px;border-radius:50%;flex:none;margin-top:2px}.dot-s.g{background:var(--green)}.dot-s.r{background:var(--red)}.dot-s.b{background:var(--blue)}
+@media (max-width:1100px){.ov{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"p a" "t t" "c c" "s s" "n n"}.ov.one{grid-template-areas:"p w" "c c" "s s" "n n"}.ov-notes{max-height:none}.ov-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:860px){.ov,.ov.one{grid-template-columns:1fr;grid-template-areas:none}.ov>*{grid-area:auto!important}.ov-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.subnav{flex-direction:row;margin:0;border:0;padding:0}.navgrp{flex-direction:row;align-items:center}}
+
+/* v6 punch buttons, profile, clickable cells */
+.punch{display:flex;gap:8px}
+.punch.full .btn{flex:1;justify-content:center}
+.ov-cell{cursor:pointer}
+.ov-cell:hover{text-decoration:underline;text-decoration-color:var(--line-2);text-underline-offset:3px;background:var(--blue-soft)!important}
+img.has-img{object-fit:cover;display:block}
+.pf{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:18px;align-items:start}
+.pf-photo{width:72px;height:72px;border-radius:50%;background:var(--red-soft);color:var(--red-ink);display:grid;place-items:center;font-size:24px;font-weight:500;flex:none}
+.pf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 14px}
+@media (max-width:1020px){.pf{grid-template-columns:1fr}}
+.punch .btn:disabled{background:var(--track);border-color:var(--track);color:var(--muted);opacity:1;cursor:not-allowed}
+.req-ph{width:48px;height:48px;border-radius:50%;margin-top:6px}
+.input:disabled{background:var(--surface-2);color:var(--ink-2)}
 </style>
 </head>
 <body>
@@ -507,7 +587,10 @@ const POOLS = {
   HR: ['Interview: frontend engineer candidate', 'Onboarding paperwork for new joiner', 'Policy document updates', 'Payroll inputs review', 'Employee query resolution', 'Engagement survey planning'],
   Leadership: ['Leadership sync', 'Investor update prep', 'Customer escalation review', 'Hiring plan review', 'Strategy offsite planning'],
 };
-const TYPE_LABEL = { attendance: 'Attendance correction', overtime: 'Overtime', leave: 'Leave', reimbursement: 'Reimbursement' };
+const TYPE_LABEL = { attendance: 'Attendance correction', overtime: 'Overtime', leave: 'Leave', reimbursement: 'Reimbursement', profile: 'Profile update' };
+const PROFILE_LABEL = { phone: 'Mobile number', personalEmail: 'Personal email', address: 'Current address', ecName: 'Emergency contact', ecRel: 'Relationship', ecPhone: 'Emergency phone', photo: 'Photo' };
+function profileDefaults(emp) { const parts = emp.name.toLowerCase().split(' '); return { phone: '+91 98450 23817', personalEmail: parts[0] + '.' + parts[parts.length - 1] + '@gmail.com', address: '14, 3rd Cross, Indiranagar, Bengaluru 560038', ecName: 'Anita ' + emp.name.split(' ').slice(-1)[0], ecRel: 'Mother', ecPhone: '+91 98860 44120', photo: null }; }
+const profileOf = (s, emp) => Object.assign(profileDefaults(emp), (s.profiles && s.profiles[emp.id]) || {});
 const MODE_LABEL = { attendance: 'Attendance only', both: 'Attendance + timesheet', timesheet: 'Timesheet only' };
 const SECTION_NAME = { attendance: 'Attendance', both: 'Attendance & Timesheet', timesheet: 'Timesheet' };
 
@@ -693,7 +776,7 @@ function attOf(s, emp, k) {
   const a = s.attendance[emp.id + '|' + k];
   if (!a || !a.in) return null;
   if (a.out) return { in: a.in, out: a.out, auto: false };
-  if (k < TODAY) { const se = shiftOf(emp)[1]; return { in: a.in, out: toTime(Math.max(se, toMin(a.in))), auto: true }; }
+  if (k < TODAY) return { in: a.in, out: '23:59', auto: true }; // automatic check-out at 11:59 PM
   return { in: a.in, out: null, auto: false };
 }
 function leaveOn(s, id, k) { return s.requests.find(r => r.type === 'leave' && r.empId === id && r.status === 'approved' && r.data.from <= k && r.data.to >= k); }
@@ -718,7 +801,7 @@ function dayWindow(s, emp, k) {
   const hol = holidayOf(k);
   if (s.settings.mode === 'timesheet') return isOff(k) ? { start: null, end: null, label: hol ? hol + ' (holiday)' : 'Weekly off' } : { start: ss, end: se, label: 'Shift ' + shiftTxt };
   const a = attOf(s, emp, k);
-  if (a && a.out) return { start: toMin(a.in), end: toMin(a.out), label: 'Checked in ' + a.in + ', out ' + a.out + (a.auto ? ' (auto check-out)' : ''), auto: a.auto };
+  if (a && a.out) return { start: toMin(a.in), end: toMin(a.out), label: a.auto ? 'Checked in ' + a.in + ', no check-out (closed automatically at 11:59 PM)' : 'Checked in ' + a.in + ', out ' + a.out, auto: a.auto };
   if (a) return { start: toMin(a.in), end: Math.max(toMin(a.in), k === TODAY ? Math.max(se, nowMin()) : se), label: 'Checked in ' + a.in + ', still checked in', open: true };
   if (isOff(k)) return { start: null, end: null, label: hol ? hol + ' (holiday)' : 'Weekly off' };
   if (k >= TODAY) return { start: ss, end: se, label: 'Shift ' + shiftTxt + (k === TODAY ? ', not checked in yet' : '') };
@@ -739,7 +822,7 @@ function otOfDay(s, emp, k) {
     return { worked, base, extra: Math.max(0, worked - base), off, source: 'timesheet' };
   }
   const a = attOf(s, emp, k);
-  if (!a || !a.out) return { worked: 0, base: off ? 0 : shiftLen(emp), extra: 0, off, source: 'attendance' };
+  if (!a || !a.out || a.auto) return { worked: 0, base: off ? 0 : shiftLen(emp), extra: 0, off, source: 'attendance', auto: !!(a && a.auto) }; // a missed check-out never counts as overtime
   const worked = toMin(a.out) - toMin(a.in);
   const base = off ? 0 : shiftLen(emp);
   return { worked, base, extra: Math.max(0, worked - base), off, source: 'attendance' };
@@ -768,7 +851,16 @@ function createRequest(s, type, empId, data) {
   s.requests.unshift(r);
   return r;
 }
-function applyEffects(s, r) { if (r.type === 'attendance') s.attendance[r.empId + '|' + r.data.date] = { in: r.data.to.in, out: r.data.to.out }; }
+function applyEffects(s, r) {
+  if (r.type === 'attendance') s.attendance[r.empId + '|' + r.data.date] = { in: r.data.to.in, out: r.data.to.out };
+  if (r.type === 'profile') { s.profiles = s.profiles || {}; s.profiles[r.empId] = Object.assign({}, s.profiles[r.empId] || {}, r.data.to); }
+}
+// profile changes skip the manager and go straight to HR
+function createProfileRequest(s, empId, from, to) {
+  const e = EMAP[empId];
+  const r = { id: 'REQ-' + (s.seq++), type: 'profile', empId, created: TODAY, data: { from, to }, status: 'pending_l2', l2: 'HR', trail: [{ level: 0, by: e.name, action: 'Submitted', at: TODAY }, { level: 1, by: 'Not needed', action: 'Skipped', at: TODAY }] };
+  s.requests.unshift(r);
+}
 function decideRequest(s, id, level, decision, comment, by) {
   const r = s.requests.find(x => x.id === id);
   if (!r) return;
@@ -917,6 +1009,7 @@ function Chain({ r }) {
   const s2 = t2 ? (t2.action === 'Approved' ? 'done' : 'rejected') : r.status === 'pending_l2' ? 'pending' : '';
   const sym = st => st === 'done' ? '✓' : st === 'rejected' ? '✕' : st === 'pending' ? '…' : '';
   const showL2 = !!r.l2 || r.status === 'pending_l1';
+  if (r.type === 'profile') return html`<div className="chain"><span className=${'step ' + s2}>${sym(s2)} HR team</span><span className="muted">Profile changes go straight to HR</span></div>`;
   return html`<div className="chain">
     <span className=${'step ' + s1}>${sym(s1)} ${e.mgr ? EMAP[e.mgr].name + ' (manager)' : 'No manager, skipped'}</span>
     ${showL2 && html`<span className="arrow">→</span>`}
@@ -926,6 +1019,7 @@ function Chain({ r }) {
 function reqTitle(r) { return r.type === 'overtime' && r.data.kind === 'planned' ? 'Planned overtime' : TYPE_LABEL[r.type]; }
 function reqSummary(r) {
   const d = r.data;
+  if (r.type === 'profile') return Object.keys(d.to).map(k => k === 'photo' ? (d.to.photo ? 'New photo' : 'Photo removed') : PROFILE_LABEL[k] + ': ' + (d.from[k] || '—') + ' → ' + (d.to[k] || '—')).join('; ');
   if (r.type === 'overtime') return dur(d.minutes) + ' on ' + fmtDate(d.date) + (holidayOf(d.date) ? ' (' + holidayOf(d.date) + ')' : isWeekend(d.date) ? ' (weekly off)' : '') + (d.note ? '. ' + d.note : '');
   if (r.type === 'leave') return d.leaveType + ' leave, ' + fmtShort(d.from) + (d.to !== d.from ? ' – ' + fmtShort(d.to) : '') + ' (' + d.days + (d.days === 1 ? ' day' : ' days') + '). ' + d.reason;
   if (r.type === 'reimbursement') return inr(d.amount) + ', ' + d.category + '. ' + d.description;
@@ -946,7 +1040,7 @@ function ReqRow({ r, showEmp, level, actor }) {
   let context = null;
   if (r.type === 'overtime' && level && r.data.kind !== 'planned' && store.settings.mode !== 'timesheet') {
     const a = attOf(store, e, r.data.date);
-    if (a && a.out) context = 'Attendance that day: ' + a.in + ' to ' + a.out + ' (' + dur(toMin(a.out) - toMin(a.in)) + ')' + (a.auto ? ', auto check-out' : '');
+    if (a && a.out) context = a.auto ? 'Attendance that day: in ' + a.in + ', check-out missed (closed automatically at 11:59 PM)' : 'Attendance that day: ' + a.in + ' to ' + a.out + ' (' + dur(toMin(a.out) - toMin(a.in)) + ')';
   }
   if (r.type === 'overtime' && level && r.data.kind !== 'planned' && store.settings.mode === 'timesheet') context = 'Timesheet that day: ' + dur(sumMins(entriesOn(store, e.id, r.data.date))) + ' logged';
   if (r.type === 'overtime' && r.data.kind === 'planned' && r.data.date < TODAY) { const o = otOfDay(store, e, r.data.date); context = 'Actually worked ' + dur(o.extra) + ' extra that day.'; }
@@ -957,6 +1051,7 @@ function ReqRow({ r, showEmp, level, actor }) {
         <span className="title">${showEmp ? e.name + ', ' : ''}${reqTitle(r)}</span><span className="muted small">${r.id}, raised ${fmtShort(r.created)}</span>
       </div>
       <div style=${{ marginTop: '4px', color: 'var(--ink-2)' }}>${reqSummary(r)}</div>
+      ${r.type === 'profile' && r.data.to.photo ? html`<img className="req-ph has-img" src=${r.data.to.photo} alt="New photo" />` : null}
       ${context && html`<div className="small muted" style=${{ marginTop: '2px' }}>${context}</div>`}
       <${Chain} r=${r} />
       ${lastComment && html`<div className="small" style=${{ marginTop: '6px', color: 'var(--ink-2)' }}>${lastComment.by}: “${lastComment.comment}”</div>`}
@@ -1012,7 +1107,7 @@ function AttendanceFixModal({ emp, k, prefill, onClose }) {
   const raw = store.attendance[emp.id + '|' + k] || {};
   const autoOnly = a && a.auto && !prefill;
   const [tin, setIn] = useState(prefill ? prefill.in : a ? a.in : '09:30');
-  const [tout, setOut] = useState(prefill ? prefill.out : a && a.out ? a.out : '18:30');
+  const [tout, setOut] = useState(prefill ? prefill.out : a && a.out ? (a.auto ? toTime(shiftOf(emp)[1]) : a.out) : '18:30');
   const [reason, setReason] = useState('');
   const [err, setErr] = useState('');
   const mgr = emp.mgr ? EMAP[emp.mgr] : null;
@@ -1025,7 +1120,7 @@ function AttendanceFixModal({ emp, k, prefill, onClose }) {
     onClose();
   };
   return html`<${Modal} title=${(autoOnly ? 'Update check-out for ' : 'Correct attendance for ') + fmtDate(k)} onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="o" className="btn primary" onClick=${go}>Send request</button>`]}>
-    ${a && a.auto && html`<div className="banner blue"><div>You didn't check out, so the day was closed at your shift end (${a.out}). Enter when you actually left.</div></div>`}
+    ${a && a.auto && html`<div className="banner blue"><div>You didn't check out, so the day closed automatically at 11:59 PM. Enter the time you actually left.</div></div>`}
     ${prefill && html`<div className="banner blue"><div>Filled in from your timesheet entries for this day.</div></div>`}
     <div className="row" style=${{ flexWrap: 'nowrap' }}>
       <div className="field" style=${{ flex: 1 }}><label htmlFor="ai">Check in</label><input id="ai" className="input" type="time" value=${tin} disabled=${autoOnly} onInput=${e => { setIn(e.target.value); setErr(''); }} /></div>
@@ -1039,6 +1134,20 @@ function AttendanceFixModal({ emp, k, prefill, onClose }) {
 }
 
 /* ---------------- Attendance tab ---------------- */
+function PunchButtons({ emp, full }) {
+  const { store, update, notify } = useApp();
+  const a = store.attendance[emp.id + '|' + TODAY] || {};
+  const nowT = toTime(Math.min(1435, r5(nowMin())));
+  const checkedIn = a.in && !a.out;
+  // one check-in and one check-out per day: each button works once, then stays disabled
+  const doIn = () => { if (a.in) return; update(s => { s.attendance[emp.id + '|' + TODAY] = { in: nowT }; }); notify('Checked in at ' + nowT); };
+  const doOut = () => { if (!checkedIn) return; update(s => { s.attendance[emp.id + '|' + TODAY].out = nowT; }); notify('Checked out at ' + nowT); };
+  return html`<div className=${'punch' + (full ? ' full' : '')}>
+    <button className=${'btn ' + (!a.in ? 'primary' : '')} disabled=${!!a.in} title=${a.in ? 'Checked in at ' + a.in : ''} onClick=${doIn}>${a.in ? 'Checked in ' + a.in : 'Check in'}</button>
+    <button className=${'btn ' + (checkedIn ? 'primary' : '')} disabled=${!checkedIn} title=${!a.in ? 'Check in first' : a.out ? 'Checked out at ' + a.out : ''} onClick=${doOut}>${a.out ? 'Checked out ' + a.out : 'Check out'}</button>
+  </div>`;
+}
+const AUTO_NOTE = 'There’s an automatic check-out at 11:59 PM every day. If you forget to check out, update it to the real time afterwards.';
 function TodayPanel({ emp }) {
   const { store, update, notify } = useApp();
   const [, tick] = useState(0);
@@ -1055,15 +1164,14 @@ function TodayPanel({ emp }) {
       <div className="small" style=${{ color: 'var(--ink-2)' }}>${lv ? 'On ' + lv.data.leaveType.toLowerCase() + ' leave today' : !a.in ? 'Not checked in. Shift ' + toTime(ss) + '–' + toTime(se) : a.out ? 'Checked in ' + a.in + ', checked out ' + a.out : 'Checked in at ' + a.in + (st.late ? ' (late)' : '') + '. Shift ends ' + toTime(se)}</div>
     </div>
     <span className="spacer"></span>
-    ${!a.in && !lv && html`<button className="btn primary" onClick=${() => { update(s => { s.attendance[emp.id + '|' + TODAY] = { in: nowT }; }); notify('Checked in at ' + nowT); }}>Check in</button>`}
-    ${a.in && !a.out && html`<button className="btn primary" onClick=${() => { update(s => { s.attendance[emp.id + '|' + TODAY].out = nowT; }); notify('Checked out at ' + nowT); }}>Check out</button>`}
-    ${a.in && !a.out && html`<div className="small muted" style=${{ width: '100%' }}>If you forget to check out, the day closes automatically at ${toTime(se)}. You can update it to the real time later.</div>`}
+    <${PunchButtons} emp=${emp} />
+    <div className="small muted" style=${{ width: '100%' }}>${AUTO_NOTE}</div>
   </div>`;
 }
-function MyAttendance({ emp }) {
+function MyAttendance({ emp, initDate }) {
   const { store } = useApp();
-  const [month, setMonth] = useState(monthOf(TODAY));
-  const [sel, setSel] = useState(TODAY);
+  const [month, setMonth] = useState(monthOf(initDate || TODAY));
+  const [sel, setSel] = useState(initDate || TODAY);
   const [fix, setFix] = useState(null);
   const mine = store.requests.filter(r => r.empId === emp.id && r.type === 'attendance');
   const days = []; for (let k = firstOf(month); monthOf(k) === month; k = addDays(k, 1)) days.push(k);
@@ -1095,8 +1203,8 @@ function MyAttendance({ emp }) {
         <dl className="kv">
           <dt>Shift</dt><dd>${isOff(sel) ? 'Off' : shiftOf(emp).map(toTime).join('–')}</dd>
           <dt>Check in</dt><dd>${a ? a.in : '–'}</dd>
-          <dt>Check out</dt><dd>${a && a.out ? a.out + (a.auto ? ' (auto, you didn’t check out)' : '') : a ? 'Still checked in' : '–'}</dd>
-          <dt>Time at work</dt><dd>${a && a.out ? dur(toMin(a.out) - toMin(a.in)) : '–'}</dd>
+          <dt>Check out</dt><dd>${a && a.out ? (a.auto ? 'Missed (closed automatically at 11:59 PM)' : a.out) : a ? 'Still checked in' : '–'}</dd>
+          <dt>Time at work</dt><dd>${a && a.out ? (a.auto ? 'Not known until you update the check-out' : dur(toMin(a.out) - toMin(a.in))) : '–'}</dd>
         </dl>
         ${ot && store.settings.mode !== 'timesheet' && html`<div className="flag ot"><span>${otText(ot, emp)}</span></div>`}
         <div className="divider"></div>
@@ -1172,6 +1280,7 @@ function expectedFor(store, emp, k) {
   if (store.settings.mode === 'timesheet') return shiftLen(emp) - store.settings.breakMin;
   const w = dayWindow(store, emp, k);
   if (w.missing) return 0;
+  if (w.auto) return shiftLen(emp) - store.settings.breakMin; // missed check-out: use the shift, not 23:59
   return w.start == null ? shiftLen(emp) - store.settings.breakMin : Math.max(0, w.end - w.start - store.settings.breakMin);
 }
 function periodOf(store, emp, view, cursor, entriesFor) {
@@ -1256,16 +1365,16 @@ function BarTrack({ win, list }) {
   </div>`;
 }
 /* entry form: start + end work out the hours; or type hours alone */
-function EntryForm({ initial, others, onSave, onCancel, quick }) {
+function EntryForm({ initial, others, onSave, onCancel, quick, compact }) {
   const init = initial || {};
   const [start, setStart] = useState(init.start || '');
   const [end, setEnd] = useState(init.end || '');
   const [hours, setHours] = useState(init.id ? fmtH(entryMins(init)) : '');
   const [desc, setDesc] = useState(init.desc || '');
   const [err, setErr] = useState('');
-  const onStart = v => { setStart(v); setErr(''); const h = parseHours(hours); if (v && end && toMin(end) > toMin(v)) setHours(fmtH(toMin(end) - toMin(v))); else if (v && h > 0) setEnd(toTime(Math.min(toMin(v) + h, 23 * 60 + 59))); };
+  const onStart = v => { setStart(v); setErr(''); const h = parseHours(hours); if (v && end && toMin(end) > toMin(v)) setHours(fmtH(toMin(end) - toMin(v))); else if (v && h > 0 && toMin(v) + h < 24 * 60) setEnd(toTime(toMin(v) + h)); };
   const onEnd = v => { setEnd(v); setErr(''); if (start && v && toMin(v) > toMin(start)) setHours(fmtH(toMin(v) - toMin(start))); };
-  const onHours = v => { setHours(v); setErr(''); const h = parseHours(v); if (start && h > 0) setEnd(toTime(Math.min(toMin(start) + h, 23 * 60 + 59))); };
+  const onHours = v => { setHours(v); setErr(''); const h = parseHours(v); if (start && h > 0) setEnd(toMin(start) + h < 24 * 60 ? toTime(toMin(start) + h) : ''); };
   const clearTimes = () => { setStart(''); setEnd(''); };
   const save = () => {
     if (!start && end) return setErr('Add a start time too, or clear the end time.');
@@ -1276,6 +1385,7 @@ function EntryForm({ initial, others, onSave, onCancel, quick }) {
     if (Number.isNaN(h) && !(start && end)) return setErr('Write hours like 1:30, 1.5 or 1h 30m.');
     if (!(m > 0)) return setErr('Add the hours worked, or a start and end time.');
     if (m > 24 * 60) return setErr('One entry can’t be more than 24 hours.');
+    if (start && toMin(start) + m > 24 * 60) return setErr('This entry would run past midnight. Split it across two days.');
     if (!desc.trim()) return setErr('Describe what you worked on.');
     if (sumMins(others) + m > 24 * 60) return setErr('That takes the day over 24 hours.');
     if (start) { const a = toMin(start), b = a + m; const clash = others.filter(timed).find(o => a < toMin(o.end) && b > toMin(o.start)); if (clash) return setErr('Overlaps with ' + clash.start + '–' + clash.end + ' (' + clash.desc + ').'); }
@@ -1283,7 +1393,7 @@ function EntryForm({ initial, others, onSave, onCancel, quick }) {
     onSave(out);
     if (quick) { setStart(''); setEnd(''); setHours(''); setDesc(''); }
   };
-  return html`<div className=${quick ? 'ef qa' : 'ef'} onKeyDown=${e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') save(); }}>
+  return html`<div className=${(quick ? 'ef qa' : 'ef') + (compact ? ' compact' : '')} onKeyDown=${e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') save(); }}>
     ${quick ? html`<i className="qa-plus" aria-hidden="true">+</i>` : null}
     <input className="input" type="time" aria-label="Start time (optional)" title="Start (optional)" value=${start} onInput=${e => onStart(e.target.value)} />
     <input className="input" type="time" aria-label="End time (optional)" title="End (optional)" value=${end} onInput=${e => onEnd(e.target.value)} />
@@ -1350,7 +1460,7 @@ function DayLine({ emp, k, list, expanded, onToggle, children }) {
   let meta;
   if (lv) meta = 'On ' + lv.data.leaveType.toLowerCase() + ' leave';
   else if (store.settings.mode === 'timesheet') meta = isOff(k) ? (holidayOf(k) || 'Weekly off') : 'Shift ' + shiftOf(emp).map(toTime).join('–');
-  else if (a) meta = 'In ' + a.in + ' · Out ' + (a.out ? a.out + (a.auto ? ' (auto)' : '') : '—') + (a.out ? ' · At work ' + dur(toMin(a.out) - toMin(a.in)) : '');
+  else if (a) meta = 'In ' + a.in + ' · Out ' + (a.out ? (a.auto ? 'missed (auto 11:59 PM)' : a.out + ' · At work ' + dur(toMin(a.out) - toMin(a.in))) : '—');
   else meta = k > TODAY ? 'Upcoming' : k === TODAY ? 'Not checked in yet' : 'No check-in';
   const fill = exp ? Math.min(100, (logged / exp) * 100) : logged ? 100 : 0;
   return html`<div className=${'dl' + (expanded ? ' open' : '') + (k === TODAY ? ' tdy' : '')}>
@@ -1379,11 +1489,11 @@ function DayLines({ emp, days, entriesFor, view, sel, onToggle, panel }) {
 }
 
 /* ---- employee: my timesheet ---- */
-function MyTimesheet({ emp }) {
+function MyTimesheet({ emp, initDate }) {
   const { store, update, notify } = useApp();
   const [view, setView] = useState('week');
-  const [cursor, setCursor] = useState(TODAY);
-  const [sel, setSel] = useState(null);
+  const [cursor, setCursor] = useState(initDate || TODAY);
+  const [sel, setSel] = useState(initDate || null);
   const [draft, setDraft] = useState(null);
   const [showProposed, setShowProposed] = useState(false);
   const [askReason, setAskReason] = useState(false);
@@ -1794,60 +1904,283 @@ function TeamPage({ mgr }) {
 }
 
 /* ---------------- ESS: dashboard & sections ---------------- */
-function TimeSection({ emp }) {
+function TimeSection({ emp, init }) {
   const { store } = useApp();
   const mode = store.settings.mode;
-  const [tab, setTab] = useState(mode === 'timesheet' ? 'timesheet' : 'attendance');
+  const [tab, setTab] = useState((init && init.tab) || (mode === 'timesheet' ? 'timesheet' : 'attendance'));
   const TABS = [mode !== 'timesheet' && { k: 'attendance', label: 'Attendance' }, mode !== 'attendance' && { k: 'timesheet', label: 'Timesheet' }, { k: 'overtime', label: 'Overtime' }].filter(Boolean);
   const cur = TABS.find(t => t.k === tab) ? tab : TABS[0].k;
   return html`<div><${Tabs} tabs=${TABS} value=${cur} onChange=${setTab} />
-    ${cur === 'attendance' && html`<${MyAttendance} emp=${emp} />`}
-    ${cur === 'timesheet' && html`<${MyTimesheet} key=${emp.id} emp=${emp} />`}
+    ${cur === 'attendance' && html`<${MyAttendance} emp=${emp} initDate=${init && init.tab === 'attendance' ? init.date : null} />`}
+    ${cur === 'timesheet' && html`<${MyTimesheet} key=${emp.id} emp=${emp} initDate=${init && init.tab === 'timesheet' ? init.date : null} />`}
     ${cur === 'overtime' && html`<${MyOvertime} emp=${emp} />`}</div>`;
 }
-function Home({ emp, isManager, go }) {
+/* ---------------- ESS overview ---------------- */
+const GRADE = { 'Chief Executive Officer': 'L8', 'Engineering Manager': 'L6', 'Sales Manager': 'L6', 'Operations Manager': 'L6', 'Finance Manager': 'L6', 'HR Manager': 'L6', 'Senior Software Engineer': 'L4' };
+const gradeOf = e => GRADE[e.title] || 'L3';
+const emailOf = e => e.name.toLowerCase().replace(/[^a-z ]/g, '').split(' ').join('.') + '@acmetech.in';
+
+function Photo({ emp, cls }) {
+  const { store } = useApp();
+  const ph = store.profiles && store.profiles[emp.id] && store.profiles[emp.id].photo;
+  return ph ? html`<img className=${cls + ' has-img'} src=${ph} alt=${emp.name} />` : html`<div className=${cls} aria-hidden="true">${initials(emp.name)}</div>`;
+}
+function OvProfile({ emp, go }) {
+  const mgr = emp.mgr ? EMAP[emp.mgr] : null;
+  return html`<section className="panel pad ov-card" aria-label="Employee profile">
+    <div className="ov-prof">
+      <${Photo} emp=${emp} cls="ov-photo" />
+      <div><div className="ov-name">${emp.name}</div><div className="muted small">${emp.title}</div></div>
+    </div>
+    <dl className="kv ov-kv">
+      <dt>Employee ID</dt><dd>${emp.id}</dd>
+      <dt>Work email</dt><dd className="ov-mail">${emailOf(emp)}</dd>
+      <dt>Role and grade</dt><dd>${emp.title} · ${gradeOf(emp)}</dd>
+      <dt>Department</dt><dd>${emp.dept}</dd>
+      <dt>Reports to</dt><dd>${mgr ? mgr.name : 'No reporting manager'}${mgr ? html`<div className="muted small">${mgr.title}</div>` : null}</dd>
+    </dl>
+    <button className="btn ov-btn" style=${{ marginTop: '14px' }} onClick=${() => go('profile')}>Edit profile</button>
+  </section>`;
+}
+function OvAttendance({ emp, wide, go }) {
   const { store, update, notify } = useApp();
-  const mode = store.settings.mode;
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick(x => x + 1), 30000); return () => clearInterval(t); }, []);
   const a = store.attendance[emp.id + '|' + TODAY] || {};
+  const [ss, se] = shiftOf(emp);
+  const st = dayStatus(store, emp, TODAY);
   const lv = leaveOn(store, emp.id, TODAY);
-  const logged = sumMins(entriesOn(store, emp.id, TODAY));
-  const nowT = toTime(Math.min(1435, r5(nowMin())));
+  const now = nowMin(); const nowT = toTime(Math.min(1435, r5(now)));
+  const worked = a.in ? (a.out ? toMin(a.out) : now) - toMin(a.in) : 0;
+  let headline = 'Not checked in', tone = '';
+  if (lv) { headline = 'On ' + lv.data.leaveType.toLowerCase() + ' leave'; tone = 'blue'; }
+  else if (holidayOf(TODAY)) { headline = holidayOf(TODAY); tone = 'blue'; }
+  else if (isWeekend(TODAY) && !a.in) headline = 'Weekly off';
+  else if (a.out) { headline = 'Checked out'; tone = 'green'; }
+  else if (a.in) { headline = st.late ? 'Checked in late' : 'Checked in on time'; tone = st.late ? 'amber' : 'green'; }
+  return html`<section className=${'panel pad ov-card' + (wide ? ' ov-wide' : '')} aria-label="Attendance today">
+    <div className="row"><h3>Attendance</h3><span className="spacer"></span><button className="btn link small" onClick=${() => go('time', { tab: 'attendance' })}>Open ›</button></div>
+    <div className="muted small" style=${{ marginTop: '2px' }}>${fmtLong(TODAY)} · Shift ${toTime(ss)}–${toTime(se)}</div>
+    <div className=${'ov-status ' + tone}><span>${headline}</span><b className="ov-timer">${a.in ? dur(Math.max(0, worked)) : '0h'}</b></div>
+    <div className="ov-cells">
+      <div><span>Check in</span><b>${a.in || '—'}</b></div>
+      <div><span>Check out</span><b>${a.out || '—'}</b></div>
+      <div><span>At work</span><b>${a.in ? dur(Math.max(0, worked)) : '—'}</b></div>
+    </div>
+    <${PunchButtons} emp=${emp} full />
+    <div className="small muted" style=${{ marginTop: '8px' }}>${AUTO_NOTE}</div>
+  </section>`;
+}
+function OvTimesheet({ emp, wide, go }) {
+  const { store, update } = useApp();
+  const list = entriesOn(store, emp.id, TODAY);
+  const sorted = list.slice().sort(byStart);
+  const week = readWeek(store, emp.id, THIS_WEEK);
+  const appr = approvalOn(store);
+  const editable = !isLocked(store, TODAY) && (!appr || (['draft', 'submitted', 'rejected'].includes(week.status) && !week.change));
+  const logged = sumMins(list), exp = expectedFor(store, emp, TODAY);
+  const win = dayWindow(store, emp, TODAY);
+  const mgr = emp.mgr ? EMAP[emp.mgr] : null;
+  const save = (k, entry) => update(s => { const w = writeWeek(s, emp.id, mondayOf(k)); w.entries[k] = (w.entries[k] || []).concat([Object.assign({}, entry, { id: 'e' + (s.seq++) })]); });
+  const weekLine = !appr ? 'Approval is off for timesheets.' : week.status === 'draft' && !week.change ? 'This week auto-submits to ' + (mgr ? mgr.name : 'HR') + ' on ' + fmtDate(submitDateOf(store, THIS_WEEK)) + '.' : 'This week: ' + WEEK_STATUS[weekStatusKey(week)].label.toLowerCase() + '.';
+  return html`<section className=${'panel pad ov-card' + (wide ? ' ov-wide' : '')} aria-label="Today's timesheet">
+    <div className="row"><h3>Timesheet</h3><span className="spacer"></span><button className="btn link small" onClick=${() => go('time', { tab: 'timesheet', date: TODAY })}>Full timesheet ›</button></div>
+    <div className="small" style=${{ margin: '2px 0 8px', color: 'var(--ink-2)' }}>Today: logged <b style=${{ fontWeight: 500, color: 'var(--ink)' }}>${dur(logged)}</b>${exp ? ' of ' + dur(exp) : ''}</div>
+    <${BarTrack} win=${win} list=${list} />
+    <div className="bt-m" aria-hidden="true"><i className=${exp && logged > exp ? 'over' : ''} style=${{ width: (exp ? Math.min(100, (logged / exp) * 100) : logged ? 100 : 0) + '%' }}></i></div>
+    <div className="ov-entries">
+      ${sorted.length ? sorted.slice(-3).map(e => html`<div key=${e.id} className="ov-entry"><span className=${'t' + (timed(e) ? '' : ' nt')}>${entTime(e)}</span><span className="d">${dur(entryMins(e))}</span><span className="desc">${e.desc}</span></div>`)
+        : html`<div className="small muted">Nothing logged today yet.</div>`}
+      ${sorted.length > 3 ? html`<div className="small muted">and ${sorted.length - 3} earlier ${sorted.length - 3 === 1 ? 'entry' : 'entries'}</div>` : null}
+    </div>
+    ${editable ? html`<${EntryForm} quick compact others=${sorted} onSave=${v => save(TODAY, v)} />` : html`<div className="small muted" style=${{ marginTop: '8px' }}>Today can’t be edited right now. Open the full timesheet for details.</div>`}
+    <div className="small muted" style=${{ marginTop: '8px' }}>${weekLine}</div>
+  </section>`;
+}
+function OvTable({ emp, go }) {
+  const { store } = useApp();
+  const mode = store.settings.mode;
+  const appr = approvalOn(store);
+  const days = []; for (let k = TODAY; days.length < 10 && k > addDays(TODAY, -40); k = addDays(k, -1)) if (!isOff(k) || sumMins(entriesOn(store, emp.id, k)) || store.attendance[emp.id + '|' + k]) days.push(k);
+  return html`<section className="panel ov-card ov-table" aria-label="Recent days">
+    <div className="row pad" style=${{ paddingBottom: '10px' }}><h3>Last 10 working days</h3><span className="spacer"></span><span className="muted small">Click any cell to open it in Attendance, Timesheet or Overtime</span></div>
+    <div className="scroll-x"><table>
+      <thead><tr><th>Date</th>${mode !== 'timesheet' && html`<th>Check in</th>`}${mode !== 'timesheet' && html`<th>Check out</th>`}${mode !== 'attendance' && appr && html`<th>Timesheet</th>`}${mode !== 'attendance' && html`<th>Hours logged</th>`}<th>Overtime</th></tr></thead>
+      <tbody>${days.map(k => {
+        const a = attOf(store, emp, k);
+        const st = dayStatus(store, emp, k);
+        const w = readWeek(store, emp.id, mondayOf(k));
+        const ws = WEEK_STATUS[weekStatusKey(w)];
+        const logged = sumMins(entriesOn(store, emp.id, k));
+        const otR = otRequestFor(store, emp.id, k);
+        const ot = k < TODAY ? otSuggestion(store, emp, k) : null;
+        const lv = leaveOn(store, emp.id, k);
+        const toAtt = e => { e.stopPropagation(); go('time', { tab: 'attendance', date: k }); };
+        const toTs = e => { e.stopPropagation(); go('time', { tab: 'timesheet', date: k }); };
+        const toOt = e => { e.stopPropagation(); go('time', { tab: 'overtime' }); };
+        return html`<tr key=${k} className="ov-row" tabIndex="0" onClick=${() => go('time', { tab: mode === 'attendance' ? 'attendance' : 'timesheet', date: k })} onKeyDown=${e => { if (e.key === 'Enter') go('time', { tab: mode === 'attendance' ? 'attendance' : 'timesheet', date: k }); }}>
+          <td><b style=${{ fontWeight: 500, color: k === TODAY ? 'var(--red)' : undefined }}>${fmtDate(k)}</b>${k === TODAY ? html`<span className="muted small"> today</span>` : null}</td>
+          ${mode !== 'timesheet' && html`<td className="ov-cell" title="Open in Attendance" onClick=${toAtt}>${lv ? html`<span className="mini leave">Leave</span>` : a ? kids(html`<span>${a.in}</span>${st.late ? html` <span className="mini late">Late</span>` : null}`) : k < TODAY ? html`<span className="mini absent">Absent</span>` : '—'}</td>`}
+          ${mode !== 'timesheet' && html`<td className="ov-cell" title="Open in Attendance" onClick=${toAtt}>${a && a.out ? (a.auto ? html`<span className="mini late">Missed · auto 11:59 PM</span>` : html`<span>${a.out}</span>`) : a ? html`<span className="muted">Still in</span>` : '—'}</td>`}
+          ${mode !== 'attendance' && appr && html`<td className="ov-cell" title="Open in Timesheet" onClick=${toTs}>${mondayOf(k) <= THIS_WEEK ? html`<span className=${'chip ' + ws.cls}>${ws.label}</span>` : '—'}</td>`}
+          ${mode !== 'attendance' && html`<td className="ov-cell" title="Open in Timesheet" onClick=${toTs}>${logged ? dur(logged) : html`<span className="muted">0h</span>`}</td>`}
+          <td className="ov-cell" title="Open Overtime" onClick=${toOt}>${otR ? html`<${ReqStatusChip} r=${otR} />` : ot ? html`<span className="chip amber">${dur(ot.extra)} not claimed</span>` : html`<span className="muted">No</span>`}</td>
+        </tr>`;
+      })}</tbody>
+    </table></div>
+  </section>`;
+}
+function OvNotifications({ emp, isManager, go }) {
+  const { store } = useApp();
+  const actions = [];
+  const appr = approvalOn(store);
+  // sent-back weeks
+  if (appr) Object.keys(store.weeks).filter(k => k.startsWith(emp.id + '|')).forEach(k => { const w = store.weeks[k]; const ws = k.split('|')[1]; if (w.status === 'rejected') actions.push({ id: 'sb' + ws, tone: 'back', title: 'Timesheet sent back', text: 'Week of ' + fmtShort(ws) + ': ' + w.comment, btn: 'Fix and resubmit', go: ['time', { tab: 'timesheet', date: ws }] }); });
+  // auto check-outs without a correction
+  if (store.settings.mode !== 'timesheet') for (let i = 1; i <= 14; i++) { const k = addDays(TODAY, -i); const a = attOf(store, emp, k); if (a && a.auto && !isLocked(store, k) && !store.requests.some(r => r.type === 'attendance' && r.empId === emp.id && r.data.date === k && r.status !== 'rejected')) actions.push({ id: 'ac' + k, tone: 'info', title: 'You didn’t check out on ' + fmtDate(k), text: 'The day closed automatically at 11:59 PM. Update it to when you actually left.', btn: 'Update check-out', go: ['time', { tab: 'attendance', date: k }] }); }
+  // unclaimed overtime
+  let otDays = 0, otMin = 0; for (let i = 1; i <= 35; i++) { const k = addDays(TODAY, -i); if (isLocked(store, k)) continue; const o = otSuggestion(store, emp, k); if (o && !otRequestFor(store, emp.id, k)) { otDays++; otMin += o.extra; } }
+  if (otDays) actions.push({ id: 'ot', tone: 'amber', title: dur(otMin) + ' of overtime not claimed', text: otDays + ' day' + (otDays === 1 ? '' : 's') + ' with hours beyond your standard day.', btn: 'Review overtime', go: ['time', { tab: 'overtime' }] });
+  if (isManager) { const reports = EMP.filter(e => e.mgr === emp.id).map(e => e.id); const n = teamTimesheetItems(store, emp.id).length + store.requests.filter(r => reports.includes(r.empId) && r.status === 'pending_l1' && reqVisible(store, r)).length; if (n) actions.unshift({ id: 'team', tone: 'info', title: n + ' waiting for your approval', text: 'Timesheets and requests from your team.', btn: 'Open My team', go: ['team'] }); }
+  // updates from my requests
+  const updates = store.requests.filter(r => r.empId === emp.id && reqVisible(store, r)).map(r => { const last = r.trail[r.trail.length - 1]; return { r, at: last.at, last }; }).sort((x, y) => x.at < y.at ? 1 : -1).slice(0, 6);
+  const updText = ({ r, last }) => r.status === 'approved' ? 'Approved' + (last.by ? ' by ' + last.by : '') : r.status === 'rejected' ? 'Rejected by ' + last.by + (last.comment ? ': ' + last.comment : '') : 'Waiting ' + reqStatusText(r);
+  const pageFor = r => r.type === 'profile' ? ['profile'] : r.type === 'leave' ? ['leave'] : r.type === 'reimbursement' ? ['reimbursement'] : r.type === 'overtime' ? ['time', { tab: 'overtime' }] : ['time', { tab: 'attendance', date: r.data.date }];
+  // announcements
+  let nextHol = null; for (let i = 1; i <= 120 && !nextHol; i++) { const k = addDays(TODAY, i); if (holidayOf(k) && !isWeekend(k)) nextHol = k; }
+  const news = [nextHol && { id: 'hol', title: 'Office closed for ' + holidayOf(nextHol), text: fmtLong(nextHol) + '. No check-in needed.' },
+    { id: 'hrs', title: 'New: log hours without start and end times', text: 'Timesheet entries now take hours on their own, if you don’t track times.' },
+    { id: 'pol', title: 'Overtime policy', text: 'Overtime counts beyond your standard day, and weekends and holidays count in full. Claim it within the month.' }].filter(Boolean);
+  return html`<section className="panel ov-card ov-notes" aria-label="Notifications">
+    <div className="row pad" style=${{ paddingBottom: '6px' }}><h3>Notifications</h3><span className="spacer"></span>${actions.length ? html`<span className="chip red">${actions.length} to do</span>` : null}</div>
+    <div className="ov-feed">
+      ${actions.length > 0 && html`<div className="ov-grp">Needs your action</div>`}
+      ${actions.map(x => html`<div key=${x.id} className=${'ov-note act ' + x.tone}><div><b>${x.title}</b><div className="small">${x.text}</div></div><button className="btn sm" onClick=${() => go(...x.go)}>${x.btn}</button></div>`)}
+      ${updates.length > 0 && html`<div className="ov-grp">Your requests</div>`}
+      ${updates.map(u => html`<button key=${u.r.id} className="ov-note upd" onClick=${() => go(...pageFor(u.r))}>
+        <span className=${'dot-s ' + (u.r.status === 'approved' ? 'g' : u.r.status === 'rejected' ? 'r' : 'b')}></span>
+        <div><b>${reqTitle(u.r)}</b> <span className="muted small">${u.r.type === 'profile' ? 'Personal details' : u.r.type === 'leave' ? fmtShort(u.r.data.from) + (u.r.data.to !== u.r.data.from ? '–' + fmtShort(u.r.data.to) : '') : u.r.type === 'reimbursement' ? inr(u.r.data.amount) : fmtShort(u.r.data.date)}</span><div className="small">${updText(u)}</div></div>
+        <span className="muted small">${fmtShort(u.at)}</span></button>`)}
+      <div className="ov-grp">Announcements</div>
+      ${news.map(n => html`<div key=${n.id} className="ov-note news"><div><b>${n.title}</b><div className="small">${n.text}</div></div></div>`)}
+    </div>
+  </section>`;
+}
+const OvIcon = {
+  leave: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>`,
+  reimb: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>`,
+  ot: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg>`,
+  pay: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>`,
+  doc: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 13h6M9 17h4"/></svg>`,
+};
+function OvCards({ emp, go }) {
+  const { store } = useApp();
   const mine = t => store.requests.filter(r => r.empId === emp.id && r.type === t);
   const pend = t => mine(t).filter(r => r.status === 'pending_l1' || r.status === 'pending_l2');
   const nextLeave = mine('leave').filter(r => r.status === 'approved' && r.data.to >= TODAY).sort((x, y) => x.data.from < y.data.from ? -1 : 1)[0];
   const claimAmt = pend('reimbursement').reduce((t, r) => t + r.data.amount, 0);
-  const w = readWeek(store, emp.id, THIS_WEEK);
-  let line1, line2, action = null;
-  if (mode !== 'timesheet') {
-    line1 = lv ? 'On leave today' : !a.in ? 'Not checked in' : a.out ? 'Checked out at ' + a.out : 'Checked in at ' + a.in;
-    line2 = mode === 'both' ? dur(logged) + ' logged in your timesheet today' : 'Shift ' + SHIFTS[emp.dept].join('–');
-    if (!lv && !a.in && !isOff(TODAY)) action = html`<button className="btn primary sm" onClick=${e => { e.stopPropagation(); update(s => { s.attendance[emp.id + '|' + TODAY] = { in: nowT }; }); notify('Checked in at ' + nowT); }}>Check in</button>`;
-    else if (a.in && !a.out) action = html`<button className="btn primary sm" onClick=${e => { e.stopPropagation(); update(s => { s.attendance[emp.id + '|' + TODAY].out = nowT; }); notify('Checked out at ' + nowT); }}>Check out</button>`;
-  } else { line1 = dur(logged) + ' logged today'; line2 = approvalOn(store) ? 'This week: ' + WEEK_STATUS[weekStatusKey(w)].label.toLowerCase() : 'Shift ' + SHIFTS[emp.dept].join('–'); }
-  const reports = EMP.filter(e => e.mgr === emp.id);
-  const teamWaiting = isManager ? teamTimesheetItems(store, emp.id).length + store.requests.filter(r => reports.some(x => x.id === r.empId) && r.status === 'pending_l1' && reqVisible(store, r)).length : 0;
-  const teamIn = reports.filter(e => store.attendance[e.id + '|' + TODAY]).length;
-  const card = (k, title, value, sub, foot, feature) => html`<div key=${k} className=${'hcard link' + (feature ? ' feature' : '')} role="button" tabIndex="0" onClick=${() => go(k)} onKeyDown=${e => { if (e.key === 'Enter') go(k); }}>
-    <div className="hk">${title}</div><div className="hv">${value}</div><div className="hs">${sub}</div><div className="hf">${kids(foot)}</div></div>`;
-  return html`<div className="home-grid">
-    ${card('time', kids(html`${Icon.clock}<span>${SECTION_NAME[mode]}</span>`), line1, line2, [action, html`<span key="o" className="btn link small">Open</span>`], true)}
-    ${isManager && card('team', 'My team', mode !== 'timesheet' ? teamIn + ' of ' + reports.length + ' checked in' : reports.length + ' people', teamWaiting + ' waiting for your approval', [html`<span key="o" className="btn link small">Open</span>`])}
-    ${card('leave', 'Leave', nextLeave ? 'Next: ' + fmtShort(nextLeave.data.from) : 'No leave booked', pend('leave').length + ' request' + (pend('leave').length === 1 ? '' : 's') + ' waiting', [html`<span key="o" className="btn link small">Open</span>`])}
-    ${card('reimbursement', 'Reimbursements', claimAmt ? inr(claimAmt) + ' pending' : 'Nothing pending', pend('reimbursement').length + ' claim' + (pend('reimbursement').length === 1 ? '' : 's') + ' in approval', [html`<span key="o" className="btn link small">Open</span>`])}
-    <div className="hcard dim"><div className="hk">Payslips</div><div className="hs">Not part of this prototype.</div></div>
+  const m = monthOf(TODAY);
+  const otApproved = mine('overtime').filter(r => r.status === 'approved' && monthOf(r.data.date) === m).reduce((t, r) => t + r.data.minutes, 0);
+  const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+  const cards = [
+    { k: 'leave', icon: OvIcon.leave, label: 'Leave', value: nextLeave ? 'Next: ' + fmtShort(nextLeave.data.from) : 'None booked', sub: plural(pend('leave').length, 'request') + ' waiting', go: ['leave'] },
+    { k: 'reimb', icon: OvIcon.reimb, label: 'Reimbursements', value: claimAmt ? inr(claimAmt) + ' pending' : 'Nothing pending', sub: plural(pend('reimbursement').length, 'claim') + ' in approval', go: ['reimbursement'] },
+    { k: 'ot', icon: OvIcon.ot, label: 'Overtime', value: dur(otApproved) + ' approved', sub: 'in ' + MON_LONG[+m.slice(5) - 1] + ', ' + plural(pend('overtime').length, 'request') + ' waiting', go: ['time', { tab: 'overtime' }] },
+    { k: 'pay', icon: OvIcon.pay, label: 'Payslips', value: 'Not in this prototype', sub: 'Coming in a later service', dim: true },
+    { k: 'doc', icon: OvIcon.doc, label: 'Documents', value: 'Not in this prototype', sub: 'Coming in a later service', dim: true },
+  ];
+  return html`<section className="ov-cards" aria-label="Shortcuts">${cards.map(c => html`<button key=${c.k} className=${'ov-sc' + (c.dim ? ' dim' : '')} disabled=${!!c.dim} onClick=${() => c.go && go(...c.go)}>
+    <span className="ov-sc-i">${c.icon}</span><span className="ov-sc-l">${c.label}</span><b>${c.value}</b><span className="ov-sc-s">${c.sub}</span></button>`)}</section>`;
+}
+function Home({ emp, isManager, go }) {
+  const { store } = useApp();
+  const mode = store.settings.mode;
+  return html`<div className=${'ov' + (mode === 'both' ? '' : ' one')}>
+    <${OvProfile} emp=${emp} go=${go} />
+    ${mode !== 'timesheet' && html`<${OvAttendance} emp=${emp} wide=${mode === 'attendance'} go=${go} />`}
+    ${mode !== 'attendance' && html`<${OvTimesheet} emp=${emp} wide=${mode === 'timesheet'} go=${go} />`}
+    <${OvCards} emp=${emp} go=${go} />
+    <${OvTable} emp=${emp} go=${go} />
+    <${OvNotifications} emp=${emp} isManager=${isManager} go=${go} />
   </div>`;
 }
-function Ess({ emp, isManager }) {
+function MyProfile({ emp }) {
+  const { store, update, notify } = useApp();
+  const init = profileOf(store, emp);
+  const pending = store.requests.find(r => r.type === 'profile' && r.empId === emp.id && r.status === 'pending_l2');
+  const last = store.requests.find(r => r.type === 'profile' && r.empId === emp.id && r.status !== 'pending_l2');
+  const [f, setF] = useState(init);
+  const [err, setErr] = useState('');
+  useEffect(() => { setF(profileOf(store, emp)); }, [JSON.stringify(init)]);
+  const changed = Object.keys(f).filter(k => (f[k] || '') !== (init[k] || ''));
+  const dirty = changed.length > 0 && !pending;
+  const set = (k, v) => { setF(Object.assign({}, f, { [k]: v })); setErr(''); };
+  const mgr = emp.mgr ? EMAP[emp.mgr] : null;
+  const pickPhoto = e => { const file = e.target.files && e.target.files[0]; if (!file) return; if (file.size > 1024 * 1024) { setErr('Pick a photo under 1 MB.'); return; } const r = new FileReader(); r.onload = () => set('photo', r.result); r.readAsDataURL(file); };
+  const save = () => {
+    if (f.phone.replace(/\D/g, '').length < 10) return setErr('Enter a mobile number with at least 10 digits.');
+    if (f.personalEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.personalEmail)) return setErr('That personal email doesn’t look right.');
+    if (!f.ecName.trim() || f.ecPhone.replace(/\D/g, '').length < 10) return setErr('Add an emergency contact name and a 10-digit number.');
+    const from = {}, to = {}; changed.forEach(k => { from[k] = init[k]; to[k] = f[k]; });
+    update(s => createProfileRequest(s, emp.id, from, to));
+    setF(init);
+    notify('Sent to HR for approval');
+  };
+  const locked = !!pending;
+  const field = (k, label, type) => html`<div className="field"><label htmlFor=${'pf-' + k}>${label}</label>${type === 'area'
+    ? html`<textarea id=${'pf-' + k} className="input" disabled=${locked} value=${f[k]} onInput=${e => set(k, e.target.value)}></textarea>`
+    : html`<input id=${'pf-' + k} className="input" disabled=${locked} type=${type || 'text'} value=${f[k]} onInput=${e => set(k, e.target.value)} />`}</div>`;
+  const shown = Object.assign({}, emp);
+  return html`<div className="pf">
+    <section className="panel pad">
+      <div className="row" style=${{ gap: '16px', marginBottom: '16px' }}>
+        ${f.photo ? html`<img className="pf-photo has-img" src=${f.photo} alt=${emp.name} />` : html`<div className="pf-photo" aria-hidden="true">${initials(emp.name)}</div>`}
+        <div><div className="ov-name">${emp.name}</div><div className="muted small">${emp.title} · ${gradeOf(emp)}</div>
+          <div className="row" style=${{ gap: '6px', marginTop: '8px' }}>
+            ${locked ? html`<span className="muted small">Photo changes are locked while HR reviews your update.</span>` : html`<label className="btn sm" htmlFor="pf-photo">Change photo</label>`}<input id="pf-photo" type="file" accept="image/*" style=${{ display: 'none' }} onChange=${pickPhoto} />
+            ${f.photo && !locked ? html`<button className="btn sm ghost" onClick=${() => set('photo', null)}>Remove</button>` : null}
+          </div></div>
+      </div>
+      <h3 style=${{ marginBottom: '8px' }}>Work details</h3>
+      <div className="muted small" style=${{ marginBottom: '10px' }}>Managed by HR. Ask HR if something here is wrong.</div>
+      <dl className="kv ov-kv">
+        <dt>Employee ID</dt><dd>${shown.id}</dd><dt>Work email</dt><dd className="ov-mail">${emailOf(emp)}</dd>
+        <dt>Role and grade</dt><dd>${emp.title} · ${gradeOf(emp)}</dd><dt>Department</dt><dd>${emp.dept}</dd>
+        <dt>Reports to</dt><dd>${mgr ? mgr.name : 'No reporting manager'}</dd><dt>Shift</dt><dd>${SHIFTS[emp.dept].join('–')}</dd>
+      </dl>
+    </section>
+    <section className="panel pad">
+      <h3 style=${{ marginBottom: '4px' }}>Personal details</h3>
+      <div className="muted small" style=${{ marginBottom: '12px' }}>Changes go to HR for approval. Your profile updates once HR approves them.</div>
+      ${pending && html`<div className="banner amber"><div style=${{ flex: 1 }}><b>Waiting for HR approval</b><div className="small">Sent ${fmtShort(pending.created)}: ${reqSummary(pending)}</div></div>
+        <button className="btn sm" onClick=${() => { update(s => { s.requests = s.requests.filter(r => r.id !== pending.id); }); notify('Update withdrawn'); }}>Withdraw</button></div>`}
+      ${!pending && last && last.status === 'rejected' && html`<div className="banner red"><div><b>HR didn’t approve your last update</b><div className="small">${(last.trail.filter(t => t.comment).slice(-1)[0] || {}).comment || 'No reason given.'}</div></div></div>`}
+      ${!pending && last && last.status === 'approved' && html`<div className="banner blue"><div>HR approved your last update on ${fmtShort(last.trail[last.trail.length - 1].at)}.</div></div>`}
+      <div className="pf-grid">
+        ${field('phone', 'Mobile number', 'tel')}${field('personalEmail', 'Personal email', 'email')}
+        <div style=${{ gridColumn: '1/-1' }}>${field('address', 'Current address', 'area')}</div>
+      </div>
+      <h3 style=${{ margin: '6px 0 12px' }}>Emergency contact</h3>
+      <div className="pf-grid">${field('ecName', 'Name')}${field('ecRel', 'Relationship')}${field('ecPhone', 'Phone', 'tel')}</div>
+      ${err && html`<div className="err" style=${{ marginBottom: '8px' }}>${err}</div>`}
+      <div className="row"><button className="btn primary" disabled=${!dirty} onClick=${save}>Send to HR for approval</button>${dirty ? html`<button className="btn ghost" onClick=${() => setF(init)}>Discard</button>` : html`<span className="muted small">${pending ? 'You can make more changes once HR responds.' : 'No unsaved changes'}</span>`}</div>
+    </section>
+  </div>`;
+}
+const ESS_PAGES = (store, isManager) => [['home', 'Overview'], ['time', SECTION_NAME[store.settings.mode]], isManager && ['team', 'My team'], ['leave', 'Leave'], ['reimbursement', 'Reimbursements'], ['profile', 'My profile']].filter(Boolean);
+function Ess({ emp, isManager, nav, setNav }) {
   const { store } = useApp();
-  const [page, setPage] = useState('home');
-  const names = { time: SECTION_NAME[store.settings.mode], team: 'My team', leave: 'Leave', reimbursement: 'Reimbursements' };
+  const go = (k, params) => setNav({ k, params: params || {}, n: Date.now() });
+  const names = Object.fromEntries(ESS_PAGES(store, isManager));
+  const page = nav.k;
   return html`<div>
-    ${page !== 'home' && html`<div className="crumb"><button onClick=${() => setPage('home')}>Home</button><span>›</span><span>${names[page]}</span></div>`}
-    ${page === 'home' && html`<${Home} emp=${emp} isManager=${isManager} go=${setPage} />`}
-    ${page === 'time' && html`<${TimeSection} emp=${emp} />`}
+    ${page !== 'home' && html`<div className="crumb"><button onClick=${() => go('home')}>Overview</button><span>›</span><span>${names[page]}</span></div>`}
+    ${page === 'home' && html`<${Home} emp=${emp} isManager=${isManager} go=${go} />`}
+    ${page === 'time' && html`<${TimeSection} key=${nav.n} emp=${emp} init=${nav.params} />`}
     ${page === 'team' && html`<${TeamPage} mgr=${emp} />`}
     ${page === 'leave' && html`<${MyRequests} key="leave" emp=${emp} type="leave" />`}
     ${page === 'reimbursement' && html`<${MyRequests} key="reimb" emp=${emp} type="reimbursement" />`}
+    ${page === 'profile' && html`<${MyProfile} key=${emp.id} emp=${emp} />`}
   </div>`;
 }
 
@@ -1859,7 +2192,7 @@ function PayrollApprovals() {
   const inTeam = r => r.l2 === team && reqVisible(store, r);
   const list = store.requests.filter(r => inTeam(r) && (showDone ? (r.status === 'pending_l2' || r.trail.some(t => t.level === 2)) : r.status === 'pending_l2'));
   const count = t => store.requests.filter(r => r.status === 'pending_l2' && r.l2 === t && reqVisible(store, r)).length;
-  const comps = Object.keys(store.settings.l2).filter(k => store.settings.l2[k] === team).map(k => k === 'timesheet' ? 'Timesheets' : TYPE_LABEL[k]);
+  const comps = Object.keys(store.settings.l2).filter(k => store.settings.l2[k] === team).map(k => k === 'timesheet' ? 'Timesheets' : TYPE_LABEL[k]).concat(team === 'HR' ? ['Profile updates (no manager step)'] : []);
   return html`<div>
     <div className="row" style=${{ marginBottom: '12px' }}>
       <${Seg} label="Team" value=${team} onChange=${setTeam} options=${[['HR', 'HR (' + count('HR') + ')'], ['Finance', 'Finance (' + count('Finance') + ')']]} />
@@ -1913,7 +2246,7 @@ function Settings() {
         <${NumField} id="b" label="Break included in each shift" value=${st.breakMin} unit="min" onChange=${v => set('breakMin', v)} />
         <${NumField} id="o" label="Suggest overtime from" value=${st.otMin} unit="min extra" onChange=${v => set('otMin', v)} />
       </div>
-      <div className="small muted">A 9h shift includes the break. Overtime is time beyond the shift length, whatever time someone checks in. Weekends and holidays count in full. Days without a check-out close automatically at shift end.</div></div>
+      <div className="small muted">A 9h shift includes the break. Overtime is time beyond the shift length, whatever time someone checks in. Weekends and holidays count in full. Anyone who doesn’t check out is checked out automatically at 11:59 PM, and that day never counts as overtime until the real time is updated.</div></div>
     ${st.mode !== 'attendance' && html`<div className="panel pad"><div className="row"><div style=${{ flex: 1, minWidth: '240px' }}><h2 style=${{ marginBottom: '4px' }}>Timesheet approval</h2>
         <div className="muted small">When on, timesheets go to the reporting manager every ${DAY_LONG[st.submitDay]}, and payroll for a month can't be processed until every timesheet in it is approved.</div></div>
         <button className="switch" role="switch" aria-checked=${st.tsApproval} aria-label="Timesheet approval" onClick=${() => { set('tsApproval', !st.tsApproval); notify('Timesheet approval ' + (st.tsApproval ? 'off' : 'on')); }}></button></div>
@@ -1955,7 +2288,7 @@ function DemoControls() {
   return html`<div className="demo">
     ${open && html`<div className="panel demo-pop" role="dialog" aria-label="Demo controls"><h3 style=${{ marginBottom: '10px' }}>Demo controls</h3>
       <div className="field"><label>Tracking mode</label><${Seg} label="Tracking mode" value=${store.settings.mode} onChange=${k => { update(s => { s.settings.mode = k; }); notify(MODE_LABEL[k]); }} options=${[['attendance', 'Attendance'], ['both', 'Both'], ['timesheet', 'Timesheet']]} /></div>
-      <div className="row">${approvalOn(store) && html`<button className="btn sm" onClick=${() => { update(runSubmission); notify('Submission run done'); }}>Simulate submission day</button>`}<button className="btn sm" onClick=${reset}>Reset demo data</button></div>
+      <div className="row">${approvalOn(store) && html`<button className="btn sm" onClick=${() => { update(runSubmission); notify('Submission run done'); }}>Simulate submission day</button>`}<button className="btn sm" onClick=${() => { update(s => { delete s.attendance[EMPLOYEE_ID + '|' + TODAY]; delete s.attendance[MANAGER_ID + '|' + TODAY]; }); notify('Today’s check-in cleared for both personas'); }}>Reset today’s check-in</button><button className="btn sm" onClick=${reset}>Reset demo data</button></div>
       <div className="small muted" style=${{ marginTop: '10px' }}>Changes are saved in this browser, so approvals carry across the three tabs.</div></div>`}
     <button className="demo-btn" aria-expanded=${open} onClick=${() => setOpen(o => !o)}>${open ? 'Close' : 'Demo controls'}</button>
   </div>`;
@@ -1963,6 +2296,8 @@ function DemoControls() {
 function App() {
   const [store, setStore] = useState(loadStore);
   const [section, setSection] = useState('ess-employee');
+  const [essNav, setEssNav] = useState({ 'ess-employee': { k: 'home', params: {} }, 'ess-manager': { k: 'home', params: {} } });
+  const setNavFor = sec => v => setEssNav(prev => Object.assign({}, prev, { [sec]: v }));
   const [toast, setToast] = useState(null);
   useEffect(() => { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) { /* ignore */ } }, [store]);
   useEffect(() => { if (!toast) return; const t = setTimeout(() => setToast(null), 2600); return () => clearTimeout(t); }, [toast]);
@@ -1980,16 +2315,19 @@ function App() {
     <div className="app">
       <nav className="side" aria-label="Services">
         <div className="logo"><span className="logo-mark" aria-hidden="true"></span>Peko</div>
-        ${NAV.map(n => html`<button key=${n.k} className="nav" aria-current=${section === n.k ? 'page' : undefined} onClick=${() => setSection(n.k)}>${n.icon}<span>${n.label}</span>${n.n ? html`<span className="count">${n.n}</span>` : null}</button>`)}
+        ${NAV.map(n => html`<div key=${n.k} className="navgrp">
+          <button className="nav" aria-current=${section === n.k && n.k === 'payroll' ? 'page' : undefined} aria-expanded=${n.k !== 'payroll' ? section === n.k : undefined} onClick=${() => { setSection(n.k); if (n.k !== 'payroll') setNavFor(n.k)({ k: 'home', params: {} }); }}>${n.icon}<span>${n.label}</span>${n.n ? html`<span className="count">${n.n}</span>` : null}</button>
+          ${n.k !== 'payroll' && section === n.k && html`<div className="subnav">${ESS_PAGES(store, n.k === 'ess-manager').map(([k, l]) => html`<button key=${k} className="subnav-i" aria-current=${essNav[n.k].k === k ? 'page' : undefined} onClick=${() => setNavFor(n.k)({ k, params: {}, n: Date.now() })}>${l}</button>`)}</div>`}
+        </div>`)}
         <div className="side-foot">Attendance & Timesheet prototype<br/>Mode: ${MODE_LABEL[store.settings.mode]}</div>
       </nav>
       <div className="main">
         <header className="top"><div><h1>${titles[section][0]}</h1><div className="sub">${titles[section][1]}</div></div>
-          <div className="who"><span className="avatar">${persona ? initials(persona.name) : 'A'}</span><div><b>${persona ? persona.name : 'Acme Technologies Pvt Ltd'}</b><span>${persona ? persona.title : 'Corporate'}</span></div></div></header>
+          <div className="who">${persona ? html`<${Photo} emp=${persona} cls="avatar" />` : html`<span className="avatar">A</span>`}<div><b>${persona ? persona.name : 'Acme Technologies Pvt Ltd'}</b><span>${persona ? persona.title : 'Corporate'}</span></div></div></header>
         <main className="content">
           ${section === 'payroll' && html`<${Payroll} />`}
-          ${section === 'ess-employee' && html`<${Ess} key="emp" emp=${EMAP[EMPLOYEE_ID]} />`}
-          ${section === 'ess-manager' && html`<${Ess} key="mgr" emp=${EMAP[MANAGER_ID]} isManager />`}
+          ${section === 'ess-employee' && html`<${Ess} key="emp" emp=${EMAP[EMPLOYEE_ID]} nav=${essNav['ess-employee']} setNav=${setNavFor('ess-employee')} />`}
+          ${section === 'ess-manager' && html`<${Ess} key="mgr" emp=${EMAP[MANAGER_ID]} isManager nav=${essNav['ess-manager']} setNav=${setNavFor('ess-manager')} />`}
         </main>
       </div>
     </div>

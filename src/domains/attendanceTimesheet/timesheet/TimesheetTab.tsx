@@ -332,6 +332,7 @@ const TimesheetTab = ({ onChanged }: TimesheetTabProps) => {
                 initial={correction?.initial}
                 current={correction?.current}
                 fromTimesheet
+                shiftEnd={shift.end}
                 onClose={() => setCorrection(null)}
                 onSubmitted={() => {
                     setCorrection(null);

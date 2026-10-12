@@ -84,10 +84,10 @@ const CorrectionsList = ({ items, onUpdated, onOpenDay }: CorrectionsListProps) 
                             Recorded
                         </Text>
                         <Text className="tabular-nums">
-                            {span(c.current.checkIn, c.current.checkOut)}
-                            {c.current.checkOutAuto && (
-                                <span className="text-titleText text-xs"> (auto)</span>
-                            )}
+                            {/* PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out (auto 11:59 PM). */}
+                            {c.current.checkOutAuto
+                                ? `${displayTime(c.current.checkIn ?? '')} – missed (auto 11:59 PM)`
+                                : span(c.current.checkIn, c.current.checkOut)}
                         </Text>
                         <ArrowRightOutlined className="text-[10px] text-titleText" />
                         <Text type="secondary" className="text-xs">

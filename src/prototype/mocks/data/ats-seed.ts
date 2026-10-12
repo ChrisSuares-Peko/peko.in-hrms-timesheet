@@ -9,7 +9,7 @@
 //     afterCheckOut  Thu of that week: checked out 17:45, time logged until 19:30 → "logged outside check-in hours".
 //   crWeek           the week before this one: Approved, with a pending change request (client call added).
 //   overtimeDay      first working day this week (else last week) without a request: out 20:05 → suggested overtime.
-//   autoDay          the working day before today: no check-out (auto 18:30), entries until 20:15.
+//   autoDay          the working day before today: missed check-out (auto 11:59 PM), entries until 20:15.
 //   plannedDay       next working day: a planned timesheet entry (later this week, or next week on a Friday).
 //   + an approved leave in the next fortnight (data/time-leaves.ts) and a rejected change request in the past.
 // ESS - Manager (Arjun) team today: Rahul late, Karthik not checked in, Ananya on leave; Sneha checked in.
@@ -34,6 +34,7 @@ import {
     startTrail,
     toMinutes,
     weekStartOf,
+    windowEnd,
 } from '@src/prototype/rules/attendance';
 
 import { isoDateTime, monthsAgo } from './dates';
@@ -196,8 +197,10 @@ const entriesFor = (e: MockEmployee, date: string, start: string, end: string): 
 /** Entries for a past day: the check-in → (effective) check-out window. Today: none (filled in by scenario). */
 const dayEntries = (e: MockEmployee, record: AttendanceRecord | undefined, today: string): TimesheetEntry[] => {
     if (!record?.checkIn || record.date >= today) return [];
-    const { checkOut } = effectiveCheckOut({ date: record.date, today, checkIn: record.checkIn, checkOut: record.checkOut, settings: DEFAULT_SETTINGS });
-    return checkOut ? entriesFor(e, record.date, record.checkIn, checkOut) : [];
+    const eff = effectiveCheckOut({ date: record.date, today, checkIn: record.checkIn, checkOut: record.checkOut });
+    // PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out (auto 11:59 PM) is seeded up to the shift end.
+    const end = windowEnd({ checkIn: record.checkIn, checkOut: eff.checkOut, checkOutAuto: eff.auto }, DEFAULT_SETTINGS);
+    return end ? entriesFor(e, record.date, record.checkIn, end) : [];
 };
 
 // ---- weeks ------------------------------------------------------------------------------------------------
@@ -362,7 +365,7 @@ const snehaScenarios = (s: ReturnType<typeof atsScenario>, seed: AtsSeed) => {
         };
     }
 
-    // This week: the auto check-out day runs past 18:30; a morning block today; a planned entry later.
+    // This week: the missed check-out day runs past the 18:30 shift end; a morning block today; a planned entry later.
     const tw = weeks[weekId(sneha.id, s.thisWeek)];
     if (tw) {
         const extra: TimesheetEntry[] = [];
@@ -465,7 +468,7 @@ const seedCorrections = (s: ReturnType<typeof atsScenario>, attendance: AtsSeed[
         const e = emp(c);
         const r = attendance[recordKey(e.id, date)];
         if (date < e.dateOfJoin) return null;
-        const eff = effectiveCheckOut({ date, today: s.today, checkIn: r?.checkIn ?? null, checkOut: r?.checkOut ?? null, settings: DEFAULT_SETTINGS });
+        const eff = effectiveCheckOut({ date, today: s.today, checkIn: r?.checkIn ?? null, checkOut: r?.checkOut ?? null });
         const createdAt = isoDateTime(workingDayOffset(date, 1), '04:30:00');
         return {
             id,

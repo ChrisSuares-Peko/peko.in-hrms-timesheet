@@ -11,16 +11,20 @@ import {
     addEntry,
     editEntry,
     attendanceMonthOf,
+    checkIn,
+    checkOut,
     createCorrection,
     createOvertime,
     overtimeViewOf,
     overviewOf,
     submitWeek,
 } from '../atsEss';
-import { attendanceDay, currentMonth, lastMonth, weekView } from '../atsStore';
+import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../atsProfile';
+import { attendanceDay, currentMonth, lastMonth, recordOf, resetTodayCheckIn, weekView } from '../atsStore';
 import {
     approveWeek,
     decideRequest,
+    level2Counts,
     level2Requests,
     payrollMonthStatus,
     processPayrollMonth,
@@ -183,5 +187,70 @@ describe('manual submit', () => {
         expect(weekView(M, sneha, s.thisWeek).week.status).toBe('DRAFT');
         const label = day === 'TUESDAY' ? 'Tuesday' : 'Wednesday';
         expect(() => submitWeek(M, sneha, s.thisWeek)).toThrow(`Weeks go to your manager automatically every ${label}.`);
+    });
+});
+
+// PROTOTYPE-SETUP (Overview, Slice 1): the 11:59 PM auto check-out, one punch of each per day, profile updates.
+describe('missed check-out (auto 11:59 PM)', () => {
+    it('closes at 23:59 with no time at work, no overtime, the shift expected and no suggestion', () => {
+        expect(attendanceDay(M, sneha, s.autoDay)).toMatchObject({ checkOut: '23:59', checkOutAuto: true, minutesAtWork: 0, overtimeMinutes: 0 });
+        const d = weekView(M, sneha, weekStartOf(s.autoDay)).days.find(x => x.date === s.autoDay)!;
+        expect(d.expectedMinutes).toBe(480);
+        expect(d.window).toMatchObject({ start: expect.any(String), end: '18:30' });
+        expect(overtimeViewOf(M, sneha, currentMonth()).suggestions.map(x => x.date)).not.toContain(s.autoDay);
+    });
+});
+
+describe('one check-in and one check-out per day', () => {
+    it('each works once; the server refuses a second', () => {
+        resetTodayCheckIn(M);
+        expect(recordOf(M, sneha, s.today)).toBeUndefined();
+        expect(recordOf(M, arjun, s.today)).toBeUndefined();
+        const o = overviewOf(M, sneha);
+        if (o.today.status === 'on-leave') return; // the seed's leave can fall on today
+        expect(o.today).toMatchObject({ canCheckIn: true, canCheckOut: false });
+        expect(() => checkOut(M, sneha)).toThrow("You haven't checked in today.");
+        expect(checkIn(M, sneha).today).toMatchObject({ canCheckIn: false, canCheckOut: true });
+        expect(() => checkIn(M, sneha)).toThrow("You've already checked in today.");
+        expect(checkOut(M, sneha).today).toMatchObject({ canCheckIn: false, canCheckOut: false });
+        expect(() => checkOut(M, sneha)).toThrow("You've already checked out today.");
+        expect(() => checkIn(M, sneha)).toThrow("You've already checked in today.");
+    });
+});
+
+describe('profile updates', () => {
+    const photo = 'data:image/png;base64,AAAA';
+    it('go straight to HR, one pending at a time, and change the profile only when HR approves', () => {
+        const before = myProfileOf(M, sneha);
+        expect(before.work).toMatchObject({ employeeId: 'ACME-004', grade: expect.stringMatching(/^L\d$/), workEmail: sneha.email, manager: { name: arjun.fullName } });
+        expect(before.personal.address).toBe(sneha.homeAddress);
+        const sent = createProfileRequest(M, sneha, { mobile: '+91 98450 11111', photo });
+        expect(sent.pending?.changes.map(c => c.field)).toEqual(['mobile', 'photo']);
+        expect(sent.pending?.trail.steps).toEqual([{ level: 2, role: 'HR' }]);
+        expect(sent.personal.mobile).toBe(before.personal.mobile);
+        expect(() => createProfileRequest(M, sneha, { mobile: '+91 98450 22222' })).toThrow(/still with HR/);
+        const queue = level2Requests(M, 'HR', 'profile', 'waiting');
+        const item = queue.find(r => r.employee.id === sneha.id)!;
+        expect(item).toMatchObject({ type: 'profile', waitingForYou: true });
+        expect(level2Counts(M, 'FINANCE').profile).toBe(0);
+        expect(() => decideRequest(M, 'profile', item.id, { role: 'HR' }, 'REJECTED')).toThrow(/comment/);
+        decideRequest(M, 'profile', item.id, { role: 'HR' }, 'APPROVED');
+        const after = myProfileOf(M, sneha);
+        expect(after.personal).toMatchObject({ mobile: '+91 98450 11111', photo });
+        expect(after.pending).toBeNull();
+        expect(after.lastDecided?.trail.status).toBe('APPROVED');
+    });
+    it('a rejected update keeps the old values and shows HR’s reason; withdraw cancels', () => {
+        const sent = createProfileRequest(M, sneha, { personalEmail: 'sneha@example.com' });
+        decideRequest(M, 'profile', sent.pending!.id, { role: 'HR' }, 'REJECTED', 'Use your own email.');
+        const after = myProfileOf(M, sneha);
+        expect(after.personal.personalEmail).toBe(sneha.personalEmail);
+        expect(after.lastDecided?.trail.steps[0].comment).toBe('Use your own email.');
+        const again = createProfileRequest(M, sneha, { emergencyRelation: 'Mother' });
+        expect(withdrawProfileRequest(M, sneha, again.pending!.id).pending).toBeNull();
+    });
+    it('refuse nothing changed and invalid details', () => {
+        expect(() => createProfileRequest(M, sneha, { mobile: myProfileOf(M, sneha).personal.mobile })).toThrow('Nothing has changed.');
+        expect(() => createProfileRequest(M, sneha, { mobile: '123' })).toThrow(/at least 10 digits/);
     });
 });

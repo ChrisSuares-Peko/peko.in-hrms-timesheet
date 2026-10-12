@@ -11,6 +11,7 @@ import type {
     Level2Role,
     OvertimeRequest,
     PayrollMonthStatus,
+    ProfileUpdateRequest,
     QueueScope,
     RequestItem,
     SubmissionRunResult,
@@ -40,6 +41,7 @@ import {
     monthDates,
     monthLabel,
     payrollBlockers,
+    profileChangeSummary,
     teamTodayCounts,
     trailLabel,
     weekDates,
@@ -49,6 +51,7 @@ import {
 } from '@src/prototype/rules/attendance';
 
 import { submitWeekRecord } from './atsEss';
+import { applyApprovedProfile, atsProfileRequests } from './atsProfile';
 import {
     atsChangeRequests,
     atsCorrections,
@@ -294,7 +297,8 @@ export const rejectChangeRequest = (mode: DataMode, manager: MockEmployee, id: s
 
 // ---- attendance & overtime requests (manager and level 2) ---------------------------------------------
 
-export type RequestType = 'attendance' | 'overtime';
+/** PROTOTYPE-SETUP (Overview, Slice 1): 'profile' = profile updates (HR only, never in a manager's queue). */
+export type RequestType = 'attendance' | 'overtime' | 'profile';
 
 const correctionItem = (mode: DataMode, c: AttendanceCorrection, viewer: ApproverRole): RequestItem | null => {
     const e = findEmployee(c.employeeId);
@@ -303,7 +307,8 @@ const correctionItem = (mode: DataMode, c: AttendanceCorrection, viewer: Approve
     const fmt = (v: string | null) => (v ? displayTime(v) : '—');
     const changes = [
         c.requested.checkIn !== c.current.checkIn && `Check-in ${fmt(c.current.checkIn)} → ${fmt(c.requested.checkIn)}`,
-        c.requested.checkOut !== c.current.checkOut && `Check-out ${fmt(c.current.checkOut)}${c.current.checkOutAuto ? ' (auto)' : ''} → ${fmt(c.requested.checkOut)}`,
+        c.requested.checkOut !== c.current.checkOut &&
+            `Check-out ${c.current.checkOutAuto ? 'missed (auto 11:59 PM)' : fmt(c.current.checkOut)} → ${fmt(c.requested.checkOut)}`,
     ].filter(Boolean);
     const blocked = c.trail.status.startsWith('PENDING') && isDayLocked(mode, c.date) ? lockReasonFor(c.date) : undefined;
     return {
@@ -342,11 +347,32 @@ const overtimeItem = (mode: DataMode, o: OvertimeRequest, viewer: ApproverRole):
     };
 };
 
+const profileItem = (p: ProfileUpdateRequest, viewer: ApproverRole): RequestItem | null => {
+    const e = findEmployee(p.employeeId);
+    if (!e) return null;
+    return {
+        type: 'profile',
+        id: p.id,
+        employee: personRef(e),
+        manager: managerRef(e),
+        title: 'Profile update · Personal details',
+        detail: profileChangeSummary(p.changes),
+        at: p.createdAt,
+        trail: p.trail,
+        statusLabel: trailLabel(p.trail),
+        profile: { changes: p.changes },
+        waitingForYou: awaiting(p.trail) === viewer,
+    };
+};
+
+const itemsOf = (mode: DataMode, type: RequestType, viewer: ApproverRole) => {
+    if (type === 'attendance') return atsCorrections.get(mode).map(c => correctionItem(mode, c, viewer));
+    if (type === 'profile') return atsProfileRequests.get(mode).map(p => profileItem(p, viewer));
+    return atsOvertime.get(mode).map(o => overtimeItem(mode, o, viewer));
+};
+
 const allRequests = (mode: DataMode, type: RequestType, viewer: ApproverRole): RequestItem[] =>
-    (type === 'attendance'
-        ? atsCorrections.get(mode).map(c => correctionItem(mode, c, viewer))
-        : atsOvertime.get(mode).map(o => overtimeItem(mode, o, viewer))
-    ).filter((x): x is RequestItem => x !== null);
+    itemsOf(mode, type, viewer).filter((x): x is RequestItem => x !== null);
 
 const byWaitingThenNewest = (a: RequestItem, b: RequestItem) =>
     Number(b.waitingForYou) - Number(a.waitingForYou) || b.at.localeCompare(a.at);
@@ -379,6 +405,7 @@ export const level2Requests = (mode: DataMode, role: Level2Role, type: RequestTy
 export const level2Counts = (mode: DataMode, role: Level2Role) => ({
     attendance: level2Requests(mode, role, 'attendance', 'waiting').length,
     overtime: level2Requests(mode, role, 'overtime', 'waiting').length,
+    profile: level2Requests(mode, role, 'profile', 'waiting').length,
 });
 
 /** Approve / reject at the level the request is waiting for. A fully approved correction updates attendance. */
@@ -391,6 +418,15 @@ export const decideRequest = (
     comment?: string
 ): RequestItem => {
     const at = nowIso();
+    if (type === 'profile') {
+        // PROTOTYPE-SETUP (Overview, Slice 1): HR decides; the profile changes only when HR approves.
+        const p = atsProfileRequests.get(mode).find(x => x.id === id);
+        if (!p) throw new RuleError('Request not found.', 404);
+        const trail = decide(p.trail, actor.role, decision, comment, at);
+        atsProfileRequests.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
+        if (trail.status === 'APPROVED') applyApprovedProfile(mode, p);
+        return profileItem({ ...p, trail }, actor.role)!;
+    }
     if (type === 'attendance') {
         const c = atsCorrections.get(mode).find(x => x.id === id);
         if (!c) throw new RuleError('Request not found.', 404);

@@ -36,14 +36,16 @@ const TYPE_COPY: Record<AtsRequestType, { plural: string; single: string }> = {
 
 const t = (v: string | null) => (v ? displayTime(v) : '—');
 
-/** "Checked in 9:20 → out 20:05 (auto), at work 10h 45m, extra 1h 45m" / "Logged 9h 30m, extra 1h 30m" */
+/** "Checked in 9:20 → out 20:05, at work 10h 45m, extra 1h 45m" / "Logged 9h 30m, extra 1h 30m" */
 export const overtimeContextText = (c: OvertimeContext) => {
     if (!c.dayCompleted) return "Planned — the day hasn't happened yet";
     if (c.basis === 'timesheet') {
         return `Logged ${formatDuration(c.loggedMinutes)}, extra ${formatDuration(c.extraMinutes)}`;
     }
     if (!c.checkIn) return 'No check-in that day';
-    return `Checked in ${t(c.checkIn)} → out ${t(c.checkOut)}${c.checkOutAuto ? ' (auto)' : ''}, at work ${formatDuration(
+    // PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out isn't overtime until it's updated.
+    if (c.checkOutAuto) return `Checked in ${t(c.checkIn)}, check-out missed (closed automatically at 11:59 PM)`;
+    return `Checked in ${t(c.checkIn)} → out ${t(c.checkOut)}, at work ${formatDuration(
         c.minutesAtWork
     )}, extra ${formatDuration(c.extraMinutes)}`;
 };
@@ -60,7 +62,7 @@ const CorrectionTimes = ({ item }: { item: RequestItem }) => {
         { label: 'Check-in', from: t(c.current.checkIn), to: t(c.requested.checkIn), changed: c.current.checkIn !== c.requested.checkIn },
         {
             label: 'Check-out',
-            from: `${t(c.current.checkOut)}${c.current.checkOutAuto ? ' (auto)' : ''}`,
+            from: c.current.checkOutAuto ? 'Missed (auto 11:59 PM)' : t(c.current.checkOut),
             to: t(c.requested.checkOut),
             changed: c.current.checkOut !== c.requested.checkOut,
         },
