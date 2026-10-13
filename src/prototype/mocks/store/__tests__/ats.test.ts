@@ -7,6 +7,7 @@ import { addDays, addMonths, toMinutes, weekStartOf } from '@src/prototype/rules
 import { atsScenario } from '../../data/ats-seed';
 import { findEmployee } from '../../data/employees';
 import { isWorkingDay } from '../../data/time-calendar';
+import { LEAVES } from '../../data/time-leaves';
 import {
     addEntry,
     editEntry,
@@ -21,7 +22,7 @@ import {
 } from '../atsEss';
 import { homeOf } from '../atsHome';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../atsProfile';
-import { attendanceDay, currentMonth, lastMonth, recordOf, resetTodayCheckIn, weekView } from '../atsStore';
+import { atsAttendance, attendanceDay, currentMonth, lastMonth, recordOf, resetTodayCheckIn, weekView } from '../atsStore';
 import {
     approveWeek,
     decideRequest,
@@ -298,5 +299,43 @@ describe('overview home', () => {
         expect(h.announcements.length).toBeGreaterThanOrEqual(2);
         if (h.announcements.length === 3) expect(h.announcements[0].date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
         expect(h.announcements.slice(-2).map(a => a.title)).toEqual(['New: log hours without start and end times', 'Overtime policy']);
+    });
+});
+
+// PROTOTYPE-SETUP (Overview v4, Slice 4): Recent days — hours worked and "X of Y" hours logged.
+describe('overview recent days: hours worked and expected', () => {
+    it('a missed check-out: hours worked unknown (0), expected = shift − break', () => {
+        const auto = homeOf(M, sneha).recentDays.find(d => d.date === s.autoDay)!;
+        expect(auto.attendance).toMatchObject({ checkOutAuto: true, minutesAtWork: 0 });
+        expect(auto.timesheet.expectedMinutes).toBe(480);
+    });
+    it('a normal past day: hours worked = check-out − check-in, expected = window − break', () => {
+        const day = homeOf(M, sneha).recentDays.find(d => d.date < s.today && d.attendance.checkIn && d.attendance.checkOut && !d.attendance.checkOutAuto)!;
+        const worked = toMinutes(day.attendance.checkOut!) - toMinutes(day.attendance.checkIn!);
+        expect(day.attendance.minutesAtWork).toBe(worked);
+        expect(day.timesheet.expectedMinutes).toBe(Math.max(0, worked - 60));
+    });
+});
+
+describe('overview recent days: leave and absent', () => {
+    it('leave and absent days: no hours worked', () => {
+        const days = homeOf(M, sneha).recentDays.filter(d => d.date < s.today && d.attendance.checkIn && !d.attendance.checkOutAuto);
+        const [absentDay, leaveDay] = days.map(d => d.date);
+        atsAttendance.update(M, all => {
+            const next = { ...all };
+            delete next[`${sneha.id}:${absentDay}`];
+            delete next[`${sneha.id}:${leaveDay}`];
+            return next;
+        });
+        const template = LEAVES.find(l => l.employee.id === sneha.id && l.status === 'approved')!;
+        LEAVES.push({ ...template, id: 'lv-test', start: leaveDay, end: leaveDay, days: [leaveDay], leaveCount: 1, halfDaySelection: null });
+        try {
+            const after = homeOf(M, sneha).recentDays;
+            expect(after.find(d => d.date === absentDay)!.attendance).toMatchObject({ status: 'absent', checkIn: null, minutesAtWork: 0 });
+            expect(after.find(d => d.date === leaveDay)!.attendance).toMatchObject({ status: 'on-leave', checkIn: null, minutesAtWork: 0 });
+            expect(after.find(d => d.date === leaveDay)!.timesheet.expectedMinutes).toBe(0);
+        } finally {
+            LEAVES.splice(LEAVES.findIndex(l => l.id === 'lv-test'), 1);
+        }
     });
 });

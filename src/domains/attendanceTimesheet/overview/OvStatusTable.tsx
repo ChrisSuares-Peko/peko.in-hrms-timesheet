@@ -1,10 +1,15 @@
-// PROTOTYPE-SETUP (Overview; decluttered in Overview v2; ESS design, Slice 2): section 4 — "Recent days": this
-// week's and last week's working days up to today, newest first, in an antd Table styled like the ESS
-// AttendanceTable (bordered 18px container, grey header). Columns: Date | Check in | Check out | Hours logged |
-// Overtime (Timesheet-only drops check in / out; Attendance-only drops hours logged). Normal cells are plain, so
-// only exceptions stand out: Late / Absent / Leave, "Missed · auto 11:59 PM", "{dur} not claimed" or the
-// overtime request's status, as Tags. Every cell is a link to that day (hover highlights it): check in / out →
-// Attendance, hours → Timesheet, overtime → Overtime, the date → Timesheet (Attendance in Attendance-only mode).
+// PROTOTYPE-SETUP (Overview; decluttered in Overview v2; ESS design, Slice 2; Overview v4, Slice 4): section 4 —
+// "Recent days": this week's and last week's working days up to today, newest first, in an antd Table styled like
+// the ESS AttendanceTable (bordered 18px container, grey header). Columns by mode:
+//   both        Date | Check in | Check out | Hrs worked | Hours logged | Overtime
+//   attendance  Date | Check in | Check out | Hrs worked | Overtime
+//   timesheet   Date | Hours logged | Overtime
+// Hrs worked: check-in → check-out ("3h 12m so far" today, grey "Not known" on a missed check-out, empty for absent
+// or leave). Hours logged: "X of Y" — logged out of the day's expected hours (the timesheet's expectedMinutes rule);
+// amber when a past day is 15 min or more short. Normal cells are plain, so only exceptions stand out: Late /
+// Absent / Leave, "Missed · auto 11:59 PM", "{dur} not claimed" or the overtime request's status, as Tags. Every
+// cell is a link to that day (hover highlights it): check in / out and hrs worked → Attendance, hours logged →
+// Timesheet, overtime → Overtime, the date → Timesheet (Attendance in Attendance-only mode).
 import { ReactNode } from 'react';
 
 import { Table, Tag } from 'antd';
@@ -20,7 +25,7 @@ import type { AtsMode, AtsTab, OverviewDay } from '../types';
 const OT_COLOR = { pending: 'processing', approved: 'success', rejected: 'error' } as const;
 
 const Chip = ({ color, children }: { color: string; children: ReactNode }) => (
-    <Tag color={color} bordered={false} className="!m-0 inline-block whitespace-nowrap px-2.5 align-middle text-xs">
+    <Tag color={color} bordered={false} className="!m-0 inline-block whitespace-normal px-2 align-middle text-xs leading-4">
         {children}
     </Tag>
 );
@@ -45,6 +50,28 @@ const checkOutCell = (d: OverviewDay) => {
     if (a.checkOut) return a.checkOut;
     if (a.checkIn) return <span className="text-[#9e9e9e]">Still in</span>;
     return null;
+};
+
+/** Short by this much or more → amber (Overview v4). */
+const SHORT_MINUTES = 15;
+
+const workedCell = (d: OverviewDay, today: string) => {
+    const a = d.attendance;
+    if (!a.checkIn || a.status === 'on-leave' || a.status === 'absent') return null;
+    if (a.checkOutAuto) return <span className="text-[#9e9e9e]">Not known</span>;
+    if (!a.checkOut && d.date === today) return `${formatDuration(a.minutesAtWork)} so far`;
+    return a.checkOut ? formatDuration(a.minutesAtWork) : null;
+};
+
+const loggedCell = (d: OverviewDay, today: string) => {
+    const { loggedMinutes: logged, expectedMinutes: expected } = d.timesheet;
+    if (!expected) return logged ? formatDuration(logged) : null;
+    const short = d.date < today && expected - logged >= SHORT_MINUTES;
+    return (
+        <span className={short ? 'text-[#B54708]' : undefined}>
+            {formatDuration(logged)} of {formatDuration(expected)}
+        </span>
+    );
 };
 
 const overtimeCell = (d: OverviewDay) => {
@@ -96,19 +123,11 @@ const OvStatusTable = ({
             ? [
                   { key: 'in', title: 'Check in', tab: 'attendance' as const, withDate: true, hint: 'Open in Attendance', cell: (d: OverviewDay) => checkInCell(d, today) },
                   { key: 'out', title: 'Check out', tab: 'attendance' as const, withDate: true, hint: 'Open in Attendance', cell: checkOutCell },
+                  { key: 'worked', title: 'Hrs worked', tab: 'attendance' as const, withDate: true, hint: 'Open in Attendance', cell: (d: OverviewDay) => workedCell(d, today) },
               ]
             : []),
         ...(mode !== 'attendance'
-            ? [
-                  {
-                      key: 'hours',
-                      title: 'Hours logged',
-                      tab: 'timesheet' as const,
-                      withDate: true,
-                      hint: 'Open in Timesheet',
-                      cell: (d: OverviewDay) => (d.timesheet.loggedMinutes ? formatDuration(d.timesheet.loggedMinutes) : null),
-                  },
-              ]
+            ? [{ key: 'hours', title: 'Hours logged', tab: 'timesheet' as const, withDate: true, hint: 'Open in Timesheet', cell: (d: OverviewDay) => loggedCell(d, today) }]
             : []),
         { key: 'ot', title: 'Overtime', tab: 'overtime', withDate: false, hint: 'Open Overtime', cell: overtimeCell },
     ];
@@ -122,7 +141,7 @@ const OvStatusTable = ({
                 to={linkTo(c.tab, c.withDate ? d.date : undefined)}
                 title={c.hint}
                 aria-label={`${dayjs(d.date).format('D MMM')}: ${c.hint}`}
-                className="block min-h-[44px] whitespace-nowrap px-3 py-3 text-sm tabular-nums text-[#080808] decoration-[#c4c4c4] underline-offset-[3px] hover:bg-[#EEF3FF] hover:text-[#080808] hover:underline"
+                className="block min-h-[44px] px-2 py-3 text-sm tabular-nums text-[#080808] decoration-[#c4c4c4] underline-offset-[3px] hover:bg-[#EEF3FF] hover:text-[#080808] hover:underline"
             >
                 {c.cell(d)}
             </Link>

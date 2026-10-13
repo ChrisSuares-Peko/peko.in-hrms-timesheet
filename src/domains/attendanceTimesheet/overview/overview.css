@@ -10,7 +10,7 @@
 .ess-ov {
     --ov-top: 472px;
     --ov-qa: 400px;
-    --ov-rd: 620px;
+    --ov-rd: 620px; /* overridden per day by the page: fits the rows shown */
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;

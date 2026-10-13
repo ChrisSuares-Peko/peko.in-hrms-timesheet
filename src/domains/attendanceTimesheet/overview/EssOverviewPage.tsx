@@ -23,6 +23,10 @@ import { useAtsScope } from '../hooks/useAtsScope';
 import { todayIso } from '../timesheet/helpers';
 import type { AtsOverview, EssHomeView, MyProfileView, OverviewLink, TimesheetWeekView } from '../types';
 
+/** Recent days: heading, padding and table header, plus one row per day (rows fit a 2-line chip). */
+const RD_CHROME = 148;
+const RD_ROW = 70;
+
 const EssOverviewPage = () => {
     const scope = useAtsScope();
     const paths = useAtsPaths();
@@ -94,8 +98,11 @@ const EssOverviewPage = () => {
 
     // In Timesheet-only mode the Timesheet card takes the Attendance slot.
     const timesheetSlot = mode === 'both' ? 'ess-ov__t' : 'ess-ov__a';
+    // PROTOTYPE-SETUP (Overview v4, Slice 4): Recent days is sized to fit the rows it shows (this week and last
+    // week up to today: 6–10 working days) — fixed for the day, never resized by what happens on the page.
+    const rdHeight = RD_CHROME + Math.max(home?.recentDays.length ?? 0, 6) * RD_ROW;
     return (
-        <div className={`ess-ov ess-ov--${mode}`}>
+        <div className={`ess-ov ess-ov--${mode}`} style={{ '--ov-rd': `${rdHeight}px` } as React.CSSProperties}>
             <div className="ess-ov__p">
                 <OvProfileCard profile={profile} profilePath={`${paths.home}/profile`} />
             </div>

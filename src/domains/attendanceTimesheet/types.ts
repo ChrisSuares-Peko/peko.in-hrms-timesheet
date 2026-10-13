@@ -595,8 +595,10 @@ export type OverviewLink = { tab: AtsTab; date?: string } | { page: 'leaves' | '
 /** One row of "Recent days" (this week and last week, up to today). */
 export interface OverviewDay {
     date: string;
-    attendance: Pick<AttendanceDay, 'status' | 'label' | 'checkIn' | 'checkOut' | 'checkOutAuto' | 'lateMinutes'>;
-    timesheet: { weekStatus: TimesheetStatus; changePending: boolean; loggedMinutes: number };
+    /** PROTOTYPE-SETUP (Overview v4, Slice 4): minutesAtWork = hours worked (so far, today; 0 on a missed check-out). */
+    attendance: Pick<AttendanceDay, 'status' | 'label' | 'checkIn' | 'checkOut' | 'checkOutAuto' | 'lateMinutes' | 'minutesAtWork'>;
+    /** expectedMinutes: the timesheet's expected hours for the day (expectedMinutes rule; missed check-out = shift − break). */
+    timesheet: { weekStatus: TimesheetStatus; changePending: boolean; loggedMinutes: number; expectedMinutes: number };
     /** No overtime / extra time not claimed yet / the day's overtime request. */
     overtime:
         | { kind: 'none' }

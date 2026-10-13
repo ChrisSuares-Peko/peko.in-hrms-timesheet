@@ -40,6 +40,7 @@ import {
     managerRef,
     overtimeOfEmployee,
     pendingChangeRequest,
+    timesheetDay,
     today,
     weekOf,
 } from './atsStore';
@@ -83,8 +84,22 @@ const recentDaysOf = (mode: DataMode, e: MockEmployee): OverviewDay[] => {
         }
         return {
             date,
-            attendance: { status: a.status, label: a.label, checkIn: a.checkIn, checkOut: a.checkOut, checkOutAuto: a.checkOutAuto, lateMinutes: a.lateMinutes },
-            timesheet: { weekStatus: week.status, changePending: Boolean(pendingChangeRequest(mode, week)), loggedMinutes: logged },
+            attendance: {
+                status: a.status,
+                label: a.label,
+                checkIn: a.checkIn,
+                checkOut: a.checkOut,
+                checkOutAuto: a.checkOutAuto,
+                lateMinutes: a.lateMinutes,
+                minutesAtWork: a.minutesAtWork,
+            },
+            timesheet: {
+                weekStatus: week.status,
+                changePending: Boolean(pendingChangeRequest(mode, week)),
+                loggedMinutes: logged,
+                // PROTOTYPE-SETUP (Overview v4, Slice 4): the same expected-hours rule as the Timesheet tab.
+                expectedMinutes: timesheetDay(mode, e, date, week.entries).expectedMinutes,
+            },
             overtime,
         };
     });

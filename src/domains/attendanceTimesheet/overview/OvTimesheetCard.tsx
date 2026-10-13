@@ -93,7 +93,7 @@ const OvTimesheetCard = ({
         <EssCard
             label="Today's timesheet"
             heading={<EssSectionHeading title="Timesheet" link={{ to: fullPath, text: 'Full timesheet' }} />}
-            className={`xl:justify-between ${className ?? ''}`}
+            className={`md:justify-between ${className ?? ''}`}
         >
             <div>
                 <Text className="block text-base text-[#080808]">

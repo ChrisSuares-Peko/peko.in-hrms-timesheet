@@ -28,7 +28,7 @@ const OvProfileCard = ({ profile, profilePath, className = '' }: { profile: MyPr
                 </div>
             </div>
             {/* PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the block fills the spare space, pairs evenly spaced. */}
-            <div className={`flex flex-col gap-4 xl:flex-1 xl:justify-evenly ${ESS_INNER}`}>
+            <div className={`flex flex-col gap-4 md:flex-1 md:justify-evenly ${ESS_INNER}`}>
                 {/* PROTOTYPE-SETUP (Overview v4, Slice 2): work email, Employee ID, manager, department. */}
                 <Pair label="Work email" value={work.workEmail} />
                 <div className="grid grid-cols-2 gap-4">
