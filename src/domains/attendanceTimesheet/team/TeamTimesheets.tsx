@@ -57,7 +57,13 @@ const CellView = ({ cell, compact }: { cell: Cell; compact?: boolean }) => {
         .join(' · ');
     return (
         <Tooltip title={tip}>
-            <div className={`rounded-lg px-1.5 py-1 text-center text-xs sm:text-sm whitespace-nowrap ${cls}`}>
+            {/* PROTOTYPE-SETUP (ESS design, Slice 6): on phones (compact) seven columns are ~40px wide — tighter
+                padding and smaller text, and long values may wrap, so "8h 10m" is never clipped. */}
+            <div
+                className={`rounded-lg py-1 text-center ${
+                    compact ? 'px-0.5 text-[11px] leading-tight' : 'px-1.5 text-xs sm:text-sm whitespace-nowrap'
+                } ${cls}`}
+            >
                 {content || <span className="text-[#D0D5DD]">—</span>}
                 {cell.extraMinutes > 0 && <div className="text-[10px] leading-none text-[#027A48]">+{formatDuration(cell.extraMinutes)}</div>}
             </div>

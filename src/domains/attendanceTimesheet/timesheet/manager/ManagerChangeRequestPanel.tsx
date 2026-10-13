@@ -45,7 +45,7 @@ const ManagerChangeRequestPanel = ({ cr, perspective, busy, onCancel }: ChangeRe
     }
 
     return (
-        <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-solid border-amber-300 bg-amber-50/50 p-3">
+        <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-solid border-amber-300 bg-amber-50/50 p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="flex min-w-0 flex-col gap-0.5">
                     <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">

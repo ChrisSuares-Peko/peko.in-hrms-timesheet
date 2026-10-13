@@ -77,7 +77,7 @@ const ManagerDayView = ({
     return (
         <div
             id={`ts-day-${day.date}`}
-            className={`flex min-w-0 flex-col gap-2.5 rounded-xl border border-solid p-3 ${
+            className={`flex min-w-0 flex-col gap-2.5 rounded-2xl border border-solid p-4 ${
                 isToday ? 'border-blue-300 shadow-sm' : 'border-gray-200'
             } ${noWindow && !day.entries.length ? 'bg-gray-50' : 'bg-white'}`}
         >
