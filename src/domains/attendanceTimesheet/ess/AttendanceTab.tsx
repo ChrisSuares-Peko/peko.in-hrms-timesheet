@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { LockOutlined } from '@ant-design/icons';
-import { Alert } from 'antd';
+import { Alert, Button } from 'antd';
 import dayjs from 'dayjs';
 
 import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
@@ -36,9 +36,10 @@ export interface AttendanceTabProps {
 }
 
 interface ModalState {
-    date: string;
+    /** PROTOTYPE-SETUP (Attendance tab, Slice 2): null = the employee picks the day in the popup. */
+    date: string | null;
     kind: CorrectionKind;
-    current: { checkIn: string | null; checkOut: string | null; checkOutAuto: boolean };
+    current?: { checkIn: string | null; checkOut: string | null; checkOutAuto: boolean };
 }
 
 const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: AttendanceTabProps) => {
@@ -114,6 +115,14 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
         }
     };
 
+    // PROTOTYPE-SETUP (Attendance tab, Slice 2): "Request correction" above the calendar and on "My correction
+    // requests" opens the popup with no day picked.
+    const requestButton = (
+        <Button onClick={() => setModal({ date: null, kind: 'correction' })} className="rounded-lg font-medium">
+            Request correction
+        </Button>
+    );
+
     const totals = view?.month === month ? view.totals : null;
     const tiles = totals
         ? [
@@ -167,6 +176,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                 <Panel
                     title="Attendance calendar"
                     subtitle="Tap a day to see the details or request a correction."
+                    extra={requestButton}
                 >
                     {view?.month === month && view.locked && (
                         <Alert
@@ -195,6 +205,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
             <Panel
                 title="My correction requests"
                 subtitle="Changes to your check-in or check-out go to your manager for approval."
+                extra={requestButton}
             >
                 <CorrectionsList
                     items={corrections}
@@ -234,6 +245,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                 kind={modal?.kind ?? 'correction'}
                 current={modal?.current}
                 shiftEnd={overview.shift.end}
+                shiftStart={overview.shift.start}
                 onClose={() => setModal(null)}
                 onSubmitted={() => {
                     setSelected(null);
