@@ -43,7 +43,7 @@ export const WeekStatusBar = ({ view, perspective, actions, note }: WeekStatusBa
     }
 
     return (
-        <div className="flex min-w-0 flex-col gap-2 rounded-xl border border-solid border-gray-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-2 rounded-[26px] border border-solid border-[#e6e6e6] bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-gray-900">Week of {fmtWeekRange(week.weekStart)}</span>

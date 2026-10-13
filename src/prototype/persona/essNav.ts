@@ -2,6 +2,7 @@
 // "subnav"): Overview, Attendance & Timesheet (named per mode), Leaves, Reimbursements, Payslips, Documents and
 // My profile. Clicking "ESS - Employee" opens the Overview; the group is open whenever an ESS - Employee page is.
 // ESS - Manager stays a flat item. Used by the desktop sidebar and the mobile drawer.
+import './essNav.css';
 import type { AtsMode } from '@src/domains/attendanceTimesheet/types';
 import { titleFor } from '@src/prototype/rules/attendance';
 import { paths } from '@src/routes/paths';

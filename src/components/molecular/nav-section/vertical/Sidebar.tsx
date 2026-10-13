@@ -54,7 +54,7 @@ const Sidebar = () => {
                 />
             </Flex>
             <Menu
-                className="app-sidebar-menu"
+                className="app-sidebar-menu ess-nav-menu"
                 mode="inline"
                 items={transformedNavData}
                 selectedKeys={[activeKey, location.pathname]}

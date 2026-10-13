@@ -1,0 +1,21 @@
+/* PROTOTYPE-SETUP (ESS design, Slice 5): the ESS - Employee sidebar group (desktop sidebar and mobile drawer).
+   Only that group has sub-items, so these rules only ever touch it: no grey submenu panel, rounded sub-items
+   with the ESS red-soft selection, 14px labels. */
+.ess-nav-menu .ant-menu-sub.ant-menu-inline {
+    background: transparent;
+}
+
+.ess-nav-menu .ant-menu-sub .ant-menu-item {
+    height: 38px;
+    line-height: 38px;
+    margin-block: 2px;
+    border-radius: 10px;
+}
+
+.ess-nav-menu .ant-menu-sub .ant-menu-item .ant-typography {
+    font-size: 14px;
+}
+
+.ess-nav-menu .ant-menu-sub .ant-menu-item-selected {
+    background-color: #ffecec;
+}

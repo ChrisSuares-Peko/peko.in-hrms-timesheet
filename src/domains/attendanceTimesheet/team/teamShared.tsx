@@ -124,7 +124,7 @@ export const CountTile = ({
             </Typography.Text>
         </Flex>
     );
-    const cls = 'w-full text-left rounded-2xl border border-solid border-[#EAECF0] bg-white';
+    const cls = 'w-full text-left rounded-[26px] border border-solid border-[#e6e6e6] bg-white';
     if (!onClick) return <div className={cls}>{body}</div>;
     return (
         <button

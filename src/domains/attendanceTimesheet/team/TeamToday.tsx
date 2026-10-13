@@ -31,7 +31,7 @@ const MemberCard = ({ row, hasCheckIn, onOpen }: { row: TeamTodayRow; hasCheckIn
         <button
             type="button"
             onClick={onOpen}
-            className="w-full h-full text-left cursor-pointer rounded-2xl border border-solid border-[#EAECF0] bg-white p-4 transition-colors hover:border-[#FF4F4F]"
+            className="w-full h-full text-left cursor-pointer rounded-[26px] border border-solid border-[#e6e6e6] bg-white p-4 transition-colors hover:border-[#FF4F4F]"
         >
             <Flex vertical gap={12}>
                 <Flex justify="space-between" align="flex-start" gap={8}>

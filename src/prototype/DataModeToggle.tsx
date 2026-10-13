@@ -5,9 +5,10 @@
 import { useEffect, useState } from 'react';
 
 import { DownOutlined } from '@ant-design/icons';
-import { Button, Dropdown, Flex, Modal, Segmented, Tooltip, message } from 'antd';
+import { Button, ConfigProvider, Dropdown, Flex, Modal, Segmented, Tooltip, message } from 'antd';
 import type { MenuProps } from 'antd';
 
+import { essTheme } from '@src/components/ess/EssThemeProvider';
 import { getAtsSettings, resetTodayCheckIn, simulateSubmissionDay, updateAtsSettings } from '@src/domains/attendanceTimesheet/api';
 import type { AtsMode } from '@src/domains/attendanceTimesheet/types';
 import { useAppDispatch, useAppSelector } from '@src/hooks/store';
@@ -120,10 +121,13 @@ const DataModeToggle = () => {
     };
 
     return (
+        // PROTOTYPE-SETUP (ESS design, Slice 5): the control uses the ESS tokens (segmented track, red accents).
+        <ConfigProvider theme={essTheme}>
         <Flex
             align="center"
             gap={8}
-            className="fixed z-[1000] rounded-full border border-solid border-gray-200 bg-white px-2 py-1 shadow-md"
+            // PROTOTYPE-SETUP (ESS design, Slice 5): ESS border and soft shadow.
+            className="fixed z-[1000] rounded-full border border-solid border-[#e6e6e6] bg-white px-2 py-1 shadow-[0_1.66px_8.28px_rgba(0,0,0,0.12)]"
             style={{ right: 16, bottom: 16 }}
             role="group"
             aria-label="Prototype data controls"
@@ -145,6 +149,7 @@ const DataModeToggle = () => {
                 </Button>
             </Dropdown>
         </Flex>
+        </ConfigProvider>
     );
 };
 

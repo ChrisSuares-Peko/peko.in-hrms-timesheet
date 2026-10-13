@@ -61,6 +61,7 @@ const SideBarModal = ({ drawerOpen, handleCancel }: Props) => {
         >
             <div className="px-1 pb-4 overflow-x-hidden bg-white border-r border-gray-200 border-solid min-h-svh">
                 <Menu
+                    className="ess-nav-menu"
                     mode="inline"
                     items={transformedNavData}
                     selectedKeys={[activeNavKey(transformedNavData ?? [], location.pathname), location.pathname]}

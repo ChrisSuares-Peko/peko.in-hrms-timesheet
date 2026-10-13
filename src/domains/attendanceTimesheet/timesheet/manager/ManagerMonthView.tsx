@@ -68,7 +68,7 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                 <Stat label="Extra time" value={formatDuration(totals.extraMinutes)} />
             </div>
 
-            <div className="min-w-0 rounded-xl border border-solid border-gray-200 bg-white p-2 sm:p-3">
+            <div className="min-w-0 rounded-[26px] border border-solid border-[#e6e6e6] bg-white p-2 sm:p-3">
                 <div className="grid grid-cols-7 gap-1 pb-1 text-center text-[11px] font-medium uppercase text-gray-500">
                     {HEAD.map(h => (
                         <span key={h}>{h}</span>

@@ -99,7 +99,7 @@ const TimesheetApprovals = ({ onChanged }: { onChanged?: () => void }) => {
             return (
                 <Flex vertical gap={12}>
                     {[0, 1, 2].map(i => (
-                        <div key={i} className="rounded-2xl border border-solid border-[#EAECF0] p-4">
+                        <div key={i} className="rounded-[26px] border border-solid border-[#e6e6e6] p-4">
                             <Skeleton active avatar paragraph={{ rows: 2 }} />
                         </div>
                     ))}

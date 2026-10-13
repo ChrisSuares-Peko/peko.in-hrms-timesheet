@@ -40,7 +40,7 @@ export interface TimesheetFrameProps {
 }
 
 const Panel = ({ children }: { children: ReactNode }) => (
-    <div className="rounded-xl border border-solid border-gray-200 bg-white p-3">{children}</div>
+    <div className="rounded-[26px] border border-solid border-[#e6e6e6] bg-white p-3">{children}</div>
 );
 
 const LoadError = ({ what, onRetry }: { what: string; onRetry: () => void }) => (

@@ -166,7 +166,8 @@ const TeamTimesheets = () => {
             title: 'Person',
             key: 'person',
             fixed: 'left',
-            width: 220,
+            // PROTOTYPE-SETUP (ESS design, Slice 5): tighter columns so the whole week fits at 1440px.
+            width: 200,
             render: (_, r) => <PersonCell person={r.employee} />,
         },
         ...(week?.days ?? []).map((d, i) => ({
@@ -177,21 +178,21 @@ const TeamTimesheets = () => {
                 </Flex>
             ),
             key: d,
-            width: 92,
+            width: 76,
             align: 'center' as const,
             render: (_: unknown, r: WeekRow) => <CellView cell={r.days[i]} />,
         })),
         {
             title: 'Total',
             key: 'total',
-            width: 90,
+            width: 84,
             align: 'right',
             render: (_, r) => <Typography.Text strong>{formatDuration(r.totalMinutes)}</Typography.Text>,
         },
         {
             title: 'Extra',
             key: 'extra',
-            width: 80,
+            width: 70,
             align: 'right',
             render: (_, r) =>
                 r.extraMinutes > 0 ? (
@@ -203,7 +204,7 @@ const TeamTimesheets = () => {
         {
             title: 'Status',
             key: 'status',
-            width: 190,
+            width: 160,
             render: (_, r) => <WeekStatusTag status={r.status} changePending={r.changePending} />,
         },
     ];
@@ -256,7 +257,7 @@ const TeamTimesheets = () => {
                             key={r.employee.id}
                             type="button"
                             onClick={() => openMember(r.employee.id, week.weekStart)}
-                            className="w-full text-left cursor-pointer rounded-2xl border border-solid border-[#EAECF0] bg-white p-3"
+                            className="w-full text-left cursor-pointer rounded-[26px] border border-solid border-[#e6e6e6] bg-white p-3"
                         >
                             <Flex justify="space-between" align="center" gap={8} className="mb-2">
                                 <PersonCell person={r.employee} />
@@ -313,7 +314,7 @@ const TeamTimesheets = () => {
                             key={r.employee.id}
                             type="button"
                             onClick={() => openMember(r.employee.id, monthDate(month))}
-                            className="w-full text-left cursor-pointer rounded-2xl border border-solid border-[#EAECF0] bg-white p-3"
+                            className="w-full text-left cursor-pointer rounded-[26px] border border-solid border-[#e6e6e6] bg-white p-3"
                         >
                             <PersonCell person={r.employee} />
                             <div className="grid grid-cols-3 gap-2 my-3">
