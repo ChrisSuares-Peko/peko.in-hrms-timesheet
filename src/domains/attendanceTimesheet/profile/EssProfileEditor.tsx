@@ -12,6 +12,7 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { Alert, Button, Empty, Input, Skeleton, Typography } from 'antd';
 import dayjs from 'dayjs';
 
+import { ESS_CARD, ESS_LABEL, ESS_SECTION_TITLE } from '@src/components/ess/essTokens';
 import { useAppDispatch } from '@src/hooks/store';
 import {
     MAX_PHOTO_BYTES,
@@ -29,7 +30,8 @@ import type { MyProfileView, PersonalDetails, PersonalField, ProfileChange } fro
 
 const { Text } = Typography;
 
-const CARD = 'rounded-3xl bg-white px-5 py-6 shadow-[0px_1.66px_16.56px_1.52px_rgba(0,0,0,0.06)] sm:px-8 sm:py-8';
+// PROTOTYPE-SETUP (ESS design, Slice 4): the ESS card and section title.
+const CARD = ESS_CARD;
 
 const changeText = (c: ProfileChange) => {
     if (c.field === 'photo') return c.to ? 'New photo' : 'Photo removed';
@@ -38,8 +40,8 @@ const changeText = (c: ProfileChange) => {
 
 const ReadOnly = ({ label, children }: { label: string; children: ReactNode }) => (
     <div className="min-w-0">
-        <Text className="block text-xs text-gray-500">{label}</Text>
-        <Text className="block break-words text-sm font-medium text-black">{children}</Text>
+        <Text className={`block ${ESS_LABEL}`}>{label}</Text>
+        <Text className="block break-words text-base font-medium text-[#080808]">{children}</Text>
     </div>
 );
 
@@ -182,7 +184,7 @@ const EssProfileEditor = () => {
     return (
         <>
             <section aria-label="Work details" className={CARD}>
-                <Text className="block text-xl font-semibold text-black">Work details</Text>
+                <Text className={`block ${ESS_SECTION_TITLE}`}>Work details</Text>
                 <Text className="mb-5 block text-xs text-gray-500">Managed by HR. Ask HR if something here is wrong.</Text>
                 <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
                     <ReadOnly label="Employee ID">{work.employeeId}</ReadOnly>
@@ -208,7 +210,7 @@ const EssProfileEditor = () => {
             </section>
 
             <section aria-label="Personal info" className={CARD}>
-                <Text className="block text-xl font-semibold text-black">Personal info</Text>
+                <Text className={`block ${ESS_SECTION_TITLE}`}>Personal info</Text>
                 <Text className="mb-5 block text-xs text-gray-500">
                     Changes go to HR for approval. Your profile updates once HR approves them.
                 </Text>

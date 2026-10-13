@@ -2,6 +2,7 @@ import { Avatar, Flex, Skeleton, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { useLocation } from 'react-router-dom';
 
+import ProfilePhoto from '@src/domains/attendanceTimesheet/overview/ProfilePhoto';
 import EssProfileEditor from '@src/domains/attendanceTimesheet/profile/EssProfileEditor';
 import { essTabFor } from '@src/prototype/persona/essPersonas';
 import { useEssPersonaPhoto } from '@src/prototype/persona/useEssPersonaPhoto';
@@ -55,7 +56,10 @@ const Profile = () => {
     // for approval (EssProfileEditor), and the photo is the approved one. Elsewhere the page is unchanged.
     const essTab = essTabFor(useLocation().pathname);
     const isEssEmployee = essTab?.base === paths.essEmployee.index;
-    const essPhoto = useEssPersonaPhoto(isEssEmployee ? essTab?.persona : undefined);
+    const essPhoto = useEssPersonaPhoto(essTab?.persona);
+    // PROTOTYPE-SETUP (ESS design, Slice 4): on the ESS tabs the header matches the Overview's profile card
+    // (round 72px photo or initials, 20px medium name, grey role). The /employee portal keeps its own header.
+    const essHeader = Boolean(essTab);
     const personal = profile?.personalInformation;
     const info = profile?.employeeInformation;
 
@@ -72,24 +76,28 @@ const Profile = () => {
                     <>
                         <Flex justify="space-between" align="center" gap={16} wrap="wrap">
                             <Flex gap={16} align="center">
-                                <Avatar
-                                    size={72}
-                                    shape="square"
-                                    style={{ borderRadius: 12, background: '#f9f6ff' }}
-                                    src={isEssEmployee ? essPhoto ?? undefined : profile?.profileImage}
-                                >
-                                    <Text
-                                        style={{ color: '#af9ed4' }}
-                                        className="text-xl font-bold"
+                                {essHeader ? (
+                                    <ProfilePhoto name={personal?.fullName || essTab!.persona.fullName} photo={essPhoto} size={72} />
+                                ) : (
+                                    <Avatar
+                                        size={72}
+                                        shape="square"
+                                        style={{ borderRadius: 12, background: '#f9f6ff' }}
+                                        src={profile?.profileImage}
                                     >
-                                        {getInitials(personal?.fullName)}
-                                    </Text>
-                                </Avatar>
+                                        <Text
+                                            style={{ color: '#af9ed4' }}
+                                            className="text-xl font-bold"
+                                        >
+                                            {getInitials(personal?.fullName)}
+                                        </Text>
+                                    </Avatar>
+                                )}
                                 <Flex vertical>
-                                    <Text className="text-xl font-bold text-black">
+                                    <Text className={essHeader ? 'text-xl font-medium text-[#080808]' : 'text-xl font-bold text-black'}>
                                         {personal?.fullName || FALLBACK}
                                     </Text>
-                                    <Text className="text-sm text-gray-500">
+                                    <Text className={essHeader ? 'text-sm text-[#616161]' : 'text-sm text-gray-500'}>
                                         {info?.designation || FALLBACK}
                                     </Text>
                                 </Flex>
