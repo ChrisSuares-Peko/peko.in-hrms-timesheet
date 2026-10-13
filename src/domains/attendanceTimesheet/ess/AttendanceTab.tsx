@@ -1,10 +1,10 @@
 // PROTOTYPE-SETUP: ESS Service 1, Slice 3 — the employee's Attendance tab: today (check-in / check-out with a
 // live timer), the month calendar back to the joining month, a day detail drawer with corrections, monthly
 // totals and "My correction requests".
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { LockOutlined } from '@ant-design/icons';
-import { Alert, Button } from 'antd';
+import { Alert, Button, Tooltip } from 'antd';
 import dayjs from 'dayjs';
 
 import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
@@ -23,7 +23,7 @@ import type { AtsOverview, AttendanceDay, AttendanceMonthView, CorrectionKind } 
 import AttendanceCalendar from './AttendanceCalendar';
 import CorrectionsList from './CorrectionsList';
 import DayDetailDrawer from './DayDetailDrawer';
-import { Panel, StatTile, todayIso } from './ui';
+import { Panel, todayIso } from './ui';
 
 export interface AttendanceTabProps {
     overview: AtsOverview;
@@ -36,6 +36,25 @@ export interface AttendanceTabProps {
     /** PROTOTYPE-SETUP (Attendance layout, Slice 1): bumped by the tab row's "Request correction" — opens the popup. */
     requestSignal?: number;
 }
+
+interface TotalTileProps {
+    label: string;
+    value: ReactNode;
+    tone?: string;
+    /** Shown on hover. */
+    hint?: string;
+}
+
+/** PROTOTYPE-SETUP (Attendance layout, Slice 2): a compact month-total tile — 18px value, 12px label. */
+const TotalTile = ({ label, value, tone = 'bg-[#F7F7F7]', hint }: TotalTileProps) => {
+    const tile = (
+        <div data-total-tile className={`flex min-w-0 flex-col justify-center rounded-xl px-3 py-2 ${tone}`}>
+            <span className="text-[18px] font-semibold leading-tight text-[#080808] tabular-nums">{value}</span>
+            <span className="text-xs leading-snug text-[#616161]">{label}</span>
+        </div>
+    );
+    return hint ? <Tooltip title={hint}>{tile}</Tooltip> : tile;
+};
 
 interface ModalState {
     /** PROTOTYPE-SETUP (Attendance tab, Slice 2): null = the employee picks the day in the popup. */
@@ -128,7 +147,10 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate, requestSi
     const requestCorrection = () => setModal({ date: null, kind: 'correction' });
 
     const totals = view?.month === month ? view.totals : null;
-    const tiles = totals
+    // PROTOTYPE-SETUP (Attendance layout, Slice 2): 8 compact tiles. Time at work and overtime share the last one:
+    // overtime counts qualifying days only (the month view applies the HR minimum); time at work leaves out missed
+    // check-outs that haven't been updated (they have no known time at work).
+    const tiles: TotalTileProps[] = totals
         ? [
               { label: 'Present', value: totals.present, tone: 'bg-[#ECFDF3]' },
               { label: 'Late', value: totals.late, tone: 'bg-[#FFFAEB]' },
@@ -137,8 +159,11 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate, requestSi
               { label: 'On leave', value: totals.onLeave, tone: 'bg-[#F9F0FF]' },
               { label: 'Holidays', value: totals.holidays, tone: 'bg-[#E6FFFB]' },
               { label: 'Worked off-days', value: totals.workedOffDays, tone: 'bg-[#F0F5FF]' },
-              { label: 'Time at work', value: formatDuration(totals.minutesAtWork) },
-              { label: 'Overtime', value: formatDuration(totals.overtimeMinutes) },
+              {
+                  label: `worked, ${totals.overtimeMinutes ? `${formatDuration(totals.overtimeMinutes)} overtime` : 'no overtime'}`,
+                  value: formatDuration(totals.minutesAtWork),
+                  hint: 'Excludes days with a missed check-out.',
+              },
           ]
         : [];
 
@@ -168,15 +193,16 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate, requestSi
                         month === today.slice(0, 7) ? 'So far this month' : undefined
                     }
                 >
+                    {/* 4 × 2 (2 × 4 on phones); at 1200px+ the tiles fill the row's height (no empty block under them). */}
                     {totals ? (
-                        <div className="grid grid-cols-3 gap-2 xl:flex-1 xl:content-evenly">
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:flex-1 xl:auto-rows-fr">
                             {tiles.map(t => (
-                                <StatTile key={t.label} {...t} />
+                                <TotalTile key={t.label} {...t} />
                             ))}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-3 gap-2 xl:flex-1 xl:content-evenly">
-                            {Array.from({ length: 9 }, (_, i) => (
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:flex-1 xl:auto-rows-fr">
+                            {Array.from({ length: 8 }, (_, i) => (
                                 <span
                                     key={i}
                                     className="block h-[58px] rounded-xl bg-gray-100 animate-pulse"
