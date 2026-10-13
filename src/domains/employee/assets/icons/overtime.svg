@@ -1,0 +1,15 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+<!-- PROTOTYPE-SETUP (ESS design, Slice 2): Overtime quick-action icon, drawn in the same illustrated style as
+     attendance.svg / myPay.svg (dark #373A3A strokes, light grey fills, one Peko-red accent). -->
+<rect x="25" y="6" width="12" height="5" rx="2" fill="#C2C7CC" stroke="#373A3A" stroke-width="1.6" stroke-linejoin="round"/>
+<path d="M31 11V15" stroke="#373A3A" stroke-width="1.6" stroke-linecap="round"/>
+<path d="M45.5 17.5L48.5 14.5" stroke="#373A3A" stroke-width="1.6" stroke-linecap="round"/>
+<circle cx="31" cy="35" r="20" fill="#DAE0E5" stroke="#373A3A" stroke-width="1.6"/>
+<circle cx="31" cy="35" r="15" fill="white" stroke="#373A3A" stroke-width="1.6"/>
+<path d="M31 35V25" stroke="#373A3A" stroke-width="1.8" stroke-linecap="round"/>
+<path d="M31 35L38 39" stroke="#373A3A" stroke-width="1.8" stroke-linecap="round"/>
+<circle cx="31" cy="35" r="2" fill="#373A3A"/>
+<path d="M31 21.5V23.5M44.5 35H42.5M31 48.5V46.5M17.5 35H19.5" stroke="#969A9E" stroke-width="1.4" stroke-linecap="round"/>
+<circle cx="49" cy="49" r="9" fill="#FF4F4F" stroke="#373A3A" stroke-width="1.6"/>
+<path d="M49 44.5V53.5M44.5 49H53.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+</svg>

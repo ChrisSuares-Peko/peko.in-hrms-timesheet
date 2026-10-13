@@ -1,14 +1,18 @@
-// PROTOTYPE-SETUP (Overview, Slice 3; decluttered in Overview v2, Slice 3): section 4 — "Recent days": this week's
-// and last week's working days up to today, newest first. Columns: Date | Check in | Check out | Hours logged |
-// Overtime. Timesheet-only drops check in / out; Attendance-only drops hours logged. Normal cells are plain (or
-// empty) so only exceptions stand out: Late / Absent / Leave on check in, "Missed · auto 11:59 PM" on check out,
-// "{dur} not claimed" or the request's status on overtime. Every cell links to that day: check in / out →
+// PROTOTYPE-SETUP (Overview; decluttered in Overview v2; ESS design, Slice 2): section 4 — "Recent days": this
+// week's and last week's working days up to today, newest first, in an antd Table styled like the ESS
+// AttendanceTable (bordered 18px container, grey header). Columns: Date | Check in | Check out | Hours logged |
+// Overtime (Timesheet-only drops check in / out; Attendance-only drops hours logged). Normal cells are plain, so
+// only exceptions stand out: Late / Absent / Leave, "Missed · auto 11:59 PM", "{dur} not claimed" or the
+// overtime request's status, as Tags. Every cell is a link to that day (hover highlights it): check in / out →
 // Attendance, hours → Timesheet, overtime → Overtime, the date → Timesheet (Attendance in Attendance-only mode).
 import { ReactNode } from 'react';
 
-import { Tag } from 'antd';
+import { Table, Tag } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
+
+import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
 
 import { formatDuration } from '../components/format';
 import type { AtsMode, AtsTab, OverviewDay } from '../types';
@@ -16,7 +20,7 @@ import type { AtsMode, AtsTab, OverviewDay } from '../types';
 const OT_COLOR = { pending: 'processing', approved: 'success', rejected: 'error' } as const;
 
 const Chip = ({ color, children }: { color: string; children: ReactNode }) => (
-    <Tag color={color} bordered={false} className="!m-0 inline-block whitespace-normal align-middle !text-[11px] !leading-4">
+    <Tag color={color} bordered={false} className="!m-0 inline-block whitespace-nowrap px-2.5 align-middle text-xs">
         {children}
     </Tag>
 );
@@ -39,7 +43,7 @@ const checkOutCell = (d: OverviewDay) => {
     const a = d.attendance;
     if (a.checkOutAuto) return <Chip color="gold">Missed · auto 11:59 PM</Chip>;
     if (a.checkOut) return a.checkOut;
-    if (a.checkIn) return <span className="text-gray-400">Still in</span>;
+    if (a.checkIn) return <span className="text-[#9e9e9e]">Still in</span>;
     return null;
 };
 
@@ -50,7 +54,7 @@ const overtimeCell = (d: OverviewDay) => {
     return null;
 };
 
-interface Column {
+interface Col {
     key: string;
     title: string;
     tab: AtsTab;
@@ -74,7 +78,7 @@ const OvStatusTable = ({
     className?: string;
 }) => {
     const dateTab: AtsTab = mode === 'attendance' ? 'attendance' : 'timesheet';
-    const columns: Column[] = [
+    const cols: Col[] = [
         {
             key: 'date',
             title: 'Date',
@@ -82,9 +86,9 @@ const OvStatusTable = ({
             withDate: true,
             hint: `Open in ${dateTab === 'attendance' ? 'Attendance' : 'Timesheet'}`,
             cell: d => (
-                <span className={d.date === today ? 'text-[#FF4F4F]' : 'text-[#101828]'}>
+                <span className={`whitespace-nowrap font-medium ${d.date === today ? 'text-[#FF4F4F]' : 'text-[#080808]'}`}>
                     {dayjs(d.date).format('ddd D MMM')}
-                    {d.date === today && <span className="text-gray-400"> today</span>}
+                    {d.date === today && <span className="font-normal text-[#9e9e9e]"> today</span>}
                 </span>
             ),
         },
@@ -109,42 +113,36 @@ const OvStatusTable = ({
         { key: 'ot', title: 'Overtime', tab: 'overtime', withDate: false, hint: 'Open Overtime', cell: overtimeCell },
     ];
 
+    const columns: ColumnsType<OverviewDay> = cols.map(c => ({
+        key: c.key,
+        title: c.title,
+        onCell: () => ({ className: '!p-0' }),
+        render: (_: unknown, d: OverviewDay) => (
+            <Link
+                to={linkTo(c.tab, c.withDate ? d.date : undefined)}
+                title={c.hint}
+                aria-label={`${dayjs(d.date).format('D MMM')}: ${c.hint}`}
+                className="block min-h-[44px] whitespace-nowrap px-3 py-3 text-sm tabular-nums text-[#080808] decoration-[#c4c4c4] underline-offset-[3px] hover:bg-[#EEF3FF] hover:text-[#080808] hover:underline"
+            >
+                {c.cell(d)}
+            </Link>
+        ),
+    }));
+
     return (
-        <section aria-label="Recent days" className={`min-w-0 self-start rounded-2xl border border-solid border-gray-100 bg-white p-4 shadow-sm ${className}`}>
-            <h3 className="m-0 mb-2 text-base font-semibold text-valueText">Recent days</h3>
-            <div className="-mx-1 overflow-x-auto">
-                <table className="w-full min-w-[420px] border-collapse text-[13px] tabular-nums">
-                    <thead>
-                        <tr>
-                            {columns.map(c => (
-                                <th key={c.key} scope="col" className="border-0 border-b border-solid border-gray-100 px-1.5 py-1.5 text-left text-[11px] font-normal text-gray-400">
-                                    {c.title}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {days.map(d => (
-                            <tr key={d.date} className="hover:bg-gray-50">
-                                {columns.map(c => (
-                                    <td key={c.key} className={`border-0 border-b border-solid border-gray-50 p-0 align-top ${c.key === 'date' ? 'whitespace-nowrap' : ''}`}>
-                                        <Link
-                                            to={linkTo(c.tab, c.withDate ? d.date : undefined)}
-                                            title={c.hint}
-                                            aria-label={`${dayjs(d.date).format('D MMM')}: ${c.hint}`}
-                                            className="block h-full min-h-[34px] px-1.5 py-2 text-[#101828] decoration-gray-300 underline-offset-[3px] hover:bg-[#EEF3FF] hover:underline"
-                                        >
-                                            {c.cell(d)}
-                                        </Link>
-                                    </td>
-                                ))}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+        <EssCard label="Recent days" heading={<EssSectionHeading title="Recent days" />} className={className}>
+            <div className="overflow-hidden rounded-[18px] border border-solid border-[#eff1f4]">
+                <Table<OverviewDay>
+                    rowKey="date"
+                    columns={columns}
+                    dataSource={days}
+                    pagination={false}
+                    size="middle"
+                    scroll={{ x: 520 }}
+                    locale={{ emptyText: 'No working days yet.' }}
+                />
             </div>
-            {!days.length && <p className="m-0 py-4 text-center text-sm text-gray-500">No working days yet.</p>}
-        </section>
+        </EssCard>
     );
 };
 

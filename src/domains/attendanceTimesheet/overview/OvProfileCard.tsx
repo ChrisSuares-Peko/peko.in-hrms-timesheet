@@ -1,44 +1,40 @@
-// PROTOTYPE-SETUP (Overview, Slice 2; decluttered in Overview v2, Slice 2): section 1 — who you are.
-// Photo (initials fallback), name and role, then work email, reporting manager and department. Employee ID and
-// grade live on the Profile page. "Edit profile" is a small link in the top-right corner; the card is only as
-// tall as its content.
-import { Link } from 'react-router-dom';
+// PROTOTYPE-SETUP (Overview; ESS design, Slice 2): section 1 — "Profile" with "Edit profile". A 72px avatar (the
+// approved photo, or initials), the name (20px medium) and role in grey, then work email, manager and department
+// as value / label pairs in the ESS ProfileCard style (inner bordered block).
+import { ESS_INNER, ESS_LABEL } from '@src/components/ess/essTokens';
+import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
 
-import { OvCard } from './OvCard';
 import ProfilePhoto from './ProfilePhoto';
 import type { MyProfileView } from '../types';
 
-export const OvItem = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <>
-        <dt className="text-[11px] text-gray-400">{label}</dt>
-        <dd className="m-0 min-w-0 text-sm font-normal text-[#101828]">{children}</dd>
-    </>
+const Pair = ({ label, value, title }: { label: string; value: string; title?: string }) => (
+    <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="truncate text-base font-medium text-[#080808]" title={title ?? value}>
+            {value}
+        </span>
+        <span className={ESS_LABEL}>{label}</span>
+    </div>
 );
 
 const OvProfileCard = ({ profile, profilePath, className = '' }: { profile: MyProfileView; profilePath: string; className?: string }) => {
     const { work, personal } = profile;
     return (
-        <OvCard label="Employee profile" className={`self-start ${className}`}>
-            <div className="flex min-w-0 items-start gap-3">
-                <ProfilePhoto name={work.name} photo={personal.photo} size={48} />
-                <div className="min-w-0 flex-1">
-                    <div className="truncate text-base font-semibold text-valueText">{work.name}</div>
-                    <div className="truncate text-xs text-gray-500">{work.designation}</div>
+        <EssCard label="Employee profile" heading={<EssSectionHeading title="Profile" link={{ to: profilePath, text: 'Edit profile' }} />} className={className}>
+            <div className="flex min-w-0 items-center gap-4">
+                <ProfilePhoto name={work.name} photo={personal.photo} size={72} />
+                <div className="min-w-0">
+                    <div className="truncate text-xl font-medium text-[#080808]">{work.name}</div>
+                    <div className="truncate text-sm text-[#616161]">{work.designation}</div>
                 </div>
-                <Link to={profilePath} className="shrink-0 text-xs font-medium text-[#2E62E8] hover:underline">
-                    Edit profile
-                </Link>
             </div>
-            <dl className="m-0 grid grid-cols-[84px_minmax(0,1fr)] items-baseline gap-x-3 gap-y-2">
-                <OvItem label="Work email">
-                    <span className="block truncate" title={work.workEmail}>
-                        {work.workEmail}
-                    </span>
-                </OvItem>
-                <OvItem label="Manager">{work.manager?.name ?? 'No reporting manager'}</OvItem>
-                <OvItem label="Department">{work.department}</OvItem>
-            </dl>
-        </OvCard>
+            <div className={`flex flex-col gap-4 ${ESS_INNER}`}>
+                <Pair label="Work email" value={work.workEmail} />
+                <div className="grid grid-cols-2 gap-4">
+                    <Pair label="Manager" value={work.manager?.name ?? 'No reporting manager'} />
+                    <Pair label="Department" value={work.department} />
+                </div>
+            </div>
+        </EssCard>
     );
 };
 

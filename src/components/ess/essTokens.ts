@@ -40,11 +40,11 @@ export const ESS_SPACE = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as co
 // ---- Tailwind class strings (hand-built blocks) ------------------------------------------------------------
 
 /** Outer card — ProfileCard: white, 32px radius, soft shadow. */
-export const ESS_CARD = 'rounded-[32px] bg-white p-6 shadow-[0_1.66px_8.28px_rgba(0,0,0,0.06)]';
+export const ESS_CARD = 'rounded-[32px] bg-white p-4 sm:p-6 shadow-[0_1.66px_8.28px_rgba(0,0,0,0.06)]';
 /** Inner bordered block — ProfileCard's profile block. */
 export const ESS_INNER = 'rounded-[26px] border border-solid border-[#e6e6e6] p-5';
 /** Grey panel — AnnouncementsPanel. */
-export const ESS_PANEL = 'rounded-[32px] bg-[#f8f8f8] p-6';
+export const ESS_PANEL = 'rounded-[32px] bg-[#f8f8f8] p-4 sm:p-6';
 /** White item inside a grey panel — AnnouncementsPanel item. */
 export const ESS_PANEL_ITEM = 'rounded-2xl bg-white px-5 py-3';
 

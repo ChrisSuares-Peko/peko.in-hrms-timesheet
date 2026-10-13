@@ -1,4 +1,5 @@
-// PROTOTYPE-SETUP (Overview, Slice 2; decluttered in Overview v2, Slice 2): section 3 — today's timesheet.
+// PROTOTYPE-SETUP (Overview, Slice 2; decluttered in Overview v2, Slice 2; ESS design, Slice 2): section 3 —
+// "Timesheet" with "Full timesheet".
 // "Today: 1h 30m of 8h", the day bar and meter (the Timesheet tab's components), the last 2 entries ("and N
 // more"), and "+ Add entry", which opens the compact entry form (same rules as the Timesheet tab, no hint) and
 // closes again after a successful add or on Cancel. The week's status is a small chip ("Week: Draft ·
@@ -9,11 +10,11 @@ import { PlusOutlined } from '@ant-design/icons';
 import { Button, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 
+import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
 import { useAppDispatch } from '@src/hooks/store';
 import { WEEKDAYS, addDays, entryMins, formatDuration, isTimed } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
 
-import { OvCard } from './OvCard';
 import { addEntry } from '../api';
 import { WEEK_STATUS } from '../components/format';
 import { useAtsScope } from '../hooks/useAtsScope';
@@ -78,50 +79,50 @@ const OvTimesheetCard = ({
     };
 
     let addArea = (
-        <Button size="small" icon={<PlusOutlined />} className="self-start" onClick={() => setAdding(true)}>
+        <Button icon={<PlusOutlined />} className="self-start" onClick={() => setAdding(true)}>
             Add entry
         </Button>
     );
     if (adding) {
         addArea = <EntryForm date={today} others={day.entries} quick compact hideHint busy={busy} onSave={save} onCancel={() => setAdding(false)} />;
     }
-    if (!editable) addArea = <Text className="text-xs text-gray-500">Today can’t be edited right now. Open the full timesheet for details.</Text>;
+    if (!editable) addArea = <Text className="text-xs text-[#9e9e9e]">Today can’t be edited right now. Open the full timesheet for details.</Text>;
 
     return (
-        <OvCard label="Today's timesheet" title="Timesheet" link={{ to: fullPath, text: 'Full timesheet ›' }} className={className}>
+        <EssCard label="Today's timesheet" heading={<EssSectionHeading title="Timesheet" link={{ to: fullPath, text: 'Full timesheet' }} />} className={className}>
             <div>
-                <Text className="block text-sm text-[#101828]">
-                    <span className="text-gray-500">Today:</span> {formatDuration(day.loggedMinutes)}
-                    {day.expectedMinutes ? <span className="text-gray-500"> of {formatDuration(day.expectedMinutes)}</span> : null}
+                <Text className="block text-base text-[#080808]">
+                    <span className="text-[#616161]">Today:</span> <span className="font-medium">{formatDuration(day.loggedMinutes)}</span>
+                    {day.expectedMinutes ? <span className="text-[#616161]"> of {formatDuration(day.expectedMinutes)}</span> : null}
                 </Text>
-                <div className="mt-2">
+                <div className="mt-3">
                     <BarTrack day={day} mode={mode} />
                     <Meter logged={day.loggedMinutes} expected={day.expectedMinutes} />
                 </div>
             </div>
             {shown.length ? (
-                <ul className="m-0 flex list-none flex-col gap-1 p-0">
+                <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
                     {shown.map(e => (
-                        <li key={e.id} className="grid grid-cols-[96px_52px_minmax(0,1fr)] items-baseline gap-2 text-[13px]">
-                            <span className={`tabular-nums ${isTimed(e) ? 'text-[#101828]' : 'italic text-gray-400'}`}>
+                        <li key={e.id} className="grid grid-cols-[96px_52px_minmax(0,1fr)] items-baseline gap-2 text-sm">
+                            <span className={`tabular-nums ${isTimed(e) ? 'text-[#080808]' : 'italic text-[#9e9e9e]'}`}>
                                 {isTimed(e) ? `${e.start} – ${e.end}` : 'No set time'}
                             </span>
-                            <span className="tabular-nums text-gray-500">{formatDuration(entryMins(e))}</span>
-                            <span className="truncate text-[#101828]" title={e.description}>
+                            <span className="tabular-nums text-[#616161]">{formatDuration(entryMins(e))}</span>
+                            <span className="truncate text-[#080808]" title={e.description}>
                                 {e.description}
                             </span>
                         </li>
                     ))}
-                    {more > 0 && <li className="text-xs text-gray-500">and {more} more</li>}
+                    {more > 0 && <li className="text-xs text-[#9e9e9e]">and {more} more</li>}
                 </ul>
             ) : (
-                <Text className="text-sm text-gray-500">Nothing logged today yet.</Text>
+                <Text className="text-sm text-[#9e9e9e]">Nothing logged today yet.</Text>
             )}
             {addArea}
-            <Tag color={chip.color} bordered={false} className={`!m-0 self-start !text-[11px] ${chip.className ?? ''}`}>
+            <Tag color={chip.color} bordered={false} className={`!m-0 self-start px-3 py-0.5 text-xs ${chip.className ?? ''}`}>
                 {chip.text}
             </Tag>
-        </OvCard>
+        </EssCard>
     );
 };
 
