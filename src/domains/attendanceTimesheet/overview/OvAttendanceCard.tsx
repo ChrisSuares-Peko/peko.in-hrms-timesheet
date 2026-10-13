@@ -82,7 +82,8 @@ const OvAttendanceCard = ({
     else if (t.checkOut) outTitle = `Checked out at ${t.checkOut}`;
 
     return (
-        <EssCard label="Attendance today" heading={<EssSectionHeading title="Attendance" link={{ to: openPath, text: 'Open' }} />} className={className}>
+        // PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the parts spread out; the caption sits at the bottom.
+        <EssCard label="Attendance today" heading={<EssSectionHeading title="Attendance" link={{ to: openPath, text: 'Open' }} />} className={`xl:justify-between ${className}`}>
             <EssStatusBlock
                 tone={strip.tone}
                 title={strip.text}

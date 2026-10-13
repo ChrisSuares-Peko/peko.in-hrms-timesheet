@@ -1,16 +1,16 @@
-// PROTOTYPE-SETUP (Overview, Slice 2; ESS design, Slice 2): the ESS - Employee Overview, at /ess-employee. ESS -
-// Manager keeps the existing employee dashboard. Layout with antd Row / Col (24px gutters):
-//   1440px  [Profile] [Attendance] [Timesheet]            three equal columns, same top edge and height
-//           [Quick actions + Recent days ~2/3] [Notifications ~1/3]   aligned at the top
-//   1024px  two columns on top: [Profile] [Attendance] / [Timesheet]; below, Quick actions, Recent days and
-//           Notifications at full width (the table needs ~640px, more than a 2/3 column has at this width)
-//   375px   one column: Profile, Attendance, Timesheet, Quick actions, Recent days, Notifications
-// Attendance-only hides Timesheet and Attendance takes its place; Timesheet-only the reverse.
+// PROTOTYPE-SETUP (Overview, Slice 2; ESS design, Slice 2; Overview v4, Slices 1–2): the ESS - Employee
+// Overview, at /ess-employee. ESS - Manager keeps the existing employee dashboard. Layout (overview.css):
+//   ≥1200px  fixed section heights. Both modes: Profile | Attendance | Timesheet, then Quick actions + Recent days
+//            (left 2/3) and Notifications (right 1/3). Attendance-only / Timesheet-only: Profile | Attendance (or
+//            Timesheet) | Notifications, with Notifications running down the whole right column.
+//   768–1199px  two columns, heights automatic. <768px  one column: Profile, Attendance, Timesheet, Quick actions,
+//            Recent days, Notifications.
 import { useCallback, useEffect, useState } from 'react';
 
 import { ReloadOutlined } from '@ant-design/icons';
-import { Button, Col, Empty, Row, Skeleton } from 'antd';
+import { Button, Empty, Skeleton } from 'antd';
 
+import './overview.css';
 import { titleFor } from '@src/prototype/rules/attendance';
 
 import OvAttendanceCard from './OvAttendanceCard';
@@ -24,9 +24,6 @@ import { useAtsPaths } from '../hooks/useAtsPaths';
 import { useAtsScope } from '../hooks/useAtsScope';
 import { todayIso } from '../timesheet/helpers';
 import type { AtsOverview, EssHomeView, MyProfileView, OverviewLink, TimesheetWeekView } from '../types';
-
-/** Gap between cards (spacing scale). */
-const GUTTER = 24;
 
 const EssOverviewPage = () => {
     const scope = useAtsScope();
@@ -72,15 +69,15 @@ const EssOverviewPage = () => {
             );
         }
         return (
-            <Row gutter={[GUTTER, GUTTER]}>
+            <div className="ess-ov">
                 {[0, 1, 2].map(i => (
-                    <Col key={i} xs={24} md={12} xl={8}>
+                    <div key={i}>
                         <div className="rounded-[32px] bg-white p-6 shadow-[0_1.66px_8.28px_rgba(0,0,0,0.06)]">
                             <Skeleton active paragraph={{ rows: 5 }} />
                         </div>
-                    </Col>
+                    </div>
                 ))}
-            </Row>
+            </div>
         );
     }
 
@@ -97,38 +94,26 @@ const EssOverviewPage = () => {
     };
     const hrefOf = (link: OverviewLink) => ('tab' in link ? paths.section(link.tab, link.date) : `${paths.home}/${link.page}`);
 
-    // Top row: three equal columns (xl), two (md: Profile + Attendance, Timesheet below), one (xs). With one of
-    // Attendance / Timesheet hidden by the mode, the other takes the remaining width.
-    const one = mode !== 'both';
-    const wide = { xs: 24, md: 12, xl: 16 };
-    const third = { xs: 24, md: 12, xl: 8 };
+    // In Timesheet-only mode the Timesheet card takes the Attendance slot.
+    const timesheetSlot = mode === 'both' ? 'ess-ov__t' : 'ess-ov__a';
     return (
-        <div className="flex flex-col" style={{ gap: GUTTER }}>
-            <Row gutter={[GUTTER, GUTTER]} align="stretch">
-                <Col {...third} className="flex">
-                    <OvProfileCard profile={profile} profilePath={`${paths.home}/profile`} className="w-full" />
-                </Col>
-                {mode !== 'timesheet' && (
-                    <Col {...(one ? wide : third)} className="flex">
-                        <OvAttendanceCard overview={overview} onOverview={onOverview} openPath={paths.section('attendance')} className="w-full" />
-                    </Col>
-                )}
-                {mode !== 'attendance' && week && (
-                    <Col xs={24} md={one ? 12 : 24} xl={one ? 16 : 8} className="flex">
-                        <OvTimesheetCard
-                            week={week}
-                            mode={mode}
-                            today={today}
-                            onWeek={onWeek}
-                            fullPath={paths.section('timesheet', today)}
-                            className="w-full"
-                        />
-                    </Col>
-                )}
-            </Row>
+        <div className={`ess-ov ess-ov--${mode}`}>
+            <div className="ess-ov__p">
+                <OvProfileCard profile={profile} profilePath={`${paths.home}/profile`} />
+            </div>
+            {mode !== 'timesheet' && (
+                <div className="ess-ov__a">
+                    <OvAttendanceCard overview={overview} onOverview={onOverview} openPath={paths.section('attendance')} />
+                </div>
+            )}
+            {mode !== 'attendance' && week && (
+                <div className={timesheetSlot}>
+                    <OvTimesheetCard week={week} mode={mode} today={today} onWeek={onWeek} fullPath={paths.section('timesheet', today)} />
+                </div>
+            )}
             {home && (
-                <Row gutter={[GUTTER, GUTTER]} align="top">
-                    <Col xs={24} xl={16} className="flex flex-col" style={{ gap: GUTTER }}>
+                <>
+                    <div className="ess-ov__q">
                         <OvQuickActions
                             sectionTitle={titleFor(mode)}
                             to={{
@@ -140,12 +125,14 @@ const EssOverviewPage = () => {
                                 documents: `${paths.home}/documents`,
                             }}
                         />
+                    </div>
+                    <div className="ess-ov__r">
                         <OvStatusTable days={home.recentDays} mode={mode} today={today} linkTo={paths.section} />
-                    </Col>
-                    <Col xs={24} xl={8}>
+                    </div>
+                    <div className="ess-ov__n">
                         <OvNotifications home={home} hrefOf={hrefOf} />
-                    </Col>
-                </Row>
+                    </div>
+                </>
             )}
         </div>
     );

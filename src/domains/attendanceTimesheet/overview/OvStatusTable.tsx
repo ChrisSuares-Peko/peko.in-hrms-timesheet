@@ -131,7 +131,9 @@ const OvStatusTable = ({
 
     return (
         <EssCard label="Recent days" heading={<EssSectionHeading title="Recent days" />} className={className}>
-            <div className="overflow-hidden rounded-[18px] border border-solid border-[#eff1f4]">
+            {/* PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the table fills the card — its rows share the
+                spare height (ov-stretch-table) and, if there are more days than fit, it scrolls inside. */}
+            <div className="ov-stretch-table overflow-hidden rounded-[18px] border border-solid border-[#eff1f4] xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
                 <Table<OverviewDay>
                     rowKey="date"
                     columns={columns}

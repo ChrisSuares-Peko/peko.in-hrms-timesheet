@@ -33,7 +33,8 @@ const OvQuickActions = ({
     ];
     return (
         <EssCard label="Quick actions" heading={<EssSectionHeading title="Quick actions" />} className={className}>
-            <div className="grid grid-cols-3 justify-items-center gap-x-2 gap-y-4 sm:grid-cols-6">
+            {/* PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the tiles sit in the middle of the spare space. */}
+            <div className="grid grid-cols-3 content-center justify-items-center gap-x-2 gap-y-4 sm:grid-cols-6 xl:flex-1">
                 {tiles.map(t => (
                     <div key={t.key} className="flex min-w-0 justify-center" data-quick-action={t.key}>
                         <ServiceShortcutCard icon={t.icon} title={t.title} path={to[t.key]} iconSize={48} />

@@ -89,7 +89,12 @@ const OvTimesheetCard = ({
     if (!editable) addArea = <Text className="text-xs text-[#9e9e9e]">Today can’t be edited right now. Open the full timesheet for details.</Text>;
 
     return (
-        <EssCard label="Today's timesheet" heading={<EssSectionHeading title="Timesheet" link={{ to: fullPath, text: 'Full timesheet' }} />} className={className}>
+        // PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the parts spread out; the week chip sits at the bottom.
+        <EssCard
+            label="Today's timesheet"
+            heading={<EssSectionHeading title="Timesheet" link={{ to: fullPath, text: 'Full timesheet' }} />}
+            className={`xl:justify-between ${className ?? ''}`}
+        >
             <div>
                 <Text className="block text-base text-[#080808]">
                     <span className="text-[#616161]">Today:</span> <span className="font-medium">{formatDuration(day.loggedMinutes)}</span>

@@ -5,7 +5,7 @@
 //                      kind, else Leaves)
 //   the announcement   one line at the bottom ("Office closed for {holiday} on {date}"), "N more" expands the rest
 // antd Empty when there's nothing to show.
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Badge, Button, Empty, List } from 'antd';
 import dayjs from 'dayjs';
@@ -63,6 +63,10 @@ const OvNotifications = ({
     const [first, ...rest] = announcements;
     const firstLine = first?.date ? `${first.title} on ${dayjs(first.date).format('ddd D MMM')}` : first?.title;
     const nothing = !actions.length && !requests.length && !first;
+    const feed = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (feed.current) feed.current.scrollTop = 0;
+    }, [home]);
 
     return (
         <section aria-label="Notifications" className={`flex min-w-0 flex-col gap-5 ${ESS_PANEL} ${className}`}>
@@ -70,6 +74,8 @@ const OvNotifications = ({
                 title="Notifications"
                 extra={actions.length > 0 && <Badge count={`${actions.length} to do`} style={{ backgroundColor: '#FF4F4F' }} />}
             />
+            {/* PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the feed scrolls inside the card, starting at the top. */}
+            <div ref={feed} className="-mx-1 flex flex-col gap-5 px-1 pt-0.5 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
             {nothing && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="You're all caught up" />}
             {actions.length > 0 && (
                 <Group title="Needs your action">
@@ -144,6 +150,7 @@ const OvNotifications = ({
                         ))}
                 </div>
             )}
+            </div>
         </section>
     );
 };

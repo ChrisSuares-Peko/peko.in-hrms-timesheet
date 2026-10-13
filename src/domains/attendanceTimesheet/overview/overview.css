@@ -1,0 +1,86 @@
+/* PROTOTYPE-SETUP (Overview v4, Slice 1): the ESS - Employee Overview grid with fixed section sizes on desktop.
+   antd Row / Col can't express grid areas or a column that spans rows, so the layout is a CSS grid.
+
+   ≥1200px — fixed row heights (cards don't grow or shrink with their content):
+     both        p a t / q q n / r r n        (p Profile, a Attendance, t Timesheet, q Quick actions,
+     attendance  p a n / q q n / r r n         r Recent days, n Notifications; in Timesheet-only mode the
+     timesheet   p a n / q q n / r r n         Timesheet card takes the Attendance slot "a")
+   768–1199px — two columns, heights automatic: p a / t t / q q / r r / n n
+   <768px — one column in DOM order: Profile, Attendance, Timesheet, Quick actions, Recent days, Notifications. */
+.ess-ov {
+    --ov-top: 440px;
+    --ov-qa: 290px;
+    --ov-rd: 620px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+}
+
+.ess-ov > * {
+    display: flex;
+    min-width: 0;
+}
+
+.ess-ov > * > * {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+@media (min-width: 768px) {
+    .ess-ov {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-areas: 'p a' 't t' 'q q' 'r r' 'n n';
+    }
+    .ess-ov--attendance,
+    .ess-ov--timesheet {
+        grid-template-areas: 'p a' 'q q' 'r r' 'n n';
+    }
+    .ess-ov__p {
+        grid-area: p;
+    }
+    .ess-ov__a {
+        grid-area: a;
+    }
+    .ess-ov__t {
+        grid-area: t;
+    }
+    .ess-ov__q {
+        grid-area: q;
+    }
+    .ess-ov__r {
+        grid-area: r;
+    }
+    .ess-ov__n {
+        grid-area: n;
+    }
+}
+
+@media (min-width: 1200px) {
+    .ess-ov {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-rows: var(--ov-top) var(--ov-qa) var(--ov-rd);
+        grid-template-areas: 'p a t' 'q q n' 'r r n';
+    }
+    .ess-ov--attendance,
+    .ess-ov--timesheet {
+        grid-template-areas: 'p a n' 'q q n' 'r r n';
+    }
+    /* Every card fills its fixed cell; content never resizes it. */
+    .ess-ov > * > * {
+        height: 100%;
+        min-height: 0;
+    }
+}
+
+/* Recent days: at a fixed height the table fills its card and the rows share the spare height. */
+@media (min-width: 1200px) {
+    .ov-stretch-table .ant-table-wrapper,
+    .ov-stretch-table .ant-spin-nested-loading,
+    .ov-stretch-table .ant-spin-container,
+    .ov-stretch-table .ant-table,
+    .ov-stretch-table .ant-table-container,
+    .ov-stretch-table .ant-table-content,
+    .ov-stretch-table table {
+        height: 100%;
+    }
+}

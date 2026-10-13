@@ -27,7 +27,8 @@ const OvProfileCard = ({ profile, profilePath, className = '' }: { profile: MyPr
                     <div className="truncate text-sm text-[#616161]">{work.designation}</div>
                 </div>
             </div>
-            <div className={`flex flex-col gap-4 ${ESS_INNER}`}>
+            {/* PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the block fills the spare space, pairs evenly spaced. */}
+            <div className={`flex flex-col gap-4 xl:flex-1 xl:justify-evenly ${ESS_INNER}`}>
                 <Pair label="Work email" value={work.workEmail} />
                 <div className="grid grid-cols-2 gap-4">
                     <Pair label="Manager" value={work.manager?.name ?? 'No reporting manager'} />
