@@ -11,8 +11,6 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { Button, Empty, Skeleton } from 'antd';
 
 import './overview.css';
-import { titleFor } from '@src/prototype/rules/attendance';
-
 import OvAttendanceCard from './OvAttendanceCard';
 import OvNotifications from './OvNotifications';
 import OvProfileCard from './OvProfileCard';
@@ -115,7 +113,7 @@ const EssOverviewPage = () => {
                 <>
                     <div className="ess-ov__q">
                         <OvQuickActions
-                            sectionTitle={titleFor(mode)}
+                            mode={mode}
                             to={{
                                 section: paths.section(),
                                 leave: `${paths.home}/leaves`,
@@ -123,6 +121,7 @@ const EssOverviewPage = () => {
                                 overtime: paths.section('overtime'),
                                 payslips: `${paths.home}/payslips`,
                                 documents: `${paths.home}/documents`,
+                                profile: `${paths.home}/profile`,
                             }}
                         />
                     </div>
