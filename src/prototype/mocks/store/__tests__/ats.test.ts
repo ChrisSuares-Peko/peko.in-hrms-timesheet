@@ -18,6 +18,7 @@ import {
     createOvertime,
     overtimeViewOf,
     overviewOf,
+    ownCheckOutsOf,
     submitWeek,
     updateOwnCheckOut,
 } from '../atsEss';
@@ -405,6 +406,8 @@ describe('self-service check-out update', () => {
         expect(day.checkOutByEmployee).toMatchObject({ note: 'Release night' });
         expect(recordOf(M, sneha, s.autoDay)).toMatchObject({ checkOut: '20:15', checkOutSource: 'employee' });
         expect(correctionsCount()).toBe(requests); // no request created
+        // PROTOTYPE-SETUP (Attendance layout, Slice 3): listed in "My correction requests" as entered by the employee
+        expect(ownCheckOutsOf(M, sneha)).toEqual([expect.objectContaining({ date: s.autoDay, checkIn: '09:31', checkOut: '20:15', note: 'Release night' })]);
         // overtime: 10h 44m at work − 9h shift = 1h 44m, now suggested (still claimed and approved as usual)
         expect(day.overtimeMinutes).toBe(104);
         expect(overtimeViewOf(M, sneha, currentMonth()).suggestions.find(x => x.date === s.autoDay)?.minutes).toBe(104);

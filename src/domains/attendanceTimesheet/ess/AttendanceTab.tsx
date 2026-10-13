@@ -14,12 +14,13 @@ import {
     CorrectionWithStatus,
     getAttendanceMonth,
     getCorrections,
+    getOwnCheckOuts,
 } from '../api';
 import CorrectionModal from '../components/CorrectionModal';
 import { formatDuration } from '../components/format';
 import { useAtsScope } from '../hooks/useAtsScope';
 import { AttendancePunch } from '../overview/OvAttendanceCard';
-import type { AtsOverview, AttendanceDay, AttendanceMonthView, CorrectionKind } from '../types';
+import type { AtsOverview, AttendanceDay, AttendanceMonthView, CorrectionKind, OwnCheckOutUpdate } from '../types';
 import AttendanceCalendar from './AttendanceCalendar';
 import CorrectionsList from './CorrectionsList';
 import DayDetailDrawer from './DayDetailDrawer';
@@ -70,6 +71,8 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate, requestSi
     const [view, setView] = useState<AttendanceMonthView | null>(null);
     const [loading, setLoading] = useState(true);
     const [corrections, setCorrections] = useState<CorrectionWithStatus[] | null>(null);
+    /** PROTOTYPE-SETUP (Attendance layout, Slice 3): check-outs entered by the employee, listed with the requests. */
+    const [ownUpdates, setOwnUpdates] = useState<OwnCheckOutUpdate[]>([]);
     const [selected, setSelected] = useState<string | null>(initialDate ?? null);
     const [modal, setModal] = useState<ModalState | null>(null);
     const [cancelling, setCancelling] = useState(false);
@@ -93,7 +96,8 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate, requestSi
     );
 
     const loadCorrections = useCallback(async () => {
-        const res = await getCorrections(scope);
+        const [res, own] = await Promise.all([getCorrections(scope), getOwnCheckOuts(scope)]);
+        setOwnUpdates(own || []);
         setCorrections(res || []);
     }, [scope]);
 
@@ -245,6 +249,8 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate, requestSi
                     <div className="min-h-0 flex-1 xl:overflow-y-auto" data-corrections-scroll>
                         <CorrectionsList
                             items={corrections}
+                            ownUpdates={ownUpdates}
+                            onRequest={requestCorrection}
                             onUpdated={list => {
                                 setCorrections(list);
                                 loadMonth(month, true);

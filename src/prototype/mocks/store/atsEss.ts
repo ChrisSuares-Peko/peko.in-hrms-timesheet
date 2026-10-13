@@ -7,6 +7,7 @@ import type {
     AttendanceDay,
     AttendanceMonthView,
     AttendanceTotals,
+    OwnCheckOutUpdate,
     ChangeRequest,
     ChangeRequestInput,
     CorrectionInput,
@@ -59,6 +60,7 @@ import {
 
 import {
     activeOvertimeOn,
+    atsAttendance,
     atsChangeRequests,
     atsCorrections,
     atsOvertime,
@@ -234,6 +236,13 @@ export const updateOwnCheckOut = (mode: DataMode, e: MockEmployee, input: { date
     });
     return attendanceDay(mode, e, date);
 };
+
+/** PROTOTYPE-SETUP (Attendance layout, Slice 3): the employee's self-entered check-outs, newest first. */
+export const ownCheckOutsOf = (mode: DataMode, e: MockEmployee): OwnCheckOutUpdate[] =>
+    Object.values(atsAttendance.get(mode))
+        .filter(r => r.employeeId === e.id && r.checkOutSource === 'employee' && r.checkOut)
+        .map(r => ({ date: r.date, checkIn: r.checkIn, checkOut: r.checkOut!, at: r.checkOutEnteredAt ?? '', ...(r.checkOutNote ? { note: r.checkOutNote } : {}) }))
+        .sort((a, b) => b.at.localeCompare(a.at));
 
 // ---- attendance corrections ---------------------------------------------------------------------------
 

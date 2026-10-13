@@ -189,6 +189,16 @@ export interface AttendanceCorrection {
     updatedAt: string;
 }
 
+/** PROTOTYPE-SETUP (Attendance layout, Slice 3): a check-out the employee entered themselves (no approval). */
+export interface OwnCheckOutUpdate {
+    date: string;
+    checkIn: string | null;
+    checkOut: string;
+    /** When they entered it (ISO). */
+    at: string;
+    note?: string;
+}
+
 export interface CorrectionInput {
     date: string;
     kind: CorrectionKind;
