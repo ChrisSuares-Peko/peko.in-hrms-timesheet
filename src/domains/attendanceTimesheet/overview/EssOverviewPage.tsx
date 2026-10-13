@@ -129,7 +129,6 @@ const EssOverviewPage = () => {
                                 section: paths.section(),
                                 leave: `${paths.home}/leaves`,
                                 reimbursements: `${paths.home}/reimbursements`,
-                                overtime: paths.section('overtime'),
                                 payslips: `${paths.home}/payslips`,
                                 documents: `${paths.home}/documents`,
                                 profile: `${paths.home}/profile`,

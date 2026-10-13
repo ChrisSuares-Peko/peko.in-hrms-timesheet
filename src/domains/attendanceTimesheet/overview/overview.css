@@ -14,7 +14,7 @@
        Attendance card once checked out (its status line wraps at this width): 347px. Profile (2×2 details) is
        321px and Timesheet with 2 entries 300px. Adding an entry is a modal, so nothing in the row ever grows. */
     --ov-top: 348px;
-    --ov-qa: 400px;
+    --ov-qa: 244px; /* PROTOTYPE-SETUP (Overview v5, Slice 2): one row of tiles (2-line titles) */
     --ov-rd: 620px; /* overridden per day by the page: fits the rows shown */
     display: grid;
     grid-template-columns: minmax(0, 1fr);

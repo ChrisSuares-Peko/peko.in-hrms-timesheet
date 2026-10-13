@@ -11,6 +11,8 @@ interface ServiceShortcutCardProps {
     count?: string;
     // Rendered icon pixel size (non-xs breakpoint); the xs size scales down with it.
     iconSize?: number;
+    // PROTOTYPE-SETUP (Overview v5, Slice 2): extra classes for the title (e.g. a wider title for a long name).
+    titleClassName?: string;
 }
 
 // Matches the Payroll dashboard's quick-access card size (96x96, 40px icon), on a
@@ -21,6 +23,7 @@ const ServiceShortcutCard: React.FC<ServiceShortcutCardProps> = ({
     path,
     count,
     iconSize = 60,
+    titleClassName = '',
 }) => {
     const { useBreakpoint } = Grid;
     const screens = useBreakpoint();
@@ -59,7 +62,7 @@ const ServiceShortcutCard: React.FC<ServiceShortcutCardProps> = ({
                             src={icon}
                         />
                     </Flex>
-                    <Typography.Text className="text-[.65rem] text-center sm:text-[0.875rem] line-clamp-2 pt-1 sm:pt-3">
+                    <Typography.Text className={`text-[.65rem] text-center sm:text-[0.875rem] line-clamp-2 pt-1 sm:pt-3 ${titleClassName}`}>
                         {title}
                     </Typography.Text>
                 </Flex>
