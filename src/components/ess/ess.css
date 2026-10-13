@@ -1,0 +1,25 @@
+/* PROTOTYPE-SETUP (ESS design, Slice 1): ESS-only overrides, scoped to the ESS layout (.ess-scope), for the pages
+   the ESS tabs share with the /employee portal. They map those pages' own Tailwind tokens onto the ESS type scale
+   so the portal itself is unchanged. Everything antd-related lives in EssThemeProvider's tokens instead. */
+
+/* Text colours: primary #080808, secondary #616161 (ProfileCard). */
+.ess-scope .text-valueText {
+    color: #080808;
+}
+.ess-scope .text-titleText {
+    color: #616161;
+}
+
+/* Page title (Payroll "HR Dashboard": 20px, medium). */
+.ess-scope h4.ant-typography {
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 28px;
+    color: #080808;
+}
+
+/* Tables: medium-weight header, comfortable rows (AttendanceTable). */
+.ess-scope .ant-table-thead > tr > th {
+    font-weight: 500;
+    font-size: 13px;
+}

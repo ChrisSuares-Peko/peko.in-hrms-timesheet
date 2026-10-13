@@ -8,6 +8,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { Skeleton } from 'antd';
 import { Outlet, useLocation } from 'react-router-dom';
 
+import EssThemeProvider from '@src/components/ess/EssThemeProvider';
 import { getAtsSettings } from '@src/domains/attendanceTimesheet/api';
 import type { AtsMode } from '@src/domains/attendanceTimesheet/types';
 import { directReportsOf } from '@src/prototype/mocks/data/employees';
@@ -32,11 +33,12 @@ const EssLayout = () => {
     const isManager = directReportsOf(tab.persona.employeeId).length > 0;
 
     return (
-        <div className="w-full min-w-0">
+        // PROTOTYPE-SETUP (ESS design, Slice 1): every ESS page (both tabs) renders inside the ESS theme.
+        <EssThemeProvider>
             <Suspense fallback={<Skeleton active paragraph={{ rows: 6 }} />}>
                 <Outlet context={{ atsMode, isManager } satisfies EssOutletContext} />
             </Suspense>
-        </div>
+        </EssThemeProvider>
     );
 };
 
