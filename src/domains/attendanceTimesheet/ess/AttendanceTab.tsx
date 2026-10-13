@@ -4,8 +4,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { LockOutlined } from '@ant-design/icons';
-import { Alert, Col, Row } from 'antd';
+import { Alert } from 'antd';
 import dayjs from 'dayjs';
+
+import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
 
 import {
     cancelCorrection,
@@ -14,13 +16,13 @@ import {
     getCorrections,
 } from '../api';
 import CorrectionModal from '../components/CorrectionModal';
-import { displayTime, formatDuration } from '../components/format';
+import { formatDuration } from '../components/format';
 import { useAtsScope } from '../hooks/useAtsScope';
+import { AttendancePunch } from '../overview/OvAttendanceCard';
 import type { AtsOverview, AttendanceDay, AttendanceMonthView, CorrectionKind } from '../types';
 import AttendanceCalendar from './AttendanceCalendar';
 import CorrectionsList from './CorrectionsList';
 import DayDetailDrawer from './DayDetailDrawer';
-import TodayPunch from './TodayPunch';
 import { Panel, StatTile, todayIso } from './ui';
 
 export interface AttendanceTabProps {
@@ -129,69 +131,66 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
 
     return (
         <div className="flex flex-col gap-4 sm:gap-6 min-w-0">
-            <Row gutter={[24, 24]}>
-                <Col xs={24} xl={9} className="min-w-0">
-                    <div className="flex flex-col gap-4 sm:gap-6">
-                        <Panel
-                            title="Today"
-                            subtitle={`Shift ${displayTime(overview.shift.start)}–${displayTime(overview.shift.end)} · ${overview.graceMinutes} min grace`}
-                        >
-                            <TodayPunch overview={overview} onOverview={onPunch} />
-                        </Panel>
-                        <Panel
-                            title={`${view?.month === month ? view.monthLabel : dayjs(`${month}-01`).format('MMMM YYYY')} totals`}
-                            subtitle={
-                                month === today.slice(0, 7) ? 'So far this month' : undefined
-                            }
-                        >
-                            {totals ? (
-                                <div className="grid grid-cols-3 gap-2">
-                                    {tiles.map(t => (
-                                        <StatTile key={t.label} {...t} />
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-3 gap-2">
-                                    {Array.from({ length: 9 }, (_, i) => (
-                                        <span
-                                            key={i}
-                                            className="block h-[58px] rounded-xl bg-gray-100 animate-pulse"
-                                        />
-                                    ))}
-                                </div>
-                            )}
-                        </Panel>
-                    </div>
-                </Col>
-                <Col xs={24} xl={15} className="min-w-0">
+            {/* PROTOTYPE-SETUP (Attendance tab, Slice 1): two equal columns from 1200px. The left column (Today, then the
+                month totals) is exactly as tall as the calendar card: both left cards grow and spread their content out.
+                Stacked below 1200px, heights automatic. */}
+            <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-2">
+                <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
+                    <EssCard label="Today" heading={<EssSectionHeading title="Today" />} className="xl:flex-1 xl:justify-between">
+                        <AttendancePunch overview={overview} onOverview={onPunch} />
+                    </EssCard>
                     <Panel
-                        title="Attendance calendar"
-                        subtitle="Tap a day to see the details or request a correction."
+                        className="flex flex-col xl:flex-1"
+                        title={`${view?.month === month ? view.monthLabel : dayjs(`${month}-01`).format('MMMM YYYY')} totals`}
+                        subtitle={
+                            month === today.slice(0, 7) ? 'So far this month' : undefined
+                        }
                     >
-                        {view?.month === month && view.locked && (
-                            <Alert
-                                type="info"
-                                showIcon
-                                icon={<LockOutlined />}
-                                className="mb-3"
-                                message={`Payroll for ${view.monthLabel} has been processed — this month is read-only.`}
-                            />
+                        {totals ? (
+                            <div className="grid grid-cols-3 gap-2 xl:flex-1 xl:content-evenly">
+                                {tiles.map(t => (
+                                    <StatTile key={t.label} {...t} />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-3 gap-2 xl:flex-1 xl:content-evenly">
+                                {Array.from({ length: 9 }, (_, i) => (
+                                    <span
+                                        key={i}
+                                        className="block h-[58px] rounded-xl bg-gray-100 animate-pulse"
+                                    />
+                                ))}
+                            </div>
                         )}
-                        <AttendanceCalendar
-                            month={month}
-                            view={view}
-                            loading={loading}
-                            today={today}
-                            selected={selected}
-                            onSelect={d => setSelected(d.date)}
-                            onMonth={m => {
-                                setSelected(null);
-                                setMonth(m);
-                            }}
-                        />
                     </Panel>
-                </Col>
-            </Row>
+                </div>
+                <Panel
+                    title="Attendance calendar"
+                    subtitle="Tap a day to see the details or request a correction."
+                >
+                    {view?.month === month && view.locked && (
+                        <Alert
+                            type="info"
+                            showIcon
+                            icon={<LockOutlined />}
+                            className="mb-3"
+                            message={`Payroll for ${view.monthLabel} has been processed — this month is read-only.`}
+                        />
+                    )}
+                    <AttendanceCalendar
+                        month={month}
+                        view={view}
+                        loading={loading}
+                        today={today}
+                        selected={selected}
+                        onSelect={d => setSelected(d.date)}
+                        onMonth={m => {
+                            setSelected(null);
+                            setMonth(m);
+                        }}
+                    />
+                </Panel>
+            </div>
 
             <Panel
                 title="My correction requests"

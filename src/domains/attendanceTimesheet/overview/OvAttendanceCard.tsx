@@ -46,18 +46,18 @@ export const attendanceStrip = (t: AtsOverview['today'], now: number): { text: s
 
 const RED = { backgroundColor: '#FF4F4F', borderColor: '#FF4F4F', color: '#fff' };
 
-const OvAttendanceCard = ({
+/**
+ * PROTOTYPE-SETUP (Attendance tab, Slice 1): the status block, the Check in / Check out buttons and the caption,
+ * shared by the Overview card and the Attendance tab's Today card. Returns siblings so the card's own layout
+ * (gap, spreading at a fixed height) applies.
+ */
+export const AttendancePunch = ({
     overview,
     onOverview,
-    openPath,
-    className = '',
 }: {
     overview: AtsOverview;
     /** Check-in / check-out answer with a fresh overview. */
     onOverview: (next: AtsOverview) => void;
-    /** The Attendance tab. */
-    openPath: string;
-    className?: string;
 }) => {
     const scope = useAtsScope();
     const dispatch = useAppDispatch();
@@ -82,9 +82,7 @@ const OvAttendanceCard = ({
     else if (t.checkOut) outTitle = `Checked out at ${t.checkOut}`;
 
     return (
-        // PROTOTYPE-SETUP (Overview v4, Slice 1): when the row is taller than the card (fixed height ≥1200px, or a stretched two-column row ≥768px) the
-        // parts spread out; the caption sits at the bottom.
-        <EssCard label="Attendance today" heading={<EssSectionHeading title="Attendance" link={{ to: openPath, text: 'Open' }} />} className={`md:justify-between ${className}`}>
+        <>
             <EssStatusBlock
                 tone={strip.tone}
                 title={strip.text}
@@ -103,8 +101,28 @@ const OvAttendanceCard = ({
                 </Tooltip>
             </div>
             <span className={ESS_CAPTION}>Auto check-out at 11:59 PM if you forget.</span>
-        </EssCard>
+        </>
     );
 };
+
+const OvAttendanceCard = ({
+    overview,
+    onOverview,
+    openPath,
+    className = '',
+}: {
+    overview: AtsOverview;
+    /** Check-in / check-out answer with a fresh overview. */
+    onOverview: (next: AtsOverview) => void;
+    /** The Attendance tab. */
+    openPath: string;
+    className?: string;
+}) => (
+    // PROTOTYPE-SETUP (Overview v4, Slice 1): when the row is taller than the card (fixed height ≥1200px, or a stretched two-column row ≥768px) the
+    // parts spread out; the caption sits at the bottom.
+    <EssCard label="Attendance today" heading={<EssSectionHeading title="Attendance" link={{ to: openPath, text: 'Open' }} />} className={`md:justify-between ${className}`}>
+        <AttendancePunch overview={overview} onOverview={onOverview} />
+    </EssCard>
+);
 
 export default OvAttendanceCard;
