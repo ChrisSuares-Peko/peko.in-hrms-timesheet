@@ -5,8 +5,10 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { ReloadOutlined } from '@ant-design/icons';
-import { Badge, Button, Empty, Skeleton, Tabs, Typography } from 'antd';
+import { Badge, Button, Empty, Skeleton, Tabs } from 'antd';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+
+import { EssPageHeader } from '@src/components/ess/EssUi';
 
 import { getOverview } from '../api';
 import { displayTime } from '../components/format';
@@ -17,7 +19,6 @@ import type { AtsMode, AtsOverview, AtsTab } from '../types';
 import AttendanceTab from './AttendanceTab';
 import OvertimeTab from './OvertimeTab';
 
-const { Title, Text } = Typography;
 
 const TAB_LABEL: Record<AtsTab, string> = {
     attendance: 'Attendance',
@@ -58,17 +59,15 @@ const AtsSectionPage = () => {
     const header = (
         <div className="flex flex-col gap-2 mb-1">
             {/* PROTOTYPE-SETUP: no section breadcrumb — the layout's ESS breadcrumb leads back to Home. */}
-            <div>
-                <Title level={4} className="!mb-0.5 text-valueText">
-                    {title}
-                </Title>
-                {overview && (
-                    <Text className="text-titleText text-sm">
-                        {SUBTITLE[overview.mode]} Shift {displayTime(overview.shift.start)}–
-                        {displayTime(overview.shift.end)}.
-                    </Text>
-                )}
-            </div>
+            {/* PROTOTYPE-SETUP (ESS design, Slice 3): the ESS page header. */}
+            <EssPageHeader
+                title={title}
+                subtitle={
+                    overview
+                        ? `${SUBTITLE[overview.mode]} Shift ${displayTime(overview.shift.start)}–${displayTime(overview.shift.end)}.`
+                        : undefined
+                }
+            />
         </div>
     );
 

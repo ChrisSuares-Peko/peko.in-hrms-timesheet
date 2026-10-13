@@ -7,6 +7,7 @@ import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { Button, Skeleton } from 'antd';
 import dayjs from 'dayjs';
 
+import { ESS_CARD } from '@src/components/ess/essTokens';
 import { addDays, monthDates, weekStartOf } from '@src/prototype/rules/attendance';
 
 import type { TimesheetMonthView, TimesheetStatus } from '../types';
@@ -162,7 +163,7 @@ const Legend = ({ approvalEnabled }: { approvalEnabled: boolean }) => (
 );
 
 const Calendar3 = ({ month, months, today, selected, inRange, approvalEnabled, onPick, onShift, onToday }: Calendar3Props) => (
-        <section aria-label="Calendar" className="min-w-0 rounded-xl border border-solid border-gray-200 bg-white p-4">
+        <section aria-label="Calendar" className={`min-w-0 ${ESS_CARD}`}>
             <div className="mb-2.5 flex items-center gap-1">
                 <h3 className="m-0 text-base font-medium text-gray-900">Calendar</h3>
                 <span className="flex-1" />

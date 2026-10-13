@@ -162,7 +162,7 @@ const CorrectionModal = ({
                 )}
 
                 {current && (
-                    <div className="rounded-xl bg-[#F7F9FB] px-4 py-3 mb-4">
+                    <div className="rounded-2xl bg-[#F7F7F7] px-4 py-3 mb-4">
                         <Text className="block text-[11px] uppercase tracking-wide text-titleText">
                             Recorded now
                         </Text>

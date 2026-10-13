@@ -178,7 +178,7 @@ export interface DayRowsProps {
 }
 
 const DayRows = ({ days, mode, today, shift, view, selected, overtimeOf, onToggle, panel }: DayRowsProps) => (
-    <section aria-label="Days" className="min-w-0 rounded-xl border border-solid border-gray-200 bg-white py-1">
+    <section aria-label="Days" className="min-w-0 overflow-hidden rounded-[32px] bg-white py-3 shadow-[0_1.66px_8.28px_rgba(0,0,0,0.06)]">
         <Axis />
         {days.map(d => {
             const expanded = view === 'day' || selected === d.date;

@@ -5,6 +5,7 @@ import { RightOutlined } from '@ant-design/icons';
 import { Skeleton } from 'antd';
 import dayjs from 'dayjs';
 
+import { ESS_CARD } from '@src/components/ess/essTokens';
 import { formatDuration } from '@src/prototype/rules/attendance';
 
 /** A day counts as unlogged when it is at least this short. */
@@ -34,7 +35,7 @@ const UnloggedHoursCard = ({ days, today, period, onPick }: UnloggedHoursCardPro
     const list = days ? unloggedDays(days, today) : [];
     const total = list.reduce((s, d) => s + d.gap, 0);
     return (
-        <section aria-label="Unlogged hours" className="rounded-xl border border-solid border-gray-200 bg-white p-4">
+        <section aria-label="Unlogged hours" className={ESS_CARD}>
             <div className="flex items-center gap-2">
                 <h3 className="m-0 text-base font-medium text-gray-900">Unlogged hours</h3>
                 <span className="flex-1" />

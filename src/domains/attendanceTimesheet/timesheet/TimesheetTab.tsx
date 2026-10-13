@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Skeleton } from 'antd';
 
+import { ESS_CARD } from '@src/components/ess/essTokens';
 import { useAppDispatch } from '@src/hooks/store';
 import { DEFAULT_SETTINGS, diffEntries, weekStartOf } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
@@ -310,7 +311,7 @@ const TimesheetTab = ({ onChanged, initialDate }: TimesheetTabProps) => {
                     )}
                 />
             ) : (
-                <div className="rounded-xl border border-solid border-gray-200 bg-white p-4">
+                <div className={ESS_CARD}>
                     <Skeleton active paragraph={{ rows: 6 }} />
                 </div>
             )}

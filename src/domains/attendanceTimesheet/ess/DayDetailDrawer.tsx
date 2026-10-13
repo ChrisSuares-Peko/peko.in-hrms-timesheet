@@ -86,7 +86,7 @@ const DayDetailDrawer = ({
                 )}
 
                 {!future && !beforeJoining && (
-                    <div className="rounded-xl bg-[#F7F9FB] px-4 py-1">
+                    <div className="rounded-2xl bg-[#F7F7F7] px-4 py-1">
                         <Row label="Check-in">{day.checkIn ? displayTime(day.checkIn) : '—'}</Row>
                         {/* PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out closes at 11:59 PM. */}
                         <Row label="Check-out">
@@ -113,7 +113,7 @@ const DayDetailDrawer = ({
                 )}
 
                 {day.correction && (
-                    <div className="flex flex-col gap-2 rounded-xl border border-gray-100 px-4 py-3">
+                    <div className="flex flex-col gap-2 rounded-[26px] border border-solid border-[#e6e6e6] px-5 py-4">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                             <Text className="text-sm font-semibold">
                                 {day.correction.kind === 'update-check-out'

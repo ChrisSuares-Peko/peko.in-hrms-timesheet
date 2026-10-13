@@ -5,9 +5,11 @@ import { ReactNode, useEffect, useState } from 'react';
 import { Typography } from 'antd';
 import dayjs from 'dayjs';
 
+import { ESS_CARD, ESS_SECTION_TITLE } from '@src/components/ess/essTokens';
+
 const { Text } = Typography;
 
-/** White rounded panel, the card style used across the ESS pages. */
+/** White rounded panel, the card style used across the ESS pages (ESS design: 32px card, 18px section title). */
 export const Panel = ({
     title,
     subtitle,
@@ -21,16 +23,13 @@ export const Panel = ({
     children: ReactNode;
     className?: string;
 }) => (
-    <section
-        className={`bg-white border border-gray-100 rounded-2xl shadow-sm p-4 sm:p-5 min-w-0 ${className}`}
-    >
+    // PROTOTYPE-SETUP (ESS design, Slice 3): the ESS card (32px radius, soft shadow) and section heading.
+    <section className={`${ESS_CARD} min-w-0 ${className}`}>
         {(title || extra) && (
             <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
                 <div className="min-w-0">
-                    {title && (
-                        <Text className="block text-base font-semibold text-valueText">{title}</Text>
-                    )}
-                    {subtitle && <Text className="block text-xs text-titleText">{subtitle}</Text>}
+                    {title && <Text className={`block ${ESS_SECTION_TITLE}`}>{title}</Text>}
+                    {subtitle && <Text className="block text-xs text-[#9e9e9e]">{subtitle}</Text>}
                 </div>
                 {extra}
             </div>
@@ -43,7 +42,7 @@ export const Panel = ({
 export const StatTile = ({
     label,
     value,
-    tone = 'bg-[#F7F9FB]',
+    tone = 'bg-[#F7F7F7]',
     hint,
 }: {
     label: string;
@@ -51,12 +50,10 @@ export const StatTile = ({
     tone?: string;
     hint?: ReactNode;
 }) => (
-    <div className={`rounded-xl px-3 py-3 min-w-0 ${tone}`}>
-        <div className="text-lg sm:text-xl font-semibold leading-tight text-valueText tabular-nums">
-            {value}
-        </div>
+    <div className={`rounded-2xl px-4 py-3 min-w-0 ${tone}`}>
+        <div className="text-lg sm:text-xl font-semibold leading-tight text-[#080808] tabular-nums">{value}</div>
         <Text className="block text-xs text-[#616161] leading-snug">{label}</Text>
-        {hint && <Text className="block text-[11px] text-titleText leading-snug">{hint}</Text>}
+        {hint && <Text className="block text-[11px] text-[#9e9e9e] leading-snug">{hint}</Text>}
     </div>
 );
 

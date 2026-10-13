@@ -189,7 +189,7 @@ const TodayPunch = ({ overview, onOverview }: TodayPunchProps) => {
                             block
                             icon={<ClockCircleOutlined />}
                             onClick={open('in')}
-                            className="h-11 rounded-md font-medium"
+                            className="h-11 rounded-lg font-medium"
                             style={{ backgroundColor: '#FF4F4F', borderColor: '#FF4F4F' }}
                         >
                             Check in
@@ -199,7 +199,7 @@ const TodayPunch = ({ overview, onOverview }: TodayPunchProps) => {
                         <Button
                             block
                             onClick={open('out')}
-                            className="h-11 rounded-md font-medium"
+                            className="h-11 rounded-lg font-medium"
                             style={{ color: '#FF4F4F', borderColor: '#FF4F4F' }}
                         >
                             Check out

@@ -10,6 +10,7 @@
 import { Button, Popconfirm, Skeleton, Tag } from 'antd';
 import dayjs from 'dayjs';
 
+import { ESS_CARD } from '@src/components/ess/essTokens';
 import { WEEKDAYS, addDays } from '@src/prototype/rules/attendance';
 
 import type { TimesheetWeekView } from '../types';
@@ -70,7 +71,7 @@ const WeekStatusCard = ({
 }: WeekStatusCardProps) => {
     if (!view) {
         return (
-            <section aria-label="Week status" className="rounded-xl border border-solid border-gray-200 bg-white p-4">
+            <section aria-label="Week status" className={ESS_CARD}>
                 <Skeleton active title={false} paragraph={{ rows: 3 }} />
             </section>
         );
@@ -141,7 +142,7 @@ const WeekStatusCard = ({
     }
 
     return (
-        <section aria-label="Week status" className="rounded-xl border border-solid border-gray-200 bg-white p-4">
+        <section aria-label="Week status" className={ESS_CARD}>
             <div className="flex items-center gap-2">
                 <h3 className="m-0 text-base font-medium text-gray-900">Week of {dayjs(week.weekStart).format('D MMM')}</h3>
                 <span className="flex-1" />

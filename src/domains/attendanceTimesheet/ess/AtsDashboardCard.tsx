@@ -162,7 +162,7 @@ const AtsDashboardCard = () => {
             {punchMode && <TodayPunch overview={overview} onOverview={setOverview} />}
 
             {mode === 'timesheet' && (
-                <div className="flex flex-col gap-1 rounded-2xl bg-[#F7F9FB] px-4 py-3">
+                <div className="flex flex-col gap-1 rounded-2xl bg-[#F7F7F7] px-4 py-3">
                     <Text className="text-xs text-[#616161]">Logged today</Text>
                     <Text className="text-2xl font-semibold text-valueText tabular-nums leading-tight">
                         {formatDuration(today.loggedMinutes)}
@@ -197,7 +197,7 @@ const AtsDashboardCard = () => {
                         className={`text-left rounded-xl px-2.5 py-2 border border-solid cursor-pointer transition-colors min-w-0 ${
                             c.value
                                 ? 'bg-[#FFF7F6] border-[#FFE4E4] hover:border-[#FF4F4F]'
-                                : 'bg-[#F7F9FB] border-transparent hover:border-gray-200'
+                                : 'bg-[#F7F7F7] border-transparent hover:border-gray-200'
                         }`}
                     >
                         <span
