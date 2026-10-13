@@ -1,7 +1,7 @@
 // PROTOTYPE-SETUP: ESS Service 1, Slice 3 — the employee's Attendance tab: today (check-in / check-out with a
 // live timer), the month calendar back to the joining month, a day detail drawer with corrections, monthly
 // totals and "My correction requests".
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { LockOutlined } from '@ant-design/icons';
 import { Alert, Button } from 'antd';
@@ -33,6 +33,8 @@ export interface AttendanceTabProps {
     onChanged?: () => void;
     /** PROTOTYPE-SETUP (Overview, Slice 2): open on this day (its month, with the day's details open). */
     initialDate?: string;
+    /** PROTOTYPE-SETUP (Attendance layout, Slice 1): bumped by the tab row's "Request correction" — opens the popup. */
+    requestSignal?: number;
 }
 
 interface ModalState {
@@ -42,7 +44,7 @@ interface ModalState {
     current?: { checkIn: string | null; checkOut: string | null; checkOutAuto: boolean };
 }
 
-const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: AttendanceTabProps) => {
+const AttendanceTab = ({ overview, onOverview, onChanged, initialDate, requestSignal = 0 }: AttendanceTabProps) => {
     const scope = useAtsScope();
     const today = todayIso();
     const [month, setMonth] = useState((initialDate ?? today).slice(0, 7));
@@ -52,6 +54,14 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
     const [selected, setSelected] = useState<string | null>(initialDate ?? null);
     const [modal, setModal] = useState<ModalState | null>(null);
     const [cancelling, setCancelling] = useState(false);
+
+    // Open the popup (no date) when the tab row's button is clicked — not for a click from before this tab mounted.
+    const seenSignal = useRef(requestSignal);
+    useEffect(() => {
+        if (requestSignal === seenSignal.current) return;
+        seenSignal.current = requestSignal;
+        setModal({ date: null, kind: 'correction' });
+    }, [requestSignal]);
 
     const loadMonth = useCallback(
         async (m: string, quiet = false) => {
@@ -115,13 +125,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
         }
     };
 
-    // PROTOTYPE-SETUP (Attendance tab, Slice 2): "Request correction" above the calendar and on "My correction
-    // requests" opens the popup with no day picked.
-    const requestButton = (
-        <Button onClick={() => setModal({ date: null, kind: 'correction' })} className="rounded-lg font-medium">
-            Request correction
-        </Button>
-    );
+    const requestCorrection = () => setModal({ date: null, kind: 'correction' });
 
     const totals = view?.month === month ? view.totals : null;
     const tiles = totals
@@ -140,43 +144,50 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
 
     return (
         <div className="flex flex-col gap-4 sm:gap-6 min-w-0">
-            {/* PROTOTYPE-SETUP (Attendance tab, Slice 1): two equal columns from 1200px. The left column (Today, then the
-                month totals) is exactly as tall as the calendar card: both left cards grow and spread their content out.
-                Stacked below 1200px, heights automatic. */}
+            {/* PROTOTYPE-SETUP (Attendance layout, Slice 1): phones get "Request correction" as the first row (from 768px
+                it sits on the right of the tab row). */}
+            <div className="flex justify-end md:hidden">
+                <Button type="primary" className="rounded-lg font-medium" onClick={requestCorrection}>
+                    Request correction
+                </Button>
+            </div>
+
+            {/* PROTOTYPE-SETUP (Attendance layout, Slice 1): a 2×2 grid from 1200px — [Today] [Month totals] /
+                [Attendance calendar] [My correction requests]. The calendar keeps its size (half the row), so the left
+                column is the calendar's width and the right takes the rest. Row 1 is as tall as its taller card; the
+                requests card fills the calendar's row without adding to its height and scrolls inside. Stacked below
+                1200px in DOM order, heights automatic. */}
             <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-2">
-                <div className="flex min-w-0 flex-col gap-4 sm:gap-6">
-                    <EssCard label="Today" heading={<EssSectionHeading title="Today" />} className="xl:flex-1 xl:justify-between">
-                        <AttendancePunch overview={overview} onOverview={onPunch} />
-                    </EssCard>
-                    <Panel
-                        className="flex flex-col xl:flex-1"
-                        title={`${view?.month === month ? view.monthLabel : dayjs(`${month}-01`).format('MMMM YYYY')} totals`}
-                        subtitle={
-                            month === today.slice(0, 7) ? 'So far this month' : undefined
-                        }
-                    >
-                        {totals ? (
-                            <div className="grid grid-cols-3 gap-2 xl:flex-1 xl:content-evenly">
-                                {tiles.map(t => (
-                                    <StatTile key={t.label} {...t} />
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-3 gap-2 xl:flex-1 xl:content-evenly">
-                                {Array.from({ length: 9 }, (_, i) => (
-                                    <span
-                                        key={i}
-                                        className="block h-[58px] rounded-xl bg-gray-100 animate-pulse"
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </Panel>
-                </div>
+                <EssCard label="Today" heading={<EssSectionHeading title="Today" />}>
+                    <AttendancePunch overview={overview} onOverview={onPunch} />
+                </EssCard>
+                <Panel
+                    className="flex flex-col"
+                    title={`${view?.month === month ? view.monthLabel : dayjs(`${month}-01`).format('MMMM YYYY')} totals`}
+                    subtitle={
+                        month === today.slice(0, 7) ? 'So far this month' : undefined
+                    }
+                >
+                    {totals ? (
+                        <div className="grid grid-cols-3 gap-2 xl:flex-1 xl:content-evenly">
+                            {tiles.map(t => (
+                                <StatTile key={t.label} {...t} />
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-3 gap-2 xl:flex-1 xl:content-evenly">
+                            {Array.from({ length: 9 }, (_, i) => (
+                                <span
+                                    key={i}
+                                    className="block h-[58px] rounded-xl bg-gray-100 animate-pulse"
+                                />
+                            ))}
+                        </div>
+                    )}
+                </Panel>
                 <Panel
                     title="Attendance calendar"
                     subtitle="Tap a day to see the details or request a correction."
-                    extra={requestButton}
                 >
                     {view?.month === month && view.locked && (
                         <Alert
@@ -200,23 +211,24 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                         }}
                     />
                 </Panel>
+                <Panel
+                    className="flex flex-col xl:h-0 xl:min-h-full"
+                    title="My correction requests"
+                    subtitle="Changes to your check-in or check-out go to your manager for approval."
+                >
+                    <div className="min-h-0 flex-1 xl:overflow-y-auto" data-corrections-scroll>
+                        <CorrectionsList
+                            items={corrections}
+                            onUpdated={list => {
+                                setCorrections(list);
+                                loadMonth(month, true);
+                                onChanged?.();
+                            }}
+                            onOpenDay={openDay}
+                        />
+                    </div>
+                </Panel>
             </div>
-
-            <Panel
-                title="My correction requests"
-                subtitle="Changes to your check-in or check-out go to your manager for approval."
-                extra={requestButton}
-            >
-                <CorrectionsList
-                    items={corrections}
-                    onUpdated={list => {
-                        setCorrections(list);
-                        loadMonth(month, true);
-                        onChanged?.();
-                    }}
-                    onOpenDay={openDay}
-                />
-            </Panel>
 
             <DayDetailDrawer
                 day={selectedDay}
