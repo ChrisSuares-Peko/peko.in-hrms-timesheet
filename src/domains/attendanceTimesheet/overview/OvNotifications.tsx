@@ -52,13 +52,19 @@ const OvNotifications = ({
     home,
     hrefOf,
     className = '',
+    roomy = false,
 }: {
     home: EssHomeView;
     hrefOf: (link: OverviewLink) => string;
     className?: string;
+    /**
+     * PROTOTYPE-SETUP (Overview v4, Slice 2): the card runs down the whole right column (Attendance-only /
+     * Timesheet-only layouts) — show every request the server sends (up to 6) and the announcements expanded.
+     */
+    roomy?: boolean;
 }) => {
     const navigate = useNavigate();
-    const [allNews, setAllNews] = useState(false);
+    const [allNews, setAllNews] = useState(roomy);
     const { actions, requests, announcements } = home;
     const [first, ...rest] = announcements;
     const firstLine = first?.date ? `${first.title} on ${dayjs(first.date).format('ddd D MMM')}` : first?.title;
@@ -107,7 +113,7 @@ const OvNotifications = ({
                     }
                 >
                     <ul className="m-0 flex list-none flex-col gap-2 p-0">
-                        {requests.slice(0, SHOWN_REQUESTS).map(r => (
+                        {requests.slice(0, roomy ? requests.length : SHOWN_REQUESTS).map(r => (
                             <li key={`${r.type}-${r.id}`}>
                                 <button
                                     type="button"

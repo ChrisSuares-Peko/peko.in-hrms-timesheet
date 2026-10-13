@@ -84,7 +84,7 @@ const OvTimesheetCard = ({
         </Button>
     );
     if (adding) {
-        addArea = <EntryForm date={today} others={day.entries} quick compact hideHint busy={busy} onSave={save} onCancel={() => setAdding(false)} />;
+        addArea = <EntryForm date={today} others={day.entries} quick compact hideHint multilineDescription busy={busy} onSave={save} onCancel={() => setAdding(false)} />;
     }
     if (!editable) addArea = <Text className="text-xs text-[#9e9e9e]">Today can’t be edited right now. Open the full timesheet for details.</Text>;
 

@@ -8,7 +8,7 @@
    768–1199px — two columns, heights automatic: p a / t t / q q / r r / n n
    <768px — one column in DOM order: Profile, Attendance, Timesheet, Quick actions, Recent days, Notifications. */
 .ess-ov {
-    --ov-top: 440px;
+    --ov-top: 472px;
     --ov-qa: 290px;
     --ov-rd: 620px;
     display: grid;

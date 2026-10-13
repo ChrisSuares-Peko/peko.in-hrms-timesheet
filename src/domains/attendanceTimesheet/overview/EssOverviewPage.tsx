@@ -130,7 +130,7 @@ const EssOverviewPage = () => {
                         <OvStatusTable days={home.recentDays} mode={mode} today={today} linkTo={paths.section} />
                     </div>
                     <div className="ess-ov__n">
-                        <OvNotifications home={home} hrefOf={hrefOf} />
+                        <OvNotifications home={home} hrefOf={hrefOf} roomy={mode !== 'both'} />
                     </div>
                 </>
             )}

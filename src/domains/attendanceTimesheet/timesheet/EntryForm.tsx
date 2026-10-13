@@ -33,6 +33,11 @@ export interface EntryFormProps {
     compact?: boolean;
     /** PROTOTYPE-SETUP (Overview v2, Slice 2): leave out the "Times are optional…" hint (the Overview card). */
     hideHint?: boolean;
+    /**
+     * PROTOTYPE-SETUP (Overview v4, Slice 2): the description is a ~3-row text box (the Overview card). Enter adds a
+     * new line; Ctrl+Enter (or the Add button) saves. Same validation.
+     */
+    multilineDescription?: boolean;
     busy?: boolean;
     /** Resolves true when saved. */
     onSave: (value: EntryFormValue) => Promise<boolean> | boolean;
@@ -41,7 +46,7 @@ export interface EntryFormProps {
 
 const LAST_MINUTE = 24 * 60 - 1;
 
-const EntryForm = ({ date, initial, others, quick, compact, hideHint, busy, onSave, onCancel }: EntryFormProps) => {
+const EntryForm = ({ date, initial, others, quick, compact, hideHint, multilineDescription, busy, onSave, onCancel }: EntryFormProps) => {
     const [start, setStart] = useState(initial?.start ?? '');
     const [end, setEnd] = useState(initial?.end ?? '');
     const [hours, setHours] = useState(initial ? formatHoursInput(initial.mins) : '');
@@ -96,7 +101,9 @@ const EntryForm = ({ date, initial, others, quick, compact, hideHint, busy, onSa
     };
 
     const onKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && (e.target as HTMLElement).tagName === 'INPUT') {
+        const tag = (e.target as HTMLElement).tagName;
+        // Enter saves from a one-line field; in the description text box Enter is a new line and Ctrl+Enter saves.
+        if (e.key === 'Enter' && (tag === 'INPUT' || (tag === 'TEXTAREA' && (e.ctrlKey || e.metaKey)))) {
             e.preventDefault();
             save();
         }
@@ -129,18 +136,33 @@ const EntryForm = ({ date, initial, others, quick, compact, hideHint, busy, onSa
             <Input type="time" size="small" aria-label="Start time (optional)" title="Start (optional)" value={start} onChange={e => onStart(e.target.value)} />
             <Input type="time" size="small" aria-label="End time (optional)" title="End (optional)" value={end} onChange={e => onEnd(e.target.value)} />
             <Input size="small" inputMode="decimal" placeholder="Hours" aria-label="Hours" value={hours} onChange={e => onHours(e.target.value)} />
-            <Input
-                size="small"
-                className={`col-span-3 ${wide}`}
-                placeholder="What did you work on?"
-                aria-label="Description"
-                autoFocus={!quick}
-                value={description}
-                onChange={e => {
-                    setDescription(e.target.value);
-                    setError('');
-                }}
-            />
+            {multilineDescription ? (
+                <Input.TextArea
+                    rows={3}
+                    className={`col-span-3 ${wide}`}
+                    style={{ resize: 'none' }}
+                    placeholder="What did you work on?"
+                    aria-label="Description"
+                    value={description}
+                    onChange={e => {
+                        setDescription(e.target.value);
+                        setError('');
+                    }}
+                />
+            ) : (
+                <Input
+                    size="small"
+                    className={`col-span-3 ${wide}`}
+                    placeholder="What did you work on?"
+                    aria-label="Description"
+                    autoFocus={!quick}
+                    value={description}
+                    onChange={e => {
+                        setDescription(e.target.value);
+                        setError('');
+                    }}
+                />
+            )}
             <div className={`col-span-3 flex gap-1 ${wide}`}>
                 <Button size="small" type="primary" loading={busy} onClick={save}>
                     {quick ? 'Add' : 'Save'}

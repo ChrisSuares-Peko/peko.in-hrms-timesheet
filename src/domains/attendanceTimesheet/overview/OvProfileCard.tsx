@@ -1,6 +1,6 @@
 // PROTOTYPE-SETUP (Overview; ESS design, Slice 2): section 1 — "Profile" with "Edit profile". A 72px avatar (the
 // approved photo, or initials), the name (20px medium) and role in grey, then work email, manager and department
-// as value / label pairs in the ESS ProfileCard style (inner bordered block).
+// as value / label pairs in the ESS ProfileCard style (inner bordered block); Employee ID added in Overview v4.
 import { ESS_INNER, ESS_LABEL } from '@src/components/ess/essTokens';
 import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
 
@@ -29,11 +29,13 @@ const OvProfileCard = ({ profile, profilePath, className = '' }: { profile: MyPr
             </div>
             {/* PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the block fills the spare space, pairs evenly spaced. */}
             <div className={`flex flex-col gap-4 xl:flex-1 xl:justify-evenly ${ESS_INNER}`}>
+                {/* PROTOTYPE-SETUP (Overview v4, Slice 2): work email, Employee ID, manager, department. */}
                 <Pair label="Work email" value={work.workEmail} />
                 <div className="grid grid-cols-2 gap-4">
+                    <Pair label="Employee ID" value={work.employeeId} />
                     <Pair label="Manager" value={work.manager?.name ?? 'No reporting manager'} />
-                    <Pair label="Department" value={work.department} />
                 </div>
+                <Pair label="Department" value={work.department} />
             </div>
         </EssCard>
     );
