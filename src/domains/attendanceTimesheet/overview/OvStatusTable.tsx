@@ -5,8 +5,9 @@
 //   attendance  Date | Check in | Check out | Hrs worked | Overtime
 //   timesheet   Date | Hours logged | Overtime
 // Hrs worked: check-in → check-out ("3h 12m so far" today, grey "Not known" on a missed check-out, empty for absent
-// or leave). Hours logged: "X of Y" — logged out of the day's expected hours (the timesheet's expectedMinutes rule);
-// amber when a past day is 15 min or more short. Normal cells are plain, so only exceptions stand out: Late /
+// or leave). Hours logged (Overview v5, Slice 3): "X of Y" — hours logged in the timesheet out of hours worked
+// ("1h 30m of 3h 12m so far" today; "1h 30m logged" + grey "worked: not known" on a missed check-out; just the logged
+// hours on leave / absent days and in Timesheet-only mode), plain text. Normal cells are plain, so only exceptions stand out: Late /
 // Absent / Leave, "Missed · auto 11:59 PM", "{dur} not claimed" or the overtime request's status, as Tags. Every
 // cell is a link to that day (hover highlights it): check in / out and hrs worked → Attendance, hours logged →
 // Timesheet, overtime → Overtime, the date → Timesheet (Attendance in Attendance-only mode).
@@ -52,9 +53,6 @@ const checkOutCell = (d: OverviewDay) => {
     return null;
 };
 
-/** Short by this much or more → amber (Overview v4). */
-const SHORT_MINUTES = 15;
-
 const workedCell = (d: OverviewDay, today: string) => {
     const a = d.attendance;
     if (!a.checkIn || a.status === 'on-leave' || a.status === 'absent') return null;
@@ -63,15 +61,21 @@ const workedCell = (d: OverviewDay, today: string) => {
     return a.checkOut ? formatDuration(a.minutesAtWork) : null;
 };
 
-const loggedCell = (d: OverviewDay, today: string) => {
-    const { loggedMinutes: logged, expectedMinutes: expected } = d.timesheet;
-    if (!expected) return logged ? formatDuration(logged) : null;
-    const short = d.date < today && expected - logged >= SHORT_MINUTES;
-    return (
-        <span className={short ? 'text-[#B54708]' : undefined}>
-            {formatDuration(logged)} of {formatDuration(expected)}
-        </span>
-    );
+// PROTOTYPE-SETUP (Overview v5, Slice 3): logged against hours worked (check-in → check-out), plain text.
+const loggedCell = (d: OverviewDay, mode: AtsMode, today: string) => {
+    const logged = formatDuration(d.timesheet.loggedMinutes);
+    const a = d.attendance;
+    if (mode === 'timesheet') return logged; // no check-in / check-out to compare with
+    if (a.status === 'on-leave' || a.status === 'absent' || !a.checkIn) return d.timesheet.loggedMinutes ? logged : null;
+    if (a.checkOutAuto) {
+        return (
+            <>
+                {logged} logged <span className="block text-xs text-[#9e9e9e]">worked: not known</span>
+            </>
+        );
+    }
+    if (!a.checkOut) return d.date === today ? `${logged} of ${formatDuration(a.minutesAtWork)} so far` : logged;
+    return `${logged} of ${formatDuration(a.minutesAtWork)}`;
 };
 
 const overtimeCell = (d: OverviewDay) => {
@@ -127,7 +131,7 @@ const OvStatusTable = ({
               ]
             : []),
         ...(mode !== 'attendance'
-            ? [{ key: 'hours', title: 'Hours logged', tab: 'timesheet' as const, withDate: true, hint: 'Open in Timesheet', cell: (d: OverviewDay) => loggedCell(d, today) }]
+            ? [{ key: 'hours', title: 'Hours logged', tab: 'timesheet' as const, withDate: true, hint: 'Open in Timesheet', cell: (d: OverviewDay) => loggedCell(d, mode, today) }]
             : []),
         { key: 'ot', title: 'Overtime', tab: 'overtime', withDate: false, hint: 'Open Overtime', cell: overtimeCell },
     ];
