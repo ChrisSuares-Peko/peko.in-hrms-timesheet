@@ -16,8 +16,20 @@ const Pair = ({ label, value, title }: { label: string; value: string; title?: s
     </div>
 );
 
-const OvProfileCard = ({ profile, profilePath, className = '' }: { profile: MyProfileView; profilePath: string; className?: string }) => {
+const OvProfileCard = ({
+    profile,
+    profilePath,
+    wide = false,
+    className = '',
+}: {
+    profile: MyProfileView;
+    profilePath: string;
+    /** PROTOTYPE-SETUP (Overview v4, Slice 5): spans two columns ('none' mode) — details in two columns. */
+    wide?: boolean;
+    className?: string;
+}) => {
     const { work, personal } = profile;
+    const manager = work.manager?.name ?? 'No reporting manager';
     return (
         <EssCard label="Employee profile" heading={<EssSectionHeading title="Profile" link={{ to: profilePath, text: 'Edit profile' }} />} className={className}>
             <div className="flex min-w-0 items-center gap-4">
@@ -28,15 +40,24 @@ const OvProfileCard = ({ profile, profilePath, className = '' }: { profile: MyPr
                 </div>
             </div>
             {/* PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the block fills the spare space, pairs evenly spaced. */}
+            {wide ? (
+                <div className={`grid grid-cols-1 content-evenly gap-x-8 gap-y-4 sm:grid-cols-2 md:flex-1 ${ESS_INNER}`}>
+                    <Pair label="Work email" value={work.workEmail} />
+                    <Pair label="Employee ID" value={work.employeeId} />
+                    <Pair label="Manager" value={manager} />
+                    <Pair label="Department" value={work.department} />
+                </div>
+            ) : (
             <div className={`flex flex-col gap-4 md:flex-1 md:justify-evenly ${ESS_INNER}`}>
                 {/* PROTOTYPE-SETUP (Overview v4, Slice 2): work email, Employee ID, manager, department. */}
                 <Pair label="Work email" value={work.workEmail} />
                 <div className="grid grid-cols-2 gap-4">
                     <Pair label="Employee ID" value={work.employeeId} />
-                    <Pair label="Manager" value={work.manager?.name ?? 'No reporting manager'} />
+                    <Pair label="Manager" value={manager} />
                 </div>
                 <Pair label="Department" value={work.department} />
             </div>
+            )}
         </EssCard>
     );
 };

@@ -8,6 +8,8 @@ import { Alert, Card, Empty, Flex, Result, Select, Skeleton, Table, Tag, Typogra
 import type { ColumnsType } from 'antd/es/table';
 import { Link, useSearchParams } from 'react-router-dom';
 
+import { hasTimesheets } from '@src/prototype/rules/attendance';
+
 import { getTimesheetStatus } from '../api';
 import { payrollLinks, useAtsSettings, usePayrollScope } from './usePayrollAts';
 import { fmtWeekRange } from '../components/format';
@@ -134,14 +136,19 @@ const TimesheetStatusPage = () => {
         </Flex>
     );
 
-    if (settings?.mode === 'attendance') {
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): also off in 'none' mode.
+    if (settings && !hasTimesheets(settings.mode)) {
         return (
             <Flex vertical gap={16} className="w-full min-w-0">
                 {header}
                 <Result
                     status="info"
                     title="Timesheets are turned off"
-                    subTitle="Your company is in Attendance only mode, so employees don't log timesheets."
+                    subTitle={
+                        settings.mode === 'none'
+                            ? "Your company doesn't track attendance or timesheets."
+                            : "Your company is in Attendance only mode, so employees don't log timesheets."
+                    }
                     extra={
                         <Link to={payrollLinks.settings}>Attendance &amp; Timesheet settings</Link>
                     }

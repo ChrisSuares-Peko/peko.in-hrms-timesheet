@@ -40,8 +40,11 @@ The legacy endpoints `hr-settings/grace-period` and `hr-settings/work-schedule` 
 | `attendance` | Attendance, Overtime | — | (out − in) − shift length |
 | `both` | Attendance, Timesheet, Overtime | check-in → check-out | (out − in) − shift length |
 | `timesheet` | Timesheet, Overtime (no check-in) | the shift | hours logged − (shift − break) |
+| `none` | — (section hidden) | — | no overtime |
 
 On weekly offs and holidays, all time worked counts as overtime.
+
+**`none` ("Neither: no attendance or timesheet tracking").** No check-in or check-out, no timesheets and no overtime: check-in, entries and overtime requests return 409 ("Your company doesn’t track attendance or timesheets."), there are no overtime suggestions, no timesheet payroll blockers and no submission-day run. `overview.tabs` is empty, the ESS section and its Overview tiles are hidden, `home.recentDays` is empty and `home.actions` / `home.requests` keep only leave, reimbursement and profile items. Leave, reimbursements, payslips, documents and profile work as normal. Stored check-ins, timesheets and requests are kept and show again when another mode is chosen.
 
 ## ESS — employee (as the requesting employee)
 

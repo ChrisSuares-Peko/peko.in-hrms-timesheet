@@ -339,3 +339,30 @@ describe('overview recent days: leave and absent', () => {
         }
     });
 });
+
+// PROTOTYPE-SETUP (Overview v4, Slice 5): the fourth mode, 'none' — nothing tracked, data kept.
+describe("'none' mode", () => {
+    it('no check-in, no timesheets, no overtime, no payroll blockers', () => {
+        const before = weekView(M, sneha, s.thisWeek).week.entries.length;
+        updateSettings(M, { mode: 'none' });
+        const o = overviewOf(M, sneha);
+        expect(o.tabs).toEqual([]);
+        expect(o.today).toMatchObject({ canCheckIn: false, canCheckOut: false });
+        expect(() => checkIn(M, sneha)).toThrow(/doesn’t track attendance or timesheets/);
+        expect(() => addEntry(M, sneha, { date: s.thisWeek, mins: 30, description: 'x' })).toThrow(/doesn’t track/);
+        expect(overtimeViewOf(M, sneha, currentMonth()).suggestions).toEqual([]);
+        expect(() => createOvertime(M, sneha, { kind: 'worked', date: s.overtimeDay, minutes: 60 })).toThrow(/doesn’t track/);
+        expect(payrollMonthStatus(M, lastMonth()).blockers).toEqual([]);
+        expect(runSubmissionDay(M).submitted).toEqual([]);
+        const h = homeOf(M, sneha);
+        expect(h.recentDays).toEqual([]);
+        expect(h.actions).toEqual([]);
+        expect(h.requests.every(r => ['leave', 'reimbursement', 'profile'].includes(r.type))).toBe(true);
+        expect(h.announcements.every(a => a.title.startsWith('Office closed') && !/check-in/.test(a.text))).toBe(true);
+        // switching back shows the stored data again
+        updateSettings(M, { mode: 'both' });
+        expect(weekView(M, sneha, s.thisWeek).week.entries.length).toBe(before);
+        expect(weekView(M, sneha, s.sentBackWeek).week.status).toBe('SENT_BACK');
+        expect(homeOf(M, sneha).recentDays.length).toBeGreaterThan(0);
+    });
+});

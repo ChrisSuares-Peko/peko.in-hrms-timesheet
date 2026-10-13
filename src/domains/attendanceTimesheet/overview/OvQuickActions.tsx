@@ -13,6 +13,7 @@ import ProfileIcon from '@src/domains/employee/assets/icons/myProfile.svg';
 import OvertimeIcon from '@src/domains/employee/assets/icons/overtime.svg';
 import ReimbursementIcon from '@src/domains/employee/assets/icons/reimbursement.svg';
 import ServiceShortcutCard from '@src/domains/employee/components/dashboard/ServiceShortcutCard';
+import { hasTracking } from '@src/prototype/rules/attendance';
 
 import type { AtsMode } from '../types';
 
@@ -28,7 +29,7 @@ export const sectionTileTitle = (mode: AtsMode) => {
 const ICON_SIZE = 78;
 
 const OvQuickActions = ({ mode, to, className = '' }: { mode: AtsMode; to: Record<QuickActionKey, string>; className?: string }) => {
-    const tiles: { key: QuickActionKey; icon: string; title: string }[] = [
+    const allTiles: { key: QuickActionKey; icon: string; title: string }[] = [
         { key: 'section', icon: AttendanceIcon, title: sectionTileTitle(mode) },
         { key: 'leave', icon: LeaveIcon, title: 'Leave' },
         { key: 'reimbursements', icon: ReimbursementIcon, title: 'Reimbursements' },
@@ -37,6 +38,8 @@ const OvQuickActions = ({ mode, to, className = '' }: { mode: AtsMode; to: Recor
         { key: 'documents', icon: DocumentsIcon, title: 'Documents' },
         { key: 'profile', icon: ProfileIcon, title: 'My profile' },
     ];
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' mode tracks nothing — no section tile and no Overtime tile.
+    const tiles = hasTracking(mode) ? allTiles : allTiles.filter(t => t.key !== 'section' && t.key !== 'overtime');
     return (
         <EssCard label="Quick actions" heading={<EssSectionHeading title="Quick actions" />} className={className}>
             {/* At a fixed height (≥1200px) the rows sit in the middle of the spare space. */}

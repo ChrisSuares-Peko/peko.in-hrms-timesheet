@@ -5,7 +5,7 @@
 // in timesheet mode (there is no check-in then).
 import { useCallback, useEffect, useState } from 'react';
 
-import { Badge, Flex, Skeleton, Tabs, Typography } from 'antd';
+import { Badge, Empty, Flex, Skeleton, Tabs, Typography } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { decideTeamRequest, getTeamApprovalCounts, getTeamRequests } from '../api';
@@ -92,7 +92,14 @@ const MyTeamPage = () => {
                     See how your team is doing today and act on what&apos;s waiting for you.
                 </Typography.Text>
             </div>
-            {settings.loaded ? (
+            {/* PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' mode — nothing tracked, so nothing to review here. */}
+            {settings.loaded && tabs.length === 0 && (
+                <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="Your company doesn’t track attendance or timesheets, so there’s nothing to review here."
+                />
+            )}
+            {settings.loaded && tabs.length > 0 && (
                 <Tabs
                     activeKey={active}
                     onChange={key => navigate(paths.myTeam(key as MyTeamTab))}
@@ -107,7 +114,8 @@ const MyTeamPage = () => {
                         children: active === tab ? renderTab(tab) : null,
                     }))}
                 />
-            ) : (
+            )}
+            {!settings.loaded && (
                 <Flex vertical gap={16}>
                     <Skeleton.Input active block />
                     <Skeleton active paragraph={{ rows: 6 }} />

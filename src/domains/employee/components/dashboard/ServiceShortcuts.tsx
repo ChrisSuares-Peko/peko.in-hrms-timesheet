@@ -31,7 +31,9 @@ const ServiceShortcuts = () => {
     const employeePaths = useEmployeePaths();
     const essContext = useOutletContext<EssOutletContext | undefined>();
     const essTab = essTabFor(useLocation().pathname);
-    const items = shortcuts.map(item => {
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): no Attendance card on an ESS tab in 'none' mode (nothing tracked).
+    const untracked = Boolean(essContext) && essContext?.atsMode === 'none';
+    const items = shortcuts.filter(item => !(untracked && item.pathKey === 'attendance')).map(item => {
         if (essContext && essTab && item.pathKey === 'attendance') {
             return { ...item, title: titleFor(essContext.atsMode ?? 'both'), path: essTab.paths.attendanceTimesheet };
         }

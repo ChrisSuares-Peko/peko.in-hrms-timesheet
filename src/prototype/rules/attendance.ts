@@ -155,6 +155,7 @@ export const workMinutes = (s: Pick<AtsSettings, 'shift' | 'breakMinutes'>) =>
 
 /** attendance: Attendance + Overtime. both: all three. timesheet: Timesheet + Overtime. */
 export const tabsFor = (mode: AtsMode): AtsTab[] => {
+    if (mode === 'none') return [];
     if (mode === 'attendance') return ['attendance', 'overtime'];
     if (mode === 'timesheet') return ['timesheet', 'overtime'];
     return ['attendance', 'timesheet', 'overtime'];
@@ -166,8 +167,12 @@ export const titleFor = (mode: AtsMode) => {
     return 'Attendance & Timesheet';
 };
 
-export const hasCheckIn = (mode: AtsMode) => mode !== 'timesheet';
-export const hasTimesheets = (mode: AtsMode) => mode !== 'attendance';
+// PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' tracks nothing — no check-in, no timesheets, so no overtime.
+// Stored data is kept; it just isn't shown until another mode is chosen again.
+export const hasCheckIn = (mode: AtsMode) => mode === 'attendance' || mode === 'both';
+export const hasTimesheets = (mode: AtsMode) => mode === 'timesheet' || mode === 'both';
+/** Anything tracked at all (the Attendance & Timesheet section, overtime). */
+export const hasTracking = (mode: AtsMode) => mode !== 'none';
 
 export const overtimeBasisFor = (mode: AtsMode): OvertimeBasis =>
     mode === 'timesheet' ? 'timesheet' : 'attendance';
@@ -286,6 +291,7 @@ export const deriveDay = (input: DayInput): DerivedDay => {
  * timesheet: hours logged − (shift length − break).
  * Weekly offs and holidays: all time worked counts.
  * A missed check-out (auto 11:59 PM) never counts until the real check-out is updated.
+ * 'none' mode: no overtime (Overview v4, Slice 5).
  */
 export const overtimeMinutes = (input: {
     mode: AtsMode;
@@ -296,6 +302,7 @@ export const overtimeMinutes = (input: {
     checkOutAuto?: boolean;
     loggedMinutes: number;
 }) => {
+    if (!hasTracking(input.mode)) return 0; // 'none': nothing to calculate overtime from
     if (overtimeBasisFor(input.mode) === 'timesheet') {
         return input.isOffDay
             ? input.loggedMinutes
@@ -505,7 +512,7 @@ export const expectedMinutes = (input: {
 }) => {
     const { mode, settings, day } = input;
     const span = (start: string, end: string) => Math.max(0, toMinutes(end) - toMinutes(start) - settings.breakMinutes);
-    if (mode === 'attendance') return 0;
+    if (!hasTimesheets(mode)) return 0;
     if (input.dateOfJoin && day.date < input.dateOfJoin) return 0;
     if (['on-leave', 'holiday', 'weekly-off', 'worked-off-day'].includes(day.status)) return 0;
     if (mode === 'timesheet') return span(settings.shift.start, settings.shift.end);
@@ -533,7 +540,7 @@ export const dayWindow = (input: {
     const expected = expectedMinutes(input);
     const offOrLeave = ['on-leave', 'holiday', 'weekly-off'].includes(day.status);
 
-    if (mode === 'attendance') return { kind: 'none', label: 'Timesheets are off', expectedMinutes: 0 };
+    if (!hasTimesheets(mode)) return { kind: 'none', label: 'Timesheets are off', expectedMinutes: 0 };
     if (input.dateOfJoin && day.date < input.dateOfJoin) return { kind: 'none', label: 'Before joining', expectedMinutes: 0 };
     if (mode === 'timesheet') {
         if (offOrLeave || day.status === 'worked-off-day') {

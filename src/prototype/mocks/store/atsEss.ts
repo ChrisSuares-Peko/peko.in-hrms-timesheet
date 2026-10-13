@@ -34,6 +34,7 @@ import {
     sortEntries,
     hasCheckIn,
     hasTimesheets,
+    hasTracking,
     lockReasonFor,
     monthBounds,
     monthDates,
@@ -83,6 +84,11 @@ import {
 import { SYSTEM_ACTOR, actorOf } from '../data/ats-seed';
 import { MockEmployee } from '../data/employees';
 import type { DataMode } from '../envelope';
+
+// PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' mode — nothing is tracked.
+const NOT_TRACKED = 'Your company doesn’t track attendance or timesheets.';
+const checkInOffMessage = (m: Parameters<typeof hasTracking>[0]) =>
+    hasTracking(m) ? 'Check-in is turned off — your company uses timesheets only.' : NOT_TRACKED;
 
 const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
 
@@ -134,7 +140,7 @@ export const overviewOf = (mode: DataMode, e: MockEmployee): AtsOverview => {
 
 export const checkIn = (mode: DataMode, e: MockEmployee) => {
     const settings = getSettings(mode);
-    if (!hasCheckIn(settings.mode)) throw new RuleError('Check-in is turned off — your company uses timesheets only.');
+    if (!hasCheckIn(settings.mode)) throw new RuleError(checkInOffMessage(settings.mode));
     const t = today();
     if (recordOf(mode, e, t)?.checkIn) throw new RuleError("You've already checked in today.");
     if (attendanceDay(mode, e, t).status === 'on-leave') throw new RuleError("You're on approved leave today.");
@@ -194,7 +200,9 @@ const HHMM = /^\d{2}:\d{2}$/;
 
 export const createCorrection = (mode: DataMode, e: MockEmployee, input: CorrectionInput): AttendanceCorrection => {
     const settings = getSettings(mode);
-    if (!hasCheckIn(settings.mode)) throw new RuleError('Attendance corrections are off — your company uses timesheets only.');
+    if (!hasCheckIn(settings.mode)) {
+        throw new RuleError(hasTracking(settings.mode) ? 'Attendance corrections are off — your company uses timesheets only.' : NOT_TRACKED);
+    }
     const t = today();
     if (!input?.date || input.date > t) throw new RuleError('Pick today or an earlier day.', 400);
     if (input.date < e.dateOfJoin) throw new RuleError('That day is before your joining date.', 400);
@@ -250,7 +258,9 @@ export const cancelCorrection = (mode: DataMode, e: MockEmployee, id: string) =>
 // ---- timesheet entries ------------------------------------------------------------------------------
 
 const assertTimesheets = (mode: DataMode) => {
-    if (!hasTimesheets(getSettings(mode).mode)) throw new RuleError('Timesheets are turned off — your company uses attendance only.');
+    if (!hasTimesheets(getSettings(mode).mode)) {
+        throw new RuleError(hasTracking(getSettings(mode).mode) ? 'Timesheets are turned off — your company uses attendance only.' : NOT_TRACKED);
+    }
 };
 
 const assertDayEditable = (mode: DataMode, e: MockEmployee, date: string) => {
@@ -447,6 +457,7 @@ const SUGGESTION_LOOKBACK_DAYS = 45;
 
 const suggestionsOf = (mode: DataMode, e: MockEmployee): OvertimeSuggestion[] => {
     const settings = getSettings(mode);
+    if (!hasTracking(settings.mode)) return []; // 'none': nothing to calculate overtime from
     const t = today();
     const basis = overtimeBasisFor(settings.mode);
     return Array.from({ length: SUGGESTION_LOOKBACK_DAYS }, (_, i) => addDays(t, -(i + 1)))
@@ -486,6 +497,7 @@ export const overtimeViewOf = (mode: DataMode, e: MockEmployee, month: string): 
 
 export const createOvertime = (mode: DataMode, e: MockEmployee, input: OvertimeInput): OvertimeRequest => {
     const settings = getSettings(mode);
+    if (!hasTracking(settings.mode)) throw new RuleError(NOT_TRACKED);
     const t = today();
     validateOvertimeInput(input, t);
     if (input.date < e.dateOfJoin) throw new RuleError('That day is before your joining date.', 400);

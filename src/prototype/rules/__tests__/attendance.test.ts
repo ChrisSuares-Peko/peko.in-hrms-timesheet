@@ -20,6 +20,9 @@ import {
     entriesOverlap,
     expectedMinutes,
     formatDuration,
+    hasCheckIn,
+    hasTimesheets,
+    hasTracking,
     isSubmissionDay,
     outsideCheckInFlag,
     overtimeMinutes,
@@ -495,5 +498,16 @@ describe('profile updates', () => {
         expect(err({ emergencyName: ' ' })).toBe(PROFILE_MESSAGES.emergency);
         expect(err({ emergencyPhone: '12345' })).toBe(PROFILE_MESSAGES.emergency);
         expect(err({ photo: `data:image/png;base64,${'A'.repeat(1_500_000)}` })).toBe(PROFILE_MESSAGES.photo);
+    });
+});
+
+// PROTOTYPE-SETUP (Overview v4, Slice 5): the 'none' mode rules.
+describe("'none' mode rules", () => {
+    it('tracks nothing: no tabs, no check-in, no timesheets, no overtime, nothing expected', () => {
+        expect(tabsFor('none')).toEqual([]);
+        expect([hasCheckIn('none'), hasTimesheets('none'), hasTracking('none')]).toEqual([false, false, false]);
+        expect([hasCheckIn('both'), hasTimesheets('both'), hasTracking('both')]).toEqual([true, true, true]);
+        expect(overtimeMinutes({ mode: 'none', settings: S, isOffDay: true, checkIn: '09:00', checkOut: '20:00', loggedMinutes: 600 })).toBe(0);
+        expect(expectedMinutes({ mode: 'none', settings: S, day: day({}), today: TODAY })).toBe(0);
     });
 });

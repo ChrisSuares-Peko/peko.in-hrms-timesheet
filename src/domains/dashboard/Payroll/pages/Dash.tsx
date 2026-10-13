@@ -357,14 +357,16 @@ const Dash = () => {
     // Approvals (the HR / Finance level-2 queues for attendance corrections and overtime) is hidden when
     // neither type has a level-2 approver. It doesn't depend on timesheet approval: timesheets are manager-only.
     const atsMode = atsSettings?.mode;
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): in 'none' mode HR still approves profile updates there.
     const hasLevel2Queue =
         !atsSettings ||
+        atsMode === 'none' ||
         atsSettings.level2.overtime !== 'NONE' ||
         (atsMode !== 'timesheet' && atsSettings.level2.attendance !== 'NONE');
     const navMenuDetails = allNavMenuDetails.filter(
         item =>
-            !(item.title === 'Attendance' && atsMode === 'timesheet') &&
-            !(item.title === 'Timesheets' && atsMode === 'attendance') &&
+            !(item.title === 'Attendance' && (atsMode === 'timesheet' || atsMode === 'none')) &&
+            !(item.title === 'Timesheets' && (atsMode === 'attendance' || atsMode === 'none')) &&
             !(item.title === 'Approvals' && !hasLevel2Queue)
     );
 

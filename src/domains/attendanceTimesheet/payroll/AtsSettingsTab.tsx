@@ -75,6 +75,13 @@ const MODES: { value: AtsMode; label: string; tabs: string; overtime: string }[]
         tabs: 'No check-in. Employees log their work against the shift. Tabs: Timesheet, Overtime.',
         overtime: 'Overtime is hours logged beyond the working day (shift minus break).',
     },
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): the fourth mode.
+    {
+        value: 'none',
+        label: 'Neither: no attendance or timesheet tracking',
+        tabs: 'No check-in and no timesheets. The Attendance & Timesheet section is hidden.',
+        overtime: 'No overtime — there is nothing to calculate it from.',
+    },
 ];
 
 const LEVEL2_OPTIONS: { value: Level2Approver; label: string }[] = [
@@ -144,7 +151,7 @@ const ModeCards = ({
     onChange?: (mode: AtsMode) => void;
 }) => (
     <Radio.Group value={value} onChange={e => onChange?.(e.target.value)} className="w-full">
-        <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {MODES.map(m => (
                 <label
                     key={m.value}
@@ -203,7 +210,7 @@ const AtsSettingsTab = () => {
         shiftStart && shiftEnd ? shiftEnd.diff(shiftStart, 'minute') : undefined;
     const workMinutes =
         shiftMinutes !== undefined && shiftMinutes > 0 ? shiftMinutes - (breakMinutes ?? 0) : undefined;
-    const timesheetsOff = mode === 'attendance';
+    const timesheetsOff = mode === 'attendance' || mode === 'none';
 
     const save = async () => {
         // Hidden sections (e.g. approval in Attendance only mode) keep their values: send the full set.
@@ -284,6 +291,17 @@ const AtsSettingsTab = () => {
                     </Form.Item>
                 </Card>
 
+                {/* PROTOTYPE-SETUP (Overview v4, Slice 5): nothing is tracked in 'none' mode — the tracking settings are
+                    hidden (their values stay stored and come back with another mode). */}
+                {mode === 'none' ? (
+                    <Alert
+                        type="info"
+                        showIcon
+                        message="Nothing is tracked"
+                        description="No check-in, no timesheets and no overtime. Leave, reimbursements, payslips, documents and profile work as normal. Shift, day rules, weekly offs and timesheet approval come back when you choose another mode."
+                    />
+                ) : (
+                    <>
                 <Card title="Standard day" size="small">
                     <Row gutter={[16, 0]}>
                         <Col xs={12} md={6}>
@@ -430,6 +448,9 @@ const AtsSettingsTab = () => {
                         </Flex>
                     )}
                 </Card>
+
+                    </>
+                )}
 
                 <Card title="Approval matrix" size="small">
                     <Flex vertical gap={8}>

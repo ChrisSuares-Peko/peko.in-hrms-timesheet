@@ -4,7 +4,7 @@
 // ESS - Manager stays a flat item. Used by the desktop sidebar and the mobile drawer.
 import './essNav.css';
 import type { AtsMode } from '@src/domains/attendanceTimesheet/types';
-import { titleFor } from '@src/prototype/rules/attendance';
+import { hasTracking, titleFor } from '@src/prototype/rules/attendance';
 import { paths } from '@src/routes/paths';
 
 /** Menu key of the ESS - Employee group (its own route is the Overview child). */
@@ -16,7 +16,8 @@ export const isEssEmployeePath = (pathname: string) => pathname === base() || pa
 
 export const essEmployeeSubItems = (atsMode: AtsMode) => [
     { key: base(), text: 'Overview' },
-    { key: `${base()}/attendance-timesheet`, text: titleFor(atsMode) },
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): no Attendance & Timesheet section in 'none' mode.
+    ...(hasTracking(atsMode) ? [{ key: `${base()}/attendance-timesheet`, text: titleFor(atsMode) }] : []),
     { key: `${base()}/leaves`, text: 'Leaves' },
     { key: `${base()}/reimbursements`, text: 'Reimbursements' },
     { key: `${base()}/payslips`, text: 'Payslips' },

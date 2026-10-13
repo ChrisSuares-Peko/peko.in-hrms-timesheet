@@ -3,6 +3,8 @@
 //   ≥1200px  fixed section heights. Both modes: Profile | Attendance | Timesheet, then Quick actions + Recent days
 //            (left 2/3) and Notifications (right 1/3). Attendance-only / Timesheet-only: Profile | Attendance (or
 //            Timesheet) | Notifications, with Notifications running down the whole right column.
+//   'none' (Overview v4, Slice 5): Profile spans columns 1–2 with Quick actions under it, no Recent days;
+//            Notifications runs down the right column. Stacked: Profile, Quick actions, Notifications.
 //   768–1199px  two columns, heights automatic. <768px  one column: Profile, Attendance, Timesheet, Quick actions,
 //            Recent days, Notifications.
 import { useCallback, useEffect, useState } from 'react';
@@ -11,6 +13,8 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { Button, Empty, Skeleton } from 'antd';
 
 import './overview.css';
+import { hasCheckIn, hasTimesheets, hasTracking } from '@src/prototype/rules/attendance';
+
 import OvAttendanceCard from './OvAttendanceCard';
 import OvNotifications from './OvNotifications';
 import OvProfileCard from './OvProfileCard';
@@ -104,14 +108,14 @@ const EssOverviewPage = () => {
     return (
         <div className={`ess-ov ess-ov--${mode}`} style={{ '--ov-rd': `${rdHeight}px` } as React.CSSProperties}>
             <div className="ess-ov__p">
-                <OvProfileCard profile={profile} profilePath={`${paths.home}/profile`} />
+                <OvProfileCard profile={profile} profilePath={`${paths.home}/profile`} wide={!hasTracking(mode)} />
             </div>
-            {mode !== 'timesheet' && (
+            {hasCheckIn(mode) && (
                 <div className="ess-ov__a">
                     <OvAttendanceCard overview={overview} onOverview={onOverview} openPath={paths.section('attendance')} />
                 </div>
             )}
-            {mode !== 'attendance' && week && (
+            {hasTimesheets(mode) && week && (
                 <div className={timesheetSlot}>
                     <OvTimesheetCard week={week} mode={mode} today={today} onWeek={onWeek} fullPath={paths.section('timesheet', today)} />
                 </div>
@@ -132,9 +136,12 @@ const EssOverviewPage = () => {
                             }}
                         />
                     </div>
-                    <div className="ess-ov__r">
-                        <OvStatusTable days={home.recentDays} mode={mode} today={today} linkTo={paths.section} />
-                    </div>
+                    {/* PROTOTYPE-SETUP (Overview v4, Slice 5): no Recent days when nothing is tracked. */}
+                    {hasTracking(mode) && (
+                        <div className="ess-ov__r">
+                            <OvStatusTable days={home.recentDays} mode={mode} today={today} linkTo={paths.section} />
+                        </div>
+                    )}
                     <div className="ess-ov__n">
                         <OvNotifications home={home} hrefOf={hrefOf} roomy={mode !== 'both'} />
                     </div>

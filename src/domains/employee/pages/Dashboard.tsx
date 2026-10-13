@@ -31,10 +31,14 @@ const Dashboard = () => {
         );
     }
 
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): on an ESS tab in 'none' mode (no attendance or timesheet tracking)
+    // the dashboard drops its attendance and timesheet widgets. The /employee portal is unchanged.
+    const untracked = essContext?.atsMode === 'none';
+
     return (
         <Flex vertical gap={24}>
             <Row gutter={[24, 24]}>
-                <Col xs={24} lg={16}>
+                <Col xs={24} lg={untracked ? 24 : 16}>
                     <ProfileCard
                         profile={data.profile}
                         checkInLoading={checkInLoading}
@@ -44,25 +48,27 @@ const Dashboard = () => {
                         hidePunch={Boolean(essContext)}
                     />
                 </Col>
-                <Col xs={24} lg={8}>
-                    {essContext ? (
-                        <AtsDashboardCard />
-                    ) : (
-                        <StatCard
-                            title="Attendance"
-                            stat={data.attendance}
-                            onViewMore={() => navigate(employeePaths.attendance)}
-                        />
-                    )}
-                </Col>
+                {!untracked && (
+                    <Col xs={24} lg={8}>
+                        {essContext ? (
+                            <AtsDashboardCard />
+                        ) : (
+                            <StatCard
+                                title="Attendance"
+                                stat={data.attendance}
+                                onViewMore={() => navigate(employeePaths.attendance)}
+                            />
+                        )}
+                    </Col>
+                )}
             </Row>
-            {essContext?.isManager && <MyTeamCard />}
+            {essContext?.isManager && !untracked && <MyTeamCard />}
 
             <Row gutter={[24, 24]}>
                 <Col xs={24} lg={13}>
                     <Flex vertical gap={24}>
                         <ServiceShortcuts />
-                        <AttendanceTable records={data.attendanceRecords} />
+                        {!untracked && <AttendanceTable records={data.attendanceRecords} />}
                     </Flex>
                 </Col>
                 <Col xs={24} lg={11}>

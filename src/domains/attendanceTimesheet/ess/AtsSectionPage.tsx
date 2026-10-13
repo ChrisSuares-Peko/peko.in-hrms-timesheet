@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ReloadOutlined } from '@ant-design/icons';
 import { Badge, Button, Empty, Skeleton, Tabs } from 'antd';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { EssPageHeader } from '@src/components/ess/EssUi';
 
@@ -30,6 +30,7 @@ const SUBTITLE: Record<AtsMode, string> = {
     attendance: 'Check in and out, see your monthly attendance and claim overtime.',
     both: 'Check in and out, log your hours each week and claim overtime.',
     timesheet: 'Log your hours each week and claim overtime.',
+    none: '',
 };
 
 const AtsSectionPage = () => {
@@ -70,6 +71,10 @@ const AtsSectionPage = () => {
             />
         </div>
     );
+
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' mode tracks nothing — the section is hidden; opening it
+    // directly goes back to the tab's home (the Overview on ESS - Employee).
+    if (overview?.mode === 'none') return <Navigate to={paths.home} replace />;
 
     if (!overview) {
         return (

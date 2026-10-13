@@ -25,6 +25,8 @@ import {
     deriveDay,
     editModeFor,
     entryMins,
+    hasCheckIn,
+    hasTimesheets,
     sortEntries,
     lockReasonFor,
     monthLabel,
@@ -220,7 +222,9 @@ export const attendanceDay = (mode: DataMode, e: MockEmployee, date: string): At
         return { date, status: 'upcoming', checkIn: null, checkOut: null, checkOutAuto: false, minutesAtWork: 0, lateMinutes: 0, overtimeMinutes: 0, label: 'Before joining', ...lock };
     }
     const timesheetOnly = settings.mode === 'timesheet';
-    const rec = timesheetOnly ? undefined : recordOf(mode, e, date);
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): check-in records are only read when check-in is tracked
+    // ('none' keeps them stored but hides them).
+    const rec = hasCheckIn(settings.mode) ? recordOf(mode, e, date) : undefined;
     const d = deriveDay({
         date,
         today: t,
@@ -315,10 +319,10 @@ export const weekView = (
         approvalEnabled,
         submissionWeekday: settings.timesheetApproval.submissionWeekday,
         mode: settings.mode,
-        editMode: settings.mode === 'attendance' ? 'read-only' : editModeFor({ approvalEnabled, status: week.status, allDaysLocked, readOnly: opts.readOnly }),
+        editMode: !hasTimesheets(settings.mode) ? 'read-only' : editModeFor({ approvalEnabled, status: week.status, allDaysLocked, readOnly: opts.readOnly }),
         canSubmit:
             !opts.readOnly &&
-            settings.mode !== 'attendance' &&
+            hasTimesheets(settings.mode) &&
             weekStart <= weekStartOf(today()) &&
             canSubmitWeek({ approvalEnabled, status: week.status, allDaysLocked }),
         totals: days.reduce(

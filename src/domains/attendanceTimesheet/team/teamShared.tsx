@@ -5,6 +5,8 @@ import type { ReactNode } from 'react';
 
 import { Avatar, Empty, Flex, Typography } from 'antd';
 
+import { hasCheckIn, hasTimesheets, hasTracking } from '@src/prototype/rules/attendance';
+
 import { getAtsSettings } from '../api';
 import type { AtsScope } from '../api';
 import type { MyTeamTab } from '../hooks/useAtsPaths';
@@ -50,11 +52,12 @@ export const ALL_TEAM_TABS: MyTeamTab[] = [
 ];
 
 export const visibleTeamTabs = ({ mode, approvalOn }: Pick<TeamSettings, 'mode' | 'approvalOn'>) =>
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): rule helpers, so 'none' mode (nothing tracked) shows no tabs.
     ALL_TEAM_TABS.filter(tab => {
-        if (tab === 'timesheets') return mode !== 'attendance';
-        if (tab === 'timesheet-approvals') return approvalOn && mode !== 'attendance';
-        if (tab === 'attendance-approvals') return mode !== 'timesheet';
-        return true;
+        if (tab === 'timesheets') return hasTimesheets(mode);
+        if (tab === 'timesheet-approvals') return approvalOn && hasTimesheets(mode);
+        if (tab === 'attendance-approvals') return hasCheckIn(mode);
+        return hasTracking(mode); // Team today, Overtime approvals
     });
 
 // ---- people ---------------------------------------------------------------------------------------------

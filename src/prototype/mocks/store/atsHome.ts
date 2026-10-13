@@ -22,6 +22,7 @@ import {
     formatDuration,
     hasCheckIn,
     hasTimesheets,
+    hasTracking,
     requestState,
     trailLabel,
     weekStartOf,
@@ -64,6 +65,8 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 // ---- last 10 working days -----------------------------------------------------------------------------------
 
 const recentDaysOf = (mode: DataMode, e: MockEmployee): OverviewDay[] => {
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): nothing tracked → no Recent days.
+    if (!hasTracking(getSettings(mode).mode)) return [];
     const t = today();
     const suggestions = new Map(overtimeViewOf(mode, e, currentMonth()).suggestions.map(s => [s.date, s.minutes]));
     // From last week's Monday up to today.
@@ -224,7 +227,9 @@ const requestsOf = (mode: DataMode, e: MockEmployee): OverviewRequest[] => {
                 });
             });
     }
-    overtimeOfEmployee(mode, e).forEach(o => {
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' mode keeps leave, reimbursement and profile requests only.
+    const tracked = hasTracking(getSettings(mode).mode);
+    (tracked ? overtimeOfEmployee(mode, e) : []).forEach(o => {
         const state = stateOf(o.trail);
         if (!state) return;
         items.push({
@@ -238,7 +243,7 @@ const requestsOf = (mode: DataMode, e: MockEmployee): OverviewRequest[] => {
             link: { tab: 'overtime' },
         });
     });
-    correctionsOf(mode, e).forEach(c => {
+    (tracked ? correctionsOf(mode, e) : []).forEach(c => {
         const state = stateOf(c.trail);
         if (!state) return;
         items.push({
@@ -271,7 +276,8 @@ const requestsOf = (mode: DataMode, e: MockEmployee): OverviewRequest[] => {
 
 // ---- announcements & shortcuts ------------------------------------------------------------------------------
 
-const announcementsOf = () => {
+// PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' mode keeps the holiday only (no check-in, timesheet or overtime notices).
+const announcementsOf = (tracked: boolean) => {
     const t = today();
     const year = Number(t.slice(0, 4));
     const last = addDays(t, 120);
@@ -279,8 +285,12 @@ const announcementsOf = () => {
         .filter(h => h.category === 'public' && h.date > t && h.date <= last)
         .filter(h => ![0, 6].includes(new Date(`${h.date}T00:00:00`).getDay()))
         .sort((a, b) => a.date.localeCompare(b.date))[0];
+    const closed = holiday
+        ? [{ title: `Office closed for ${holiday.title}`, text: `${longDate(holiday.date)}.${tracked ? ' No check-in needed.' : ''}`, date: holiday.date }]
+        : [];
+    if (!tracked) return closed;
     return [
-        ...(holiday ? [{ title: `Office closed for ${holiday.title}`, text: `${longDate(holiday.date)}. No check-in needed.`, date: holiday.date }] : []),
+        ...closed,
         { title: 'New: log hours without start and end times', text: 'Timesheet entries now take hours on their own, if you don’t track times.' },
         {
             title: 'Overtime policy',
@@ -297,6 +307,6 @@ export const homeOf = (mode: DataMode, e: MockEmployee): EssHomeView => {
         recentDays: recentDaysOf(mode, e),
         actions: actionsOf(mode, e),
         requests: requestsOf(mode, e),
-        announcements: announcementsOf(),
+        announcements: announcementsOf(hasTracking(settings.mode)),
     };
 };

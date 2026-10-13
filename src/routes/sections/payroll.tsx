@@ -162,10 +162,11 @@ export const payrollRoutes = [
     {
         // PROTOTYPE-SETUP: ESS Service 1 — check-in based Attendance screens are off in Timesheet only mode.
         element: (
+            // PROTOTYPE-SETUP (Overview v4, Slice 5): also off in 'none' mode (no attendance or timesheet tracking).
             <AtsModeGate
-                hiddenIn="timesheet"
+                hiddenIn={['timesheet', 'none']}
                 title="Attendance tracking is off"
-                subTitle="Your company is in Timesheet only mode, so employees don't check in or out. See Timesheet status for timesheets."
+                subTitle="Your company doesn't track check-in and check-out in its current Attendance & Timesheet mode."
             >
                 <TimesheetPage />
             </AtsModeGate>

@@ -33,6 +33,7 @@ const MODE_LABEL: Record<AtsMode, string> = {
     attendance: 'Attendance only',
     both: 'Attendance & Timesheet',
     timesheet: 'Timesheet only',
+    none: 'Neither (no tracking)', // PROTOTYPE-SETUP (Overview v4, Slice 5)
 };
 
 const DataModeToggle = () => {
@@ -102,7 +103,7 @@ const DataModeToggle = () => {
             key: 'mode',
             type: 'group',
             label: 'Attendance & Timesheet mode',
-            children: (['attendance', 'both', 'timesheet'] as AtsMode[]).map(m => ({
+            children: (['attendance', 'both', 'timesheet', 'none'] as AtsMode[]).map(m => ({
                 key: `mode:${m}`,
                 label: `${atsMode === m ? '✓ ' : ''}${MODE_LABEL[m]}`,
             })),

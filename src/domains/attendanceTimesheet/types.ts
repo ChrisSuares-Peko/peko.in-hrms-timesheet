@@ -4,7 +4,8 @@
 
 // ---- settings ---------------------------------------------------------------------------------------------
 
-export type AtsMode = 'attendance' | 'both' | 'timesheet';
+/** PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' = neither — no attendance and no timesheet tracking (no overtime). */
+export type AtsMode = 'attendance' | 'both' | 'timesheet' | 'none';
 
 export type Weekday = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY' | 'SUNDAY';
 

@@ -5,6 +5,8 @@
      both        p a t / q q n / r r n        (p Profile, a Attendance, t Timesheet, q Quick actions,
      attendance  p a n / q q n / r r n         r Recent days, n Notifications; in Timesheet-only mode the
      timesheet   p a n / q q n / r r n         Timesheet card takes the Attendance slot "a")
+     none        p p n / q q n               (Overview v4, Slice 5: nothing tracked — no Attendance, Timesheet or
+                                              Recent days)
    768–1199px — two columns, heights automatic: p a / t t / q q / r r / n n
    <768px — one column in DOM order: Profile, Attendance, Timesheet, Quick actions, Recent days, Notifications. */
 .ess-ov {
@@ -35,6 +37,10 @@
     .ess-ov--timesheet {
         grid-template-areas: 'p a' 'q q' 'r r' 'n n';
     }
+    /* PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' — Profile, Quick actions, Notifications. */
+    .ess-ov--none {
+        grid-template-areas: 'p p' 'q q' 'n n';
+    }
     .ess-ov__p {
         grid-area: p;
     }
@@ -64,6 +70,12 @@
     .ess-ov--attendance,
     .ess-ov--timesheet {
         grid-template-areas: 'p a n' 'q q n' 'r r n';
+    }
+    /* 'none': Profile spans columns 1–2 (the Attendance slot), Quick actions under it, no Recent days;
+       Notifications runs down the right column. */
+    .ess-ov--none {
+        grid-template-rows: var(--ov-top) var(--ov-qa);
+        grid-template-areas: 'p p n' 'q q n';
     }
     /* Every card fills its fixed cell; content never resizes it. */
     .ess-ov > * > * {

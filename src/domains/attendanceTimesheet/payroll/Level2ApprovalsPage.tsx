@@ -4,8 +4,10 @@
 // are approved by managers only, so they aren't here. Replaces the Timesheet V1 Level2Approvals page.
 import { useCallback, useEffect, useState } from 'react';
 
-import { Alert, Badge, Flex, Segmented, Skeleton, Tabs, Typography } from 'antd';
+import { Alert, Badge, Empty, Flex, Segmented, Skeleton, Tabs, Typography } from 'antd';
 import { Link, useSearchParams } from 'react-router-dom';
+
+import { hasTracking } from '@src/prototype/rules/attendance';
 
 import { type Level2RequestType, getLevel2Counts } from '../api';
 import type { Level2Role } from '../types';
@@ -25,10 +27,11 @@ const Level2ApprovalsPage = () => {
 
     const role: Level2Role = params.get('role') === 'FINANCE' ? 'FINANCE' : 'HR';
     // PROTOTYPE-SETUP (Overview, Slice 4): HR also gets profile updates (no manager step, always HR).
-    const types: Level2RequestType[] = [
-        ...(settings?.mode === 'timesheet' ? ['overtime' as const] : ['attendance' as const, 'overtime' as const]),
-        ...(role === 'HR' ? ['profile' as const] : []),
-    ];
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' mode has no attendance corrections or overtime.
+    let tracked: Level2RequestType[] = ['attendance', 'overtime'];
+    if (settings?.mode === 'timesheet') tracked = ['overtime'];
+    if (settings && !hasTracking(settings.mode)) tracked = [];
+    const types: Level2RequestType[] = [...tracked, ...(role === 'HR' ? ['profile' as const] : [])];
     const routed = types.filter(t => (t === 'profile' ? role === 'HR' : settings?.level2[t] === role));
     const requested = params.get('type') as Level2RequestType | null;
     const type: Level2RequestType =
@@ -111,6 +114,14 @@ const Level2ApprovalsPage = () => {
                             }
                         />
                     )}
+                    {types.length === 0 && (
+                        <Empty
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            description="Nothing reaches Finance in this mode: your company doesn't track attendance or timesheets."
+                        />
+                    )}
+                    {types.length > 0 && (
+                    <>
                     <Tabs
                         activeKey={type}
                         onChange={t => setParam('type', t)}
@@ -132,6 +143,8 @@ const Level2ApprovalsPage = () => {
                         type={type}
                         onChanged={loadCounts}
                     />
+                    </>
+                    )}
                 </>
             )}
         </Flex>

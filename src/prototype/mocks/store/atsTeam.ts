@@ -35,6 +35,7 @@ import {
     displayTime,
     entryMins,
     formatDuration,
+    hasTimesheets,
     isSubmissionDay,
     lockReasonFor,
     monthBounds,
@@ -454,7 +455,7 @@ const blockersFor = (mode: DataMode, month: string) => {
     const settings = getSettings(mode);
     return payrollBlockers({
         month,
-        approvalEnabled: settings.timesheetApproval.enabled && settings.mode !== 'attendance',
+        approvalEnabled: settings.timesheetApproval.enabled && hasTimesheets(settings.mode),
         employees: employeesFor(mode),
         statusOf: (id, ws) => weekOf(mode, findEmployee(id)!, ws).status,
     }).map(b => ({ employee: personRef(b.employee), manager: managerRef(b.employee), weekStart: b.weekStart, status: b.status }));
@@ -472,7 +473,7 @@ export const payrollMonthStatus = (mode: DataMode, month: string): PayrollMonthS
         ...(processedAt ? { processedAt } : {}),
         canProcess: !processed && !blockers.length && month === firstUnprocessedMonth(mode),
         blockers,
-        approvalEnabled: settings.timesheetApproval.enabled && settings.mode !== 'attendance',
+        approvalEnabled: settings.timesheetApproval.enabled && hasTimesheets(settings.mode),
     };
 };
 
@@ -496,7 +497,7 @@ export const processPayrollMonth = (mode: DataMode, month: string) => {
 
 export const timesheetStatusView = (mode: DataMode, month: string): TimesheetStatusView => {
     const settings = getSettings(mode);
-    const approvalEnabled = settings.timesheetApproval.enabled && settings.mode !== 'attendance';
+    const approvalEnabled = settings.timesheetApproval.enabled && hasTimesheets(settings.mode);
     const weeks = weeksOverlappingMonth(month);
     const { last } = monthBounds(month);
     const rows = employeesFor(mode)
@@ -531,7 +532,8 @@ export const timesheetStatusView = (mode: DataMode, month: string): TimesheetSta
 export const runSubmissionDay = (mode: DataMode): SubmissionRunResult => {
     const settings = getSettings(mode);
     const result: SubmissionRunResult = { submissionWeekday: settings.timesheetApproval.submissionWeekday, submitted: [] };
-    if (!settings.timesheetApproval.enabled || settings.mode === 'attendance') return result;
+    // PROTOTYPE-SETUP (Overview v4, Slice 5): no timesheets ('attendance' or 'none') → nothing to submit or block on.
+    if (!settings.timesheetApproval.enabled || !hasTimesheets(settings.mode)) return result;
     const t = today();
     const thisWeek = weekStartOf(t);
     employeesFor(mode).forEach(e => {
@@ -559,7 +561,8 @@ export const autoRunSubmissionDay = (mode: DataMode) => {
 
 // ---- settings ---------------------------------------------------------------------------------------------
 
-const MODES = ['attendance', 'both', 'timesheet'] as const;
+// PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' = neither attendance nor timesheet tracking.
+const MODES = ['attendance', 'both', 'timesheet', 'none'] as const;
 const L2: Level2Approver[] = ['HR', 'FINANCE', 'NONE'];
 const HHMM = /^\d{2}:\d{2}$/;
 const int = (v: unknown, min: number, max: number, fallback: number) => {
