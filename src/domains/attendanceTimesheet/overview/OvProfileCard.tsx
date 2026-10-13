@@ -39,25 +39,14 @@ const OvProfileCard = ({
                     <div className="truncate text-sm text-[#616161]">{work.designation}</div>
                 </div>
             </div>
-            {/* PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the block fills the spare space, pairs evenly spaced. */}
-            {wide ? (
-                <div className={`grid grid-cols-1 content-evenly gap-x-8 gap-y-4 sm:grid-cols-2 md:flex-1 ${ESS_INNER}`}>
-                    <Pair label="Work email" value={work.workEmail} />
-                    <Pair label="Employee ID" value={work.employeeId} />
-                    <Pair label="Manager" value={manager} />
-                    <Pair label="Department" value={work.department} />
-                </div>
-            ) : (
-            <div className={`flex flex-col gap-4 md:flex-1 md:justify-evenly ${ESS_INNER}`}>
-                {/* PROTOTYPE-SETUP (Overview v4, Slice 2): work email, Employee ID, manager, department. */}
+            {/* PROTOTYPE-SETUP (Overview v5, Slice 1): two rows of two — Work email | Employee ID, Manager | Department —
+                at their natural size (no stretching to fill the card). A long value truncates; hover shows it all. */}
+            <div className={`grid grid-cols-2 ${wide ? 'gap-x-8' : 'gap-x-4'} gap-y-3 ${ESS_INNER}`}>
                 <Pair label="Work email" value={work.workEmail} />
-                <div className="grid grid-cols-2 gap-4">
-                    <Pair label="Employee ID" value={work.employeeId} />
-                    <Pair label="Manager" value={manager} />
-                </div>
+                <Pair label="Employee ID" value={work.employeeId} />
+                <Pair label="Manager" value={manager} />
                 <Pair label="Department" value={work.department} />
             </div>
-            )}
         </EssCard>
     );
 };

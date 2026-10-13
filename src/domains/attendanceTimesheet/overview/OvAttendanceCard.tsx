@@ -118,9 +118,8 @@ const OvAttendanceCard = ({
     openPath: string;
     className?: string;
 }) => (
-    // PROTOTYPE-SETUP (Overview v4, Slice 1): when the row is taller than the card (fixed height ≥1200px, or a stretched two-column row ≥768px) the
-    // parts spread out; the caption sits at the bottom.
-    <EssCard label="Attendance today" heading={<EssSectionHeading title="Attendance" link={{ to: openPath, text: 'Open' }} />} className={`md:justify-between ${className}`}>
+    // PROTOTYPE-SETUP (Overview v5, Slice 1): the parts keep the card's normal gaps (no spreading to fill the row).
+    <EssCard label="Attendance today" heading={<EssSectionHeading title="Attendance" link={{ to: openPath, text: 'Open' }} />} className={className}>
         <AttendancePunch overview={overview} onOverview={onOverview} />
     </EssCard>
 );

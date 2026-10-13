@@ -1,13 +1,13 @@
 // PROTOTYPE-SETUP (Overview, Slice 2; decluttered in Overview v2, Slice 2; ESS design, Slice 2): section 3 —
 // "Timesheet" with "Full timesheet".
 // "Today: 1h 30m of 8h", the day bar and meter (the Timesheet tab's components), the last 2 entries ("and N
-// more"), and "+ Add entry", which opens the compact entry form (same rules as the Timesheet tab, no hint) and
-// closes again after a successful add or on Cancel. The week's status is a small chip ("Week: Draft ·
+// more"), and "+ Add entry", which opens the entry form (same rules as the Timesheet tab, no hint) in a small modal
+// (Overview v5, Slice 1) that closes after a successful add or on Cancel — the card never changes height. The week's status is a small chip ("Week: Draft ·
 // auto-submits Fri 16 Oct"). When today can't be edited, a one-line message replaces the button.
 import { useState } from 'react';
 
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Tag, Typography } from 'antd';
+import { Button, Modal, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 
 import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
@@ -83,17 +83,14 @@ const OvTimesheetCard = ({
             Add entry
         </Button>
     );
-    if (adding) {
-        addArea = <EntryForm date={today} others={day.entries} quick compact hideHint multilineDescription busy={busy} onSave={save} onCancel={() => setAdding(false)} />;
-    }
     if (!editable) addArea = <Text className="text-xs text-[#9e9e9e]">Today can’t be edited right now. Open the full timesheet for details.</Text>;
 
     return (
-        // PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the parts spread out; the week chip sits at the bottom.
+        // PROTOTYPE-SETUP (Overview v5, Slice 1): the parts keep the card's normal gaps (no spreading to fill the row).
         <EssCard
             label="Today's timesheet"
             heading={<EssSectionHeading title="Timesheet" link={{ to: fullPath, text: 'Full timesheet' }} />}
-            className={`md:justify-between ${className ?? ''}`}
+            className={className}
         >
             <div>
                 <Text className="block text-base text-[#080808]">
@@ -127,6 +124,19 @@ const OvTimesheetCard = ({
             <Tag color={chip.color} bordered={false} className={`!m-0 self-start px-3 py-0.5 text-xs ${chip.className ?? ''}`}>
                 {chip.text}
             </Tag>
+            <Modal
+                open={adding && editable}
+                title={`Add entry · Today, ${dayjs(today).format('ddd D MMM')}`}
+                footer={null}
+                width={520}
+                centered
+                destroyOnHidden
+                onCancel={() => setAdding(false)}
+            >
+                <div className="pt-2">
+                    <EntryForm date={today} others={day.entries} quick compact hideHint multilineDescription busy={busy} onSave={save} onCancel={() => setAdding(false)} />
+                </div>
+            </Modal>
         </EssCard>
     );
 };
