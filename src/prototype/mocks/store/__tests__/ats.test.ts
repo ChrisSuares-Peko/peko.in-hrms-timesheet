@@ -366,3 +366,24 @@ describe("'none' mode", () => {
         expect(homeOf(M, sneha).recentDays.length).toBeGreaterThan(0);
     });
 });
+
+// PROTOTYPE-SETUP (Attendance tab, Slice 3): the Attendance tab's month view counts overtime only at the HR minimum.
+describe('attendance month: overtime at the HR minimum', () => {
+    it('a 9h 4m day shows no overtime; a 9h 40m day shows 40m; the total sums qualifying days only', () => {
+        const month = addMonths(currentMonth(), -1);
+        const [short, long] = attendanceMonthOf(M, sneha, month)
+            .days.filter(d => d.status === 'present' || d.status === 'late')
+            .map(d => d.date);
+        atsAttendance.update(M, all => ({
+            ...all,
+            [`${sneha.id}:${short}`]: { employeeId: sneha.id, date: short, checkIn: '09:30', checkOut: '18:34', source: 'manual' },
+            [`${sneha.id}:${long}`]: { employeeId: sneha.id, date: long, checkIn: '09:30', checkOut: '19:10', source: 'manual' },
+        }));
+        expect(attendanceMonthOf(M, sneha, month).days.find(d => d.date === short)!.overtimeMinutes).toBe(4); // raw (manager view)
+        const view = attendanceMonthOf(M, sneha, month, { overtimeAtMinimum: true });
+        expect(view.days.find(d => d.date === short)!.overtimeMinutes).toBe(0);
+        expect(view.days.find(d => d.date === long)!.overtimeMinutes).toBe(40);
+        expect(view.days.every(d => d.overtimeMinutes === 0 || d.overtimeMinutes >= 30)).toBe(true);
+        expect(view.totals.overtimeMinutes).toBe(view.days.reduce((sum, d) => sum + d.overtimeMinutes, 0));
+    });
+});

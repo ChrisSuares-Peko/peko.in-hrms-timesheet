@@ -313,6 +313,13 @@ export const overtimeMinutes = (input: {
     return input.isOffDay ? worked : Math.max(0, worked - shiftMinutes(input.settings));
 };
 
+/**
+ * PROTOTYPE-SETUP (Attendance tab, Slice 3): overtime counts (and shows) only once it reaches the HR minimum —
+ * the same threshold as the suggestions. Under it, the day has no overtime.
+ */
+export const qualifyingOvertime = (extraMinutes: number, minimumMinutes: number) =>
+    extraMinutes > 0 && extraMinutes >= minimumMinutes ? extraMinutes : 0;
+
 /** Suggest overtime only for past days, extra ≥ the HR minimum, and no request for that day yet. */
 export const shouldSuggestOvertime = (input: {
     date: string;

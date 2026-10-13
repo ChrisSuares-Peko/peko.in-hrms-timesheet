@@ -35,6 +35,7 @@ import {
     hasCheckIn,
     hasTimesheets,
     hasTracking,
+    qualifyingOvertime,
     lockReasonFor,
     monthBounds,
     monthDates,
@@ -173,8 +174,18 @@ const emptyTotals = (): AttendanceTotals => ({
     lateMinutes: 0,
 });
 
-export const attendanceMonthOf = (mode: DataMode, e: MockEmployee, month: string): AttendanceMonthView => {
-    const days = monthDates(month).map(d => attendanceDay(mode, e, d));
+export const attendanceMonthOf = (
+    mode: DataMode,
+    e: MockEmployee,
+    month: string,
+    // PROTOTYPE-SETUP (Attendance tab, Slice 3): the employee's Attendance tab shows only overtime that reaches the
+    // HR minimum (days and the month's total). The manager's member view is unchanged.
+    opts: { overtimeAtMinimum?: boolean } = {}
+): AttendanceMonthView => {
+    const minimum = getSettings(mode).overtimeMinimumMinutes;
+    const days = monthDates(month)
+        .map(d => attendanceDay(mode, e, d))
+        .map(d => (opts.overtimeAtMinimum ? { ...d, overtimeMinutes: qualifyingOvertime(d.overtimeMinutes, minimum) } : d));
     const totals = days.reduce((acc, d) => {
         const next = { ...acc, minutesAtWork: acc.minutesAtWork + d.minutesAtWork, overtimeMinutes: acc.overtimeMinutes + d.overtimeMinutes, lateMinutes: acc.lateMinutes + d.lateMinutes };
         if (d.status === 'present') next.present += 1;

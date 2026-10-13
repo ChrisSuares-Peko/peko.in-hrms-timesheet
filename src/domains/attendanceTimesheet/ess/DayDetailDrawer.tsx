@@ -97,9 +97,8 @@ const DayDetailDrawer = ({
                         {day.lateMinutes > 0 && (
                             <Row label="Late by">{formatDuration(day.lateMinutes)}</Row>
                         )}
-                        <Row label="Overtime">
-                            {day.overtimeMinutes > 0 ? formatDuration(day.overtimeMinutes) : '—'}
-                        </Row>
+                        {/* PROTOTYPE-SETUP (Attendance tab, Slice 3): only overtime that reaches the HR minimum shows. */}
+                        {day.overtimeMinutes > 0 && <Row label="Overtime">{formatDuration(day.overtimeMinutes)}</Row>}
                     </div>
                 )}
 

@@ -33,6 +33,7 @@ import {
     validatePersonalDetails,
     parseHours,
     payrollBlockers,
+    qualifyingOvertime,
     shouldSuggestOvertime,
     sortEntries,
     startTrail,
@@ -509,5 +510,23 @@ describe("'none' mode rules", () => {
         expect([hasCheckIn('both'), hasTimesheets('both'), hasTracking('both')]).toEqual([true, true, true]);
         expect(overtimeMinutes({ mode: 'none', settings: S, isOffDay: true, checkIn: '09:00', checkOut: '20:00', loggedMinutes: 600 })).toBe(0);
         expect(expectedMinutes({ mode: 'none', settings: S, day: day({}), today: TODAY })).toBe(0);
+    });
+});
+
+// PROTOTYPE-SETUP (Attendance tab, Slice 3): overtime shows only once it reaches the HR minimum (default 30 min).
+describe('overtime at the HR minimum', () => {
+    const extra = (checkOut: string) =>
+        overtimeMinutes({ mode: 'both', settings: S, isOffDay: false, checkIn: '09:30', checkOut, loggedMinutes: 0 });
+    it('a 9h 4m day shows no overtime; a 9h 40m day shows 40m', () => {
+        expect(S.overtimeMinimumMinutes).toBe(30);
+        expect(extra('18:34')).toBe(4);
+        expect(qualifyingOvertime(extra('18:34'), S.overtimeMinimumMinutes)).toBe(0);
+        expect(qualifyingOvertime(extra('19:10'), S.overtimeMinimumMinutes)).toBe(40);
+    });
+    it('exactly the minimum counts; no minimum counts everything above 0', () => {
+        expect(qualifyingOvertime(30, 30)).toBe(30);
+        expect(qualifyingOvertime(29, 30)).toBe(0);
+        expect(qualifyingOvertime(4, 0)).toBe(4);
+        expect(qualifyingOvertime(0, 0)).toBe(0);
     });
 });
