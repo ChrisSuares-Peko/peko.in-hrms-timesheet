@@ -259,6 +259,10 @@ export const attendanceDay = (mode: DataMode, e: MockEmployee, date: string): At
                 : 0,
         ...(label ? { label } : {}),
         ...lock,
+        // PROTOTYPE-SETUP (Overview v5, Slice 4): an auto check-out the employee replaced themselves.
+        ...(rec?.checkOutSource === 'employee' && rec.checkOut
+            ? { checkOutByEmployee: { at: rec.checkOutEnteredAt ?? '', ...(rec.checkOutNote ? { note: rec.checkOutNote } : {}) } }
+            : {}),
         ...(correction
             ? { correction: { id: correction.id, kind: correction.kind, state: requestState(correction.trail), statusLabel: trailLabel(correction.trail) } }
             : {}),
@@ -354,6 +358,7 @@ export const overtimeContext = (mode: DataMode, e: MockEmployee, date: string): 
         checkIn: day.checkIn,
         checkOut: day.checkOut,
         checkOutAuto: day.checkOutAuto,
+        ...(day.checkOutByEmployee ? { checkOutByEmployee: true } : {}),
         minutesAtWork: day.minutesAtWork,
         loggedMinutes: loggedOn(mode, e, date),
         extraMinutes: day.overtimeMinutes,

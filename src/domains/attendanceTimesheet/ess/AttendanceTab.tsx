@@ -242,7 +242,6 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
             <CorrectionModal
                 open={Boolean(modal)}
                 date={modal?.date ?? null}
-                kind={modal?.kind ?? 'correction'}
                 current={modal?.current}
                 shiftEnd={overview.shift.end}
                 shiftStart={overview.shift.start}

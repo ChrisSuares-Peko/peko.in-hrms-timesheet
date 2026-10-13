@@ -48,6 +48,14 @@ const checkInCell = (d: OverviewDay, today: string) => {
 const checkOutCell = (d: OverviewDay) => {
     const a = d.attendance;
     if (a.checkOutAuto) return <Chip color="gold">Missed · auto 11:59 PM</Chip>;
+    // PROTOTYPE-SETUP (Overview v5, Slice 4): a missed check-out they entered themselves.
+    if (a.checkOut && a.checkOutByEmployee) {
+        return (
+            <>
+                {a.checkOut} <span className="block text-xs text-[#9e9e9e]">Entered by you</span>
+            </>
+        );
+    }
     if (a.checkOut) return a.checkOut;
     if (a.checkIn) return <span className="text-[#9e9e9e]">Still in</span>;
     return null;

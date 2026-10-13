@@ -57,6 +57,7 @@ On weekly offs and holidays, all time worked counts as overtime.
 | GET | `corrections` | — | `(AttendanceCorrection & { statusLabel })[]` |
 | POST | `corrections` | `CorrectionInput` | `AttendanceCorrection` |
 | POST | `corrections/{id}/cancel` | — | list as above |
+| POST | `attendance/{date}/check-out` | `{ checkOut: 'HH:mm', note?: string }` | `AttendanceDay` — self-service check-out for a missed (auto-closed) day; saved straight away, no request |
 | GET | `profile` | — | `MyProfileView` (work details, approved personal details, the pending update, the last decided one) |
 | POST | `profile/update-request` | `Partial<PersonalDetails>` (any subset; only changed fields are kept) | `MyProfileView` |
 | POST | `profile/update-request/{id}/withdraw` | — | `MyProfileView` |
@@ -80,7 +81,11 @@ On weekly offs and holidays, all time worked counts as overtime.
   - It never counts as overtime (and is never suggested) until the real check-out is updated.
   - Expected hours use the shift (case #9 below), not check-in → 11:59 PM.
   - For the timesheet bar and the outside-check-in flag the day runs to the shift end: entries after it show as "{dur} after shift end" with "Update check-out".
-  - The fix is a `kind: 'update-check-out'` correction. Its "Actual check-out" is pre-filled with the shift end (from the timesheet flag: the latest entry's end).
+  - **The fix is self-service** (Overview v5): `POST attendance/{date}/check-out` saves the real check-out straight away — no manager or HR approval. Its "Actual check-out" is pre-filled with the shift end (from the timesheet flag: the latest entry's end). Offered from the day drawer, the Overview's "You didn't check out" notification, the timesheet's "after shift end" flag, and the correction popup whenever the picked day is an un-updated missed check-out ("Update check-out": check-out time, optional note, "Save check-out").
+  - Guardrails (rule `validateOwnCheckOut`, 409 / 400 otherwise): the time is after that day's check-in and no later than 23:59; not in a payroll-processed month; not while a correction for the day is waiting; **once per day** — after that, a change is a normal correction (approval needed).
+  - The record is marked `checkOutSource: 'employee'` with `checkOutEnteredAt` (and `checkOutNote`). Views expose `AttendanceDay.checkOutByEmployee: { at, note? }` (and `OvertimeContext.checkOutByEmployee`): the employee sees "Entered by you"; the manager's timesheet day view, overtime approvals and HR's Attendance notes show "entered by employee".
+  - Everything derived from the record recalculates: time at work, expected hours, the timesheet window and its outside-check-in flag, overtime and its suggestions. Overtime from the day is still requested and approved as usual.
+  - Existing `kind: 'update-check-out'` corrections (seeded or raised earlier) still go through approval; the app no longer creates new ones.
 - Statuses:
   - **Late:** check-in after shift start + grace.
   - **Half day:** time at work under the threshold.

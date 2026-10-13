@@ -19,6 +19,7 @@ import {
     overtimeViewOf,
     overviewOf,
     submitWeek,
+    updateOwnCheckOut,
 } from '../atsEss';
 import { homeOf } from '../atsHome';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../atsProfile';
@@ -385,5 +386,55 @@ describe('attendance month: overtime at the HR minimum', () => {
         expect(view.days.find(d => d.date === long)!.overtimeMinutes).toBe(40);
         expect(view.days.every(d => d.overtimeMinutes === 0 || d.overtimeMinutes >= 30)).toBe(true);
         expect(view.totals.overtimeMinutes).toBe(view.days.reduce((sum, d) => sum + d.overtimeMinutes, 0));
+    });
+});
+
+// PROTOTYPE-SETUP (Overview v5, Slice 4): self-service check-out for an auto-closed day — saved, no approval.
+describe('self-service check-out update', () => {
+    const correctionsCount = () => attendanceMonthOf(M, sneha, s.autoDay.slice(0, 7)).days.filter(d => d.correction).length;
+
+    it('a valid update saves straight away, without a request, and everything recalculates', () => {
+        const before = attendanceDay(M, sneha, s.autoDay);
+        expect(before).toMatchObject({ checkOutAuto: true, checkIn: '09:31', overtimeMinutes: 0 });
+        // the seeded entries run to 20:15, past the shift end → the timesheet's "Update check-out" flag
+        const flagBefore = weekView(M, sneha, weekStartOf(s.autoDay)).days.find(d => d.date === s.autoDay)!.outsideCheckIn;
+        expect(flagBefore?.action).toBe('update-check-out');
+        const requests = correctionsCount();
+        const day = updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '20:15', note: 'Release night' });
+        expect(day).toMatchObject({ checkOutAuto: false, checkOut: '20:15', minutesAtWork: 20 * 60 + 15 - (9 * 60 + 31) });
+        expect(day.checkOutByEmployee).toMatchObject({ note: 'Release night' });
+        expect(recordOf(M, sneha, s.autoDay)).toMatchObject({ checkOut: '20:15', checkOutSource: 'employee' });
+        expect(correctionsCount()).toBe(requests); // no request created
+        // overtime: 10h 44m at work − 9h shift = 1h 44m, now suggested (still claimed and approved as usual)
+        expect(day.overtimeMinutes).toBe(104);
+        expect(overtimeViewOf(M, sneha, currentMonth()).suggestions.find(x => x.date === s.autoDay)?.minutes).toBe(104);
+        // the timesheet window ends at the new check-out and the "after shift end" flag is gone
+        const tsDay = weekView(M, sneha, weekStartOf(s.autoDay)).days.find(d => d.date === s.autoDay)!;
+        expect(tsDay.window).toMatchObject({ kind: 'attendance', end: '20:15' });
+        expect(tsDay.outsideCheckIn).toBeUndefined();
+    });
+
+    it('rejects times before the check-in or past 23:59', () => {
+        expect(() => updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '09:00' })).toThrow(/after your check-in/);
+        expect(() => updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '24:10' })).toThrow(/23:59/);
+        expect(() => updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '' })).toThrow(/23:59/);
+        expect(attendanceDay(M, sneha, s.autoDay).checkOutAuto).toBe(true);
+    });
+
+    it('only once per day: a second change needs a correction (with approval)', () => {
+        updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '19:00' });
+        expect(() => updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '19:30' })).toThrow(/request a correction/);
+        const c = createCorrection(M, sneha, { date: s.autoDay, kind: 'correction', checkIn: '09:31', checkOut: '19:30', reason: 'Left later' });
+        expect(c.trail.status).toBe('PENDING_MANAGER');
+        expect(attendanceDay(M, sneha, s.autoDay).checkOut).toBe('19:00');
+    });
+
+    it('a payroll-processed month is rejected', () => {
+        const month = [1, 2, 3].map(n => addMonths(currentMonth(), -n)).find(m => attendanceMonthOf(M, sneha, m).locked)!;
+        expect(month).toBeDefined();
+        const { date } = attendanceMonthOf(M, sneha, month).days.find(d => isWorkingDay(d.date) && d.status !== 'on-leave')!;
+        atsAttendance.update(M, all => ({ ...all, [`${sneha.id}:${date}`]: { employeeId: sneha.id, date, checkIn: '09:30', checkOut: null, source: 'ess' } }));
+        expect(attendanceDay(M, sneha, date).checkOutAuto).toBe(true);
+        expect(() => updateOwnCheckOut(M, sneha, { date, checkOut: '18:30' })).toThrow(/processed/);
     });
 });

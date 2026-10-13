@@ -35,6 +35,7 @@ import {
     payrollBlockers,
     qualifyingOvertime,
     shouldSuggestOvertime,
+    validateOwnCheckOut,
     sortEntries,
     startTrail,
     tabsFor,
@@ -528,5 +529,26 @@ describe('overtime at the HR minimum', () => {
         expect(qualifyingOvertime(29, 30)).toBe(0);
         expect(qualifyingOvertime(4, 0)).toBe(4);
         expect(qualifyingOvertime(0, 0)).toBe(0);
+    });
+});
+
+// PROTOTYPE-SETUP (Overview v5, Slice 4): the self-service check-out guardrails.
+describe('self-service check-out rule', () => {
+    const autoDay = { checkIn: '09:31', checkOutAuto: true, locked: false };
+    const ok = { day: autoDay, checkOut: '19:10', alreadyEntered: false, pendingCorrection: false };
+    it('accepts a time after the check-in, up to 23:59', () => {
+        expect(validateOwnCheckOut(ok)).toBe(19 * 60 + 10);
+        expect(validateOwnCheckOut({ ...ok, checkOut: '23:59' })).toBe(23 * 60 + 59);
+    });
+    it('rejects out-of-range times', () => {
+        expect(() => validateOwnCheckOut({ ...ok, checkOut: '09:31' })).toThrow(/after your check-in \(9:31\)/);
+        expect(() => validateOwnCheckOut({ ...ok, checkOut: '24:00' })).toThrow(/23:59/);
+        expect(() => validateOwnCheckOut({ ...ok, checkOut: '7pm' })).toThrow(/HH:mm/);
+    });
+    it('once per day, auto-closed days only, not locked, not with a correction waiting', () => {
+        expect(() => validateOwnCheckOut({ ...ok, alreadyEntered: true })).toThrow(/request a correction/);
+        expect(() => validateOwnCheckOut({ ...ok, day: { ...autoDay, checkOutAuto: false } })).toThrow(/closed automatically/);
+        expect(() => validateOwnCheckOut({ ...ok, day: { ...autoDay, locked: true, lockReason: 'Payroll for August 2026 has been processed.' } })).toThrow(/processed/);
+        expect(() => validateOwnCheckOut({ ...ok, pendingCorrection: true })).toThrow(/waiting for approval/);
     });
 });

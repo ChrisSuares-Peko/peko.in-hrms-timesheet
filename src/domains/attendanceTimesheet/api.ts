@@ -10,6 +10,7 @@ import type {
     AtsOverview,
     AtsSettings,
     AttendanceCorrection,
+    AttendanceDay,
     AttendanceMonthView,
     ChangeRequestInput,
     CorrectionInput,
@@ -105,6 +106,9 @@ export const createCorrection = (s: AtsScope, body: CorrectionInput) =>
     call<AttendanceCorrection>(s, 'post', 'corrections', { body });
 export const cancelCorrection = (s: AtsScope, id: string) =>
     call<CorrectionWithStatus[]>(s, 'post', `corrections/${id}/cancel`);
+/** PROTOTYPE-SETUP (Overview v5, Slice 4): enter the real check-out of an auto-closed day — saved, no approval. */
+export const updateOwnCheckOut = (s: AtsScope, date: string, body: { checkOut: string; note?: string }) =>
+    call<AttendanceDay>(s, 'post', `attendance/${date}/check-out`, { body });
 
 /** The week containing `date`. */
 export const getTimesheetWeek = (s: AtsScope, date: string) =>

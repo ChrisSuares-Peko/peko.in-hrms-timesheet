@@ -4,6 +4,7 @@
 import type {
     AtsOverview,
     AttendanceCorrection,
+    AttendanceDay,
     AttendanceMonthView,
     AttendanceTotals,
     ChangeRequest,
@@ -50,6 +51,7 @@ import {
     trailLabel,
     validateEntry,
     validateOvertimeInput,
+    validateOwnCheckOut,
     weekDates,
     weekStartOf,
     weeksOverlappingMonth,
@@ -200,6 +202,37 @@ export const attendanceMonthOf = (
     }, emptyTotals());
     const locked = isDayLocked(mode, monthBounds(month).first);
     return { month, monthLabel: monthLabel(month), days, totals, locked, ...(locked ? { lockReason: lockReasonFor(monthBounds(month).first) } : {}) };
+};
+
+// ---- self-service check-out update (Overview v5, Slice 4) ------------------------------------------------
+
+/**
+ * PROTOTYPE-SETUP (Overview v5, Slice 4): the employee enters the real check-out of a day that closed
+ * automatically at 11:59 PM. Saved straight away — no request, no approval — and marked as entered by the employee.
+ * Everything derived from the record (time at work, expected hours, overtime, the timesheet window and its
+ * outside-check-in flag) recalculates on the next read. Overtime from the day is still claimed and approved as usual.
+ */
+export const updateOwnCheckOut = (mode: DataMode, e: MockEmployee, input: { date?: string; checkOut?: string; note?: string }): AttendanceDay => {
+    const settings = getSettings(mode);
+    if (!hasCheckIn(settings.mode)) throw new RuleError(checkInOffMessage(settings.mode));
+    const date = input?.date;
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date >= today()) throw new RuleError('Pick a past day that closed automatically.', 400);
+    const rec = recordOf(mode, e, date);
+    validateOwnCheckOut({
+        day: attendanceDay(mode, e, date),
+        checkOut: input.checkOut,
+        alreadyEntered: rec?.checkOutSource === 'employee',
+        pendingCorrection: correctionsOf(mode, e).some(c => c.date === date && c.trail.status.startsWith('PENDING')),
+    });
+    const note = input.note?.trim().slice(0, 300);
+    saveRecord(mode, {
+        ...rec!,
+        checkOut: input.checkOut!,
+        checkOutSource: 'employee',
+        checkOutEnteredAt: nowIso(),
+        ...(note ? { checkOutNote: note } : {}),
+    });
+    return attendanceDay(mode, e, date);
 };
 
 // ---- attendance corrections ---------------------------------------------------------------------------

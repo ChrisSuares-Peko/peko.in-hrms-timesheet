@@ -78,7 +78,9 @@ export const overtimeContextText = (c: OvertimeContext) => {
     if (!c.checkIn) return 'No check-in that day';
     // PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out isn't overtime until it's updated.
     if (c.checkOutAuto) return `Checked in ${t(c.checkIn)}, check-out missed (closed automatically at 11:59 PM)`;
-    return `Checked in ${t(c.checkIn)} → out ${t(c.checkOut)}, at work ${formatDuration(
+    // PROTOTYPE-SETUP (Overview v5, Slice 4): approvers see a check-out the employee entered themselves.
+    const entered = c.checkOutByEmployee ? ' (entered by employee)' : '';
+    return `Checked in ${t(c.checkIn)} → out ${t(c.checkOut)}${entered}, at work ${formatDuration(
         c.minutesAtWork
     )}, extra ${formatDuration(c.extraMinutes)}`;
 };

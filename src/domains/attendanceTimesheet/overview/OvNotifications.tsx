@@ -14,7 +14,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ESS_GROUP_LABEL, ESS_PANEL, ESS_SECTION_LINK } from '@src/components/ess/essTokens';
 import { EssSectionHeading } from '@src/components/ess/EssUi';
 
-import type { EssHomeView, OverviewLink, OverviewRequest } from '../types';
+import type { EssHomeView, OverviewAction, OverviewLink, OverviewRequest } from '../types';
 
 const TONE = {
     back: 'bg-[#FFF4E8] border-[#FFD9A8]',
@@ -53,10 +53,13 @@ const OvNotifications = ({
     hrefOf,
     className = '',
     roomy = false,
+    onAction,
 }: {
     home: EssHomeView;
     hrefOf: (link: OverviewLink) => string;
     className?: string;
+    /** PROTOTYPE-SETUP (Overview v5, Slice 4): handle an action here (true) instead of following its link. */
+    onAction?: (action: OverviewAction) => boolean;
     /**
      * PROTOTYPE-SETUP (Overview v4, Slice 2): the card runs down the whole right column (Attendance-only /
      * Timesheet-only layouts) — show every request the server sends (up to 6) and the announcements expanded.
@@ -95,7 +98,7 @@ const OvNotifications = ({
                                     <b className="block text-sm font-semibold text-[#080808]">{a.title}</b>
                                     <span className="block text-xs text-[#616161]">{a.text}</span>
                                 </div>
-                                <Button size="small" className="h-8 self-end px-3" onClick={() => navigate(hrefOf(a.link))}>
+                                <Button size="small" className="h-8 self-end px-3" onClick={() => onAction?.(a) || navigate(hrefOf(a.link))}>
                                     {a.button}
                                 </Button>
                             </List.Item>

@@ -95,6 +95,7 @@ const recentDaysOf = (mode: DataMode, e: MockEmployee): OverviewDay[] => {
                 checkOutAuto: a.checkOutAuto,
                 lateMinutes: a.lateMinutes,
                 minutesAtWork: a.minutesAtWork,
+                ...(a.checkOutByEmployee ? { checkOutByEmployee: a.checkOutByEmployee } : {}),
             },
             timesheet: {
                 weekStatus: week.status,

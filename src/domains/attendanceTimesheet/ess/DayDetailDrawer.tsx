@@ -92,6 +92,8 @@ const DayDetailDrawer = ({
                         <Row label="Check-out">
                             {day.checkOutAuto ? MISSED_CHECK_OUT_TEXT : checkOutText}
                             {onClock && <span className="text-titleText font-normal"> (still at work)</span>}
+                            {/* PROTOTYPE-SETUP (Overview v5, Slice 4): an auto check-out they replaced themselves. */}
+                            {day.checkOutByEmployee && <span className="block text-xs font-normal text-[#9e9e9e]">Entered by you</span>}
                         </Row>
                         <Row label="Time at work">{atWorkText}</Row>
                         {day.lateMinutes > 0 && (
@@ -195,14 +197,13 @@ const DayDetailDrawer = ({
                                 Update check-out
                             </Button>
                         )}
-                        <Button
-                            type={day.checkOutAuto ? 'default' : 'primary'}
-                            danger={!day.checkOutAuto}
-                            className="flex-1 h-10 rounded-lg font-medium"
-                            onClick={() => onRequest('correction')}
-                        >
-                            Request correction
-                        </Button>
+                        {/* PROTOTYPE-SETUP (Overview v5, Slice 4): a missed check-out is updated directly (the popup
+                            follows the day), so it gets that one action; afterwards changes are corrections. */}
+                        {!day.checkOutAuto && (
+                            <Button type="primary" danger className="flex-1 h-10 rounded-lg font-medium" onClick={() => onRequest('correction')}>
+                                Request correction
+                            </Button>
+                        )}
                     </div>
                 )}
             </div>

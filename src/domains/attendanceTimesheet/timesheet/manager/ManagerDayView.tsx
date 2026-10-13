@@ -109,7 +109,11 @@ const ManagerDayView = ({
                             </Tooltip>
                         )}
                     </div>
-                    <span className="text-xs text-gray-500">{day.window.label}</span>
+                    <span className="text-xs text-gray-500">
+                        {day.window.label}
+                        {/* PROTOTYPE-SETUP (Overview v5, Slice 4): the employee replaced an auto check-out themselves. */}
+                        {day.attendance.checkOutByEmployee && ' · Check-out entered by employee'}
+                    </span>
                 </div>
                 <div className="flex flex-col items-start text-xs sm:items-end">
                     <span

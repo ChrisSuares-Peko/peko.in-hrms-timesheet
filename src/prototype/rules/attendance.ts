@@ -417,6 +417,36 @@ export const formatHoursInput = (mins: number) => `${Math.floor(mins / 60)}:${St
 const MAX_DAY_MINUTES = 24 * 60;
 const HHMM_RE = /^\d{2}:\d{2}$/;
 
+// ---- self-service check-out update ------------------------------------------------------------------------
+
+/** PROTOTYPE-SETUP (Overview v5, Slice 4): the wording when a second self-service update is tried. */
+export const OWN_CHECK_OUT_DONE = 'You’ve already updated this check-out. To change it again, request a correction.';
+
+/**
+ * PROTOTYPE-SETUP (Overview v5, Slice 4): a day closed automatically at 11:59 PM can have its real check-out
+ * entered by the employee — saved straight away, no manager or HR approval. Guardrails: after that day's check-in
+ * and no later than 23:59; not in a payroll-processed month; once per day (after that it's a normal correction);
+ * not while a correction for the day is waiting. Throws a RuleError, or returns the minutes of the new check-out.
+ */
+export const validateOwnCheckOut = (input: {
+    day: Pick<AttendanceDay, 'checkIn' | 'checkOutAuto' | 'locked' | 'lockReason'>;
+    checkOut: string | null | undefined;
+    /** The check-out was already entered by the employee once. */
+    alreadyEntered: boolean;
+    pendingCorrection: boolean;
+}) => {
+    const { day, checkOut } = input;
+    if (day.locked) throw new RuleError(day.lockReason ?? 'Payroll for this month has been processed — this day is read-only.');
+    if (input.alreadyEntered) throw new RuleError(OWN_CHECK_OUT_DONE);
+    if (!day.checkOutAuto || !day.checkIn) throw new RuleError('Only a day that closed automatically at 11:59 PM can have its check-out entered.');
+    if (input.pendingCorrection) throw new RuleError('A correction for this day is already waiting for approval.');
+    const [h, m] = (checkOut ?? '').split(':').map(Number);
+    if (!checkOut || !HHMM_RE.test(checkOut) || h > 23 || m > 59) throw new RuleError('Enter the time you left as HH:mm, no later than 23:59.', 400);
+    const minutes = toMinutes(checkOut);
+    if (minutes <= toMinutes(day.checkIn)) throw new RuleError(`Check-out must be after your check-in (${displayTime(day.checkIn)}).`, 400);
+    return minutes;
+};
+
 /**
  * Validation messages — the prototype's wording (docs/prototypes/attendance-timesheet.html), plus two of ours:
  * `missing` (nothing entered at all) and `pastMidnight` (start + hours would run past midnight).

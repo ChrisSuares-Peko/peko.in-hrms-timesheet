@@ -331,7 +331,6 @@ const TimesheetTab = ({ onChanged, initialDate }: TimesheetTabProps) => {
             <CorrectionModal
                 open={!!correction}
                 date={correction?.date ?? null}
-                kind={correction?.kind ?? 'correction'}
                 initial={correction?.initial}
                 current={correction?.current}
                 fromTimesheet

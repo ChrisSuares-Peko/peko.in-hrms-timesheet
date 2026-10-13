@@ -19,6 +19,7 @@ import {
     checkIn,
     checkOut,
     correctionsView,
+    updateOwnCheckOut,
     createCorrection,
     createOvertime,
     deleteEntry,
@@ -124,6 +125,8 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/attendance`, ess((ctx, me) => attendanceMonthOf(ctx.mode, me, monthParam(ctx.query), { overtimeAtMinimum: true }))),
     route('GET', `${A}/corrections`, ess((ctx, me) => correctionsView(ctx.mode, me))),
     route('POST', `${A}/corrections`, ess((ctx, me) => createCorrection(ctx.mode, me, ctx.body))),
+    // PROTOTYPE-SETUP (Overview v5, Slice 4): self-service check-out for an auto-closed day — saved, no request.
+    route('POST', `${A}/attendance/:date/check-out`, ess((ctx, me) => updateOwnCheckOut(ctx.mode, me, { ...(ctx.body ?? {}), date: ctx.params.date }))),
     route('POST', `${A}/corrections/:id/cancel`, ess((ctx, me) => cancelCorrection(ctx.mode, me, ctx.params.id!))),
 
     // ---- ESS: my profile (PROTOTYPE-SETUP: Overview, Slice 1) ---------------------------------------------

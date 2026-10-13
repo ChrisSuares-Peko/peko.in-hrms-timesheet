@@ -39,6 +39,8 @@ export const legacyDay = (mode: DataMode, e: MockEmployee, date: string): MockAt
         d.status === 'on-leave' ? d.label : null,
         d.checkOutAuto ? 'Missed check-out (closed automatically at 11:59 PM)' : null,
         recordOf(mode, e, date)?.source === 'correction' ? 'Corrected (approved)' : null,
+        // PROTOTYPE-SETUP (Overview v5, Slice 4): HR sees an auto check-out the employee replaced themselves.
+        d.checkOutByEmployee ? 'Check-out entered by employee' : null,
     ].filter(Boolean);
     return {
         id: legacyIdOf(e, date),

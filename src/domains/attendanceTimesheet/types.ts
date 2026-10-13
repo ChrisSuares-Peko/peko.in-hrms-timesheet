@@ -78,6 +78,15 @@ export interface AttendanceRecord {
     checkOut: string | null;
     /** How the times got here. 'correction' = an approved attendance correction. */
     source: 'ess' | 'manual' | 'correction';
+    /**
+     * PROTOTYPE-SETUP (Overview v5, Slice 4): the employee entered the real check-out of an auto-closed day
+     * themselves (saved straight away, no approval; once per day).
+     */
+    checkOutSource?: 'employee';
+    /** When they entered it (ISO). */
+    checkOutEnteredAt?: string;
+    /** Their optional note. */
+    checkOutNote?: string;
 }
 
 export type RequestState = 'pending' | 'approved' | 'rejected' | 'cancelled';
@@ -102,6 +111,8 @@ export interface AttendanceDay {
     lockReason?: string;
     /** Latest attendance correction for the day, if any. */
     correction?: { id: string; kind: CorrectionKind; state: RequestState; statusLabel: string };
+    /** PROTOTYPE-SETUP (Overview v5, Slice 4): the check-out was entered by the employee (an auto-closed day). */
+    checkOutByEmployee?: { at: string; note?: string };
 }
 
 export interface AttendanceTotals {
@@ -216,6 +227,8 @@ export interface OvertimeContext {
     checkIn: string | null;
     checkOut: string | null;
     checkOutAuto: boolean;
+    /** PROTOTYPE-SETUP (Overview v5, Slice 4): the check-out was entered by the employee. */
+    checkOutByEmployee?: boolean;
     minutesAtWork: number;
     loggedMinutes: number;
     /** Extra time per the rule (for a planned request: once the date has passed). */
@@ -597,7 +610,7 @@ export type OverviewLink = { tab: AtsTab; date?: string } | { page: 'leaves' | '
 export interface OverviewDay {
     date: string;
     /** PROTOTYPE-SETUP (Overview v4, Slice 4): minutesAtWork = hours worked (so far, today; 0 on a missed check-out). */
-    attendance: Pick<AttendanceDay, 'status' | 'label' | 'checkIn' | 'checkOut' | 'checkOutAuto' | 'lateMinutes' | 'minutesAtWork'>;
+    attendance: Pick<AttendanceDay, 'status' | 'label' | 'checkIn' | 'checkOut' | 'checkOutAuto' | 'lateMinutes' | 'minutesAtWork' | 'checkOutByEmployee'>;
     /** expectedMinutes: the timesheet's expected hours for the day (expectedMinutes rule; missed check-out = shift − break). */
     timesheet: { weekStatus: TimesheetStatus; changePending: boolean; loggedMinutes: number; expectedMinutes: number };
     /** No overtime / extra time not claimed yet / the day's overtime request. */
