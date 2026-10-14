@@ -89,6 +89,9 @@ const LEVEL2_OPTIONS: { value: Level2Approver; label: string }[] = [
     { value: 'FINANCE', label: 'Finance' },
     { value: 'NONE', label: 'None' },
 ];
+// PROTOTYPE-SETUP (HR rules, Slice 1/4): attendance corrections and overtime can go to Payroll (the default);
+// leave and reimbursements keep HR / Finance.
+const PAYROLL_LEVEL2_OPTIONS: { value: Level2Approver; label: string }[] = [{ value: 'PAYROLL', label: 'Payroll' }, ...LEVEL2_OPTIONS];
 
 interface MatrixRow {
     key: ApprovalType;
@@ -258,7 +261,7 @@ const AtsSettingsTab = () => {
                 ) : (
                     <Form.Item name={['level2', row.key]} noStyle>
                         <Select
-                            options={LEVEL2_OPTIONS}
+                            options={row.key === 'attendance' || row.key === 'overtime' ? PAYROLL_LEVEL2_OPTIONS : LEVEL2_OPTIONS}
                             className="w-full min-w-[140px]"
                             aria-label={`Level 2 approver for ${row.label}`}
                         />

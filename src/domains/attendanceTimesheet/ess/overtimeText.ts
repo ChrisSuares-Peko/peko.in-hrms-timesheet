@@ -14,6 +14,7 @@ export const contextSummary = (ctx: OvertimeContext) => {
     // PROTOTYPE-SETUP (HR rules, Slice 4): nothing counts while still checked in; overnight hours stay on this day.
     if (ctx.open) return `Checked in ${displayTime(ctx.checkIn)}, still checked in — overtime counts once you check out`;
     const out = ctx.checkOut ? `out ${displayTimeOn(ctx.checkOut, ctx.outDays)}` : 'not checked out yet';
+    if (ctx.pendingCorrection) return `Checked in ${displayTime(ctx.checkIn)}, ${out} — a correction for this day is waiting for approval`;
     const tail = ctx.extraMinutes
         ? `${formatDuration(ctx.extraMinutes)} beyond your shift`
         : 'no time beyond your shift';

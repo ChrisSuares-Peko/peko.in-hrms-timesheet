@@ -1,5 +1,7 @@
-// PROTOTYPE-SETUP: ESS Service 1 — Payroll → Approvals (paths.payroll.approvals). The HR and Finance level-2
-// queues. A request reaches them only after the reporting manager approves it (or straight away for the CEO,
+// PROTOTYPE-SETUP: ESS Service 1 — Payroll → Approvals (paths.payroll.approvals). The Payroll, HR and Finance
+// level-2 queues. PROTOTYPE-SETUP (HR rules, Slice 4): Payroll is the default tab — attendance corrections and
+// overtime go to Payroll at level 2 by default; HR and Finance stay for leave and reimbursements (and for anything
+// routed to them in Settings). A request reaches them only after the reporting manager approves it (or straight away for the CEO,
 // who has no manager), and only if Settings → Approval matrix routes that request type to them. Timesheets
 // are approved by managers only, so they aren't here. Replaces the Timesheet V1 Level2Approvals page.
 import { useCallback, useEffect, useState } from 'react';
@@ -17,7 +19,7 @@ import { payrollLinks, useAtsSettings, usePayrollScope } from './usePayrollAts';
 const { Text } = Typography;
 
 type Counts = Record<Level2RequestType, number>;
-const ROLES: Level2Role[] = ['HR', 'FINANCE'];
+const ROLES: Level2Role[] = ['PAYROLL', 'HR', 'FINANCE'];
 
 const Level2ApprovalsPage = () => {
     const scope = usePayrollScope();
@@ -25,7 +27,8 @@ const Level2ApprovalsPage = () => {
     const [params, setParams] = useSearchParams();
     const [counts, setCounts] = useState<Partial<Record<Level2Role, Counts>>>({});
 
-    const role: Level2Role = params.get('role') === 'FINANCE' ? 'FINANCE' : 'HR';
+    const roleParam = params.get('role') as Level2Role | null;
+    const role: Level2Role = roleParam && ROLES.includes(roleParam) ? roleParam : 'PAYROLL';
     // PROTOTYPE-SETUP (Overview, Slice 4): HR also gets profile updates (no manager step, always HR).
     // PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' mode has no attendance corrections or overtime.
     let tracked: Level2RequestType[] = ['attendance', 'overtime'];
@@ -38,11 +41,13 @@ const Level2ApprovalsPage = () => {
         requested && types.includes(requested) ? requested : (routed[0] ?? types[0]);
 
     const loadCounts = useCallback(async () => {
-        const [hr, finance] = await Promise.all([
-            getLevel2Counts(scope, 'HR'),
-            getLevel2Counts(scope, 'FINANCE'),
-        ]);
-        setCounts({ ...(hr ? { HR: hr } : {}), ...(finance ? { FINANCE: finance } : {}) });
+        const all = await Promise.all(ROLES.map(r => getLevel2Counts(scope, r)));
+        const next: Partial<Record<Level2Role, Counts>> = {};
+        ROLES.forEach((r, i) => {
+            const c = all[i];
+            if (c) next[r] = c;
+        });
+        setCounts(next);
     }, [scope]);
 
     useEffect(() => {
@@ -64,8 +69,9 @@ const Level2ApprovalsPage = () => {
             <Flex vertical gap={4}>
                 <Text className="font-normal text-lg sm:text-2xl">Approvals</Text>
                 <Text type="secondary" className="text-xs sm:text-sm">
-                    HR and Finance see a request after the employee&apos;s reporting manager approves
-                    it. Their approval is final. Timesheets are approved by managers only — see{' '}
+                    Payroll, HR and Finance see a request after the employee&apos;s reporting manager
+                    approves it. Their approval is final. Attendance corrections and overtime go to
+                    Payroll; leave and reimbursements to HR or Finance. Timesheets are approved by managers only — see{' '}
                     <Link to={payrollLinks.timesheetStatus()}>Timesheet status</Link>. Profile updates
                     go straight to HR, with no manager step.
                 </Text>
@@ -117,7 +123,7 @@ const Level2ApprovalsPage = () => {
                     {types.length === 0 && (
                         <Empty
                             image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            description="Nothing reaches Finance in this mode: your company doesn't track attendance or timesheets."
+                            description={`Nothing reaches ${ROLE_NAME[role]} in this mode: your company doesn't track attendance or timesheets.`}
                         />
                     )}
                     {types.length > 0 && (
