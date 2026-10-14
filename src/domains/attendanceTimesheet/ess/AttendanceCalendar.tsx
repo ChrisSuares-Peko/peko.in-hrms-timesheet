@@ -47,6 +47,8 @@ interface AttendanceCalendarProps {
     selected: string | null;
     onSelect: (day: AttendanceDay) => void;
     onMonth: (month: string) => void;
+    /** PROTOTYPE-SETUP (Attendance final, Slice 1): the navigation is shown elsewhere (the card header). */
+    hideNav?: boolean;
 }
 
 const tooltipFor = (d: AttendanceDay) => {
@@ -142,6 +144,48 @@ const DayCell = ({
     );
 };
 
+/**
+ * PROTOTYPE-SETUP (Attendance final, Slice 1): month navigation — previous / month / next, and "Back to this month"
+ * when away from it. The Attendance tab shows it in the calendar card's header.
+ */
+export const CalendarMonthNav = ({
+    month,
+    view,
+    loading,
+    today,
+    onMonth,
+}: Pick<AttendanceCalendarProps, 'month' | 'view' | 'loading' | 'today' | 'onMonth'>) => {
+    const currentMonth = today.slice(0, 7);
+    const shownMonth = dayjs(`${month}-01`);
+    const days = view?.month === month ? view.days : [];
+    const canGoBack = days.length > 0 && days[0].label !== BEFORE_JOINING;
+    const canGoForward = month < currentMonth;
+    return (
+        <div className="flex items-center justify-between gap-2">
+            <Button
+                icon={<LeftOutlined />}
+                disabled={!canGoBack || loading}
+                onClick={() => onMonth(shownMonth.subtract(1, 'month').format('YYYY-MM'))}
+                aria-label="Previous month"
+            />
+            <div className="flex min-w-[120px] flex-col items-center">
+                <Text className="text-base font-semibold text-valueText">{view?.monthLabel ?? shownMonth.format('MMMM YYYY')}</Text>
+                {month !== currentMonth && (
+                    <Button type="link" size="small" className="!h-auto !p-0 text-xs" onClick={() => onMonth(currentMonth)}>
+                        Back to this month
+                    </Button>
+                )}
+            </div>
+            <Button
+                icon={<RightOutlined />}
+                disabled={!canGoForward || loading}
+                onClick={() => onMonth(shownMonth.add(1, 'month').format('YYYY-MM'))}
+                aria-label="Next month"
+            />
+        </div>
+    );
+};
+
 const AttendanceCalendar = ({
     month,
     view,
@@ -150,45 +194,15 @@ const AttendanceCalendar = ({
     selected,
     onSelect,
     onMonth,
+    hideNav = false,
 }: AttendanceCalendarProps) => {
-    const currentMonth = today.slice(0, 7);
     const shownMonth = dayjs(`${month}-01`);
     const days = view?.month === month ? view.days : [];
-    const canGoBack = days.length > 0 && days[0].label !== BEFORE_JOINING;
-    const canGoForward = month < currentMonth;
     const lead = (shownMonth.day() + 6) % 7;
 
     return (
         <div className="flex flex-col gap-3 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-                <Button
-                    icon={<LeftOutlined />}
-                    disabled={!canGoBack || loading}
-                    onClick={() => onMonth(shownMonth.subtract(1, 'month').format('YYYY-MM'))}
-                    aria-label="Previous month"
-                />
-                <div className="flex flex-col items-center min-w-0">
-                    <Text className="text-base font-semibold text-valueText">
-                        {view?.monthLabel ?? shownMonth.format('MMMM YYYY')}
-                    </Text>
-                    {month !== currentMonth && (
-                        <Button
-                            type="link"
-                            size="small"
-                            className="!h-auto !p-0 text-xs"
-                            onClick={() => onMonth(currentMonth)}
-                        >
-                            Back to this month
-                        </Button>
-                    )}
-                </div>
-                <Button
-                    icon={<RightOutlined />}
-                    disabled={!canGoForward || loading}
-                    onClick={() => onMonth(shownMonth.add(1, 'month').format('YYYY-MM'))}
-                    aria-label="Next month"
-                />
-            </div>
+            {!hideNav && <CalendarMonthNav month={month} view={view} loading={loading} today={today} onMonth={onMonth} />}
 
             <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
                 {WEEKDAYS.map(w => (

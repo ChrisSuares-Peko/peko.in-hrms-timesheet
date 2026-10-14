@@ -1,0 +1,62 @@
+/* PROTOTYPE-SETUP (Attendance final, Slice 1): the ESS - Employee Attendance tab grid (docs/prototypes/attendance-timesheet.html,
+   "v7 attendance tab layout"). antd Row / Col can't span rows by area, so it's a CSS grid.
+     ≥1200px     today totals req / cal cal req   (columns ~0.8fr / 1.2fr / 1fr). "req" spans both rows and is taken out of
+                 the row sizing (its card is absolutely positioned inside the cell), so it always ends where the
+                 calendar ends and its list scrolls inside.
+     768–1199px  today totals / cal cal / req req  (the list is capped at 420px and scrolls)
+     <768px      one column: today, totals, cal, req */
+.att-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'today' 'totals' 'cal' 'req';
+    gap: 24px;
+}
+
+.att-today {
+    grid-area: today;
+}
+.att-totals {
+    grid-area: totals;
+}
+.att-cal {
+    grid-area: cal;
+}
+.att-req {
+    grid-area: req;
+    min-width: 0;
+}
+.att-req-in {
+    display: flex;
+    flex-direction: column;
+}
+.att-req-list {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+@media (min-width: 768px) {
+    .att-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-areas: 'today totals' 'cal cal' 'req req';
+    }
+}
+
+@media (min-width: 1200px) {
+    .att-grid {
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) minmax(0, 1fr);
+        grid-template-areas: 'today totals req' 'cal cal req';
+    }
+    .att-req {
+        position: relative;
+        min-height: 480px;
+    }
+    .att-req-in {
+        position: absolute;
+        inset: 0;
+    }
+    .att-req-list {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
+    }
+}

@@ -1,7 +1,7 @@
 // PROTOTYPE-SETUP: ESS Service 1, Slice 3 — the employee's Attendance tab: today (check-in / check-out with a
 // live timer), the month calendar back to the joining month, a day detail drawer with corrections, monthly
 // totals and "My correction requests".
-import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { LockOutlined } from '@ant-design/icons';
 import { Alert, Button, Tooltip } from 'antd';
@@ -18,10 +18,11 @@ import {
 } from '../api';
 import CorrectionModal from '../components/CorrectionModal';
 import { formatDuration } from '../components/format';
+import './attendance.css';
 import { useAtsScope } from '../hooks/useAtsScope';
 import { AttendancePunch } from '../overview/OvAttendanceCard';
 import type { AtsOverview, AttendanceDay, AttendanceMonthView, CorrectionKind, OwnCheckOutUpdate } from '../types';
-import AttendanceCalendar from './AttendanceCalendar';
+import AttendanceCalendar, { CalendarMonthNav } from './AttendanceCalendar';
 import CorrectionsList from './CorrectionsList';
 import DayDetailDrawer from './DayDetailDrawer';
 import { Panel, todayIso } from './ui';
@@ -34,8 +35,6 @@ export interface AttendanceTabProps {
     onChanged?: () => void;
     /** PROTOTYPE-SETUP (Overview, Slice 2): open on this day (its month, with the day's details open). */
     initialDate?: string;
-    /** PROTOTYPE-SETUP (Attendance layout, Slice 1): bumped by the tab row's "Request correction" — opens the popup. */
-    requestSignal?: number;
 }
 
 interface TotalTileProps {
@@ -64,7 +63,7 @@ interface ModalState {
     current?: { checkIn: string | null; checkOut: string | null; checkOutAuto: boolean };
 }
 
-const AttendanceTab = ({ overview, onOverview, onChanged, initialDate, requestSignal = 0 }: AttendanceTabProps) => {
+const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: AttendanceTabProps) => {
     const scope = useAtsScope();
     const today = todayIso();
     const [month, setMonth] = useState((initialDate ?? today).slice(0, 7));
@@ -76,14 +75,6 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate, requestSi
     const [selected, setSelected] = useState<string | null>(initialDate ?? null);
     const [modal, setModal] = useState<ModalState | null>(null);
     const [cancelling, setCancelling] = useState(false);
-
-    // Open the popup (no date) when the tab row's button is clicked — not for a click from before this tab mounted.
-    const seenSignal = useRef(requestSignal);
-    useEffect(() => {
-        if (requestSignal === seenSignal.current) return;
-        seenSignal.current = requestSignal;
-        setModal({ date: null, kind: 'correction' });
-    }, [requestSignal]);
 
     const loadMonth = useCallback(
         async (m: string, quiet = false) => {
@@ -149,6 +140,10 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate, requestSi
     };
 
     const requestCorrection = () => setModal({ date: null, kind: 'correction' });
+    const changeMonth = (m: string) => {
+        setSelected(null);
+        setMonth(m);
+    };
 
     const totals = view?.month === month ? view.totals : null;
     // PROTOTYPE-SETUP (Attendance layout, Slice 2): 8 compact tiles. Time at work and overtime share the last one:
@@ -173,25 +168,25 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate, requestSi
 
     return (
         <div className="flex flex-col gap-4 sm:gap-6 min-w-0">
-            {/* PROTOTYPE-SETUP (Attendance layout, Slice 1): phones get "Request correction" as the first row (from 768px
-                it sits on the right of the tab row). */}
-            <div className="flex justify-end md:hidden">
-                <Button type="primary" className="rounded-lg font-medium" onClick={requestCorrection}>
+            {/* PROTOTYPE-SETUP (Attendance final, Slice 1): a header row — a short line and the tab's one "Request
+                correction" (opens the popup with no date). Full-width button on phones. */}
+            <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm text-[#616161]">Check in and out, see your month, and fix anything that’s wrong.</span>
+                <span className="hidden flex-1 md:block" />
+                <Button type="primary" className="w-full rounded-lg font-medium md:w-auto" onClick={requestCorrection}>
                     Request correction
                 </Button>
             </div>
 
-            {/* PROTOTYPE-SETUP (Attendance layout, Slice 1): a 2×2 grid from 1200px — [Today] [Month totals] /
-                [Attendance calendar] [My correction requests]. The calendar keeps its size (half the row), so the left
-                column is the calendar's width and the right takes the rest. Row 1 is as tall as its taller card; the
-                requests card fills the calendar's row without adding to its height and scrolls inside. Stacked below
-                1200px in DOM order, heights automatic. */}
-            <div className="grid min-w-0 grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-2">
-                <EssCard label="Today" heading={<EssSectionHeading title="Today" />}>
-                    <AttendancePunch overview={overview} onOverview={onPunch} />
+            {/* PROTOTYPE-SETUP (Attendance final, Slice 1): the grid (attendance.css) — ≥1200px: [Today] [Totals] [Requests]
+                over [Calendar (columns 1–2)] [Requests, continued]; 768–1199px: Today | Totals, calendar, requests;
+                phones: one column. */}
+            <div className="att-grid">
+                <EssCard label="Today" heading={<EssSectionHeading title="Today" />} className="att-today">
+                    <AttendancePunch overview={overview} onOverview={onPunch} pinActions />
                 </EssCard>
                 <Panel
-                    className="flex flex-col"
+                    className="att-totals flex flex-col"
                     title={`${view?.month === month ? view.monthLabel : dayjs(`${month}-01`).format('MMMM YYYY')} totals`}
                     subtitle={
                         month === today.slice(0, 7) ? 'So far this month' : undefined
@@ -216,8 +211,9 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate, requestSi
                     )}
                 </Panel>
                 <Panel
+                    className="att-cal"
                     title="Attendance calendar"
-                    subtitle="Tap a day to see the details or request a correction."
+                    extra={<CalendarMonthNav month={month} view={view} loading={loading} today={today} onMonth={changeMonth} />}
                 >
                     {view?.month === month && view.locked && (
                         <Alert
@@ -235,31 +231,29 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate, requestSi
                         today={today}
                         selected={selected}
                         onSelect={d => setSelected(d.date)}
-                        onMonth={m => {
-                            setSelected(null);
-                            setMonth(m);
-                        }}
+                        onMonth={changeMonth}
+                        hideNav
                     />
+                    <span className="mt-2 block text-xs text-[#9e9e9e]">Tap a day for details, or to update a missed check-out.</span>
                 </Panel>
-                <Panel
-                    className="flex flex-col xl:h-0 xl:min-h-full"
-                    title="My correction requests"
-                    subtitle="Changes to your check-in or check-out go to your manager for approval."
-                >
-                    <div className="min-h-0 flex-1 xl:overflow-y-auto" data-corrections-scroll>
-                        <CorrectionsList
-                            items={corrections}
-                            ownUpdates={ownUpdates}
-                            onRequest={requestCorrection}
-                            onUpdated={list => {
-                                setCorrections(list);
-                                loadMonth(month, true);
-                                onChanged?.();
-                            }}
-                            onOpenDay={openDay}
-                        />
-                    </div>
-                </Panel>
+                {/* Spans both rows; ≥1200px its content never makes the rows taller — the list scrolls inside. */}
+                <div className="att-req">
+                    <Panel className="att-req-in" title="My correction requests">
+                        <div className="att-req-list">
+                            <CorrectionsList
+                                items={corrections}
+                                ownUpdates={ownUpdates}
+                                onRequest={requestCorrection}
+                                onUpdated={list => {
+                                    setCorrections(list);
+                                    loadMonth(month, true);
+                                    onChanged?.();
+                                }}
+                                onOpenDay={openDay}
+                            />
+                        </div>
+                    </Panel>
+                </div>
             </div>
 
             <DayDetailDrawer

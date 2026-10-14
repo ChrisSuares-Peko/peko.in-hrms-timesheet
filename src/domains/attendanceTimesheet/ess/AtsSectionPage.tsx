@@ -43,8 +43,6 @@ const AtsSectionPage = () => {
     const dateParam = /^\d{4}-\d{2}-\d{2}$/.test(search.get('date') ?? '') ? search.get('date')! : undefined;
     const [overview, setOverview] = useState<AtsOverview | null>(null);
     const [failed, setFailed] = useState(false);
-    /** PROTOTYPE-SETUP (Attendance layout, Slice 1): each click of the header's "Request correction" bumps this. */
-    const [requestSeq, setRequestSeq] = useState(0);
 
     const load = useCallback(async () => {
         setFailed(false);
@@ -121,7 +119,6 @@ const AtsSectionPage = () => {
                     onOverview={setOverview}
                     onChanged={onChanged}
                     initialDate={dateParam}
-                    requestSignal={requestSeq}
                 />
             );
         }
@@ -136,15 +133,6 @@ const AtsSectionPage = () => {
                 activeKey={active}
                 onChange={key => navigate(paths.section(key as AtsTab))}
                 className="w-full min-w-0"
-                // PROTOTYPE-SETUP (Attendance layout, Slice 1): the Attendance tab's one "Request correction", on the
-                // right of the tab row (from 768px; phones get it as the tab's first row).
-                tabBarExtraContent={
-                    active === 'attendance' ? (
-                        <Button type="primary" className="hidden rounded-lg font-medium md:inline-flex" onClick={() => setRequestSeq(n => n + 1)}>
-                            Request correction
-                        </Button>
-                    ) : undefined
-                }
                 items={overview.tabs.map(tab => ({
                     key: tab,
                     label: (

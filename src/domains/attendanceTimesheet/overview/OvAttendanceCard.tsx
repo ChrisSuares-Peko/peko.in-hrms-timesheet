@@ -54,10 +54,13 @@ const RED = { backgroundColor: '#FF4F4F', borderColor: '#FF4F4F', color: '#fff' 
 export const AttendancePunch = ({
     overview,
     onOverview,
+    pinActions = false,
 }: {
     overview: AtsOverview;
     /** Check-in / check-out answer with a fresh overview. */
     onOverview: (next: AtsOverview) => void;
+    /** PROTOTYPE-SETUP (Attendance final, Slice 1): push the buttons and note to the bottom of a taller card. */
+    pinActions?: boolean;
 }) => {
     const scope = useAtsScope();
     const dispatch = useAppDispatch();
@@ -88,7 +91,7 @@ export const AttendancePunch = ({
                 title={strip.text}
                 sub={`${dayjs(t.date).format('dddd, D MMMM')} · Shift ${overview.shift.start}–${overview.shift.end}`}
             />
-            <div className="flex flex-col gap-2">
+            <div className={`flex flex-col gap-2 ${pinActions ? 'mt-auto' : ''}`}>
                 <Tooltip title={t.checkIn ? `Checked in at ${t.checkIn}` : t.hint}>
                     <Button block disabled={!t.canCheckIn} loading={busy === 'in'} style={t.canCheckIn ? RED : undefined} className={ESS_BUTTON} onClick={() => punch('in')}>
                         {t.checkIn ? `Checked in ${t.checkIn}` : 'Check in'}
