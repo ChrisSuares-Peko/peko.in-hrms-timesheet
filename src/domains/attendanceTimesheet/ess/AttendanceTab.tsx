@@ -233,7 +233,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                         onMonth={changeMonth}
                         hideNav
                     />
-                    <span className="mt-2 block text-xs text-[#9e9e9e]">Tap a day for details, or to update a missed check-out.</span>
+                    <span className="mt-2 block text-xs text-[#9e9e9e]">Tap a day for details or to request a correction.</span>
                 </Panel>
                 {/* Spans both rows; ≥1200px its content never makes the rows taller — the list scrolls inside. */}
                 <div className="att-req">

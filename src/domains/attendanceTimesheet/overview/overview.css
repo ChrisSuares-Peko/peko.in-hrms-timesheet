@@ -10,10 +10,11 @@
    768–1199px — two columns, heights automatic: p a / t t / q q / r r / n n
    <768px — one column in DOM order: Profile, Attendance, Timesheet, Quick actions, Recent days, Notifications. */
 .ess-ov {
-    /* PROTOTYPE-SETUP (Overview v5, Slice 1): the top row is sized to its normal content — the tallest is the
-       Attendance card once checked out (its status line wraps at this width): 347px. Profile (2×2 details) is
-       321px and Timesheet with 2 entries 300px. Adding an entry is a modal, so nothing in the row ever grows. */
-    --ov-top: 348px;
+    /* PROTOTYPE-SETUP (Overview v5, Slice 1; HR rules, Slice 2): the top row is sized to its normal content — the
+       tallest is the Attendance card with three buttons, in its blocked state (an earlier day still checked in: the
+       note and "Check out from {date}"): 463px. Checked in / on a break / checked out: 423–449px; Profile 321px;
+       Timesheet 274–300px. Adding an entry or editing breaks is a modal, so nothing in the row ever grows. */
+    --ov-top: 464px;
     --ov-qa: 244px; /* PROTOTYPE-SETUP (Overview v5, Slice 2): one row of tiles (2-line titles) */
     --ov-rd: 620px; /* overridden per day by the page: fits the rows shown */
     display: grid;
