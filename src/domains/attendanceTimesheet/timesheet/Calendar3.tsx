@@ -3,6 +3,7 @@
 // green; week approved green; sent back ("update requested") orange; leave = small blue dot; today = red outline;
 // days in the current view = red underline; selected day = dark ring. The approval colours (and their legend)
 // are hidden when timesheet approval is off. On mobile only the middle month shows.
+// PROTOTYPE-SETUP (HR rules, Slice 3): compact — ~24px cells, tighter gaps and a smaller legend (65% of the width).
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { Button, Skeleton } from 'antd';
 import dayjs from 'dayjs';
@@ -84,14 +85,14 @@ const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnable
     };
     return (
         <div className={`min-w-0 ${side ? 'hidden md:block' : ''}`}>
-            <div className="mb-1.5 text-center text-[13px] font-medium text-gray-900">{dayjs(`${month}-01`).format('MMMM YYYY')}</div>
+            <div className="mb-1 text-center text-[12px] font-medium text-gray-900">{dayjs(`${month}-01`).format('MMMM YYYY')}</div>
             {!view ? (
                 <Skeleton active title={false} paragraph={{ rows: 5 }} />
             ) : (
-                <div className="grid grid-cols-7 gap-[3px]">
+                <div className="grid grid-cols-7 gap-[2px]">
                     {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
                         // eslint-disable-next-line react/no-array-index-key
-                        <span key={`h${i}`} className="pb-0.5 text-center text-[11px] text-gray-400">
+                        <span key={`h${i}`} className="pb-0.5 text-center text-[10px] text-gray-400">
                             {d}
                         </span>
                     ))}
@@ -115,7 +116,7 @@ const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnable
                                 aria-label={tip}
                                 aria-pressed={date === selected}
                                 onClick={() => onPick(date)}
-                                className={`relative h-[30px] cursor-pointer rounded-md border-0 p-0 text-xs tabular-nums hover:shadow-[inset_0_0_0_1px_#D0D5DD] ${
+                                className={`relative h-[24px] cursor-pointer rounded-[5px] border-0 p-0 text-[11px] tabular-nums hover:shadow-[inset_0_0_0_1px_#D0D5DD] ${
                                     st ? CELL[st] : 'bg-transparent text-gray-900'
                                 } ${date === today ? 'outline outline-[1.5px] outline-offset-[-1.5px] outline-red-500' : ''}`}
                                 style={rings.length ? { boxShadow: rings.join(', ') } : undefined}
@@ -134,23 +135,23 @@ const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnable
 };
 
 const Legend = ({ approvalEnabled }: { approvalEnabled: boolean }) => (
-    <div className="mt-3 flex flex-wrap gap-x-3.5 gap-y-1.5 text-xs text-gray-600">
+    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-600">
         <span className="inline-flex items-center gap-1.5">
-            <i className="inline-block h-3 w-3 rounded-[3px] bg-[#EEF0F3]" />
+            <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#EEF0F3]" />
             Weekend or holiday
         </span>
         {approvalEnabled && (
             <>
                 <span className="inline-flex items-center gap-1.5">
-                    <i className="inline-block h-3 w-3 rounded-[3px] bg-[#E4F6EC] shadow-[inset_0_0_0_1px_#6FCF97]" />
+                    <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#E4F6EC] shadow-[inset_0_0_0_1px_#6FCF97]" />
                     Submitted
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                    <i className="inline-block h-3 w-3 rounded-[3px] bg-[#6FCF97]" />
+                    <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#6FCF97]" />
                     Approved
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                    <i className="inline-block h-3 w-3 rounded-[3px] bg-[#FFD9A8]" />
+                    <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#FFD9A8]" />
                     Update requested
                 </span>
             </>
@@ -173,7 +174,7 @@ const Calendar3 = ({ month, months, today, selected, inRange, approvalEnabled, o
                 </Button>
                 <Button size="small" icon={<RightOutlined />} aria-label="Later months" onClick={() => onShift(1)} />
             </div>
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
                 {calendarMonths(month).map((m, i) => (
                     <MiniMonth
                         key={m}

@@ -1,6 +1,6 @@
 // PROTOTYPE-SETUP: ESS Service 1 (V2) — the Timesheet tab's view bar (prototype "viewbar"): Day / Week / Month,
-// period arrows, the period label and "Logged X of Y expected" for the period, plus a chip while editing a change
-// or showing the proposed changes.
+// period arrows, the period label and "Logged X of Y worked" (Timesheet-only: "of Y shift") for the period, plus a
+// chip while editing a change or showing the proposed changes.
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { Button, Segmented, Tag } from 'antd';
 
@@ -13,13 +13,15 @@ export interface ViewBarProps {
     label: string;
     logged: number;
     expected: number;
+    /** PROTOTYPE-SETUP (HR rules, Slice 3): "worked" (check-in to check-out) or "shift" (Timesheet-only mode). */
+    ofWord?: 'worked' | 'shift';
     editingChange: boolean;
     showingProposed: boolean;
     onMode: (m: TimesheetViewMode) => void;
     onStep: (dir: 1 | -1) => void;
 }
 
-const ViewBar = ({ mode, label, logged, expected, editingChange, showingProposed, onMode, onStep }: ViewBarProps) => (
+const ViewBar = ({ mode, label, logged, expected, ofWord = 'worked', editingChange, showingProposed, onMode, onStep }: ViewBarProps) => (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
         <Segmented
             aria-label="View"
@@ -39,7 +41,7 @@ const ViewBar = ({ mode, label, logged, expected, editingChange, showingProposed
         </span>
         <span className="hidden flex-1 sm:block" />
         <span className="basis-full text-[13px] text-gray-600 sm:basis-auto">
-            Logged <b className="font-medium text-gray-900">{formatDuration(logged)}</b> of {formatDuration(expected)} expected
+            Logged <b className="font-medium text-gray-900">{formatDuration(logged)}</b> of {formatDuration(expected)} {ofWord}
         </span>
         {editingChange && (
             <Tag color="orange" className="!m-0">

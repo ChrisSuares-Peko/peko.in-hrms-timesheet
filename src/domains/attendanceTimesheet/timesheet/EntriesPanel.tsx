@@ -2,17 +2,21 @@
 // chips with their actions (Request overtime, Update check-out, Request attendance correction), the entry list
 // (hours-only entries show "No set time"; Edit / Delete on hover, always on touch; double-click to edit), then the
 // quick-add form. Read-only when the day can't be edited.
+// PROTOTYPE-SETUP (HR rules, Slice 3): recorded breaks show among the entries as read-only "Break" rows (hatched
+// background, a Break chip, times not editable) with "Add description" / "Edit description"; they count towards
+// logged hours and other entries can't overlap them. Next-day times read "10:00 PM – 2:00 AM (next day)".
 import { useEffect, useState } from 'react';
 
 import { LockOutlined } from '@ant-design/icons';
-import { Button, Popconfirm, Tag } from 'antd';
+import { Button, Input, Popconfirm, Tag } from 'antd';
 
-import { entryMins, formatDuration, isTimed, sortEntries } from '@src/prototype/rules/attendance';
+import { MINUTES_PER_DAY, entryMins, entryStartMinutes, entryTimeText, formatDuration, isTimed, sortEntries } from '@src/prototype/rules/attendance';
 
 import { RequestStatusTag } from '../components/StatusTags';
-import type { AtsMode, OvertimeRequest, TimesheetDay, TimesheetEntry } from '../types';
+import type { AtsMode, OvertimeRequest, TimesheetBreakRow, TimesheetDay, TimesheetEntry } from '../types';
 import { entryOutsideMinutes, outsideChipText, outsideMinutes } from './dayModel';
-import EntryForm, { EntryFormValue } from './EntryForm';
+import { BREAK_HATCH } from './DayRows';
+import EntryForm, { EntryFormValue, EntrySession } from './EntryForm';
 
 export interface EntriesPanelProps {
     day: TimesheetDay;
@@ -30,7 +34,85 @@ export interface EntriesPanelProps {
     onDelete: (day: TimesheetDay, id: string) => void;
     onRequestOvertime: (day: TimesheetDay, minutes: number) => void;
     onFix: (day: TimesheetDay) => void;
+    /** Save a break's description (resolves true when saved). */
+    onBreakDescription?: (day: TimesheetDay, index: number, description: string) => Promise<boolean> | boolean;
 }
+
+/** The day's check-in / check-out in minutes (the form places times after midnight on an overnight day). */
+export const sessionOf = (day: TimesheetDay): EntrySession | null =>
+    day.window.kind === 'attendance' && day.window.startMinutes !== undefined
+        ? { inMinutes: day.window.startMinutes, outMinutes: day.window.open ? null : day.window.endMinutes ?? null }
+        : null;
+
+/** Breaks as entry-like rows, for the form's overlap check (ids "break:<index>"). */
+export const breakEntries = (day: TimesheetDay): TimesheetEntry[] =>
+    day.breaks.map(b => ({ id: `break:${b.index}`, date: day.date, start: b.start, end: b.end, mins: b.minutes, description: b.description || 'Break' }));
+
+const BreakLine = ({ day, brk, editable, onSave }: { day: TimesheetDay; brk: TimesheetBreakRow; editable: boolean; onSave?: EntriesPanelProps['onBreakDescription'] }) => {
+    const [editing, setEditing] = useState(false);
+    const [value, setValue] = useState(brk.description);
+    const save = async () => {
+        if (!onSave) return;
+        const ok = await onSave(day, brk.index, value.trim());
+        if (ok) setEditing(false);
+    };
+    return (
+        <div
+            className="group flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-0 border-b border-solid border-gray-100 px-1 py-1.5 text-[13px] last:border-b-0"
+            style={{ background: BREAK_HATCH.replace('#C9CED6', '#F3F4F6').replace('#EEF0F3', '#FFFFFF') }}
+            data-break-row
+        >
+            <span className="w-[104px] shrink-0 tabular-nums text-gray-700">{entryTimeText({ start: brk.start, end: brk.end })}</span>
+            <span className="w-[56px] shrink-0 tabular-nums text-gray-500">{formatDuration(brk.minutes)}</span>
+            <span className="order-last flex min-w-0 basis-full items-center gap-1.5 md:order-none md:flex-1 md:basis-0">
+                <Tag className="!m-0" bordered={false}>
+                    Break{brk.running ? ' (now)' : ''}
+                </Tag>
+                {editing ? (
+                    <Input
+                        size="small"
+                        autoFocus
+                        maxLength={200}
+                        className="max-w-[220px]"
+                        placeholder="e.g. Lunch"
+                        value={value}
+                        onChange={e => setValue(e.target.value)}
+                        onPressEnter={save}
+                        onKeyDown={e => e.key === 'Escape' && setEditing(false)}
+                        aria-label="Break description"
+                    />
+                ) : (
+                    <span className={brk.description ? 'text-gray-700' : 'text-gray-400'}>{brk.description || 'No description'}</span>
+                )}
+            </span>
+            {editable && onSave && (
+                <span className="ml-auto flex gap-1 md:ml-0">
+                    {editing ? (
+                        <>
+                            <Button size="small" type="primary" onClick={save}>
+                                Save
+                            </Button>
+                            <Button size="small" type="text" onClick={() => setEditing(false)}>
+                                Cancel
+                            </Button>
+                        </>
+                    ) : (
+                        <Button
+                            size="small"
+                            type="text"
+                            onClick={() => {
+                                setValue(brk.description);
+                                setEditing(true);
+                            }}
+                        >
+                            {brk.description ? 'Edit description' : 'Add description'}
+                        </Button>
+                    )}
+                </span>
+            )}
+        </div>
+    );
+};
 
 const EntryLine = ({
     entry,
@@ -54,8 +136,8 @@ const EntryLine = ({
             className="group flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 border-0 border-b border-solid border-gray-100 py-1.5 text-[13px] last:border-b-0"
             onDoubleClick={() => editable && onEdit()}
         >
-            <span className={`w-[104px] shrink-0 tabular-nums ${isTimed(entry) ? 'font-medium text-gray-900' : 'italic text-gray-400'}`}>
-                {isTimed(entry) ? `${entry.start} – ${entry.end}` : 'No set time'}
+            <span className={`${entry.endNext ? 'w-[180px]' : 'w-[140px]'} shrink-0 tabular-nums ${isTimed(entry) ? 'font-medium text-gray-900' : 'italic text-gray-400'}`}>
+                {entryTimeText(entry)}
             </span>
             <span className="w-[56px] shrink-0 tabular-nums text-gray-500">{formatDuration(entryMins(entry))}</span>
             {/* PROTOTYPE-SETUP (V2): on phones the description gets its own full-width line under the times. */}
@@ -96,10 +178,20 @@ const EntriesPanel = ({
     onDelete,
     onRequestOvertime,
     onFix,
+    onBreakDescription,
 }: EntriesPanelProps) => {
     const [editing, setEditing] = useState<string | null>(null);
     useEffect(() => setEditing(null), [day.date]);
     const entries = sortEntries(day.entries);
+    const session = sessionOf(day);
+    const breaksAsOthers = breakEntries(day);
+    // Entries and breaks in time order (hours-only entries last).
+    const rows: ({ kind: 'entry'; e: TimesheetEntry } | { kind: 'break'; b: TimesheetBreakRow })[] = [
+        ...entries.map(e => ({ kind: 'entry' as const, e, at: isTimed(e) ? entryStartMinutes(e) : 2 * MINUTES_PER_DAY })),
+        ...day.breaks.map(b => ({ kind: 'break' as const, b, at: b.startMinutes })),
+    ]
+        .sort((x, y) => x.at - y.at)
+        .map(({ at, ...r }) => r);
     const outside = day.date <= today ? outsideMinutes(day, mode) : 0;
     const flag = day.outsideCheckIn;
     const showChips = outside > 0 || overtime > 0 || overtimeRequest;
@@ -142,14 +234,19 @@ const EntriesPanel = ({
                     {overtimeRequest && <RequestStatusTag trail={overtimeRequest.trail} label={`Overtime: ${overtimeRequest.statusLabel}`} />}
                 </div>
             )}
-            {entries.length === 0 && !editable && <div className="py-1 text-xs text-gray-500">No time logged.</div>}
-            {entries.map(e =>
-                editing === e.id ? (
+            {rows.length === 0 && !editable && <div className="py-1 text-xs text-gray-500">No time logged.</div>}
+            {rows.map(r => {
+                if (r.kind === 'break') {
+                    return <BreakLine key={`break-${r.b.index}`} day={day} brk={r.b} editable={!day.locked && !actionsDisabled} onSave={onBreakDescription} />;
+                }
+                const { e } = r;
+                return editing === e.id ? (
                     <EntryForm
                         key={e.id}
                         date={day.date}
                         initial={e}
-                        others={entries.filter(o => o.id !== e.id)}
+                        others={[...entries.filter(o => o.id !== e.id), ...breaksAsOthers]}
+                        session={session}
                         busy={busy}
                         onCancel={() => setEditing(null)}
                         onSave={async v => {
@@ -168,10 +265,10 @@ const EntriesPanel = ({
                         onEdit={() => setEditing(e.id)}
                         onDelete={() => onDelete(day, e.id)}
                     />
-                )
-            )}
+                );
+            })}
             {editable && !editing && (
-                <EntryForm quick date={day.date} others={entries} busy={busy} onSave={v => onSave(day, v)} />
+                <EntryForm quick date={day.date} others={[...entries, ...breaksAsOthers]} session={session} busy={busy} onSave={v => onSave(day, v)} />
             )}
         </div>
     );

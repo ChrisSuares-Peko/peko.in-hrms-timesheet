@@ -1,9 +1,10 @@
 // PROTOTYPE-SETUP: ESS Service 1 — the employee's Timesheet tab (modes 'both' and 'timesheet'), V2 layout from
 // docs/prototypes/attendance-timesheet.html:
-//   1. top area  — three-month calendar (left); week status, unlogged hours and history cards (right)
-//   2. view bar  — Day / Week / Month, period arrows and label, "Logged X of Y expected" (Week view by default)
-//   3. day rows  — a shared 7am–10pm axis; per day the date, a meta line, the bar, the meter and the entries panel
-//                  (always open in Day view; one at a time in Week / Month).
+//   1. top area  — three-month calendar (65%); the Notices panel (35%, same height, scrolls inside): the focused week,
+//                  "Needs your action" across all weeks, unlogged hours, history (HR rules, Slice 3)
+//   2. view bar  — Day / Week / Month, period arrows and label, "Logged X of Y worked" (Week view by default)
+//   3. day rows  — a shared hour axis (past midnight when needed); per day the date, a meta line, the bar, the meter
+//                  and the entries panel with the day's breaks (always open in Day view; one at a time in Week / Month).
 // Entries can be timed or hours-only. An approved week is changed through a change request edited locally and
 // sent as the full proposed week. 'both' mode flags time logged outside check-in hours and offers a correction;
 // past days with extra time offer overtime.
@@ -24,26 +25,28 @@ import {
     getAtsSettings,
     getOvertime,
     getTimesheetMonth,
+    getTimesheetNotices,
     getTimesheetWeek,
     requestChange,
     submitWeek,
+    updateBreakDescription,
 } from '../api';
 import { dayOvertime } from './dayModel';
 import CorrectionModal from '../components/CorrectionModal';
 import OvertimeRequestModal from '../components/OvertimeRequestModal';
 import { useAtsScope } from '../hooks/useAtsScope';
-import type { CorrectionTimes, OvertimeView, TimesheetDay, TimesheetEntry, TimesheetWeekView } from '../types';
+import type { AtsTab, CorrectionTimes, OvertimeView, TimesheetDay, TimesheetEntry, TimesheetNotices, TimesheetWeekView } from '../types';
 import Calendar3, { inRangeFor } from './Calendar3';
 import DayRows from './DayRows';
 import EntriesPanel from './EntriesPanel';
 import type { EntryFormValue } from './EntryForm';
 import { withEntries } from './helpers';
+import NoticesPanel from './NoticesPanel';
 import SendChangeModal from './SendChangeModal';
-import UnloggedHoursCard from './UnloggedHoursCard';
+import './timesheet.css';
 import { useCalendarMonths } from './useCalendarMonths';
 import { isListedDay, useTimesheetNav } from './useTimesheetNav';
 import ViewBar from './ViewBar';
-import WeekHistory from './WeekHistory';
 import WeekStatusCard from './WeekStatusCard';
 
 export interface TimesheetTabProps {
@@ -51,6 +54,8 @@ export interface TimesheetTabProps {
     onChanged?: () => void;
     /** PROTOTYPE-SETUP (Overview, Slice 2): open on this day (Week view, the day's panel open). */
     initialDate?: string;
+    /** PROTOTYPE-SETUP (HR rules, Slice 3): Notices' "Go to attendance" / "Review overtime" switch tabs. */
+    onGoTab?: (tab: AtsTab) => void;
 }
 
 interface CorrectionTarget {
@@ -67,7 +72,7 @@ interface Draft {
 
 const DRAFT_PREFIX = 'draft-';
 
-const TimesheetTab = ({ onChanged, initialDate }: TimesheetTabProps) => {
+const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) => {
     const scope = useAtsScope();
     const dispatch = useAppDispatch();
     const loadWeek = useCallback((d: string) => getTimesheetWeek(scope, d), [scope]);
@@ -85,6 +90,7 @@ const TimesheetTab = ({ onChanged, initialDate }: TimesheetTabProps) => {
     /** Bumped after every change so the calendar colours and overtime refresh. */
     const [changeKey, setChangeKey] = useState(0);
     const [overtime, setOvertime] = useState<OvertimeView | null>(null);
+    const [notices, setNotices] = useState<TimesheetNotices | null>(null);
     const [shift, setShift] = useState(DEFAULT_SETTINGS.shift);
     const seq = useRef(0);
 
@@ -94,6 +100,7 @@ const TimesheetTab = ({ onChanged, initialDate }: TimesheetTabProps) => {
     }, [scope]);
     useEffect(() => {
         getOvertime(scope).then(v => v && setOvertime(v));
+        getTimesheetNotices(scope).then(v => v && setNotices(v));
     }, [scope, changeKey]);
 
     const calendarMonths = useCalendarMonths(nav.month, loadMonth, changeKey);
@@ -207,6 +214,17 @@ const TimesheetTab = ({ onChanged, initialDate }: TimesheetTabProps) => {
         return ok;
     };
 
+    /** PROTOTYPE-SETUP (HR rules, Slice 3): a recorded break's description. */
+    const saveBreakDescription = (day: TimesheetDay, index: number, description: string) =>
+        apply(() => updateBreakDescription(scope, day.date, index, description), 'Break description saved');
+
+    /** Notices: open another week in Week view. */
+    const openWeek = (weekStart: string) => {
+        setDraft(null);
+        if (nav.mode !== 'week') nav.changeMode('week');
+        nav.pick(weekStart);
+    };
+
     const onFix = (day: TimesheetDay) => {
         const flag = day.outsideCheckIn;
         if (!flag) return;
@@ -230,8 +248,8 @@ const TimesheetTab = ({ onChanged, initialDate }: TimesheetTabProps) => {
 
     return (
         <div className="flex w-full min-w-0 flex-col gap-4">
-            {/* 1. calendar + cards */}
-            <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_330px]">
+            {/* 1. calendar (65%) + the Notices panel (35%, as tall as the calendar; stacked below 1200px) */}
+            <div className="ts-top min-w-0">
                 <Calendar3
                     month={nav.month}
                     months={calendarMonths}
@@ -243,8 +261,19 @@ const TimesheetTab = ({ onChanged, initialDate }: TimesheetTabProps) => {
                     onShift={nav.shiftMonths}
                     onToday={nav.goToday}
                 />
-                <div className="flex min-w-0 flex-col gap-3">
+                <NoticesPanel
+                    focusWeekStart={nav.focusWeekStart}
+                    notices={notices}
+                    unlogged={periodDays}
+                    today={today}
+                    period={nav.mode}
+                    history={focusWeek?.approvalEnabled ? focusWeek.week.history : null}
+                    onOpenWeek={openWeek}
+                    onGoTab={onGoTab}
+                    onPickDay={openDay}
+                    week={
                     <WeekStatusCard
+                        bare
                         view={focusWeek}
                         today={today}
                         busy={busy}
@@ -263,9 +292,8 @@ const TimesheetTab = ({ onChanged, initialDate }: TimesheetTabProps) => {
                         onSendChange={() => setSendOpen(true)}
                         onDiscard={() => setDraft(null)}
                     />
-                    <UnloggedHoursCard days={periodDays} today={today} period={nav.mode} onPick={openDay} />
-                    {focusWeek?.approvalEnabled && focusWeek.week.history.length > 0 && <WeekHistory history={focusWeek.week.history} />}
-                </div>
+                    }
+                />
             </div>
 
             {/* 2. view bar */}
@@ -274,6 +302,7 @@ const TimesheetTab = ({ onChanged, initialDate }: TimesheetTabProps) => {
                 label={nav.label}
                 logged={logged}
                 expected={expected}
+                ofWord={atsMode === 'timesheet' ? 'shift' : 'worked'}
                 editingChange={Boolean(draft)}
                 showingProposed={showProposed && Boolean(pending)}
                 onMode={nav.changeMode}
@@ -305,6 +334,7 @@ const TimesheetTab = ({ onChanged, initialDate }: TimesheetTabProps) => {
                             onDelete={remove}
                             onRequestOvertime={(d, minutes) => setOvertimeAsk({ date: d.date, minutes })}
                             onFix={onFix}
+                            onBreakDescription={draft ? undefined : saveBreakDescription}
                         />
                     )}
                 />

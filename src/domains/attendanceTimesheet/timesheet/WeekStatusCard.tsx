@@ -52,6 +52,8 @@ export interface WeekStatusCardProps {
     onWithdraw: () => void;
     onSendChange: () => void;
     onDiscard: () => void;
+    /** PROTOTYPE-SETUP (HR rules, Slice 3): no card of its own (inside the Notices panel). */
+    bare?: boolean;
 }
 
 const shortDate = (iso: string) => dayjs(iso).format('D MMM');
@@ -68,10 +70,12 @@ const WeekStatusCard = ({
     onWithdraw,
     onSendChange,
     onDiscard,
+    bare = false,
 }: WeekStatusCardProps) => {
+    const shell = bare ? '' : ESS_CARD;
     if (!view) {
         return (
-            <section aria-label="Week status" className={ESS_CARD}>
+            <section aria-label="Week status" className={shell}>
                 <Skeleton active title={false} paragraph={{ rows: 3 }} />
             </section>
         );
@@ -142,9 +146,9 @@ const WeekStatusCard = ({
     }
 
     return (
-        <section aria-label="Week status" className={ESS_CARD}>
+        <section aria-label="Week status" className={shell}>
             <div className="flex items-center gap-2">
-                <h3 className="m-0 text-base font-medium text-gray-900">Week of {dayjs(week.weekStart).format('D MMM')}</h3>
+                <h3 className={`m-0 font-medium text-gray-900 ${bare ? 'text-sm' : 'text-base'}`}>Week of {dayjs(week.weekStart).format('D MMM')}</h3>
                 <span className="flex-1" />
                 <WeekChip view={view} />
             </div>

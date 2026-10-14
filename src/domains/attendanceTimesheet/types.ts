@@ -474,6 +474,17 @@ export interface TimesheetWeekView {
     totals: { loggedMinutes: number; expectedMinutes: number; unloggedMinutes: number };
 }
 
+/**
+ * PROTOTYPE-SETUP (HR rules, Slice 3): what the Timesheet tab's Notices panel lists under "Needs your action",
+ * across all weeks (the client leaves out the week in focus): sent-back weeks, weeks with a change waiting, a day
+ * still checked in, and unclaimed overtime.
+ */
+export interface TimesheetNotices {
+    weeks: { weekStart: string; kind: 'sent-back' | 'change-pending'; text: string }[];
+    openFrom?: { date: string; checkIn: string };
+    overtime?: { days: number; minutes: number };
+}
+
 export interface TimesheetMonthView {
     employee: PersonRef;
     month: string;

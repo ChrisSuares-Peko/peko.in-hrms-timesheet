@@ -122,7 +122,7 @@ const AtsSectionPage = () => {
                 />
             );
         }
-        if (tab === 'timesheet') return <TimesheetTab key={dateParam ?? 'today'} onChanged={onChanged} initialDate={dateParam} />;
+        if (tab === 'timesheet') return <TimesheetTab key={dateParam ?? 'today'} onChanged={onChanged} initialDate={dateParam} onGoTab={t => navigate(paths.section(t))} />;
         return <OvertimeTab onChanged={onChanged} />;
     };
 

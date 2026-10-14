@@ -18,6 +18,7 @@ import type {
     TimesheetEntry,
     TimesheetEntryInput,
     TimesheetMonthView,
+    TimesheetNotices,
     TimesheetWeek,
 } from '@src/domains/attendanceTimesheet/types';
 import {
@@ -543,6 +544,32 @@ export const cancelChangeRequest = (mode: DataMode, e: MockEmployee, weekStart: 
     atsChangeRequests.update(mode, list => list.filter(c => c.id !== cr.id));
     saveWeek(mode, { ...week, pendingChangeRequestId: undefined });
     return weekView(mode, e, ws);
+};
+
+// ---- timesheet notices (PROTOTYPE-SETUP: HR rules, Slice 3) ------------------------------------------
+
+/** "Needs your action" for the Timesheet tab, across all weeks (the last 26). */
+export const timesheetNoticesOf = (mode: DataMode, e: MockEmployee): TimesheetNotices => {
+    const settings = getSettings(mode);
+    const t = today();
+    const manager = managerRef(e)?.name ?? 'HR';
+    const weeks = settings.timesheetApproval.enabled && hasTimesheets(settings.mode)
+        ? Array.from({ length: 26 }, (_, i) => addDays(weekStartOf(t), -7 * (25 - i)))
+              .filter(ws => addDays(ws, 6) >= e.dateOfJoin)
+              .map(ws => weekOf(mode, e, ws))
+              .flatMap((w): TimesheetNotices['weeks'] => {
+                  if (w.status === 'SENT_BACK') return [{ weekStart: w.weekStart, kind: 'sent-back' as const, text: w.decision?.comment ?? 'Your manager asked for an update.' }];
+                  const cr = pendingChangeRequest(mode, w);
+                  return cr ? [{ weekStart: w.weekStart, kind: 'change-pending' as const, text: `With ${manager}. ${cr.reason}` }] : [];
+              })
+        : [];
+    const open = settings.mode === 'both' ? openSessionBefore(mode, e, t) : undefined;
+    const { suggestions } = overtimeViewOf(mode, e, currentMonth());
+    return {
+        weeks,
+        ...(open?.checkIn ? { openFrom: { date: open.date, checkIn: open.checkIn } } : {}),
+        ...(suggestions.length ? { overtime: { days: suggestions.length, minutes: suggestions.reduce((s, x) => s + x.minutes, 0) } } : {}),
+    };
 };
 
 // ---- timesheet month --------------------------------------------------------------------------------

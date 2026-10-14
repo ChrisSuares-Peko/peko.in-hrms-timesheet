@@ -1,0 +1,38 @@
+/* PROTOTYPE-SETUP (HR rules, Slice 3): the Timesheet tab's top area (docs/prototypes/attendance-timesheet.html,
+   ".ts-top"). ≥1200px: the three-month calendar takes 65% and the Notices panel 35%; the panel is taken out of the
+   row sizing (absolutely positioned inside its cell), so it's always as tall as the calendar and scrolls inside.
+   Below 1200px the Notices panel stacks under the calendar and its body is capped at 420px. */
+.ts-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+}
+
+.ts-notices-in {
+    display: flex;
+    flex-direction: column;
+}
+
+.ts-notices-body {
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+@media (min-width: 1200px) {
+    .ts-top {
+        grid-template-columns: minmax(0, 65fr) minmax(0, 35fr);
+    }
+    .ts-notices {
+        position: relative;
+        min-height: 240px;
+    }
+    .ts-notices-in {
+        position: absolute;
+        inset: 0;
+    }
+    .ts-notices-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: none;
+    }
+}

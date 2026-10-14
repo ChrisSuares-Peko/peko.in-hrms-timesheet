@@ -33,6 +33,7 @@ import type {
     TimesheetEntryInput,
     TimesheetMonthView,
     TimesheetStatusView,
+    TimesheetNotices,
     TimesheetWeekView,
 } from './types';
 
@@ -115,6 +116,9 @@ export const updateTodayBreaks = (s: AtsScope, breaks: AttendanceBreak[]) => cal
 /** A break's description, from the timesheet. Answers with that day's week. */
 export const updateBreakDescription = (s: AtsScope, date: string, index: number, description: string) =>
     call<TimesheetWeekView>(s, 'put', `attendance/${date}/breaks/${index}`, { body: { description } });
+
+/** PROTOTYPE-SETUP (HR rules, Slice 3): the Timesheet tab's "Needs your action", across all weeks. */
+export const getTimesheetNotices = (s: AtsScope) => call<TimesheetNotices>(s, 'get', 'timesheet/notices');
 
 /** The week containing `date`. */
 export const getTimesheetWeek = (s: AtsScope, date: string) =>
