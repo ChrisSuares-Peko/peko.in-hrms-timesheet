@@ -1,42 +1,40 @@
-// PROTOTYPE-SETUP: ESS Service 1 — request an attendance correction, or update an automatic check-out. Opened
-// from the Attendance tab (calendar card and "My correction requests" with no date; the day detail with its date),
-// from the timesheet's "logged outside check-in hours" flag (pre-filled via `initial`, `fromTimesheet`) and, through
-// the Attendance tab, from the Overview. Rules (one pending per day, locked days, …) are the server's: a broken rule
-// comes back as a toast and the modal stays open.
+// PROTOTYPE-SETUP: ESS Service 1 — request an attendance correction. Opened from the Attendance tab (its header
+// button with no date; the day detail with its date), from the timesheet's "logged outside check-in hours" flag
+// (pre-filled via `initial`, `fromTimesheet`) and, through the Attendance tab, from the Overview. Rules (one pending
+// per day, locked days, …) are the server's: a broken rule comes back as a toast and the modal stays open.
 // PROTOTYPE-SETUP (Attendance tab, Slice 2): a required "Date" field at the top. Picking a day loads its record
 // ("Recorded now") and pre-fills the times; future days, payroll-processed months, days before joining and days
 // with a pending correction can't be picked (the reason shows on hover). Changing the date after editing the times
 // asks before replacing them.
-// PROTOTYPE-SETUP (Overview v5, Slice 4): when the picked day is a missed check-out that hasn't been updated, the
-// popup is an "Update check-out" form instead — check-out time only, an optional note, "Save check-out" — which
-// saves straight away (no approval) and is marked as entered by the employee. Any other day is a correction.
+// PROTOTYPE-SETUP (HR rules, Slices 1–2): every attendance change is a correction request — the manager, then Payroll
+// (no self-service update). "Check-out was on: Same day / Next day" for a session that crossed midnight; a day still
+// checked in shows "Still checked in" (check out of it first). A past break's change is mentioned in the reason.
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
-import { Alert, Button, DatePicker, Form, Input, Modal, Spin, TimePicker, Tooltip, Typography } from 'antd';
+import { Alert, Button, DatePicker, Form, Input, Modal, Segmented, Spin, TimePicker, Tooltip, Typography } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 
 import { useAppDispatch } from '@src/hooks/store';
 import { showToast } from '@src/slices/apiSlice';
 
-import { createCorrection, getAttendanceMonth, updateOwnCheckOut } from '../api';
-import { displayTime } from './format';
+import { createCorrection, getAttendanceMonth } from '../api';
+import { displayTime, displayTimeOn } from './format';
 import { useAtsScope } from '../hooks/useAtsScope';
-import type { AttendanceDay, AttendanceMonthView } from '../types';
+import type { AttendanceDay, AttendanceMonthView, CorrectionTimes } from '../types';
 
 export interface CorrectionModalProps {
     open: boolean;
     /** Pre-selected day (YYYY-MM-DD), or null to let the employee pick one. */
     date: string | null;
     /** Pre-fill, e.g. from timesheet entries logged outside check-in hours (applies to the pre-selected day). */
-    initial?: { checkIn: string | null; checkOut: string | null };
+    initial?: CorrectionTimes;
     /** The pre-selected day's recorded times, shown until the day's record has loaded. */
-    current?: { checkIn: string | null; checkOut: string | null; checkOutAuto: boolean };
+    current?: CorrectionTimes & { open?: boolean };
     /** Raised from the timesheet's "logged outside check-in hours" flag. */
     fromTimesheet?: boolean;
-    /** PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out's "Actual check-out" starts at the shift end. */
-    shiftEnd?: string;
-    /** PROTOTYPE-SETUP (Attendance tab, Slice 2): shift times are the placeholders when a day has no record. */
+    /** Shift times are the placeholders when a day has no record. */
     shiftStart?: string;
+    shiftEnd?: string;
     onClose: () => void;
     /** Called after the request was created (the modal closes itself first). */
     onSubmitted: () => void;
@@ -46,15 +44,18 @@ interface FormValues {
     checkIn: Dayjs | null;
     checkOut: Dayjs | null;
     reason: string;
-    /** Self-service check-out: optional note. */
-    note?: string;
 }
 
-type Recorded = { checkIn: string | null; checkOut: string | null; checkOutAuto: boolean };
+type Recorded = CorrectionTimes & { open: boolean };
 
 const { Text } = Typography;
 const FMT = 'HH:mm';
 const ISO = 'YYYY-MM-DD';
+const PICKER_FORMAT = 'h:mm A';
+
+/** Shown under the form. */
+export const CORRECTION_FOOTER =
+    'Your manager reviews this first, then Payroll, before your attendance changes. To change a past break, mention it in the reason.';
 
 const toDayjs = (hhmm: string | null | undefined) => {
     if (!hhmm) return null;
@@ -63,13 +64,18 @@ const toDayjs = (hhmm: string | null | undefined) => {
 };
 const toHHmm = (d: Dayjs | null | undefined) => (d ? d.format(FMT) : null);
 
-/** "Check-in 9:37 · Check-out 18:41" / "… · Check-out missed (closed automatically at 11:59 PM)" / "No check-in recorded" */
+/** "Check-in 9:37 AM · Check-out 6:41 PM" / "… · Check-out 5:00 AM (next day)" / "… · Still checked in" / "No check-in recorded" */
 export const recordedText = (r: Recorded | null | undefined): ReactNode => {
     if (!r || (!r.checkIn && !r.checkOut)) return 'No check-in recorded';
     const inPart = r.checkIn ? <b>{displayTime(r.checkIn)}</b> : 'not recorded';
-    let outPart: ReactNode = 'not recorded yet';
-    if (r.checkOutAuto) outPart = <b>missed (closed automatically at 11:59 PM)</b>;
-    else if (r.checkOut) outPart = <b>{displayTime(r.checkOut)}</b>;
+    if (r.open) {
+        return (
+            <>
+                Check-in {inPart} · <b>Still checked in</b>
+            </>
+        );
+    }
+    const outPart: ReactNode = r.checkOut ? <b>{displayTimeOn(r.checkOut, r.outDays)}</b> : 'not recorded';
     return (
         <>
             Check-in {inPart} · Check-out {outPart}
@@ -84,20 +90,11 @@ const blockedReason = (date: string, today: string, day: AttendanceDay | undefin
     if (day.label === 'Before joining') return 'Before your joining date.';
     if (day.locked) return day.lockReason ?? 'Payroll for this month has been processed.';
     if (day.correction?.state === 'pending') return 'A correction for this day is already waiting for approval.';
+    if (day.carried) return 'Still checked in. Check out from the Today panel first.';
     return null;
 };
 
-const CorrectionModal = ({
-    open,
-    date,
-    initial,
-    current,
-    fromTimesheet,
-    shiftEnd,
-    shiftStart,
-    onClose,
-    onSubmitted,
-}: CorrectionModalProps) => {
+const CorrectionModal = ({ open, date, initial, current, fromTimesheet, shiftEnd, shiftStart, onClose, onSubmitted }: CorrectionModalProps) => {
     const scope = useAtsScope();
     const dispatch = useAppDispatch();
     const [form] = Form.useForm<FormValues>();
@@ -107,8 +104,10 @@ const CorrectionModal = ({
     const [dateError, setDateError] = useState<string | null>(null);
     const [months, setMonths] = useState<Record<string, AttendanceMonthView>>({});
     const [loadingDay, setLoadingDay] = useState(false);
+    /** "Check-out was on": 0 = same day, 1 = next day. */
+    const [outDays, setOutDays] = useState(0);
     /** The times last loaded into the fields — editing them makes a date change ask first. */
-    const seeded = useRef<{ checkIn: string | null; checkOut: string | null }>({ checkIn: null, checkOut: null });
+    const seeded = useRef<{ checkIn: string | null; checkOut: string | null; outDays: number }>({ checkIn: null, checkOut: null, outDays: 0 });
     const today = dayjs().format(ISO);
 
     /** Month views fetched since the popup opened (a ref, so a reopen never reads a stale cache). */
@@ -131,25 +130,22 @@ const CorrectionModal = ({
     const onEntryDay = Boolean(date) && picked === date;
     const pickedDay = dayOf(picked);
     let recorded: Recorded | null = null;
-    if (pickedDay) recorded = { checkIn: pickedDay.checkIn, checkOut: pickedDay.checkOut, checkOutAuto: pickedDay.checkOutAuto };
-    else if (onEntryDay && current) recorded = current;
-    // PROTOTYPE-SETUP (Overview v5, Slice 4): a missed check-out not yet updated → self-service "Update check-out".
-    const selfUpdate = Boolean(picked && recorded?.checkOutAuto && recorded.checkIn) && !pickedDay?.locked;
+    if (pickedDay) recorded = { checkIn: pickedDay.checkIn, checkOut: pickedDay.checkOut, outDays: pickedDay.outDays, open: pickedDay.open };
+    else if (onEntryDay && current) recorded = { ...current, open: Boolean(current.open) };
 
     /** Load a day's record into the fields (replacing what's there). */
     const seed = (iso: string, day: AttendanceDay | undefined, entry: boolean) => {
-        const rec = day ?? (entry ? { checkIn: current?.checkIn ?? null, checkOut: current?.checkOut ?? null, checkOutAuto: current?.checkOutAuto ?? false } : null);
-        let checkIn = rec?.checkIn ?? null;
-        // A missed check-out (auto 11:59 PM) isn't the time they left: start at the shift end unless pre-filled.
-        let checkOut = rec?.checkOutAuto ? shiftEnd ?? null : rec?.checkOut ?? null;
-        if (entry && initial) ({ checkIn, checkOut } = initial);
-        if (rec?.checkOutAuto) checkIn = null; // the self-service form asks for the check-out only
-        seeded.current = { checkIn, checkOut };
+        let checkIn = day?.checkIn ?? (entry ? current?.checkIn ?? null : null);
+        let checkOut = day?.checkOut ?? (entry ? current?.checkOut ?? null : null);
+        let days = day ? day.outDays : (entry && current?.outDays) || 0;
+        if (entry && initial) ({ checkIn, checkOut, outDays: days } = initial);
+        seeded.current = { checkIn, checkOut, outDays: days };
         // setFields (not setFieldsValue): no deep compare of the old and new dayjs values, which warns falsely.
         form.setFields([
             { name: 'checkIn', value: toDayjs(checkIn), errors: [] },
             { name: 'checkOut', value: toDayjs(checkOut), errors: [] },
         ]);
+        setOutDays(Math.min(1, days));
         setPicked(iso);
         setDateError(null);
     };
@@ -166,10 +162,11 @@ const CorrectionModal = ({
         if (!open) return;
         setPicked(date);
         setDateError(null);
+        setOutDays(0);
         cache.current = {};
         setMonths({});
         form.resetFields();
-        seeded.current = { checkIn: null, checkOut: null };
+        seeded.current = { checkIn: null, checkOut: null, outDays: 0 };
         if (date) {
             seed(date, undefined, true);
             loadDay(date);
@@ -181,7 +178,7 @@ const CorrectionModal = ({
 
     const timesEdited = () => {
         const v = form.getFieldsValue(['checkIn', 'checkOut']) as Partial<FormValues>;
-        return toHHmm(v.checkIn) !== seeded.current.checkIn || toHHmm(v.checkOut) !== seeded.current.checkOut;
+        return toHHmm(v.checkIn) !== seeded.current.checkIn || toHHmm(v.checkOut) !== seeded.current.checkOut || outDays !== seeded.current.outDays;
     };
 
     const onPickDate = (d: Dayjs | null) => {
@@ -206,22 +203,11 @@ const CorrectionModal = ({
             setDateError('Pick the day to correct.');
             return;
         }
-        if (selfUpdate) {
-            setSaving(true);
-            const day = await updateOwnCheckOut(scope, picked, { checkOut: toHHmm(values.checkOut) ?? '', ...(values.note?.trim() ? { note: values.note.trim() } : {}) });
-            setSaving(false);
-            if (day) {
-                dispatch(showToast({ description: `Check-out saved: ${displayTime(day.checkOut ?? '')}.`, variant: 'success' }));
-                onClose();
-                onSubmitted();
-            }
-            return;
-        }
         if (
             recorded &&
-            !recorded.checkOutAuto &&
             toHHmm(values.checkIn) === recorded.checkIn &&
-            toHHmm(values.checkOut) === recorded.checkOut
+            toHHmm(values.checkOut) === recorded.checkOut &&
+            outDays === recorded.outDays
         ) {
             form.setFields([{ name: 'checkIn', errors: ['Change at least one time.'] }]);
             return;
@@ -229,20 +215,15 @@ const CorrectionModal = ({
         setSaving(true);
         const res = await createCorrection(scope, {
             date: picked,
-            kind: 'correction',
             checkIn: toHHmm(values.checkIn),
             checkOut: toHHmm(values.checkOut),
+            outDays: values.checkOut ? outDays : 0,
             reason: values.reason.trim(),
             ...(fromTimesheet && onEntryDay ? { fromTimesheet: true } : {}),
         });
         setSaving(false);
         if (res) {
-            dispatch(
-                showToast({
-                    description: 'Correction request sent for approval.',
-                    variant: 'success',
-                })
-            );
+            dispatch(showToast({ description: 'Correction request sent for approval.', variant: 'success' }));
             onClose();
             onSubmitted();
         }
@@ -250,19 +231,14 @@ const CorrectionModal = ({
 
     const checkOutAfterIn = ({ getFieldValue }: { getFieldValue: (n: string) => unknown }) => ({
         validator: (_: unknown, value: Dayjs | null) => {
-            const inTime = selfUpdate ? toDayjs(recorded?.checkIn) : (getFieldValue('checkIn') as Dayjs | null);
-            if (!value || !inTime || value.format(FMT) > inTime.format(FMT)) {
-                return Promise.resolve();
-            }
-            return Promise.reject(new Error('Check-out must be after check-in.'));
+            const inTime = getFieldValue('checkIn') as Dayjs | null;
+            if (!value || !inTime || outDays > 0 || value.format(FMT) > inTime.format(FMT)) return Promise.resolve();
+            return Promise.reject(new Error('Check-out must be after check-in. If you left after midnight, choose “Next day”.'));
         },
     });
 
-    const baseTitle = selfUpdate ? 'Update check-out' : 'Request attendance correction';
-    const title = picked ? `${baseTitle} · ${dayjs(picked).format('ddd, D MMM YYYY')}` : baseTitle;
-    const intro = selfUpdate
-        ? "You didn't check out, so the day closed automatically at 11:59 PM. Enter the time you actually left."
-        : 'Enter the correct times. Your manager reviews the request first, then HR, before your attendance changes.';
+    const title = picked ? `Request attendance correction · ${dayjs(picked).format('ddd, D MMM YYYY')}` : 'Request attendance correction';
+    const stillIn = Boolean(recorded?.open);
 
     return (
         <Modal
@@ -278,18 +254,14 @@ const CorrectionModal = ({
             {modalHolder}
             <Form<FormValues>
                 form={form}
-                initialValues={{ checkIn: null, checkOut: null, reason: '', note: '' }}
+                initialValues={{ checkIn: null, checkOut: null, reason: '' }}
                 layout="vertical"
                 onFinish={submit}
                 onFinishFailed={() => !picked && setDateError('Pick the day to correct.')}
                 requiredMark={false}
                 className="flex flex-col gap-1 pt-1"
             >
-                <Text className="text-sm text-[#616161] mb-3">{intro}</Text>
-
-                {selfUpdate && (
-                    <Alert type="info" showIcon className="mb-3" message="This updates your check-out right away. Your manager can see you entered it." />
-                )}
+                <Text className="text-sm text-[#616161] mb-3">Enter the correct times.</Text>
 
                 {fromTimesheet && onEntryDay && (
                     <Alert type="info" showIcon className="mb-3" message="Pre-filled from time you logged outside your check-in hours." />
@@ -331,67 +303,71 @@ const CorrectionModal = ({
                     </div>
                 )}
 
+                {stillIn && <Alert type="warning" showIcon className="mb-3" message="Still checked in. Check out from the Today panel first, then request a correction." />}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-                    {!selfUpdate && (
-                        <Form.Item<FormValues>
-                            name="checkIn"
-                            label="Check-in"
-                            rules={[
-                                ({ getFieldValue }) => ({
-                                    validator: (_, value) =>
-                                        value || getFieldValue('checkOut')
-                                            ? Promise.resolve()
-                                            : Promise.reject(new Error('Enter a check-in or check-out time.')),
-                                }),
-                            ]}
-                        >
-                            <TimePicker
-                                format={FMT}
-                                minuteStep={5}
-                                needConfirm={false}
-                                inputReadOnly
-                                className="w-full"
-                                placeholder={shiftStart ?? 'e.g. 09:30'}
-                            />
-                        </Form.Item>
-                    )}
                     <Form.Item<FormValues>
-                        name="checkOut"
-                        label={selfUpdate ? 'Actual check-out' : 'Check-out'}
-                        dependencies={['checkIn']}
-                        rules={[...(selfUpdate ? [{ required: true, message: 'Enter the time you left.' }] : []), checkOutAfterIn]}
+                        name="checkIn"
+                        label="Check-in"
+                        rules={[
+                            ({ getFieldValue }) => ({
+                                validator: (_, value) =>
+                                    value || getFieldValue('checkOut') ? Promise.resolve() : Promise.reject(new Error('Enter a check-in or check-out time.')),
+                            }),
+                        ]}
                     >
                         <TimePicker
-                            format={FMT}
+                            format={PICKER_FORMAT}
+                            use12Hours
                             minuteStep={5}
                             needConfirm={false}
                             inputReadOnly
                             className="w-full"
-                            placeholder={shiftEnd ?? 'e.g. 18:30'}
+                            placeholder={shiftStart ? displayTime(shiftStart) : 'e.g. 9:30 AM'}
+                        />
+                    </Form.Item>
+                    <Form.Item<FormValues> name="checkOut" label="Check-out" dependencies={['checkIn']} rules={[checkOutAfterIn]}>
+                        <TimePicker
+                            format={PICKER_FORMAT}
+                            use12Hours
+                            minuteStep={5}
+                            needConfirm={false}
+                            inputReadOnly
+                            className="w-full"
+                            placeholder={shiftEnd ? displayTime(shiftEnd) : 'e.g. 6:30 PM'}
                         />
                     </Form.Item>
                 </div>
 
-                {selfUpdate ? (
-                    <Form.Item<FormValues> name="note" label="Note (optional)">
-                        <Input.TextArea rows={2} maxLength={300} showCount placeholder="e.g. Stayed for the release, forgot to check out" />
-                    </Form.Item>
-                ) : (
-                    <Form.Item<FormValues>
-                        name="reason"
-                        label="Reason"
-                        rules={[{ required: true, whitespace: true, message: 'Add a reason for your manager.' }]}
-                    >
-                        <Input.TextArea rows={3} maxLength={300} showCount placeholder="e.g. Was at a client site in the morning" />
-                    </Form.Item>
-                )}
+                {/* PROTOTYPE-SETUP (HR rules, Slice 2): a session that ended after midnight counts to this day. */}
+                <Form.Item label="Check-out was on">
+                    <Segmented<number>
+                        value={outDays}
+                        onChange={v => {
+                            setOutDays(v);
+                            form.validateFields(['checkOut']).catch(() => undefined);
+                        }}
+                        options={[
+                            { value: 0, label: 'Same day' },
+                            { value: 1, label: 'Next day' },
+                        ]}
+                    />
+                </Form.Item>
+
+                <Form.Item<FormValues> name="reason" label="Reason" rules={[{ required: true, whitespace: true, message: 'Add a reason for your manager.' }]}>
+                    <Input.TextArea rows={3} maxLength={300} showCount placeholder="e.g. Was at a client site in the morning" />
+                </Form.Item>
+
+                <Text className="mb-3 block text-xs text-[#616161]" data-correction-footer>
+                    {CORRECTION_FOOTER}
+                </Text>
 
                 <div className="flex gap-3 pt-1">
                     <Button onClick={onClose} className="flex-1 h-10 rounded-lg">
                         Cancel
                     </Button>
-                    <Button type="primary" danger htmlType="submit" loading={saving} className="flex-1 h-10 rounded-lg font-medium">
-                        {selfUpdate ? 'Save check-out' : 'Send for approval'}
+                    <Button type="primary" danger htmlType="submit" loading={saving} disabled={stillIn} className="flex-1 h-10 rounded-lg font-medium">
+                        Send for approval
                     </Button>
                 </div>
             </Form>

@@ -111,8 +111,8 @@ const ManagerDayView = ({
                     </div>
                     <span className="text-xs text-gray-500">
                         {day.window.label}
-                        {/* PROTOTYPE-SETUP (Overview v5, Slice 4): the employee replaced an auto check-out themselves. */}
-                        {day.attendance.checkOutByEmployee && ' · Check-out entered by employee'}
+                        {/* PROTOTYPE-SETUP (HR rules, Slice 1): the day's breaks (they count as logged time). */}
+                        {day.breaks.length > 0 && ` · Breaks ${formatDuration(day.breaks.reduce((s, b) => s + b.minutes, 0))}`}
                     </span>
                 </div>
                 <div className="flex flex-col items-start text-xs sm:items-end">

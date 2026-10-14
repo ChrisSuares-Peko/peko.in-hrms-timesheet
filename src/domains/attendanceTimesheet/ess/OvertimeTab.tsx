@@ -13,11 +13,10 @@ import {
 import { Alert, Button, Empty, Popconfirm, Skeleton, Tag, Typography } from 'antd';
 
 import { useAppDispatch } from '@src/hooks/store';
-import { MISSED_AT_WORK_TEXT } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
 
 import { cancelOvertime, getOvertime } from '../api';
-import { displayTime, fmtDate, fmtDay, fmtStamp, formatDuration } from '../components/format';
+import { displayTime, displayTimeOn, fmtDate, fmtDay, fmtStamp, formatDuration } from '../components/format';
 import OvertimeRequestModal from '../components/OvertimeRequestModal';
 import { RequestStatusTag } from '../components/StatusTags';
 import TrailSteps from '../components/TrailSteps';
@@ -54,12 +53,11 @@ const DayContext = ({ r }: { r: RequestRow }) => {
     }
     const parts: string[] = [];
     if (ctx.basis === 'attendance') {
-        if (ctx.checkIn && ctx.checkOutAuto) {
-            // PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out (auto 11:59 PM).
-            parts.push(`${displayTime(ctx.checkIn)} → check-out missed (auto 11:59 PM)`);
-            parts.push(`At work: ${MISSED_AT_WORK_TEXT.toLowerCase()}`);
+        if (ctx.checkIn && ctx.open) {
+            // PROTOTYPE-SETUP (HR rules, Slice 4): still checked in — counted once checked out.
+            parts.push(`${displayTime(ctx.checkIn)} → still checked in`);
         } else if (ctx.checkIn) {
-            parts.push(`${displayTime(ctx.checkIn)} → ${ctx.checkOut ? displayTime(ctx.checkOut) : 'still at work'}`);
+            parts.push(`${displayTime(ctx.checkIn)} → ${ctx.checkOut ? displayTimeOn(ctx.checkOut, ctx.outDays) : 'still at work'}`);
             parts.push(`At work ${formatDuration(ctx.minutesAtWork)}`);
         } else {
             parts.push('No check-in recorded');

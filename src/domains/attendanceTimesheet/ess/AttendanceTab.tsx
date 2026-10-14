@@ -14,14 +14,13 @@ import {
     CorrectionWithStatus,
     getAttendanceMonth,
     getCorrections,
-    getOwnCheckOuts,
 } from '../api';
 import CorrectionModal from '../components/CorrectionModal';
 import { formatDuration } from '../components/format';
 import './attendance.css';
 import { useAtsScope } from '../hooks/useAtsScope';
 import { AttendancePunch } from '../overview/OvAttendanceCard';
-import type { AtsOverview, AttendanceDay, AttendanceMonthView, CorrectionKind, OwnCheckOutUpdate } from '../types';
+import type { AtsOverview, AttendanceDay, AttendanceMonthView, CorrectionTimes } from '../types';
 import AttendanceCalendar, { CalendarMonthNav } from './AttendanceCalendar';
 import CorrectionsList, { CorrectionsFilter, isPending } from './CorrectionsList';
 import DayDetailDrawer from './DayDetailDrawer';
@@ -59,8 +58,7 @@ const TotalTile = ({ label, value, tone = 'bg-[#F7F7F7]', hint }: TotalTileProps
 interface ModalState {
     /** PROTOTYPE-SETUP (Attendance tab, Slice 2): null = the employee picks the day in the popup. */
     date: string | null;
-    kind: CorrectionKind;
-    current?: { checkIn: string | null; checkOut: string | null; checkOutAuto: boolean };
+    current?: CorrectionTimes & { open?: boolean };
 }
 
 const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: AttendanceTabProps) => {
@@ -70,8 +68,6 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
     const [view, setView] = useState<AttendanceMonthView | null>(null);
     const [loading, setLoading] = useState(true);
     const [corrections, setCorrections] = useState<CorrectionWithStatus[] | null>(null);
-    /** PROTOTYPE-SETUP (Attendance layout, Slice 3): check-outs entered by the employee, listed with the requests. */
-    const [ownUpdates, setOwnUpdates] = useState<OwnCheckOutUpdate[]>([]);
     const [reqFilter, setReqFilter] = useState<CorrectionsFilter>('pending');
     const [selected, setSelected] = useState<string | null>(initialDate ?? null);
     const [modal, setModal] = useState<ModalState | null>(null);
@@ -88,8 +84,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
     );
 
     const loadCorrections = useCallback(async () => {
-        const [res, own] = await Promise.all([getCorrections(scope), getOwnCheckOuts(scope)]);
-        setOwnUpdates(own || []);
+        const res = await getCorrections(scope);
         setCorrections(res || []);
     }, [scope]);
 
@@ -140,18 +135,19 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
         }
     };
 
-    const requestCorrection = () => setModal({ date: null, kind: 'correction' });
+    const requestCorrection = () => setModal({ date: null });
     const pendingCount = (corrections ?? []).filter(isPending).length;
-    const allCount = (corrections?.length ?? 0) + ownUpdates.length;
+    const allCount = corrections?.length ?? 0;
     const changeMonth = (m: string) => {
         setSelected(null);
         setMonth(m);
     };
 
     const totals = view?.month === month ? view.totals : null;
-    // PROTOTYPE-SETUP (Attendance final, Slice 2): 9 compact tiles, 3 × 3, tinted by type (the reference's totals).
-    // Holidays are weekday holidays; Missed check-outs are days closed at 11:59 PM and not yet updated. The last tile
-    // merges time at work (which leaves those days out) with overtime from qualifying days only (the HR minimum).
+    // PROTOTYPE-SETUP (Attendance final, Slice 2; HR rules, Slice 2): 9 compact tiles, 3 × 3, tinted by type (the
+    // reference's totals). Holidays are weekday holidays; Break time is the month's recorded breaks. The last tile
+    // merges time at work (check-in to check-out, breaks included; days still checked in aren't counted yet) with
+    // overtime from qualifying days only (the HR minimum).
     const tiles: TotalTileProps[] = totals
         ? [
               { label: 'Present', value: totals.present, tone: 'bg-[#ECFDF3]' },
@@ -161,12 +157,12 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
               { label: 'On leave', value: totals.onLeave, tone: 'bg-[#EEF3FF]' },
               { label: 'Holidays', value: totals.holidays, tone: 'bg-[#EEF3FF]' },
               { label: 'Worked off-days', value: totals.workedOffDays, tone: 'bg-[#FFFAEB]' },
-              { label: 'Missed check-outs', value: totals.missedCheckOuts, tone: 'bg-[#EFF1F4]' },
+              { label: 'Break time', value: formatDuration(totals.breakMinutes), tone: 'bg-[#EFF1F4]' },
               {
                   label: `worked, ${totals.overtimeMinutes ? `${formatDuration(totals.overtimeMinutes)} overtime` : 'no overtime'}`,
                   value: formatDuration(totals.minutesAtWork),
                   tone: 'bg-[#F7F7F7] ring-1 ring-inset ring-[#e6e6e6]',
-                  hint: 'Excludes days with a missed check-out.',
+                  hint: 'Check-in to check-out, breaks included. Days you’re still checked in aren’t counted yet.',
               },
           ]
         : [];
@@ -255,7 +251,6 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                         <div className="att-req-list">
                             <CorrectionsList
                                 items={corrections}
-                                ownUpdates={ownUpdates}
                                 filter={reqFilter}
                                 onRequest={requestCorrection}
                                 onUpdated={list => {
@@ -277,15 +272,15 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                 cancelling={cancelling}
                 onClose={() => setSelected(null)}
                 onCancelCorrection={onCancelCorrection}
-                onRequest={kind =>
+                onRequest={() =>
                     selectedDay &&
                     setModal({
                         date: selectedDay.date,
-                        kind,
                         current: {
                             checkIn: selectedDay.checkIn,
                             checkOut: selectedDay.checkOut,
-                            checkOutAuto: selectedDay.checkOutAuto,
+                            outDays: selectedDay.outDays,
+                            open: selectedDay.open,
                         },
                     })
                 }

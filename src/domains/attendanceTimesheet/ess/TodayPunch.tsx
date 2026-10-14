@@ -15,7 +15,7 @@ import dayjs from 'dayjs';
 
 import PunchModal from '@src/domains/employee/components/dashboard/PunchModal';
 import { useAppDispatch } from '@src/hooks/store';
-import { AUTO_CHECK_OUT_NOTE } from '@src/prototype/rules/attendance';
+import { REMEMBER_CHECK_OUT_NOTE } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
 
 import { checkIn, checkOut } from '../api';
@@ -173,7 +173,6 @@ const TodayPunch = ({ overview, onOverview }: TodayPunchProps) => {
                 <TimeCell
                     label="Check-out"
                     value={t.checkOut ? displayTime(t.checkOut) : '—'}
-                    note={t.checkOutAuto ? 'auto' : undefined}
                 />
                 <TimeCell
                     label="At work"
@@ -206,7 +205,7 @@ const TodayPunch = ({ overview, onOverview }: TodayPunchProps) => {
                         </Button>
                     )}
                     {/* PROTOTYPE-SETUP (Overview, Slice 1): the automatic check-out is at 11:59 PM. */}
-                    {t.canCheckOut && <Text className="text-xs text-center text-[#616161]">{AUTO_CHECK_OUT_NOTE}</Text>}
+                    {t.canCheckOut && <Text className="text-xs text-center text-[#616161]">{REMEMBER_CHECK_OUT_NOTE}</Text>}
                     {t.hint && (
                         <Text className="text-xs text-center text-titleText">{t.hint}</Text>
                     )}

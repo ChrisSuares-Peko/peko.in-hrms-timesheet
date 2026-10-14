@@ -27,6 +27,7 @@ const TRAIL_COLOR: Record<ApprovalTrail['status'], string> = {
     PENDING_MANAGER: 'processing',
     PENDING_HR: 'processing',
     PENDING_FINANCE: 'processing',
+    PENDING_PAYROLL: 'processing',
     APPROVED: 'success',
     REJECTED: 'error',
     CANCELLED: 'default',

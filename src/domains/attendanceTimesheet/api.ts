@@ -10,14 +10,13 @@ import type {
     AtsOverview,
     AtsSettings,
     AttendanceCorrection,
-    AttendanceDay,
+    AttendanceBreak,
     AttendanceMonthView,
     ChangeRequestInput,
     CorrectionInput,
     EssHomeView,
     Level2Role,
     MyProfileView,
-    OwnCheckOutUpdate,
     OvertimeContext,
     OvertimeInput,
     OvertimeRequest,
@@ -107,11 +106,15 @@ export const createCorrection = (s: AtsScope, body: CorrectionInput) =>
     call<AttendanceCorrection>(s, 'post', 'corrections', { body });
 export const cancelCorrection = (s: AtsScope, id: string) =>
     call<CorrectionWithStatus[]>(s, 'post', `corrections/${id}/cancel`);
-/** PROTOTYPE-SETUP (Attendance layout, Slice 3): the employee's self-entered check-outs, newest first. */
-export const getOwnCheckOuts = (s: AtsScope) => call<OwnCheckOutUpdate[]>(s, 'get', 'attendance/own-check-outs');
-/** PROTOTYPE-SETUP (Overview v5, Slice 4): enter the real check-out of an auto-closed day — saved, no approval. */
-export const updateOwnCheckOut = (s: AtsScope, date: string, body: { checkOut: string; note?: string }) =>
-    call<AttendanceDay>(s, 'post', `attendance/${date}/check-out`, { body });
+// PROTOTYPE-SETUP (HR rules, Slice 1): no automatic check-out — check out of an earlier day still open; breaks.
+export const checkOutPrevious = (s: AtsScope) => call<AtsOverview>(s, 'post', 'check-out/previous');
+export const startBreak = (s: AtsScope) => call<AtsOverview>(s, 'post', 'breaks/start');
+export const endBreak = (s: AtsScope) => call<AtsOverview>(s, 'post', 'breaks/end');
+/** Today's breaks, edited directly (past breaks change through a correction). */
+export const updateTodayBreaks = (s: AtsScope, breaks: AttendanceBreak[]) => call<AtsOverview>(s, 'put', 'breaks', { body: { breaks } });
+/** A break's description, from the timesheet. Answers with that day's week. */
+export const updateBreakDescription = (s: AtsScope, date: string, index: number, description: string) =>
+    call<TimesheetWeekView>(s, 'put', `attendance/${date}/breaks/${index}`, { body: { description } });
 
 /** The week containing `date`. */
 export const getTimesheetWeek = (s: AtsScope, date: string) =>

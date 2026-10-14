@@ -8,7 +8,7 @@ import { usePayrollScope } from './usePayrollAts';
 import RequestQueue from '../components/RequestQueue';
 import type { Level2Role, QueueScope, RequestItem } from '../types';
 
-export const ROLE_NAME: Record<Level2Role, 'HR' | 'Finance'> = { HR: 'HR', FINANCE: 'Finance' };
+export const ROLE_NAME: Record<Level2Role, 'HR' | 'Finance' | 'Payroll'> = { HR: 'HR', FINANCE: 'Finance', PAYROLL: 'Payroll' };
 
 export const TYPE_LABEL: Record<Level2RequestType, string> = {
     attendance: 'Attendance corrections',

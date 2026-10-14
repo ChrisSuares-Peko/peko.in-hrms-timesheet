@@ -3,7 +3,7 @@
 // the day's overtime. Business rules (minutes, windows, expected hours) come from the rules module via the server.
 import dayjs from 'dayjs';
 
-import { entryMins, formatDuration, isTimed, toMinutes } from '@src/prototype/rules/attendance';
+import { displayTime, displayTimeOn, entryMins, formatDuration, isTimed, toMinutes } from '@src/prototype/rules/attendance';
 
 import type { AtsMode, TimesheetDay, TimesheetEntry } from '../types';
 
@@ -70,14 +70,9 @@ export const entryOutsideMinutes = (e: TimesheetEntry, day: TimesheetDay) => {
 export const outsideMinutes = (day: TimesheetDay, mode: AtsMode) =>
     mode === 'both' && day.outsideCheckIn ? day.entries.reduce((s, e) => s + entryOutsideMinutes(e, day), 0) : 0;
 
-/** "1h 15m after shift end" (missed check-out) / "… with no check-in" / "… outside check-in". */
-export const outsideChipText = (day: TimesheetDay, mins: number) => {
-    let where = 'outside check-in';
-    // PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out counts as the shift end for this flag.
-    if (day.attendance.checkOutAuto) where = 'after shift end';
-    else if (!day.attendance.checkIn) where = 'with no check-in';
-    return `${formatDuration(mins)} ${where}`;
-};
+/** "1h 15m outside check-in" / "… with no check-in". */
+export const outsideChipText = (day: TimesheetDay, mins: number) =>
+    `${formatDuration(mins)} ${day.attendance.checkIn ? 'outside check-in' : 'with no check-in'}`;
 
 /** Hours logged without set times. */
 export const untimedMinutes = (day: TimesheetDay) =>
@@ -93,13 +88,12 @@ export const dayMeta = (day: TimesheetDay, mode: AtsMode, shift: { start: string
     if (a.status === 'on-leave') return `On ${(a.label ?? 'leave').toLowerCase().replace(/ leave$/, '')} leave`;
     if (mode === 'timesheet') {
         if (['holiday', 'weekly-off', 'worked-off-day'].includes(a.status)) return a.status === 'holiday' ? a.label ?? 'Holiday' : 'Weekly off';
-        return `Shift ${shift.start}–${shift.end}`;
+        return `Shift ${displayTime(shift.start)} – ${displayTime(shift.end)}`;
     }
-    if (a.checkIn && a.checkOutAuto) return `In ${a.checkIn} · Out missed (auto 11:59 PM)`;
+    // PROTOTYPE-SETUP (HR rules, Slice 3): "In 9:00 AM · Out 5:00 AM (next day) · At work 20h" / "In 9:40 AM · Still checked in".
     if (a.checkIn) {
-        const out = a.checkOut ?? '—';
-        const atWork = a.checkOut ? ` · At work ${formatDuration(a.minutesAtWork)}` : '';
-        return `In ${a.checkIn} · Out ${out}${atWork}`;
+        if (!a.checkOut) return `In ${displayTime(a.checkIn)} · ${a.carried ? 'Still checked in' : 'Checked in'}`;
+        return `In ${displayTime(a.checkIn)} · Out ${displayTimeOn(a.checkOut, a.outDays)} · At work ${formatDuration(a.minutesAtWork)}`;
     }
     if (day.date > today) return 'Upcoming';
     if (day.date === today) return 'Not checked in yet';

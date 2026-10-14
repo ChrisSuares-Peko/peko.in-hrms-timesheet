@@ -6,7 +6,7 @@
 import { WarningFilled } from '@ant-design/icons';
 import { Alert, Button, Tag } from 'antd';
 
-import { displayTime } from '@src/prototype/rules/attendance';
+import { displayTime, displayTimeOn } from '@src/prototype/rules/attendance';
 
 import { entryTimeLabel } from './managerHelpers';
 import type { TimesheetDay } from '../../types';
@@ -22,16 +22,14 @@ const ManagerOutsideFlagBanner = ({ day, perspective = 'employee', onAction }: O
     const flag = day.outsideCheckIn;
     if (!flag) return null;
     const flagged = day.entries.filter(e => flag.entryIds.includes(e.id));
-    const isUpdate = flag.action === 'update-check-out';
-    const suggestion = isUpdate
-        ? `Update the auto check-out to ${displayTime(flag.suggested.checkOut ?? '')}`
-        : `Correct attendance to ${flag.suggested.checkIn ? displayTime(flag.suggested.checkIn) : '—'} – ${
-              flag.suggested.checkOut ? displayTime(flag.suggested.checkOut) : '—'
-          }`;
+    // PROTOTYPE-SETUP (HR rules, Slice 1): every attendance change is a correction; next-day check-outs read "(next day)".
+    const suggestion = `Correct attendance to ${flag.suggested.checkIn ? displayTime(flag.suggested.checkIn) : '—'} – ${
+        flag.suggested.checkOut ? displayTimeOn(flag.suggested.checkOut, flag.suggested.outDays) : '—'
+    }`;
     const explain =
         perspective === 'employee'
             ? `This time is not overtime. If you worked these hours, ${
-                  isUpdate ? 'update your check-out' : 'request an attendance correction'
+                  'request an attendance correction'
               } so your attendance matches.`
             : 'This time is not counted as overtime unless the attendance is corrected.';
 
@@ -45,7 +43,7 @@ const ManagerOutsideFlagBanner = ({ day, perspective = 'employee', onAction }: O
     } else if (onAction && !day.locked) {
         action = (
             <Button size="small" onClick={onAction}>
-                {isUpdate ? 'Update check-out' : 'Request correction'}
+                Request correction
             </Button>
         );
     }

@@ -20,7 +20,7 @@ import { Link } from 'react-router-dom';
 
 import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
 
-import { formatDuration } from '../components/format';
+import { displayTime, formatDuration } from '../components/format';
 import type { AtsMode, AtsTab, OverviewDay } from '../types';
 
 const OT_COLOR = { pending: 'processing', approved: 'success', rejected: 'error' } as const;
@@ -37,7 +37,7 @@ const checkInCell = (d: OverviewDay, today: string) => {
     if (a.checkIn) {
         return (
             <>
-                {a.checkIn} {a.lateMinutes > 0 && <Chip color="gold">Late</Chip>}
+                {displayTime(a.checkIn)} {a.lateMinutes > 0 && <Chip color="gold">Late</Chip>}
             </>
         );
     }
@@ -45,26 +45,25 @@ const checkInCell = (d: OverviewDay, today: string) => {
     return null;
 };
 
+// PROTOTYPE-SETUP (HR rules, Slice 4): 12-hour times; a "next day" chip on overnight check-outs; "Still checked in"
+// for an earlier day still open.
 const checkOutCell = (d: OverviewDay) => {
     const a = d.attendance;
-    if (a.checkOutAuto) return <Chip color="gold">Missed · auto 11:59 PM</Chip>;
-    // PROTOTYPE-SETUP (Overview v5, Slice 4): a missed check-out they entered themselves.
-    if (a.checkOut && a.checkOutByEmployee) {
+    if (a.checkOut) {
         return (
             <>
-                {a.checkOut} <span className="block text-xs text-[#9e9e9e]">Entered by you</span>
+                {displayTime(a.checkOut)} {a.outDays > 0 && <Chip color="default">{a.outDays === 1 ? 'next day' : `+${a.outDays} days`}</Chip>}
             </>
         );
     }
-    if (a.checkOut) return a.checkOut;
-    if (a.checkIn) return <span className="text-[#9e9e9e]">Still in</span>;
+    if (a.checkIn) return <span className="text-[#9e9e9e]">{a.carried ? 'Still checked in' : 'Still in'}</span>;
     return null;
 };
 
 const workedCell = (d: OverviewDay, today: string) => {
     const a = d.attendance;
     if (!a.checkIn || a.status === 'on-leave' || a.status === 'absent') return null;
-    if (a.checkOutAuto) return <span className="text-[#9e9e9e]">Not known</span>;
+    if (a.carried) return <span className="text-[#9e9e9e]">Not counted yet</span>;
     if (!a.checkOut && d.date === today) return `${formatDuration(a.minutesAtWork)} so far`;
     return a.checkOut ? formatDuration(a.minutesAtWork) : null;
 };
@@ -75,13 +74,7 @@ const loggedCell = (d: OverviewDay, mode: AtsMode, today: string) => {
     const a = d.attendance;
     if (mode === 'timesheet') return logged; // no check-in / check-out to compare with
     if (a.status === 'on-leave' || a.status === 'absent' || !a.checkIn) return d.timesheet.loggedMinutes ? logged : null;
-    if (a.checkOutAuto) {
-        return (
-            <>
-                {logged} logged <span className="block text-xs text-[#9e9e9e]">worked: not known</span>
-            </>
-        );
-    }
+    if (a.carried) return `${logged} logged`;
     if (!a.checkOut) return d.date === today ? `${logged} of ${formatDuration(a.minutesAtWork)} so far` : logged;
     return `${logged} of ${formatDuration(a.minutesAtWork)}`;
 };

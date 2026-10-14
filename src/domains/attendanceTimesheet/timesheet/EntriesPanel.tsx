@@ -126,7 +126,7 @@ const EntriesPanel = ({
                             </Tag>
                         ) : (
                             <Button size="small" onClick={() => onFix(day)}>
-                                {flag.action === 'update-check-out' ? 'Update check-out' : 'Request attendance correction'}
+                                Request attendance correction
                             </Button>
                         ))}
                     {overtime > 0 && !overtimeRequest && (

@@ -2,7 +2,7 @@
 // (the same functions the endpoints call). Dates are relative to the real today.
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { addDays, addMonths, toMinutes, weekStartOf } from '@src/prototype/rules/attendance';
+import { addDays, addMonths, daysBetween, startTrail, toMinutes, weekStartOf } from '@src/prototype/rules/attendance';
 
 import { atsScenario } from '../../data/ats-seed';
 import { findEmployee } from '../../data/employees';
@@ -14,13 +14,16 @@ import {
     attendanceMonthOf,
     checkIn,
     checkOut,
+    checkOutPrevious,
     createCorrection,
     createOvertime,
     overtimeViewOf,
+    endBreak,
     overviewOf,
-    ownCheckOutsOf,
+    startBreak,
     submitWeek,
-    updateOwnCheckOut,
+    updateBreakDescription,
+    updateTodayBreaks,
 } from '../atsEss';
 import { homeOf } from '../atsHome';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../atsProfile';
@@ -55,11 +58,15 @@ describe('seed scenarios', () => {
         expect(cr.editMode).toBe('change-request');
         expect(cr.changeRequest?.status).toBe('PENDING');
         expect(attendanceDay(M, sneha, s.lateDay)).toMatchObject({ status: 'late', correction: { state: 'pending' } });
-        expect(attendanceDay(M, sneha, s.autoDay).checkOutAuto).toBe(true);
+        // PROTOTYPE-SETUP (HR rules, Slice 1): still checked in from the last working day; not checked in today.
+        expect(attendanceDay(M, sneha, s.openDay)).toMatchObject({ checkIn: '09:31', checkOut: null, open: true, carried: true, overtimeMinutes: 0 });
+        expect(recordOf(M, sneha, s.today)).toBeUndefined();
         const after = weekView(M, sneha, s.sentBackWeek).days.find(d => d.date === s.afterCheckOutDay)!;
         expect(after.outsideCheckIn?.action).toBe('request-correction');
-        const auto = weekView(M, sneha, weekStartOf(s.autoDay)).days.find(d => d.date === s.autoDay)!;
-        expect(auto.outsideCheckIn?.action).toBe('update-check-out');
+        const open = weekView(M, sneha, weekStartOf(s.openDay)).days.find(d => d.date === s.openDay)!;
+        expect(open.outsideCheckIn).toBeUndefined(); // nothing is outside while still checked in
+        expect(open.window).toMatchObject({ kind: 'attendance', open: true, label: 'Checked in 9:31 AM, still checked in' });
+        expect(open.expectedMinutes).toBe(0); // not counted until checked out
         expect(overtimeViewOf(M, sneha, currentMonth()).suggestions.map(x => x.date)).toContain(s.overtimeDay);
     });
 
@@ -83,9 +90,8 @@ describe('seed scenarios', () => {
         } else {
             expect(by('ACME-003')).toBe('not-checked-in');
         }
-        // Sneha's 09:24 check-in is never ahead of the clock.
-        const snehaToday = recordOf(M, sneha, s.today);
-        expect(snehaToday ? toMinutes(snehaToday.checkIn!) <= now : now < 9 * 60 + 24).toBe(true);
+        // Sneha isn't checked in today (she's still checked in from the last working day).
+        expect(by('ACME-004')).not.toMatch(/present|late/);
     });
 });
 
@@ -104,25 +110,33 @@ describe('flows', () => {
         expect(() => addEntry(M, sneha, { date: friday, start: '19:00', end: '19:30', description: 'x' })).toThrow(/processed/);
     });
 
-    it('2. overtime from a suggested day → manager → Finance', () => {
+    it('2. overtime from a suggested day → manager → Payroll', () => {
         const suggestion = overtimeViewOf(M, sneha, currentMonth()).suggestions.find(x => x.date === s.overtimeDay)!;
         const req = createOvertime(M, sneha, { kind: 'worked', date: suggestion.date, minutes: suggestion.minutes, description: 'Release support' });
         expect(teamRequests(M, arjun, 'overtime', 'waiting').some(r => r.id === req.id)).toBe(true);
         decideRequest(M, 'overtime', req.id, { role: 'MANAGER', manager: arjun }, 'APPROVED');
-        expect(level2Requests(M, 'FINANCE', 'overtime', 'waiting').some(r => r.id === req.id)).toBe(true);
-        const done = decideRequest(M, 'overtime', req.id, { role: 'FINANCE' }, 'APPROVED');
+        expect(level2Requests(M, 'PAYROLL', 'overtime', 'waiting').some(r => r.id === req.id)).toBe(true);
+        expect(level2Requests(M, 'FINANCE', 'overtime', 'waiting').some(r => r.id === req.id)).toBe(false);
+        const done = decideRequest(M, 'overtime', req.id, { role: 'PAYROLL' }, 'APPROVED');
         expect(done.trail.status).toBe('APPROVED');
     });
 
-    it('3. update check-out on an auto day → manager → HR → attendance and window update', () => {
-        const c = createCorrection(M, sneha, { date: s.autoDay, kind: 'update-check-out', checkOut: '20:15', reason: 'Deploy ran late', fromTimesheet: true });
+    it('3. a next-day check-out correction → manager → Payroll → attendance, window and overtime update', () => {
+        const before = attendanceDay(M, sneha, s.overtimeDay);
+        const c = createCorrection(M, sneha, { date: s.overtimeDay, checkIn: '09:20', checkOut: '01:00', outDays: 1, reason: 'Release ran past midnight' });
+        expect(c.requested).toEqual({ checkIn: '09:20', checkOut: '01:00', outDays: 1 });
+        // all attendance changes are requests: nothing changes until it's approved, and no suggestion meanwhile
+        expect(attendanceDay(M, sneha, s.overtimeDay)).toMatchObject({ checkOut: before.checkOut, outDays: 0 });
+        expect(overtimeViewOf(M, sneha, currentMonth()).suggestions.map(x => x.date)).not.toContain(s.overtimeDay);
         decideRequest(M, 'attendance', c.id, { role: 'MANAGER', manager: arjun }, 'APPROVED');
-        decideRequest(M, 'attendance', c.id, { role: 'HR' }, 'APPROVED');
-        const day = attendanceDay(M, sneha, s.autoDay);
-        expect(day).toMatchObject({ checkOut: '20:15', checkOutAuto: false });
-        const tsDay = weekView(M, sneha, weekStartOf(s.autoDay)).days.find(d => d.date === s.autoDay)!;
-        expect(tsDay.window.end).toBe('20:15');
-        expect(tsDay.outsideCheckIn).toBeUndefined();
+        expect(level2Requests(M, 'PAYROLL', 'attendance', 'waiting').some(r => r.id === c.id)).toBe(true);
+        decideRequest(M, 'attendance', c.id, { role: 'PAYROLL' }, 'APPROVED');
+        const day = attendanceDay(M, sneha, s.overtimeDay);
+        expect(day).toMatchObject({ checkOut: '01:00', outDays: 1, minutesAtWork: 25 * 60 - (9 * 60 + 20) });
+        expect(day.breaks).toEqual(before.breaks); // breaks are kept
+        const tsDay = weekView(M, sneha, weekStartOf(s.overtimeDay)).days.find(d => d.date === s.overtimeDay)!;
+        expect(tsDay.window).toMatchObject({ end: '01:00', endMinutes: 25 * 60, label: 'Checked in 9:20 AM, out 1:00 AM (next day)' });
+        expect(overtimeViewOf(M, sneha, currentMonth()).suggestions.find(x => x.date === s.overtimeDay)?.minutes).toBe(25 * 60 - (9 * 60 + 20) - 9 * 60);
     });
 
     it('4. modes change tabs, title and overtime basis', () => {
@@ -203,31 +217,150 @@ describe('manual submit', () => {
     });
 });
 
-// PROTOTYPE-SETUP (Overview, Slice 1): the 11:59 PM auto check-out, one punch of each per day, profile updates.
-describe('missed check-out (auto 11:59 PM)', () => {
-    it('closes at 23:59 with no time at work, no overtime, the shift expected and no suggestion', () => {
-        expect(attendanceDay(M, sneha, s.autoDay)).toMatchObject({ checkOut: '23:59', checkOutAuto: true, minutesAtWork: 0, overtimeMinutes: 0 });
-        const d = weekView(M, sneha, weekStartOf(s.autoDay)).days.find(x => x.date === s.autoDay)!;
-        expect(d.expectedMinutes).toBe(480);
-        expect(d.window).toMatchObject({ start: expect.any(String), end: '18:30' });
-        expect(overtimeViewOf(M, sneha, currentMonth()).suggestions.map(x => x.date)).not.toContain(s.autoDay);
-    });
-});
-
-describe('one check-in and one check-out per day', () => {
-    it('each works once; the server refuses a second', () => {
+// PROTOTYPE-SETUP (HR rules, Slice 1): no automatic check-out — open sessions, one punch of each per day, breaks.
+describe('open sessions (no automatic check-out)', () => {
+    it("check-in is blocked while an earlier day is still open; checking out of it sets outDays", () => {
         resetTodayCheckIn(M);
-        expect(recordOf(M, sneha, s.today)).toBeUndefined();
-        expect(recordOf(M, arjun, s.today)).toBeUndefined();
         const o = overviewOf(M, sneha);
-        if (o.today.status === 'on-leave') return; // the seed's leave can fall on today
+        expect(o.today).toMatchObject({ canCheckIn: false, openFrom: { date: s.openDay, checkIn: '09:31' } });
+        expect(() => checkIn(M, sneha)).toThrow(/^Check out from .+ first\.$/);
+        const after = checkOutPrevious(M, sneha);
+        const closed = recordOf(M, sneha, s.openDay)!;
+        expect(closed.checkOut).toMatch(/^\d{2}:\d{2}$/);
+        expect(closed.outDays).toBe(daysBetween(s.openDay, s.today));
+        expect(after.today.openFrom).toBeUndefined();
+        expect(attendanceDay(M, sneha, s.openDay)).toMatchObject({ open: false, outDays: closed.outDays });
+        expect(() => checkOutPrevious(M, sneha)).toThrow(/not checked in from an earlier day/);
+        if (after.today.status === 'on-leave') return; // the seed's leave can fall on today
+        expect(after.today.canCheckIn).toBe(true);
+        expect(checkIn(M, sneha).today).toMatchObject({ canCheckIn: false, canCheckOut: true, canStartBreak: true });
+    });
+
+    it('a Friday closed on Monday is 3 days later; its hours and overtime stay on Friday', () => {
+        const friday = addDays(weekStartOf(s.today), -3);
+        atsAttendance.update(M, all => ({ ...all, [`${sneha.id}:${friday}`]: { employeeId: sneha.id, date: friday, checkIn: '09:30', checkOut: '10:00', outDays: 3, source: 'ess' } }));
+        const d = attendanceDay(M, sneha, friday);
+        expect(d.minutesAtWork).toBe(3 * 24 * 60 + 30);
+        expect(d.outDays).toBe(3);
+    });
+
+    it('each punch works once; the server refuses a second', () => {
+        resetTodayCheckIn(M);
+        checkOutPrevious(M, sneha);
+        const o = overviewOf(M, sneha);
+        if (o.today.status === 'on-leave') return;
         expect(o.today).toMatchObject({ canCheckIn: true, canCheckOut: false });
         expect(() => checkOut(M, sneha)).toThrow("You haven't checked in today.");
         expect(checkIn(M, sneha).today).toMatchObject({ canCheckIn: false, canCheckOut: true });
         expect(() => checkIn(M, sneha)).toThrow("You've already checked in today.");
-        expect(checkOut(M, sneha).today).toMatchObject({ canCheckIn: false, canCheckOut: false });
+        expect(checkOut(M, sneha).today).toMatchObject({ canCheckIn: false, canCheckOut: false, canStartBreak: false });
         expect(() => checkOut(M, sneha)).toThrow("You've already checked out today.");
         expect(() => checkIn(M, sneha)).toThrow("You've already checked in today.");
+    });
+});
+
+describe('breaks', () => {
+    const openToday = () => {
+        resetTodayCheckIn(M);
+        if (overviewOf(M, sneha).today.openFrom) checkOutPrevious(M, sneha);
+        if (overviewOf(M, sneha).today.status === 'on-leave') return false;
+        checkIn(M, sneha);
+        return true;
+    };
+
+    it('start / end only while checked in; checking out ends a running break', () => {
+        resetTodayCheckIn(M);
+        checkOutPrevious(M, sneha);
+        expect(() => startBreak(M, sneha)).toThrow(/while you’re checked in/);
+        if (!openToday()) return;
+        const on = startBreak(M, sneha);
+        expect(on.today).toMatchObject({ onBreak: true, canStartBreak: false, canEndBreak: true });
+        expect(() => startBreak(M, sneha)).toThrow(/already on a break/);
+        const off = endBreak(M, sneha);
+        expect(off.today).toMatchObject({ onBreak: false, canStartBreak: true, canEndBreak: false });
+        expect(off.today.breaks).toHaveLength(1);
+        expect(() => endBreak(M, sneha)).toThrow(/not on a break/);
+        startBreak(M, sneha);
+        const out = checkOut(M, sneha);
+        expect(out.today.breaks.every(b => b.end)).toBe(true);
+        expect(() => startBreak(M, sneha)).toThrow(/while you’re checked in/);
+    });
+
+    it("today's breaks are edited directly: no overlaps, within check-in → check-out", () => {
+        const key = `${sneha.id}:${s.today}`;
+        atsAttendance.update(M, all => ({ ...all, [key]: { employeeId: sneha.id, date: s.today, checkIn: '08:00', checkOut: '20:00', outDays: 0, breaks: [], source: 'ess' } }));
+        const v = updateTodayBreaks(M, sneha, { breaks: [{ start: '16:00', end: '16:15' }, { start: '13:00', end: '13:45', description: ' Lunch ' }] });
+        expect(v.today.breaks).toEqual([{ start: '13:00', end: '13:45', description: 'Lunch' }, { start: '16:00', end: '16:15' }]);
+        expect(v.today.breakMinutes).toBe(60);
+        expect(() => updateTodayBreaks(M, sneha, { breaks: [{ start: '13:00', end: '14:00' }, { start: '13:30', end: '14:30' }] })).toThrow(/overlap/);
+        expect(() => updateTodayBreaks(M, sneha, { breaks: [{ start: '19:30', end: '20:30' }] })).toThrow(/between your check-in/);
+        expect(() => updateTodayBreaks(M, sneha, { breaks: [{ start: '07:30', end: '08:30' }] })).toThrow(/between your check-in/);
+        expect(() => updateTodayBreaks(M, sneha, { breaks: [{ start: '14:00', end: '13:00' }] })).toThrow(/end after it starts/);
+        expect(() => updateTodayBreaks(M, sneha, { breaks: [{ start: '14:00', end: null }] })).toThrow(/still be running/);
+    });
+
+    it("past breaks: only the description changes here (times go through a correction)", () => {
+        const date = s.overtimeDay;
+        const before = recordOf(M, sneha, date)!.breaks!;
+        expect(before).toEqual([{ start: '13:00', end: '14:00', description: 'Lunch' }]);
+        const v = updateBreakDescription(M, sneha, date, 0, { description: 'Team lunch' });
+        expect(v.days.find(d => d.date === date)!.breaks[0]).toMatchObject({ start: '13:00', end: '14:00', description: 'Team lunch', minutes: 60 });
+        expect(recordOf(M, sneha, date)!.breaks).toEqual([{ start: '13:00', end: '14:00', description: 'Team lunch' }]);
+    });
+
+    it('breaks count as logged time and entries can’t overlap them', () => {
+        const date = s.overtimeDay;
+        const view = weekView(M, sneha, weekStartOf(date));
+        const day = view.days.find(d => d.date === date)!;
+        const entries = day.entries.reduce((sum, x) => sum + x.mins, 0);
+        expect(day.loggedMinutes).toBe(entries + 60);
+        if (view.editMode !== 'direct') return;
+        expect(() => addEntry(M, sneha, { date, start: '13:15', end: '13:45', description: 'x' })).toThrow('Overlaps with 1:00 PM – 2:00 PM (break).');
+    });
+});
+
+// PROTOTYPE-SETUP (HR rules, Slice 1): an overnight day — all hours count to the check-in day.
+describe('overnight day', () => {
+    it('9:00 AM → 5:00 AM (next day): 20h worked, 11h overtime suggested, all on the check-in day', () => {
+        const d = attendanceDay(M, sneha, s.overnightDay);
+        expect(d).toMatchObject({ checkIn: '09:00', checkOut: '05:00', outDays: 1, minutesAtWork: 20 * 60, overtimeMinutes: 11 * 60, breakMinutes: 60 });
+        expect(overtimeViewOf(M, sneha, currentMonth()).suggestions.find(x => x.date === s.overnightDay)?.minutes ?? 660).toBe(660);
+        const t = weekView(M, sneha, weekStartOf(s.overnightDay)).days.find(x => x.date === s.overnightDay)!;
+        expect(t.window).toMatchObject({ startMinutes: 9 * 60, endMinutes: 29 * 60, label: 'Checked in 9:00 AM, out 5:00 AM (next day)' });
+        expect(t.entries.filter(e => e.endNext).map(e => [e.start, e.end, Boolean(e.startNext), e.mins])).toEqual([
+            ['22:00', '02:00', false, 240],
+            ['02:00', '05:00', true, 180],
+        ]);
+        expect(t.expectedMinutes).toBe(20 * 60);
+        expect(t.loggedMinutes).toBe(20 * 60);
+        expect(t.unloggedMinutes).toBe(0);
+        expect(t.outsideCheckIn).toBeUndefined();
+    });
+
+    it('next-day entries: an end before the start ends the next morning; overlaps count across midnight', () => {
+        const date = [0, 1, 2, 3, 4].map(i => addDays(s.thisWeek, i)).find(d => d < s.today && d !== s.openDay) ?? s.thisWeek;
+        const v = addEntry(M, sneha, { date, start: '22:00', end: '01:00', description: 'Night release' });
+        expect(v.days.find(d => d.date === date)!.entries.find(x => x.description === 'Night release')).toMatchObject({ start: '22:00', end: '01:00', endNext: true, mins: 180 });
+        expect(() => addEntry(M, sneha, { date, start: '00:30', startNext: true, end: '02:00', description: 'x' })).toThrow('Overlaps with 10:00 PM – 1:00 AM (next day) (Night release).');
+        expect(() => addEntry(M, sneha, { date, start: '23:30', end: '23:30', description: 'x' })).toThrow('Start and end can’t be the same time.');
+        const hours = addEntry(M, sneha, { date, start: '01:30', startNext: true, mins: 60, description: 'Checks' });
+        expect(hours.days.find(d => d.date === date)!.entries.find(x => x.description === 'Checks')).toMatchObject({ start: '01:30', end: '02:30', startNext: true, endNext: true, mins: 60 });
+    });
+});
+
+// PROTOTYPE-SETUP (HR rules, Slice 1): level 2 for attendance corrections and overtime is the Payroll queue.
+describe('approvals: level 2 = Payroll', () => {
+    it('attendance and overtime go manager → Payroll; leave and reimbursement are unchanged', () => {
+        const settings = { level2: { attendance: 'PAYROLL', overtime: 'PAYROLL', leave: 'HR', reimbursement: 'FINANCE', timesheet: 'NONE' } as const };
+        const trail = startTrail('attendance', { id: arjun.id, name: arjun.fullName }, settings);
+        expect(trail.steps.map(st => st.role)).toEqual(['MANAGER', 'PAYROLL']);
+        const c = createCorrection(M, sneha, { date: s.overtimeDay, checkIn: '09:00', reason: 'Badge reader' });
+        expect(c.trail.steps.map(st => st.role)).toEqual(['MANAGER', 'PAYROLL']);
+        const approved = decideRequest(M, 'attendance', c.id, { role: 'MANAGER', manager: arjun }, 'APPROVED');
+        expect(approved.trail.status).toBe('PENDING_PAYROLL');
+        expect(level2Counts(M, 'PAYROLL').attendance).toBeGreaterThanOrEqual(1);
+        expect(level2Requests(M, 'HR', 'attendance', 'waiting').some(r => r.id === c.id)).toBe(false);
+        expect(startTrail('leave', { id: arjun.id, name: arjun.fullName }, settings).steps[1].role).toBe('HR');
     });
 });
 
@@ -276,18 +409,19 @@ describe('overview home', () => {
         expect(h.recentDays[0].date).toBe(s.today);
         expect(h.recentDays.every(d => d.date >= addDays(weekStartOf(s.today), -7) && d.date <= s.today)).toBe(true);
         expect(h.recentDays.map(d => d.date)).toEqual([...h.recentDays.map(d => d.date)].sort().reverse());
-        const auto = h.recentDays.find(d => d.date === s.autoDay)!;
-        expect(auto.attendance).toMatchObject({ checkOutAuto: true, checkOut: '23:59' });
-        expect(auto.overtime).toEqual({ kind: 'none' });
+        const open = h.recentDays.find(d => d.date === s.openDay)!;
+        expect(open.attendance).toMatchObject({ open: true, carried: true, checkOut: null });
+        expect(open.overtime).toEqual({ kind: 'none' });
         expect(h.recentDays.find(d => d.date === s.overtimeDay)?.overtime.kind ?? 'unclaimed').toBe('unclaimed');
     });
-    it('needs your action: the missed check-out and unclaimed overtime, each with a deep link', () => {
+    it('needs your action: still checked in (first) and unclaimed overtime, each with a link', () => {
         const h = homeOf(M, sneha);
-        expect(h.actions.find(a => a.kind === 'missed-check-out')).toMatchObject({ button: 'Update check-out', link: { tab: 'attendance', date: s.autoDay } });
+        expect(h.actions[0]).toMatchObject({ kind: 'still-checked-in', button: 'Go to attendance', link: { tab: 'attendance' } });
+        expect(h.actions[0].title).toMatch(/^You’re still checked in from /);
         expect(h.actions.find(a => a.kind === 'overtime')).toMatchObject({ button: 'Review overtime', link: { tab: 'overtime' } });
-        // once a correction is raised, the missed check-out is no longer an action
-        createCorrection(M, sneha, { date: s.autoDay, kind: 'update-check-out', checkOut: '19:00', reason: 'Left at 7' });
-        expect(homeOf(M, sneha).actions.some(a => a.kind === 'missed-check-out' && 'tab' in a.link && a.link.date === s.autoDay)).toBe(false);
+        // once checked out of that day, it's no longer an action
+        checkOutPrevious(M, sneha);
+        expect(homeOf(M, sneha).actions.some(a => a.kind === 'still-checked-in')).toBe(false);
     });
     it('your requests: newest first, max 6, including a profile update', () => {
         createProfileRequest(M, sneha, { emergencyRelation: 'Mother' });
@@ -306,22 +440,22 @@ describe('overview home', () => {
 
 // PROTOTYPE-SETUP (Overview v4, Slice 4): Recent days — hours worked and "X of Y" hours logged.
 describe('overview recent days: hours worked and expected', () => {
-    it('a missed check-out: hours worked unknown (0), expected = shift − break', () => {
-        const auto = homeOf(M, sneha).recentDays.find(d => d.date === s.autoDay)!;
-        expect(auto.attendance).toMatchObject({ checkOutAuto: true, minutesAtWork: 0 });
-        expect(auto.timesheet.expectedMinutes).toBe(480);
+    it('still checked in from an earlier day: counted once checked out (target 0 until then)', () => {
+        const open = homeOf(M, sneha).recentDays.find(d => d.date === s.openDay)!;
+        expect(open.attendance).toMatchObject({ open: true, carried: true });
+        expect(open.timesheet.expectedMinutes).toBe(0);
     });
-    it('a normal past day: hours worked = check-out − check-in, expected = window − break', () => {
-        const day = homeOf(M, sneha).recentDays.find(d => d.date < s.today && d.attendance.checkIn && d.attendance.checkOut && !d.attendance.checkOutAuto)!;
+    it('a normal past day: hours worked = check-out − check-in (breaks included) = the timesheet target', () => {
+        const day = homeOf(M, sneha).recentDays.find(d => d.date < s.today && d.attendance.checkIn && d.attendance.checkOut && !d.attendance.outDays)!;
         const worked = toMinutes(day.attendance.checkOut!) - toMinutes(day.attendance.checkIn!);
         expect(day.attendance.minutesAtWork).toBe(worked);
-        expect(day.timesheet.expectedMinutes).toBe(Math.max(0, worked - 60));
+        expect(day.timesheet.expectedMinutes).toBe(worked);
     });
 });
 
 describe('overview recent days: leave and absent', () => {
     it('leave and absent days: no hours worked', () => {
-        const days = homeOf(M, sneha).recentDays.filter(d => d.date < s.today && d.attendance.checkIn && !d.attendance.checkOutAuto);
+        const days = homeOf(M, sneha).recentDays.filter(d => d.date < s.today && d.attendance.checkIn && !d.attendance.open);
         const [absentDay, leaveDay] = days.map(d => d.date);
         atsAttendance.update(M, all => {
             const next = { ...all };
@@ -390,69 +524,17 @@ describe('attendance month: overtime at the HR minimum', () => {
     });
 });
 
-// PROTOTYPE-SETUP (Overview v5, Slice 4): self-service check-out for an auto-closed day — saved, no approval.
-describe('self-service check-out update', () => {
-    const correctionsCount = () => attendanceMonthOf(M, sneha, s.autoDay.slice(0, 7)).days.filter(d => d.correction).length;
-
-    it('a valid update saves straight away, without a request, and everything recalculates', () => {
-        const before = attendanceDay(M, sneha, s.autoDay);
-        expect(before).toMatchObject({ checkOutAuto: true, checkIn: '09:31', overtimeMinutes: 0 });
-        // the seeded entries run to 20:15, past the shift end → the timesheet's "Update check-out" flag
-        const flagBefore = weekView(M, sneha, weekStartOf(s.autoDay)).days.find(d => d.date === s.autoDay)!.outsideCheckIn;
-        expect(flagBefore?.action).toBe('update-check-out');
-        const requests = correctionsCount();
-        const day = updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '20:15', note: 'Release night' });
-        expect(day).toMatchObject({ checkOutAuto: false, checkOut: '20:15', minutesAtWork: 20 * 60 + 15 - (9 * 60 + 31) });
-        expect(day.checkOutByEmployee).toMatchObject({ note: 'Release night' });
-        expect(recordOf(M, sneha, s.autoDay)).toMatchObject({ checkOut: '20:15', checkOutSource: 'employee' });
-        expect(correctionsCount()).toBe(requests); // no request created
-        // PROTOTYPE-SETUP (Attendance layout, Slice 3): listed in "My correction requests" as entered by the employee
-        expect(ownCheckOutsOf(M, sneha)).toEqual([expect.objectContaining({ date: s.autoDay, checkIn: '09:31', checkOut: '20:15', note: 'Release night' })]);
-        // overtime: 10h 44m at work − 9h shift = 1h 44m, now suggested (still claimed and approved as usual)
-        expect(day.overtimeMinutes).toBe(104);
-        expect(overtimeViewOf(M, sneha, currentMonth()).suggestions.find(x => x.date === s.autoDay)?.minutes).toBe(104);
-        // the timesheet window ends at the new check-out and the "after shift end" flag is gone
-        const tsDay = weekView(M, sneha, weekStartOf(s.autoDay)).days.find(d => d.date === s.autoDay)!;
-        expect(tsDay.window).toMatchObject({ kind: 'attendance', end: '20:15' });
-        expect(tsDay.outsideCheckIn).toBeUndefined();
-    });
-
-    it('rejects times before the check-in or past 23:59', () => {
-        expect(() => updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '09:00' })).toThrow(/after your check-in/);
-        expect(() => updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '24:10' })).toThrow(/23:59/);
-        expect(() => updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '' })).toThrow(/23:59/);
-        expect(attendanceDay(M, sneha, s.autoDay).checkOutAuto).toBe(true);
-    });
-
-    it('only once per day: a second change needs a correction (with approval)', () => {
-        updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '19:00' });
-        expect(() => updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '19:30' })).toThrow(/request a correction/);
-        const c = createCorrection(M, sneha, { date: s.autoDay, kind: 'correction', checkIn: '09:31', checkOut: '19:30', reason: 'Left later' });
-        expect(c.trail.status).toBe('PENDING_MANAGER');
-        expect(attendanceDay(M, sneha, s.autoDay).checkOut).toBe('19:00');
-    });
-
-    it('a payroll-processed month is rejected', () => {
-        const month = [1, 2, 3].map(n => addMonths(currentMonth(), -n)).find(m => attendanceMonthOf(M, sneha, m).locked)!;
-        expect(month).toBeDefined();
-        const { date } = attendanceMonthOf(M, sneha, month).days.find(d => isWorkingDay(d.date) && d.status !== 'on-leave')!;
-        atsAttendance.update(M, all => ({ ...all, [`${sneha.id}:${date}`]: { employeeId: sneha.id, date, checkIn: '09:30', checkOut: null, source: 'ess' } }));
-        expect(attendanceDay(M, sneha, date).checkOutAuto).toBe(true);
-        expect(() => updateOwnCheckOut(M, sneha, { date, checkOut: '18:30' })).toThrow(/processed/);
-    });
-});
-
-// PROTOTYPE-SETUP (Attendance final, Slice 2): month totals — missed check-outs and weekday holidays.
+// PROTOTYPE-SETUP (Attendance final, Slice 2; HR rules, Slice 2): month totals — break time and weekday holidays.
 describe('attendance month totals', () => {
-    it('counts missed check-outs not yet updated, and leaves them out of time at work', () => {
-        const month = s.autoDay.slice(0, 7);
-        const before = attendanceMonthOf(M, sneha, month, { overtimeAtMinimum: true });
-        expect(before.totals.missedCheckOuts).toBe(before.days.filter(d => d.checkOutAuto).length);
-        expect(before.totals.missedCheckOuts).toBeGreaterThanOrEqual(1);
-        updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '18:31' });
+    it('break time is the recorded breaks; days still checked in aren’t counted yet', () => {
+        const month = s.openDay.slice(0, 7);
+        const v = attendanceMonthOf(M, sneha, month, { overtimeAtMinimum: true });
+        const counted = v.days.filter(d => !d.open);
+        expect(v.totals.breakMinutes).toBe(counted.reduce((sum, d) => sum + d.breakMinutes, 0));
+        expect(v.totals.minutesAtWork).toBe(counted.reduce((sum, d) => sum + d.minutesAtWork, 0));
+        checkOutPrevious(M, sneha);
         const after = attendanceMonthOf(M, sneha, month, { overtimeAtMinimum: true });
-        expect(after.totals.missedCheckOuts).toBe(before.totals.missedCheckOuts - 1);
-        expect(after.totals.minutesAtWork).toBe(before.totals.minutesAtWork + (18 * 60 + 31 - (9 * 60 + 31)));
+        expect(after.totals.minutesAtWork).toBeGreaterThan(v.totals.minutesAtWork);
     });
     it('counts holidays on working weekdays only', () => {
         [0, -1, -2, -3].forEach(n => {

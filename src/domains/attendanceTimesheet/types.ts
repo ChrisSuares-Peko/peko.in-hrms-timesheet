@@ -1,6 +1,9 @@
 // PROTOTYPE-SETUP: ESS Service 1 — Attendance & Timesheet. The data contract shared by the ESS screens, ESS -
 // Manager, Payroll and the mock layer. See docs/api/attendance-timesheet.md for the endpoints that return
-// these shapes (all wrapped in SuccessGenericResponse<T>). Times are "HH:mm" (24h), dates "YYYY-MM-DD".
+// these shapes (all wrapped in SuccessGenericResponse<T>). Times are stored as "HH:mm" (24h) and shown in 12-hour
+// format; dates are "YYYY-MM-DD".
+// PROTOTYPE-SETUP (HR rules, Slice 1): no automatic check-out — a session stays open until the employee checks out,
+// even across days. Overnight hours count to the check-in day (outDays). Breaks are recorded per day.
 
 // ---- settings ---------------------------------------------------------------------------------------------
 
@@ -18,7 +21,8 @@ export type ApprovalType = 'attendance' | 'overtime' | 'timesheet' | 'leave' | '
 /** Request types whose level 2 HR configures (profile updates always go to HR). */
 export type Level2ConfigurableType = Exclude<ApprovalType, 'timesheet' | 'profile'>;
 
-export type Level2Approver = 'HR' | 'FINANCE' | 'NONE';
+/** PROTOTYPE-SETUP (HR rules, Slice 1): 'PAYROLL' = the Payroll queue (default for attendance and overtime). */
+export type Level2Approver = 'HR' | 'FINANCE' | 'PAYROLL' | 'NONE';
 
 export interface AtsSettings {
     mode: AtsMode;
@@ -70,23 +74,28 @@ export type DayStatus =
     | 'not-checked-in'
     | 'upcoming';
 
-/** What is stored: one check-in and one check-out per employee per day. */
+/** PROTOTYPE-SETUP (HR rules, Slice 1): a break within a session. end = null while the break is running. */
+export interface AttendanceBreak {
+    start: string;
+    end: string | null;
+    description?: string;
+}
+
+/**
+ * What is stored: one check-in and one check-out per employee per day (the check-in day). There's no automatic
+ * check-out: a session without a check-out is still open, even on a later day.
+ */
 export interface AttendanceRecord {
     employeeId: number;
     date: string;
     checkIn: string | null;
     checkOut: string | null;
+    /** Days between the check-in day and the check-out (0 = same day, 1 = next day, …). */
+    outDays?: number;
+    /** Breaks taken during the session. */
+    breaks?: AttendanceBreak[];
     /** How the times got here. 'correction' = an approved attendance correction. */
     source: 'ess' | 'manual' | 'correction';
-    /**
-     * PROTOTYPE-SETUP (Overview v5, Slice 4): the employee entered the real check-out of an auto-closed day
-     * themselves (saved straight away, no approval; once per day).
-     */
-    checkOutSource?: 'employee';
-    /** When they entered it (ISO). */
-    checkOutEnteredAt?: string;
-    /** Their optional note. */
-    checkOutNote?: string;
 }
 
 export type RequestState = 'pending' | 'approved' | 'rejected' | 'cancelled';
@@ -96,12 +105,20 @@ export interface AttendanceDay {
     date: string;
     status: DayStatus;
     checkIn: string | null;
-    /** Effective check-out ('23:59' when auto-closed). */
     checkOut: string | null;
-    /** A missed check-out: a past day with a check-in but no check-out, closed automatically at 11:59 PM. */
-    checkOutAuto: boolean;
-    /** 0 on a missed check-out day (not known until the check-out is updated). */
+    /** Days between the check-in day and the check-out (0 = same day, 1 = next day). */
+    outDays: number;
+    /** Checked in and not checked out yet (today, or carried over from an earlier day). */
+    open: boolean;
+    /** Still open from an earlier day — the employee has to check out of it before checking in again. */
+    carried: boolean;
+    /** Check-in → check-out, breaks included (so far, while open). */
     minutesAtWork: number;
+    breaks: AttendanceBreak[];
+    /** Recorded break time (a running break counts until now). */
+    breakMinutes: number;
+    /** A break is running right now. */
+    onBreak: boolean;
     lateMinutes: number;
     /** Extra time per the overtime rule for the current mode (0 if none). */
     overtimeMinutes: number;
@@ -110,9 +127,7 @@ export interface AttendanceDay {
     locked: boolean;
     lockReason?: string;
     /** Latest attendance correction for the day, if any. */
-    correction?: { id: string; kind: CorrectionKind; state: RequestState; statusLabel: string };
-    /** PROTOTYPE-SETUP (Overview v5, Slice 4): the check-out was entered by the employee (an auto-closed day). */
-    checkOutByEmployee?: { at: string; note?: string };
+    correction?: { id: string; state: RequestState; statusLabel: string };
 }
 
 export interface AttendanceTotals {
@@ -125,9 +140,9 @@ export interface AttendanceTotals {
     holidays: number;
     weeklyOff: number;
     workedOffDays: number;
-    /** PROTOTYPE-SETUP (Attendance final, Slice 2): days closed automatically at 11:59 PM and not yet updated. */
-    missedCheckOuts: number;
-    /** Excludes missed check-outs that haven't been updated (their time at work isn't known). */
+    /** PROTOTYPE-SETUP (HR rules, Slice 2): recorded break time in the month. */
+    breakMinutes: number;
+    /** Check-in to check-out, breaks included. Days still checked in aren't counted yet. */
     minutesAtWork: number;
     overtimeMinutes: number;
     lateMinutes: number;
@@ -148,11 +163,12 @@ export type ApprovalStatus =
     | 'PENDING_MANAGER'
     | 'PENDING_HR'
     | 'PENDING_FINANCE'
+    | 'PENDING_PAYROLL'
     | 'APPROVED'
     | 'REJECTED'
     | 'CANCELLED';
 
-export type ApproverRole = 'MANAGER' | 'HR' | 'FINANCE';
+export type ApproverRole = 'MANAGER' | 'HR' | 'FINANCE' | 'PAYROLL';
 
 export interface ApprovalStep {
     level: 1 | 2;
@@ -175,16 +191,20 @@ export interface ApprovalTrail {
 
 // ---- attendance corrections -------------------------------------------------------------------------------
 
-/** 'update-check-out' = fixing an auto check-out; 'correction' = any other change to check-in/out. */
-export type CorrectionKind = 'correction' | 'update-check-out';
+/** Recorded or requested times of a day. outDays: 0 = check-out the same day, 1 = the next day. */
+export interface CorrectionTimes {
+    checkIn: string | null;
+    checkOut: string | null;
+    outDays: number;
+}
 
+/** PROTOTYPE-SETUP (HR rules, Slice 1): every attendance change is a correction request (manager, then Payroll). */
 export interface AttendanceCorrection {
     id: string;
     employeeId: number;
     date: string;
-    kind: CorrectionKind;
-    current: { checkIn: string | null; checkOut: string | null; checkOutAuto: boolean };
-    requested: { checkIn: string | null; checkOut: string | null };
+    current: CorrectionTimes;
+    requested: CorrectionTimes;
     reason: string;
     /** Pre-filled from timesheet entries logged outside check-in hours. */
     fromTimesheet?: boolean;
@@ -193,21 +213,12 @@ export interface AttendanceCorrection {
     updatedAt: string;
 }
 
-/** PROTOTYPE-SETUP (Attendance layout, Slice 3): a check-out the employee entered themselves (no approval). */
-export interface OwnCheckOutUpdate {
-    date: string;
-    checkIn: string | null;
-    checkOut: string;
-    /** When they entered it (ISO). */
-    at: string;
-    note?: string;
-}
-
 export interface CorrectionInput {
     date: string;
-    kind: CorrectionKind;
     checkIn?: string | null;
     checkOut?: string | null;
+    /** 0 = same day (default), 1 = next day. */
+    outDays?: number;
     reason: string;
     fromTimesheet?: boolean;
 }
@@ -240,9 +251,11 @@ export interface OvertimeContext {
     basis: OvertimeBasis;
     checkIn: string | null;
     checkOut: string | null;
-    checkOutAuto: boolean;
-    /** PROTOTYPE-SETUP (Overview v5, Slice 4): the check-out was entered by the employee. */
-    checkOutByEmployee?: boolean;
+    outDays: number;
+    /** Still checked in — nothing to suggest until the employee checks out. */
+    open: boolean;
+    /** An attendance correction for the day is waiting — no suggestion until it's resolved. */
+    pendingCorrection: boolean;
     minutesAtWork: number;
     loggedMinutes: number;
     /** Extra time per the rule (for a planned request: once the date has passed). */
@@ -255,7 +268,7 @@ export interface OvertimeSuggestion {
     date: string;
     minutes: number;
     basis: OvertimeBasis;
-    /** e.g. "Checked out at 20:30 — 2h after shift end" */
+    /** e.g. "Checked in 9:20 AM, out 8:05 PM — 1h 35m beyond your shift" */
     reason: string;
 }
 
@@ -289,6 +302,9 @@ export interface TimesheetEntry {
     date: string;
     start: string | null;
     end: string | null;
+    /** PROTOTYPE-SETUP (HR rules, Slice 1): the start / end is after midnight (the next day). */
+    startNext?: boolean;
+    endNext?: boolean;
     /** Minutes worked: end − start for a timed entry, as entered for an hours-only entry. */
     mins: number;
     description: string;
@@ -302,6 +318,10 @@ export interface TimesheetEntryInput {
     date: string;
     start?: string | null;
     end?: string | null;
+    /** The start is after midnight (on a day whose session crosses midnight). */
+    startNext?: boolean;
+    /** The end is the next day. An end earlier than the start means the next day anyway. */
+    endNext?: boolean;
     mins?: number | null;
     description: string;
 }
@@ -382,24 +402,42 @@ export interface DayWindow {
     kind: 'shift' | 'attendance' | 'none';
     start?: string;
     end?: string;
-    /** "Shift 9:30–18:30" / "Checked in 9:42 – out 19:10" / "Checked in 9:31, no check-out (closed automatically at 11:59 PM)" */
+    /** Minutes from the day's midnight; past 1440 when the window runs into the next day. */
+    startMinutes?: number;
+    endMinutes?: number;
+    /** "Shift 9:30 AM – 6:30 PM" / "Checked in 9:00 AM, out 5:00 AM (next day)" / "Checked in 9:40 AM, still checked in" */
     label: string;
-    checkOutAuto?: boolean;
-    /** Minutes expected to be logged (window minus break; 0 for 'none'). */
+    /** Still checked in (the window runs until now). */
+    open?: boolean;
+    /** The day's target: hours worked (breaks included), or the shift in Timesheet-only mode. */
     expectedMinutes: number;
 }
 
 /**
  * 'both' mode only: entries outside check-in/check-out. The flag offers an attendance correction pre-filled
- * from the entries, or "Update check-out" on an auto-closed day. Never treated as overtime.
+ * from the entries. Never treated as overtime.
  */
 export interface OutsideCheckInFlag {
     entryIds: string[];
-    action: 'request-correction' | 'update-check-out';
-    /** Pre-fill for the correction / update. */
-    suggested: { checkIn: string | null; checkOut: string | null };
+    action: 'request-correction';
+    /** Pre-fill for the correction. */
+    suggested: CorrectionTimes;
     /** Correction already raised for the day. */
     pendingCorrection?: { id: string; statusLabel: string };
+}
+
+/** PROTOTYPE-SETUP (HR rules, Slice 3): a recorded break shown read-only among the day's entries. */
+export interface TimesheetBreakRow {
+    /** Position in the day's breaks (to save its description). */
+    index: number;
+    start: string;
+    /** Until now while the break is running. */
+    end: string;
+    startMinutes: number;
+    endMinutes: number;
+    minutes: number;
+    description: string;
+    running: boolean;
 }
 
 export interface TimesheetDay {
@@ -407,6 +445,9 @@ export interface TimesheetDay {
     window: DayWindow;
     attendance: AttendanceDay;
     entries: TimesheetEntry[];
+    /** Recorded breaks — they count as logged time. */
+    breaks: TimesheetBreakRow[];
+    /** Entries plus breaks. */
     loggedMinutes: number;
     expectedMinutes: number;
     /** Expected minus logged (never negative). */
@@ -462,6 +503,11 @@ export interface AtsOverview {
     today: AttendanceDay & {
         canCheckIn: boolean;
         canCheckOut: boolean;
+        /** PROTOTYPE-SETUP (HR rules, Slice 2): Start break / End break (only while checked in today). */
+        canStartBreak: boolean;
+        canEndBreak: boolean;
+        /** An earlier day still checked in: check out of it before checking in today. */
+        openFrom?: { date: string; checkIn: string };
         /** Why check-in / out is unavailable, if it is. */
         hint?: string;
         loggedMinutes: number;
@@ -551,7 +597,7 @@ export interface RequestItem {
     statusLabel: string;
     /** Overtime: that day's attendance / timesheet hours. Correction: current vs requested times. */
     overtimeContext?: OvertimeContext;
-    correction?: Pick<AttendanceCorrection, 'kind' | 'current' | 'requested'>;
+    correction?: Pick<AttendanceCorrection, 'current' | 'requested'>;
     /** Profile update: each changed field, old → new (the photo as a data URL, or null when removed). */
     profile?: { changes: ProfileChange[] };
     /** Set when the day's payroll is processed: it can't be approved (attendance corrections and overtime). */
@@ -623,9 +669,9 @@ export type OverviewLink = { tab: AtsTab; date?: string } | { page: 'leaves' | '
 /** One row of "Recent days" (this week and last week, up to today). */
 export interface OverviewDay {
     date: string;
-    /** PROTOTYPE-SETUP (Overview v4, Slice 4): minutesAtWork = hours worked (so far, today; 0 on a missed check-out). */
-    attendance: Pick<AttendanceDay, 'status' | 'label' | 'checkIn' | 'checkOut' | 'checkOutAuto' | 'lateMinutes' | 'minutesAtWork' | 'checkOutByEmployee'>;
-    /** expectedMinutes: the timesheet's expected hours for the day (expectedMinutes rule; missed check-out = shift − break). */
+    /** PROTOTYPE-SETUP (HR rules, Slice 4): minutesAtWork = hours worked, breaks included (so far, while open). */
+    attendance: Pick<AttendanceDay, 'status' | 'label' | 'checkIn' | 'checkOut' | 'outDays' | 'open' | 'carried' | 'lateMinutes' | 'minutesAtWork' | 'breakMinutes'>;
+    /** expectedMinutes: the timesheet's target for the day (the expectedMinutes rule). */
     timesheet: { weekStatus: TimesheetStatus; changePending: boolean; loggedMinutes: number; expectedMinutes: number };
     /** No overtime / extra time not claimed yet / the day's overtime request. */
     overtime:
@@ -636,7 +682,7 @@ export interface OverviewDay {
 }
 
 export interface OverviewAction {
-    kind: 'sent-back' | 'missed-check-out' | 'overtime';
+    kind: 'sent-back' | 'still-checked-in' | 'overtime';
     title: string;
     text: string;
     button: string;
@@ -680,7 +726,8 @@ export interface DecisionInput {
 
 // ---- Payroll ----------------------------------------------------------------------------------------------
 
-export type Level2Role = 'HR' | 'FINANCE';
+/** PROTOTYPE-SETUP (HR rules, Slice 4): 'PAYROLL' handles level-2 attendance corrections and overtime. */
+export type Level2Role = 'HR' | 'FINANCE' | 'PAYROLL';
 
 export interface PayrollBlocker {
     employee: PersonRef;

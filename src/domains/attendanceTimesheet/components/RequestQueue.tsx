@@ -10,7 +10,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 
 import type { Level2RequestType } from '../api';
 import type { OvertimeContext, QueueScope, RequestItem } from '../types';
-import { displayTime, fmtDate, fmtStamp, formatDuration } from './format';
+import { displayTime, displayTimeOn, fmtDate, fmtStamp, formatDuration } from './format';
 import { RequestStatusTag } from './StatusTags';
 import TrailSteps from './TrailSteps';
 
@@ -26,7 +26,7 @@ export interface RequestQueueProps {
     onChanged?: () => void;
     defaultScope?: QueueScope;
     /** Who is deciding, for copy like "Waiting for you" (default 'Manager'). */
-    actingAs?: 'Manager' | 'HR' | 'Finance';
+    actingAs?: 'Manager' | 'HR' | 'Finance' | 'Payroll';
 }
 
 const TYPE_COPY: Record<Level2RequestType, { plural: string; single: string }> = {
@@ -69,18 +69,16 @@ const ProfileChanges = ({ item }: { item: RequestItem }) => {
 
 const t = (v: string | null) => (v ? displayTime(v) : '—');
 
-/** "Checked in 9:20 → out 20:05, at work 10h 45m, extra 1h 45m" / "Logged 9h 30m, extra 1h 30m" */
+/** "Checked in 9:00 AM → out 5:00 AM (next day), at work 20h, extra 11h" / "Logged 9h 30m, extra 1h 30m" */
 export const overtimeContextText = (c: OvertimeContext) => {
     if (!c.dayCompleted) return "Planned — the day hasn't happened yet";
     if (c.basis === 'timesheet') {
         return `Logged ${formatDuration(c.loggedMinutes)}, extra ${formatDuration(c.extraMinutes)}`;
     }
     if (!c.checkIn) return 'No check-in that day';
-    // PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out isn't overtime until it's updated.
-    if (c.checkOutAuto) return `Checked in ${t(c.checkIn)}, check-out missed (closed automatically at 11:59 PM)`;
-    // PROTOTYPE-SETUP (Overview v5, Slice 4): approvers see a check-out the employee entered themselves.
-    const entered = c.checkOutByEmployee ? ' (entered by employee)' : '';
-    return `Checked in ${t(c.checkIn)} → out ${t(c.checkOut)}${entered}, at work ${formatDuration(
+    // PROTOTYPE-SETUP (HR rules, Slice 1): no automatic check-out — nothing to count until checked out.
+    if (c.open) return `Checked in ${t(c.checkIn)}, still checked in`;
+    return `Checked in ${t(c.checkIn)} → out ${c.checkOut ? displayTimeOn(c.checkOut, c.outDays) : '—'}, at work ${formatDuration(
         c.minutesAtWork
     )}, extra ${formatDuration(c.extraMinutes)}`;
 };
@@ -97,16 +95,16 @@ const CorrectionTimes = ({ item }: { item: RequestItem }) => {
         { label: 'Check-in', from: t(c.current.checkIn), to: t(c.requested.checkIn), changed: c.current.checkIn !== c.requested.checkIn },
         {
             label: 'Check-out',
-            from: c.current.checkOutAuto ? 'Missed (auto 11:59 PM)' : t(c.current.checkOut),
-            to: t(c.requested.checkOut),
-            changed: c.current.checkOut !== c.requested.checkOut,
+            from: c.current.checkOut ? displayTimeOn(c.current.checkOut, c.current.outDays) : 'Not checked out',
+            to: c.requested.checkOut ? displayTimeOn(c.requested.checkOut, c.requested.outDays) : '—',
+            changed: c.current.checkOut !== c.requested.checkOut || c.current.outDays !== c.requested.outDays,
         },
     ];
     return (
         <div className="rounded-xl bg-[#F9FAFB] px-3 py-2 max-w-[420px]">
             <Flex gap={6} align="center" className="mb-1">
-                <Tag color={c.kind === 'update-check-out' ? 'gold' : 'blue'} className="!m-0">
-                    {c.kind === 'update-check-out' ? 'Update check-out' : 'Correction'}
+                <Tag color="blue" className="!m-0">
+                    Correction
                 </Tag>
             </Flex>
             <div className="grid grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-0.5 text-sm">

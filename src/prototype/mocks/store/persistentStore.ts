@@ -12,7 +12,8 @@ import type { DataMode } from '../envelope';
 const PREFIX = 'prototype:';
 // Bump when seeds change shape or coverage, so stale browser data reseeds (v2: seed back to last month's start).
 // v4 (V2): entries gained `mins` and may be hours-only — older saved data reseeds.
-const VERSION = 'v4';
+// PROTOTYPE-SETUP (HR rules, Slice 1): v5 — open sessions, outDays, breaks, next-day entries, Payroll level 2.
+const VERSION = 'v5';
 
 /** The day the demo data is built for — the real current date. */
 export const demoDay = () => toIsoDate(new Date());

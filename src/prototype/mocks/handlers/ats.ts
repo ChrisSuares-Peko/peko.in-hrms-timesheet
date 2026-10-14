@@ -18,10 +18,13 @@ import {
     cancelOvertime,
     checkIn,
     checkOut,
+    checkOutPrevious,
     correctionsView,
-    updateOwnCheckOut,
-    ownCheckOutsOf,
     createCorrection,
+    endBreak,
+    startBreak,
+    updateBreakDescription,
+    updateTodayBreaks,
     createOvertime,
     deleteEntry,
     editEntry,
@@ -78,8 +81,8 @@ const monthParam = (q: MockContext['query']) => (MONTH.test(String(q.month ?? ''
 const dateParam = (q: MockContext['query']) => (DATE.test(String(q.date ?? '')) ? String(q.date) : today());
 const scopeParam = (q: MockContext['query']): QueueScope => (q.scope === 'all' ? 'all' : 'waiting');
 const roleParam = (q: MockContext['query']): Level2Role => {
-    if (q.role === 'HR' || q.role === 'FINANCE') return q.role;
-    throw fail(400, 'role must be HR or FINANCE');
+    if (q.role === 'HR' || q.role === 'FINANCE' || q.role === 'PAYROLL') return q.role;
+    throw fail(400, 'role must be HR, FINANCE or PAYROLL');
 };
 const typeParam = (p: MockContext['params']): RequestType => {
     if (p.requestType === 'attendance' || p.requestType === 'overtime') return p.requestType;
@@ -123,12 +126,15 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/home`, ess((ctx, me) => homeOf(ctx.mode, me))),
     route('POST', `${A}/check-in`, ess((ctx, me) => checkIn(ctx.mode, me))),
     route('POST', `${A}/check-out`, ess((ctx, me) => checkOut(ctx.mode, me))),
+    // PROTOTYPE-SETUP (HR rules, Slice 1): check out of an earlier day still open (now, with outDays), and breaks.
+    route('POST', `${A}/check-out/previous`, ess((ctx, me) => checkOutPrevious(ctx.mode, me))),
+    route('POST', `${A}/breaks/start`, ess((ctx, me) => startBreak(ctx.mode, me))),
+    route('POST', `${A}/breaks/end`, ess((ctx, me) => endBreak(ctx.mode, me))),
+    route('PUT', `${A}/breaks`, ess((ctx, me) => updateTodayBreaks(ctx.mode, me, ctx.body))),
+    route('PUT', `${A}/attendance/:date/breaks/:index`, ess((ctx, me) => updateBreakDescription(ctx.mode, me, ctx.params.date!, Number(ctx.params.index), ctx.body))),
     route('GET', `${A}/attendance`, ess((ctx, me) => attendanceMonthOf(ctx.mode, me, monthParam(ctx.query), { overtimeAtMinimum: true }))),
     route('GET', `${A}/corrections`, ess((ctx, me) => correctionsView(ctx.mode, me))),
     route('POST', `${A}/corrections`, ess((ctx, me) => createCorrection(ctx.mode, me, ctx.body))),
-    // PROTOTYPE-SETUP (Overview v5, Slice 4): self-service check-out for an auto-closed day — saved, no request.
-    route('GET', `${A}/attendance/own-check-outs`, ess((ctx, me) => ownCheckOutsOf(ctx.mode, me))),
-    route('POST', `${A}/attendance/:date/check-out`, ess((ctx, me) => updateOwnCheckOut(ctx.mode, me, { ...(ctx.body ?? {}), date: ctx.params.date }))),
     route('POST', `${A}/corrections/:id/cancel`, ess((ctx, me) => cancelCorrection(ctx.mode, me, ctx.params.id!))),
 
     // ---- ESS: my profile (PROTOTYPE-SETUP: Overview, Slice 1) ---------------------------------------------

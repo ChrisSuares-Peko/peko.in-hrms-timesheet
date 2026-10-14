@@ -36,9 +36,9 @@ import {
     correctionsOf,
     currentMonth,
     getSettings,
-    isDayLocked,
     loggedOn,
     managerRef,
+    openSessionBefore,
     overtimeOfEmployee,
     pendingChangeRequest,
     timesheetDay,
@@ -51,7 +51,6 @@ import { leavesOf } from '../data/time-leaves';
 import { reimbursementsOf } from '../data/time-requests';
 import type { DataMode } from '../envelope';
 
-const MISSED_CHECK_OUT_DAYS = 14;
 const MAX_REQUESTS = 6;
 
 /** "12 Oct" */
@@ -92,10 +91,12 @@ const recentDaysOf = (mode: DataMode, e: MockEmployee): OverviewDay[] => {
                 label: a.label,
                 checkIn: a.checkIn,
                 checkOut: a.checkOut,
-                checkOutAuto: a.checkOutAuto,
+                outDays: a.outDays,
+                open: a.open,
+                carried: a.carried,
                 lateMinutes: a.lateMinutes,
                 minutesAtWork: a.minutesAtWork,
-                ...(a.checkOutByEmployee ? { checkOutByEmployee: a.checkOutByEmployee } : {}),
+                breakMinutes: a.breakMinutes,
             },
             timesheet: {
                 weekStatus: week.status,
@@ -131,22 +132,17 @@ const actionsOf = (mode: DataMode, e: MockEmployee): OverviewAction[] => {
                 })
             );
     }
-    if (hasCheckIn(settings.mode)) {
-        const corrections = correctionsOf(mode, e);
-        Array.from({ length: MISSED_CHECK_OUT_DAYS }, (_, i) => addDays(t, -(i + 1)))
-            .filter(d => d >= e.dateOfJoin && !isDayLocked(mode, d))
-            .filter(d => attendanceDay(mode, e, d).checkOutAuto)
-            .filter(d => !corrections.some(c => c.date === d && ['PENDING_MANAGER', 'PENDING_HR', 'PENDING_FINANCE', 'APPROVED'].includes(c.trail.status)))
-            .forEach(d =>
-                actions.push({
-                    kind: 'missed-check-out',
-                    title: `You didn’t check out on ${dayDm(d)}`,
-                    text: 'The day closed automatically at 11:59 PM. Update it to when you actually left.',
-                    button: 'Update check-out',
-                    link: { tab: 'attendance', date: d },
-                    tone: 'info',
-                })
-            );
+    // PROTOTYPE-SETUP (HR rules, Slice 4): still checked in from an earlier day — first in "Needs your action".
+    const open = hasCheckIn(settings.mode) ? openSessionBefore(mode, e, t) : undefined;
+    if (open) {
+        actions.unshift({
+            kind: 'still-checked-in',
+            title: `You’re still checked in from ${dayDm(open.date)}`,
+            text: 'Check out of that day before checking in today. If the time is wrong, request a correction.',
+            button: 'Go to attendance',
+            link: { tab: 'attendance' },
+            tone: 'info',
+        });
     }
     const { suggestions } = overtimeViewOf(mode, e, currentMonth());
     if (suggestions.length) {
@@ -165,7 +161,7 @@ const actionsOf = (mode: DataMode, e: MockEmployee): OverviewAction[] => {
 
 // ---- your requests ------------------------------------------------------------------------------------------
 
-const ROLE_NAME = { HR: 'HR team', FINANCE: 'Finance team' } as const;
+const ROLE_NAME = { HR: 'HR team', FINANCE: 'Finance team', PAYROLL: 'Payroll' } as const;
 
 /** "Waiting with Arjun Mehta" / "Waiting with HR team" / "Approved by …" / "Rejected by …: reason" */
 export const trailStatusText = (trail: ApprovalTrail) => {
@@ -250,7 +246,7 @@ const requestsOf = (mode: DataMode, e: MockEmployee): OverviewRequest[] => {
         items.push({
             type: 'attendance',
             id: c.id,
-            title: c.kind === 'update-check-out' ? 'Update check-out' : 'Attendance correction',
+            title: 'Attendance correction',
             detail: dm(c.date),
             statusText: trailStatusText(c.trail),
             state,

@@ -1,21 +1,22 @@
 // PROTOTYPE-SETUP: ESS Service 1, Slice 3 — one attendance day: status, times, late / overtime minutes, the
-// latest correction, and the actions the day allows (request a correction, or update an automatic check-out).
-// Locked days (payroll processed) are read-only.
+// latest correction, and the action the day allows (request a correction). Locked days (payroll processed) are
+// read-only.
+// PROTOTYPE-SETUP (HR rules, Slice 2): no automatic check-out — next-day check-outs read "(next day)", the day's
+// breaks are listed, and an earlier day still checked in says "Still checked in. Check out from the Today panel
+// first." (no correction until it's checked out).
 import { ReactNode } from 'react';
 
 import { InfoCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { Alert, Button, Drawer, Popconfirm, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 
-import { MISSED_AT_WORK_TEXT, MISSED_CHECK_OUT_TEXT } from '@src/prototype/rules/attendance';
-
 import type { CorrectionWithStatus } from '../api';
 import { BEFORE_JOINING } from './AttendanceCalendar';
 import { isPending } from './CorrectionsList';
-import { displayTime, formatDuration } from '../components/format';
+import { displayTime, displayTimeOn, formatDuration } from '../components/format';
 import { DayStatusTag, RequestStatusTag } from '../components/StatusTags';
 import TrailSteps from '../components/TrailSteps';
-import type { AttendanceDay, CorrectionKind } from '../types';
+import type { AttendanceDay } from '../types';
 
 const { Text } = Typography;
 
@@ -40,7 +41,7 @@ interface DayDetailDrawerProps {
     correction?: CorrectionWithStatus;
     cancelling?: boolean;
     onClose: () => void;
-    onRequest: (kind: CorrectionKind) => void;
+    onRequest: () => void;
     onCancelCorrection: (id: string) => void;
 }
 
@@ -58,12 +59,14 @@ const DayDetailDrawer = ({
         const beforeJoining = day.label === BEFORE_JOINING;
         const future = day.date > today;
         const pending = day.correction?.state === 'pending';
-        const canAct = !day.locked && !future && !beforeJoining && !pending;
-        const onClock = day.date === today && Boolean(day.checkIn) && !day.checkOut;
+        const canAct = !day.locked && !future && !beforeJoining && !pending && !day.open;
+        const onClock = day.open && !day.carried;
         const showLabel = day.label && day.status !== 'holiday' && !beforeJoining;
-        const checkOutText = day.checkOut ? displayTime(day.checkOut) : '—';
+        let checkOutText = day.checkOut ? displayTimeOn(day.checkOut, day.outDays) : '—';
+        if (day.carried) checkOutText = 'Still checked in';
         let atWorkText = day.checkIn ? formatDuration(day.minutesAtWork) : '—';
-        if (day.checkOutAuto) atWorkText = MISSED_AT_WORK_TEXT;
+        if (onClock) atWorkText = `${formatDuration(day.minutesAtWork)} so far`;
+        if (day.carried) atWorkText = 'Counted once you check out';
 
         return (
             <div className="flex flex-col gap-5">
@@ -88,14 +91,22 @@ const DayDetailDrawer = ({
                 {!future && !beforeJoining && (
                     <div className="rounded-2xl bg-[#F7F7F7] px-4 py-1">
                         <Row label="Check-in">{day.checkIn ? displayTime(day.checkIn) : '—'}</Row>
-                        {/* PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out closes at 11:59 PM. */}
                         <Row label="Check-out">
-                            {day.checkOutAuto ? MISSED_CHECK_OUT_TEXT : checkOutText}
+                            {checkOutText}
                             {onClock && <span className="text-titleText font-normal"> (still at work)</span>}
-                            {/* PROTOTYPE-SETUP (Overview v5, Slice 4): an auto check-out they replaced themselves. */}
-                            {day.checkOutByEmployee && <span className="block text-xs font-normal text-[#9e9e9e]">Entered by you</span>}
                         </Row>
                         <Row label="Time at work">{atWorkText}</Row>
+                        {/* PROTOTYPE-SETUP (HR rules, Slice 2): the day's breaks (included in the time at work). */}
+                        {day.breaks.length > 0 && (
+                            <Row label={`Breaks · ${formatDuration(day.breakMinutes)}`}>
+                                {day.breaks.map(b => (
+                                    <span key={b.start} className="block font-normal" data-break>
+                                        {displayTime(b.start)} – {b.end ? displayTime(b.end) : 'now'}
+                                        {b.description ? ` · ${b.description}` : ''}
+                                    </span>
+                                ))}
+                            </Row>
+                        )}
                         {day.lateMinutes > 0 && (
                             <Row label="Late by">{formatDuration(day.lateMinutes)}</Row>
                         )}
@@ -104,23 +115,14 @@ const DayDetailDrawer = ({
                     </div>
                 )}
 
-                {day.checkOutAuto && !day.locked && (
-                    <Alert
-                        type="warning"
-                        showIcon
-                        message="You didn't check out"
-                        description="The day closed automatically at 11:59 PM. Update it to when you actually left."
-                    />
+                {day.carried && !day.locked && (
+                    <Alert type="warning" showIcon message="Still checked in. Check out from the Today panel first." />
                 )}
 
                 {day.correction && (
                     <div className="flex flex-col gap-2 rounded-[26px] border border-solid border-[#e6e6e6] px-5 py-4">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
-                            <Text className="text-sm font-semibold">
-                                {day.correction.kind === 'update-check-out'
-                                    ? 'Check-out update'
-                                    : 'Correction request'}
-                            </Text>
+                            <Text className="text-sm font-semibold">Correction request</Text>
                             {correction ? (
                                 <RequestStatusTag trail={correction.trail} label={correction.statusLabel} />
                             ) : (
@@ -139,7 +141,7 @@ const DayDetailDrawer = ({
                                             : '—'}{' '}
                                         –{' '}
                                         {correction.requested.checkOut
-                                            ? displayTime(correction.requested.checkOut)
+                                            ? displayTimeOn(correction.requested.checkOut, correction.requested.outDays)
                                             : '—'}
                                     </b>
                                 </Text>
@@ -185,25 +187,17 @@ const DayDetailDrawer = ({
                     </Text>
                 )}
 
+                {onClock && (
+                    <Text className="text-sm text-[#616161]">
+                        <InfoCircleOutlined className="mr-1.5" />
+                        Use Check in / Check out for today.
+                    </Text>
+                )}
                 {canAct && (
                     <div className="flex flex-col sm:flex-row gap-2">
-                        {day.checkOutAuto && (
-                            <Button
-                                type="primary"
-                                danger
-                                className="flex-1 h-10 rounded-lg font-medium"
-                                onClick={() => onRequest('update-check-out')}
-                            >
-                                Update check-out
-                            </Button>
-                        )}
-                        {/* PROTOTYPE-SETUP (Overview v5, Slice 4): a missed check-out is updated directly (the popup
-                            follows the day), so it gets that one action; afterwards changes are corrections. */}
-                        {!day.checkOutAuto && (
-                            <Button type="primary" danger className="flex-1 h-10 rounded-lg font-medium" onClick={() => onRequest('correction')}>
-                                Request correction
-                            </Button>
-                        )}
+                        <Button type="primary" danger className="flex-1 h-10 rounded-lg font-medium" onClick={onRequest}>
+                            Request correction
+                        </Button>
                     </div>
                 )}
             </div>

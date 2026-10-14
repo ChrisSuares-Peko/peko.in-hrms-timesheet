@@ -22,11 +22,10 @@ import OvQuickActions from './OvQuickActions';
 import OvStatusTable from './OvStatusTable';
 import OvTimesheetCard from './OvTimesheetCard';
 import { getEssHome, getMyProfile, getOverview, getTimesheetWeek } from '../api';
-import CorrectionModal from '../components/CorrectionModal';
 import { useAtsPaths } from '../hooks/useAtsPaths';
 import { useAtsScope } from '../hooks/useAtsScope';
 import { todayIso } from '../timesheet/helpers';
-import type { AtsOverview, EssHomeView, MyProfileView, OverviewAction, OverviewLink, TimesheetWeekView } from '../types';
+import type { AtsOverview, EssHomeView, MyProfileView, OverviewLink, TimesheetWeekView } from '../types';
 
 /** Recent days: heading, padding and table header, plus one row per day (rows fit a 2-line chip). */
 const RD_CHROME = 148;
@@ -41,8 +40,6 @@ const EssOverviewPage = () => {
     const [week, setWeek] = useState<TimesheetWeekView | null>(null);
     const [home, setHome] = useState<EssHomeView | null>(null);
     const [failed, setFailed] = useState(false);
-    /** PROTOTYPE-SETUP (Overview v5, Slice 4): "You didn't check out" opens the check-out update right here. */
-    const [missedDay, setMissedDay] = useState<string | null>(null);
 
     // PROTOTYPE-SETUP (Overview, Slice 3): the table, notifications and shortcut summaries.
     const loadHome = useCallback(async () => {
@@ -101,11 +98,6 @@ const EssOverviewPage = () => {
         setWeek(next);
         loadHome();
     };
-    const onAction = (a: OverviewAction) => {
-        if (a.kind !== 'missed-check-out' || !('tab' in a.link) || !a.link.date) return false;
-        setMissedDay(a.link.date);
-        return true;
-    };
     const hrefOf = (link: OverviewLink) => ('tab' in link ? paths.section(link.tab, link.date) : `${paths.home}/${link.page}`);
 
     // In Timesheet-only mode the Timesheet card takes the Attendance slot.
@@ -114,60 +106,47 @@ const EssOverviewPage = () => {
     // week up to today: 6–10 working days) — fixed for the day, never resized by what happens on the page.
     const rdHeight = RD_CHROME + Math.max(home?.recentDays.length ?? 0, 6) * RD_ROW;
     return (
-        <>
-            <div className={`ess-ov ess-ov--${mode}`} style={{ '--ov-rd': `${rdHeight}px` } as React.CSSProperties}>
-                <div className="ess-ov__p">
-                    <OvProfileCard profile={profile} profilePath={`${paths.home}/profile`} wide={!hasTracking(mode)} />
-                </div>
-                {hasCheckIn(mode) && (
-                    <div className="ess-ov__a">
-                        <OvAttendanceCard overview={overview} onOverview={onOverview} openPath={paths.section('attendance')} />
-                    </div>
-                )}
-                {hasTimesheets(mode) && week && (
-                    <div className={timesheetSlot}>
-                        <OvTimesheetCard week={week} mode={mode} today={today} onWeek={onWeek} fullPath={paths.section('timesheet', today)} />
-                    </div>
-                )}
-                {home && (
-                    <>
-                        <div className="ess-ov__q">
-                            <OvQuickActions
-                                mode={mode}
-                                to={{
-                                    section: paths.section(),
-                                    leave: `${paths.home}/leaves`,
-                                    reimbursements: `${paths.home}/reimbursements`,
-                                    payslips: `${paths.home}/payslips`,
-                                    documents: `${paths.home}/documents`,
-                                    profile: `${paths.home}/profile`,
-                                }}
-                            />
-                        </div>
-                        {/* PROTOTYPE-SETUP (Overview v4, Slice 5): no Recent days when nothing is tracked. */}
-                        {hasTracking(mode) && (
-                            <div className="ess-ov__r">
-                                <OvStatusTable days={home.recentDays} mode={mode} today={today} linkTo={paths.section} />
-                            </div>
-                        )}
-                        <div className="ess-ov__n">
-                            <OvNotifications home={home} hrefOf={hrefOf} roomy={mode !== 'both'} onAction={onAction} />
-                        </div>
-                    </>
-                )}
+        <div className={`ess-ov ess-ov--${mode}`} style={{ '--ov-rd': `${rdHeight}px` } as React.CSSProperties}>
+            <div className="ess-ov__p">
+                <OvProfileCard profile={profile} profilePath={`${paths.home}/profile`} wide={!hasTracking(mode)} />
             </div>
-            <CorrectionModal
-                open={Boolean(missedDay)}
-                date={missedDay}
-                shiftStart={overview.shift.start}
-                shiftEnd={overview.shift.end}
-                onClose={() => setMissedDay(null)}
-                onSubmitted={() => {
-                    setMissedDay(null);
-                    load();
-                }}
-            />
-        </>
+            {hasCheckIn(mode) && (
+                <div className="ess-ov__a">
+                    <OvAttendanceCard overview={overview} onOverview={onOverview} openPath={paths.section('attendance')} />
+                </div>
+            )}
+            {hasTimesheets(mode) && week && (
+                <div className={timesheetSlot}>
+                    <OvTimesheetCard week={week} mode={mode} today={today} onWeek={onWeek} fullPath={paths.section('timesheet', today)} />
+                </div>
+            )}
+            {home && (
+                <>
+                    <div className="ess-ov__q">
+                        <OvQuickActions
+                            mode={mode}
+                            to={{
+                                section: paths.section(),
+                                leave: `${paths.home}/leaves`,
+                                reimbursements: `${paths.home}/reimbursements`,
+                                payslips: `${paths.home}/payslips`,
+                                documents: `${paths.home}/documents`,
+                                profile: `${paths.home}/profile`,
+                            }}
+                        />
+                    </div>
+                    {/* PROTOTYPE-SETUP (Overview v4, Slice 5): no Recent days when nothing is tracked. */}
+                    {hasTracking(mode) && (
+                        <div className="ess-ov__r">
+                            <OvStatusTable days={home.recentDays} mode={mode} today={today} linkTo={paths.section} />
+                        </div>
+                    )}
+                    <div className="ess-ov__n">
+                        <OvNotifications home={home} hrefOf={hrefOf} roomy={mode !== 'both'} />
+                    </div>
+                </>
+            )}
+        </div>
     );
 };
 

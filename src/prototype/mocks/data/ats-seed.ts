@@ -9,10 +9,14 @@
 //     afterCheckOut  Thu of that week: checked out 17:45, time logged until 19:30 → "logged outside check-in hours".
 //   crWeek           the week before this one: Approved, with a pending change request (client call added).
 //   overtimeDay      first working day this week (else last week) without a request: out 20:05 → suggested overtime.
-//   autoDay          the working day before today: missed check-out (auto 11:59 PM), entries until 20:15.
+//   openDay          the working day before today: still checked in (no automatic check-out), so today's
+//                    check-in is blocked until she checks out of it (HR rules, Slice 1). Not checked in today.
+//   overnightDay     Thursday two weeks back: 9:00 AM → 5:00 AM the next day (outDays 1), with entries until
+//                    5:00 AM (next day) — 20h at work, 11h overtime on the check-in day.
 //   plannedDay       next working day: a planned timesheet entry (later this week, or next week on a Friday).
 //   + an approved leave in the next fortnight (data/time-leaves.ts) and a rejected change request in the past.
-// ESS - Manager (Arjun) team today: Rahul late, Karthik not checked in, Ananya on leave; Sneha checked in.
+// Everyone: a 1:00–2:00 PM "Lunch" break on every worked day that spans it (breaks count as logged time).
+// ESS - Manager (Arjun) team today: Rahul late, Karthik not checked in, Ananya on leave.
 // Payroll: every week of last month is Approved except Sneha's sent-back week; a correction and an overtime
 // request already approved by managers wait for HR / Finance.
 import type {
@@ -27,14 +31,15 @@ import type {
 } from '@src/domains/attendanceTimesheet/types';
 import {
     DEFAULT_SETTINGS,
+    MINUTES_PER_DAY,
     addDays,
-    sortEntries,
-    effectiveCheckOut,
+    checkOutMinutes,
     fromMinutes,
+    nextStatus,
+    sortEntries,
     startTrail,
     toMinutes,
     weekStartOf,
-    windowEnd,
 } from '@src/prototype/rules/attendance';
 
 import { isoDateTime, monthsAgo } from './dates';
@@ -48,6 +53,8 @@ export const weekId = (employeeId: number, weekStart: string) => `${employeeId}:
 
 const hhmm = (localDateTime: string | null) => (localDateTime ? localDateTime.slice(11, 16) : null);
 const round15 = (m: number) => Math.round(m / 15) * 15;
+const LUNCH_START = 13 * 60;
+const LUNCH_END = 14 * 60;
 const SHIFT_MINUTES = toMinutes(DEFAULT_SETTINGS.shift.end) - toMinutes(DEFAULT_SETTINGS.shift.start);
 
 const SNEHA = 'ACME-004';
@@ -72,14 +79,23 @@ export const atsScenario = () => {
     const sentBackWeek = addDays(weekStartOf(lastMonthEnd), -7);
     const crWeekCandidate = addDays(w0, -7);
     const crWeek = crWeekCandidate === sentBackWeek ? addDays(sentBackWeek, 7) : crWeekCandidate;
-    const autoDay = workingDayOffset(today, -1);
-    // PROTOTYPE-SETUP: the earliest working day of this week (else last week) that isn't the auto check-out day
-    // and has no seeded overtime request for Sneha — so it is always an unclaimed suggestion, whatever today is.
+    const openDay = workingDayOffset(today, -1);
+    // PROTOTYPE-SETUP: the earliest working day of this week (else last week) that isn't the open day and has no
+    // seeded overtime request for Sneha — so it is always an unclaimed suggestion, whatever today is.
     const hasSnehaOvertime = (d: string) => OVERTIME.some(o => o.employee.employeeId === SNEHA && o.date === d);
     const overtimeDay =
         [w0, crWeek]
             .flatMap(ws => [0, 1, 2, 3, 4].map(i => addDays(ws, i)))
-            .find(d => d < today && d !== autoDay && isWorkingDay(d) && !hasSnehaOvertime(d)) ?? firstWorkingDayIn(crWeek);
+            .find(d => d < today && d !== openDay && isWorkingDay(d) && !hasSnehaOvertime(d)) ?? firstWorkingDayIn(crWeek);
+    // PROTOTYPE-SETUP (HR rules, Slice 1): the overnight day — Thursday two weeks back (or the week before, if that
+    // week is already a scripted one), without an overtime request so the 11h is suggested.
+    const scripted = new Set([sentBackWeek, crWeek, addDays(sentBackWeek, -7)]);
+    const overnightDay =
+        [14, 21, 28]
+            .map(n => addDays(w0, -n))
+            .filter(ws => !scripted.has(ws))
+            .map(ws => firstWorkingDayIn(ws, 3))
+            .find(d => !hasSnehaOvertime(d) && d !== overtimeDay) ?? firstWorkingDayIn(addDays(w0, -14), 3);
     const next = workingDayOffset(today, 1);
     return {
         today,
@@ -92,13 +108,14 @@ export const atsScenario = () => {
         crDay: firstWorkingDayIn(crWeek, 2),
         rejectedCrWeek: addDays(sentBackWeek, -7),
         overtimeDay,
-        autoDay,
+        openDay,
+        overnightDay,
         // PROTOTYPE-SETUP: the next working day (later this week, or next week when today is the last working day).
         plannedDay: next,
         /** Vikram worked the Saturday of crWeek. */
         workedSaturday: addDays(crWeek, 5),
-        /** Vikram's auto check-out day with an Update check-out request. */
-        vikramAutoDay: workingDayOffset(today, -4),
+        /** Vikram's day with a pending correction (he left later than he checked out). */
+        vikramCorrectionDay: workingDayOffset(today, -4),
         karthikCorrectionDay: workingDayOffset(today, -10),
         divyaCorrectionDay: workingDayOffset(today, -12),
     };
@@ -109,12 +126,15 @@ export const atsScenario = () => {
 const hasOvertimeRequest = (e: MockEmployee, date: string) =>
     OVERTIME.some(o => o.employee.id === e.id && o.date === date && o.status !== 'cancelledByEmployee');
 
+/** A session spanning the 1:00–2:00 PM lunch the way the seeded entries split it (they leave that hour free). */
+const coversLunch = (start: number, end: number) => end > LUNCH_END && start < LUNCH_START - 30 && end - start >= 5 * 60;
+
 const seedAttendance = (s: ReturnType<typeof atsScenario>): Record<string, AttendanceRecord> => {
     const records: Record<string, AttendanceRecord> = {};
     // PROTOTYPE-SETUP (Overview v2, Slice 1): today's punches are only seeded once their time has passed on the
     // real clock, so a seeded check-in is never ahead of now (the timer always counts from check-in to now).
     const now = new Date().getHours() * 60 + new Date().getMinutes();
-    const put = (e: MockEmployee, date: string, checkIn: string | null, checkOut: string | null, source: AttendanceRecord['source'] = 'ess') => {
+    const put = (e: MockEmployee, date: string, checkIn: string | null, checkOut: string | null, source: AttendanceRecord['source'] = 'ess', outDays = 0) => {
         if (date === s.today && checkIn && toMinutes(checkIn) > now) {
             delete records[recordKey(e.id, date)];
             return;
@@ -127,13 +147,18 @@ const seedAttendance = (s: ReturnType<typeof atsScenario>): Record<string, Atten
             delete records[recordKey(e.id, date)];
             return;
         }
-        records[recordKey(e.id, date)] = { employeeId: e.id, date, checkIn, checkOut, source };
+        records[recordKey(e.id, date)] = { employeeId: e.id, date, checkIn, checkOut, outDays: checkOut ? outDays : 0, breaks: [], source };
     };
 
     ATTENDANCE.forEach(a => {
         const checkIn = hhmm(a.checkIn);
         let checkOut = hhmm(a.checkOut);
         if (!checkIn) return; // absent / on leave: no record
+        // PROTOTYPE-SETUP (HR rules, Slice 1): no automatic check-out — every past day is checked out (only the
+        // scripted open day below stays open).
+        if (!checkOut && a.date < s.today) {
+            checkOut = fromMinutes(toMinutes(checkIn) + SHIFT_MINUTES + Math.floor(seeded(a.employee.id, a.date, 'out') * 15));
+        }
         // Keep unclaimed overtime rare: only scripted days (and real overtime requests) run long.
         if (checkOut && !hasOvertimeRequest(a.employee, a.date)) {
             const extra = toMinutes(checkOut) - toMinutes(checkIn) - SHIFT_MINUTES;
@@ -148,8 +173,10 @@ const seedAttendance = (s: ReturnType<typeof atsScenario>): Record<string, Atten
     put(sneha, s.lateDay, '09:52', '18:58');
     put(sneha, s.afterCheckOutDay, '09:24', '17:45');
     put(sneha, s.overtimeDay, '09:20', '20:05');
-    put(sneha, s.autoDay, '09:31', null);
-    if (isWorkingDay(s.today)) put(sneha, s.today, '09:24', null);
+    put(sneha, s.overnightDay, '09:00', '05:00', 'ess', 1);
+    // Still checked in from the last working day; not checked in today (check-in is blocked until she checks out).
+    put(sneha, s.openDay, '09:31', null);
+    put(sneha, s.today, null, null);
 
     // Team today (Arjun's reports): Rahul late, Karthik not checked in; Ananya's leave comes from the leave seed.
     if (isWorkingDay(s.today)) {
@@ -159,8 +186,20 @@ const seedAttendance = (s: ReturnType<typeof atsScenario>): Record<string, Atten
         put(emp('ACME-007'), s.today, '09:27', null);
     }
     put(emp('ACME-007'), s.workedSaturday, '10:00', '14:30');
-    put(emp('ACME-007'), s.vikramAutoDay, '09:26', null);
+    put(emp('ACME-007'), s.vikramCorrectionDay, '09:26', '18:31');
     put(emp('ACME-005'), s.karthikCorrectionDay, '10:15', '18:40');
+
+    // PROTOTYPE-SETUP (HR rules, Slice 1): a 1:00–2:00 PM "Lunch" break on every worked day that spans it (today:
+    // once 2:00 PM has passed).
+    Object.values(records).forEach(r => {
+        if (!r.checkIn) return;
+        let end = r.checkOut ? checkOutMinutes(r.checkOut, r.outDays ?? 0) : toMinutes(DEFAULT_SETTINGS.shift.end);
+        if (r.date === s.today && !r.checkOut) end = now;
+        if (r.outDays) end = Math.max(end, toMinutes(DEFAULT_SETTINGS.shift.end));
+        if (coversLunch(toMinutes(r.checkIn), r.outDays ? toMinutes(DEFAULT_SETTINGS.shift.end) : end)) {
+            r.breaks = [{ start: fromMinutes(LUNCH_START), end: fromMinutes(LUNCH_END), description: 'Lunch' }];
+        }
+    });
     return records;
 };
 
@@ -180,8 +219,6 @@ const task = (e: MockEmployee, date: string, i: number) => {
     return pool[Math.floor(seeded(e.id, date, i, 'task') * pool.length) % pool.length];
 };
 
-const LUNCH_START = 13 * 60;
-const LUNCH_END = 14 * 60;
 
 /** Blocks covering [start, end] with a 13:00–14:00 lunch when the day spans it. */
 const blocksFor = (s: number, e: number): [number, number][] => {
@@ -205,13 +242,14 @@ const entriesFor = (e: MockEmployee, date: string, start: string, end: string): 
         description: task(e, date, i),
     }));
 
-/** Entries for a past day: the check-in → (effective) check-out window. Today: none (filled in by scenario). */
+/**
+ * Entries for a past day: the check-in → check-out window (a day still checked in, or one checked out the next day:
+ * up to the shift end — the scenarios add the rest). Today: none (filled in by scenario).
+ */
 const dayEntries = (e: MockEmployee, record: AttendanceRecord | undefined, today: string): TimesheetEntry[] => {
     if (!record?.checkIn || record.date >= today) return [];
-    const eff = effectiveCheckOut({ date: record.date, today, checkIn: record.checkIn, checkOut: record.checkOut });
-    // PROTOTYPE-SETUP (Overview, Slice 1): a missed check-out (auto 11:59 PM) is seeded up to the shift end.
-    const end = windowEnd({ checkIn: record.checkIn, checkOut: eff.checkOut, checkOutAuto: eff.auto }, DEFAULT_SETTINGS);
-    return end ? entriesFor(e, record.date, record.checkIn, end) : [];
+    const end = !record.checkOut || record.outDays ? DEFAULT_SETTINGS.shift.end : record.checkOut;
+    return entriesFor(e, record.date, record.checkIn, end);
 };
 
 // ---- weeks ------------------------------------------------------------------------------------------------
@@ -263,13 +301,22 @@ export interface AtsSeed {
     overtime: OvertimeRequest[];
 }
 
-/** A timed seed entry (mins = end − start). */
-const timedEntry = (id: string, date: string, start: string, end: string, description: string): TimesheetEntry => ({
+/** A timed seed entry (mins = end − start; next-day times past midnight). */
+const timedEntry = (
+    id: string,
+    date: string,
+    start: string,
+    end: string,
+    description: string,
+    next: { startNext?: boolean; endNext?: boolean } = {}
+): TimesheetEntry => ({
     id,
     date,
     start,
     end,
-    mins: toMinutes(end) - toMinutes(start),
+    ...(next.startNext ? { startNext: true } : {}),
+    ...(next.endNext ? { endNext: true } : {}),
+    mins: toMinutes(end) + (next.endNext ? MINUTES_PER_DAY : 0) - toMinutes(start) - (next.startNext ? MINUTES_PER_DAY : 0),
     description,
 });
 
@@ -376,28 +423,34 @@ const snehaScenarios = (s: ReturnType<typeof atsScenario>, seed: AtsSeed) => {
         };
     }
 
-    // This week: the missed check-out day runs past the 18:30 shift end; a morning block today; a planned entry later.
+    // PROTOTYPE-SETUP (HR rules, Slice 1): the overnight day — work until 5:00 AM the next day.
+    const ow = weeks[weekId(sneha.id, weekStartOf(s.overnightDay))];
+    if (ow) {
+        const night = [
+            timedEntry(`te-${sneha.id}-${s.overnightDay}-n1`, s.overnightDay, '18:30', '22:00', 'Production cutover prep'),
+            timedEntry(`te-${sneha.id}-${s.overnightDay}-n2`, s.overnightDay, '22:00', '02:00', 'Production cutover', { endNext: true }),
+            timedEntry(`te-${sneha.id}-${s.overnightDay}-n3`, s.overnightDay, '02:00', '05:00', 'Monitoring and rollback checks', { startNext: true, endNext: true }),
+        ];
+        const entries = sortEntries([...ow.entries, ...night]);
+        weeks[ow.id] = { ...ow, entries, approvedEntries: ow.approvedEntries ? entries : null };
+    }
+
+    // This week: the open day runs past the shift end; a planned entry later.
     const tw = weeks[weekId(sneha.id, s.thisWeek)];
-    if (tw) {
-        const extra: TimesheetEntry[] = [];
-        if (s.autoDay >= s.thisWeek) {
-            extra.push(timedEntry(`te-${sneha.id}-${s.autoDay}-x`, s.autoDay, '18:30', '20:15', 'Production deploy – payments v4.3'));
-        }
-        if (isWorkingDay(s.today)) {
-            extra.push(timedEntry(`te-${sneha.id}-${s.today}-0`, s.today, '09:30', '11:00', 'Sprint standup & planning'));
-        }
-        weeks[tw.id] = { ...tw, entries: sortEntries([...tw.entries, ...extra]) };
+    if (tw && s.openDay >= s.thisWeek) {
+        const x = timedEntry(`te-${sneha.id}-${s.openDay}-x`, s.openDay, '18:30', '20:15', 'Production deploy – payments v4.3');
+        weeks[tw.id] = { ...tw, entries: sortEntries([...tw.entries, x]) };
     }
     // The planned entry goes in its own week (next week when today is the last working day).
     const plannedWeekStart = weekStartOf(s.plannedDay);
     const planned: TimesheetEntry = timedEntry(`te-${sneha.id}-${s.plannedDay}-0`, s.plannedDay, '10:00', '11:30', 'Sprint demo – payments release');
     const pwk = weeks[weekId(sneha.id, plannedWeekStart)] ?? draftWeek(sneha, plannedWeekStart, []);
     weeks[pwk.id] = { ...pwk, entries: sortEntries([...pwk.entries, planned]) };
-    if (s.autoDay < s.thisWeek) {
-        // Auto day fell in last week (today is Monday): the entry goes there.
-        const pw = weeks[weekId(sneha.id, weekStartOf(s.autoDay))];
+    if (s.openDay < s.thisWeek) {
+        // The open day fell in last week (today is Monday): the entry goes there.
+        const pw = weeks[weekId(sneha.id, weekStartOf(s.openDay))];
         if (pw) {
-            const x = timedEntry(`te-${sneha.id}-${s.autoDay}-x`, s.autoDay, '18:30', '20:15', 'Production deploy – payments v4.3');
+            const x = timedEntry(`te-${sneha.id}-${s.openDay}-x`, s.openDay, '18:30', '20:15', 'Production deploy – payments v4.3');
             weeks[pw.id] = { ...pw, entries: sortEntries([...pw.entries, x]), approvedEntries: sortEntries([...pw.entries, x]) };
         }
     }
@@ -427,11 +480,11 @@ const teamScenarios = (s: ReturnType<typeof atsScenario>, seed: AtsSeed) => {
             history: [...rw.history, history(requestedAt, actorOf(rahul, 'EMPLOYEE'), 'CHANGE_REQUESTED', 'Description change')],
         };
     }
-    // Vikram: time logged after the auto check-out (his Update check-out request is pending).
+    // Vikram: time logged after his check-out (his correction to 8:10 PM is pending).
     const vikram = emp('ACME-007');
-    const vw = weeks[weekId(vikram.id, weekStartOf(s.vikramAutoDay))];
+    const vw = weeks[weekId(vikram.id, weekStartOf(s.vikramCorrectionDay))];
     if (vw) {
-        const x = timedEntry(`te-${vikram.id}-${s.vikramAutoDay}-x`, s.vikramAutoDay, '18:30', '20:10', 'Release support – database migration');
+        const x = timedEntry(`te-${vikram.id}-${s.vikramCorrectionDay}-x`, s.vikramCorrectionDay, '18:35', '20:10', 'Release support – database migration');
         const entries = sortEntries([...vw.entries, x]);
         weeks[vw.id] = { ...vw, entries, approvedEntries: vw.status === 'APPROVED' ? entries : vw.approvedEntries };
     }
@@ -459,10 +512,8 @@ const trailFor = (
         if (st.level === 1 || state === 'approved') return { ...st, decision: 'APPROVED' as const, at };
         return st;
     });
-    const pendingL2 = steps.find(st => !st.decision && !st.skipped);
-    let status: OvertimeRequest['trail']['status'] = 'APPROVED';
-    if (pendingL2) status = pendingL2.role === 'HR' ? 'PENDING_HR' : 'PENDING_FINANCE';
-    return { ...trail, status, steps };
+    // PROTOTYPE-SETUP (HR rules, Slice 1): level 2 is the Payroll queue for attendance and overtime.
+    return { ...trail, status: nextStatus(steps), steps };
 };
 
 const seedCorrections = (s: ReturnType<typeof atsScenario>, attendance: AtsSeed['attendance']): AttendanceCorrection[] => {
@@ -470,7 +521,6 @@ const seedCorrections = (s: ReturnType<typeof atsScenario>, attendance: AtsSeed[
         id: string,
         c: string,
         date: string,
-        kind: AttendanceCorrection['kind'],
         requested: { checkIn: string | null; checkOut: string | null },
         reason: string,
         state: Parameters<typeof trailFor>[2],
@@ -479,15 +529,13 @@ const seedCorrections = (s: ReturnType<typeof atsScenario>, attendance: AtsSeed[
         const e = emp(c);
         const r = attendance[recordKey(e.id, date)];
         if (date < e.dateOfJoin) return null;
-        const eff = effectiveCheckOut({ date, today: s.today, checkIn: r?.checkIn ?? null, checkOut: r?.checkOut ?? null });
         const createdAt = isoDateTime(workingDayOffset(date, 1), '04:30:00');
         return {
             id,
             employeeId: e.id,
             date,
-            kind,
-            current: { checkIn: r?.checkIn ?? null, checkOut: eff.checkOut, checkOutAuto: eff.auto },
-            requested,
+            current: { checkIn: r?.checkIn ?? null, checkOut: r?.checkOut ?? null, outDays: r?.outDays ?? 0 },
+            requested: { ...requested, outDays: 0 },
             reason,
             trail: trailFor('attendance', e, state, isoDateTime(workingDayOffset(date, 1), '07:00:00')),
             createdAt,
@@ -496,10 +544,10 @@ const seedCorrections = (s: ReturnType<typeof atsScenario>, attendance: AtsSeed[
         };
     };
     return [
-        make('ac-001', SNEHA, s.lateDay, 'correction', { checkIn: '09:28', checkOut: '18:58' }, 'Badge log shows 09:26 — the ESS check-in timed out at the gate.', 'pending-manager'),
-        make('ac-002', 'ACME-007', s.vikramAutoDay, 'update-check-out', { checkIn: '09:26', checkOut: '20:10' }, 'Stayed for the database migration and forgot to check out.', 'pending-manager', { fromTimesheet: true }),
-        make('ac-003', 'ACME-005', s.karthikCorrectionDay, 'correction', { checkIn: '09:30', checkOut: '18:40' }, 'Was at the client site first — Arjun knew.', 'pending-l2'),
-        make('ac-004', 'ACME-013', s.divyaCorrectionDay, 'correction', { checkIn: '09:20', checkOut: '18:30' }, 'Biometric reader was down in the morning.', 'approved'),
+        make('ac-001', SNEHA, s.lateDay, { checkIn: '09:28', checkOut: '18:58' }, 'Badge log shows 9:26 AM — the ESS check-in timed out at the gate.', 'pending-manager'),
+        make('ac-002', 'ACME-007', s.vikramCorrectionDay, { checkIn: '09:26', checkOut: '20:10' }, 'Stayed for the database migration — I tapped Check out by mistake at 6:31 PM.', 'pending-manager', { fromTimesheet: true }),
+        make('ac-003', 'ACME-005', s.karthikCorrectionDay, { checkIn: '09:30', checkOut: '18:40' }, 'Was at the client site first — Arjun knew.', 'pending-l2'),
+        make('ac-004', 'ACME-013', s.divyaCorrectionDay, { checkIn: '09:20', checkOut: '18:30' }, 'Biometric reader was down in the morning.', 'approved'),
     ].filter((c): c is AttendanceCorrection => c !== null);
 };
 

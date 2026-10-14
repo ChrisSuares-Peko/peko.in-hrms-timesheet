@@ -10,6 +10,7 @@ import type {
     OvertimeContext,
     OvertimeRequest,
     PersonRef,
+    TimesheetBreakRow,
     TimesheetDay,
     TimesheetEntry,
     TimesheetStatus,
@@ -18,8 +19,10 @@ import type {
 } from '@src/domains/attendanceTimesheet/types';
 import {
     DEFAULT_SETTINGS,
+    OPEN_SESSION_LOOKBACK_DAYS,
     addDays,
     addMonths,
+    breaksAsEntries,
     canSubmitWeek,
     dayWindow,
     deriveDay,
@@ -29,6 +32,7 @@ import {
     hasTimesheets,
     sortEntries,
     lockReasonFor,
+    toMinutes,
     monthLabel,
     monthOf,
     outsideCheckInFlag,
@@ -168,8 +172,25 @@ export const entriesOn = (mode: DataMode, e: MockEmployee, date: string) =>
     weekOf(mode, e, weekStartOf(date))
         .entries.filter(x => x.date === date);
 
+/**
+ * PROTOTYPE-SETUP (HR rules, Slice 3): recorded breaks count as logged time (so every checked-in hour is accounted
+ * for). Today's running break counts until now.
+ */
+export const breaksOn = (mode: DataMode, e: MockEmployee, date: string) =>
+    hasCheckIn(getSettings(mode).mode) ? recordOf(mode, e, date)?.breaks ?? [] : [];
+
+export const breakRowsOn = (mode: DataMode, e: MockEmployee, date: string): TimesheetBreakRow[] =>
+    breaksAsEntries(date, breaksOn(mode, e, date), date === today() ? nowMinutes() : undefined).map(x => {
+        const index = Number(x.id.slice('break:'.length));
+        const startMinutes = toMinutes(x.start!);
+        const endMinutes = Math.max(startMinutes, toMinutes(x.end!));
+        const b = breaksOn(mode, e, date)[index];
+        return { index, start: x.start!, end: x.end!, startMinutes, endMinutes, minutes: endMinutes - startMinutes, description: b?.description ?? '', running: !b?.end };
+    });
+
+/** Entries plus recorded breaks. */
 export const loggedOn = (mode: DataMode, e: MockEmployee, date: string) =>
-    entriesOn(mode, e, date).reduce((s, x) => s + entryMins(x), 0);
+    entriesOn(mode, e, date).reduce((s, x) => s + entryMins(x), 0) + breakRowsOn(mode, e, date).reduce((s, b) => s + b.minutes, 0);
 
 export const pendingChangeRequest = (mode: DataMode, week: TimesheetWeek) =>
     week.pendingChangeRequestId
@@ -196,6 +217,15 @@ export const recordOf = (mode: DataMode, e: MockEmployee, date: string) =>
 export const saveRecord = (mode: DataMode, record: AttendanceRecord) =>
     atsAttendance.update(mode, all => ({ ...all, [recordKey(record.employeeId, record.date)]: record }));
 
+/**
+ * PROTOTYPE-SETUP (HR rules, Slice 1): the latest earlier day (up to 60 days back) the employee is still checked in
+ * from — they have to check out of it before checking in again.
+ */
+export const openSessionBefore = (mode: DataMode, e: MockEmployee, date: string) =>
+    Array.from({ length: OPEN_SESSION_LOOKBACK_DAYS }, (_, i) => addDays(date, -(i + 1)))
+        .map(d => recordOf(mode, e, d))
+        .find(r => r?.checkIn && !r.checkOut);
+
 /** PROTOTYPE-SETUP (Overview, Slice 1) — demo control: clear today's check-in and check-out for both personas. */
 export const resetTodayCheckIn = (mode: DataMode) => {
     const keys = [ESS_EMPLOYEE, ESS_MANAGER].map(e => recordKey(e.id, today()));
@@ -219,7 +249,7 @@ export const attendanceDay = (mode: DataMode, e: MockEmployee, date: string): At
     const locked = isDayLocked(mode, date);
     const lock = locked ? { locked: true, lockReason: lockReasonFor(date) } : { locked: false };
     if (date < e.dateOfJoin) {
-        return { date, status: 'upcoming', checkIn: null, checkOut: null, checkOutAuto: false, minutesAtWork: 0, lateMinutes: 0, overtimeMinutes: 0, label: 'Before joining', ...lock };
+        return { date, status: 'upcoming', checkIn: null, checkOut: null, outDays: 0, open: false, carried: false, minutesAtWork: 0, breaks: [], breakMinutes: 0, onBreak: false, lateMinutes: 0, overtimeMinutes: 0, label: 'Before joining', ...lock };
     }
     const timesheetOnly = settings.mode === 'timesheet';
     // PROTOTYPE-SETUP (Overview v4, Slice 5): check-in records are only read when check-in is tracked
@@ -231,6 +261,8 @@ export const attendanceDay = (mode: DataMode, e: MockEmployee, date: string): At
         nowMinutes: nowMinutes(),
         checkIn: rec?.checkIn ?? null,
         checkOut: rec?.checkOut ?? null,
+        outDays: rec?.outDays ?? 0,
+        breaks: rec?.breaks ?? [],
         settings,
         holidayName: publicHolidayOn(date),
         leaveName: leaveNameOn(mode, e, date),
@@ -250,21 +282,23 @@ export const attendanceDay = (mode: DataMode, e: MockEmployee, date: string): At
         status,
         checkIn: d.checkIn,
         checkOut: d.checkOut,
-        checkOutAuto: d.checkOutAuto,
+        outDays: d.outDays,
+        open: d.open,
+        carried: d.carried,
         minutesAtWork: d.minutesAtWork,
+        breaks: d.breaks,
+        breakMinutes: d.breakMinutes,
+        onBreak: d.onBreak,
         lateMinutes: d.lateMinutes,
+        // PROTOTYPE-SETUP (HR rules, Slice 1): overtime counts to the check-in day, once checked out.
         overtimeMinutes:
             date < t || (date === t && d.checkOut)
-                ? overtimeMinutes({ mode: settings.mode, settings, isOffDay: d.isOffDay, checkIn: d.checkIn, checkOut: d.checkOut, checkOutAuto: d.checkOutAuto, loggedMinutes: logged })
+                ? overtimeMinutes({ mode: settings.mode, settings, isOffDay: d.isOffDay, checkIn: d.checkIn, checkOut: d.checkOut, outDays: d.outDays, loggedMinutes: logged })
                 : 0,
         ...(label ? { label } : {}),
         ...lock,
-        // PROTOTYPE-SETUP (Overview v5, Slice 4): an auto check-out the employee replaced themselves.
-        ...(rec?.checkOutSource === 'employee' && rec.checkOut
-            ? { checkOutByEmployee: { at: rec.checkOutEnteredAt ?? '', ...(rec.checkOutNote ? { note: rec.checkOutNote } : {}) } }
-            : {}),
         ...(correction
-            ? { correction: { id: correction.id, kind: correction.kind, state: requestState(correction.trail), statusLabel: trailLabel(correction.trail) } }
+            ? { correction: { id: correction.id, state: requestState(correction.trail), statusLabel: trailLabel(correction.trail) } }
             : {}),
     };
 };
@@ -276,12 +310,14 @@ export const timesheetDay = (mode: DataMode, e: MockEmployee, date: string, entr
     const t = today();
     const attendance = attendanceDay(mode, e, date);
     const dayEntries = sortEntries(entries.filter(x => x.date === date));
+    const breaks = hasTimesheets(settings.mode) ? breakRowsOn(mode, e, date) : [];
     const window =
         date < e.dateOfJoin
             ? { kind: 'none' as const, label: 'Before joining', expectedMinutes: 0 }
             : dayWindow({ mode: settings.mode, settings, day: attendance, today: t, dateOfJoin: e.dateOfJoin });
-    const logged = dayEntries.reduce((s, x) => s + entryMins(x), 0);
-    const flag = outsideCheckInFlag({ mode: settings.mode, settings, day: attendance, entries: dayEntries });
+    // PROTOTYPE-SETUP (HR rules, Slice 3): breaks count as logged.
+    const logged = dayEntries.reduce((s, x) => s + entryMins(x), 0) + breaks.reduce((s, b) => s + b.minutes, 0);
+    const flag = outsideCheckInFlag({ mode: settings.mode, day: attendance, entries: dayEntries });
     const pending = attendance.correction?.state === 'pending' ? attendance.correction : undefined;
     let { locked } = attendance;
     let { lockReason } = attendance;
@@ -294,6 +330,7 @@ export const timesheetDay = (mode: DataMode, e: MockEmployee, date: string, entr
         window,
         attendance,
         entries: dayEntries,
+        breaks,
         loggedMinutes: logged,
         expectedMinutes: window.expectedMinutes,
         unloggedMinutes: date < t ? Math.max(0, window.expectedMinutes - logged) : 0,
@@ -357,8 +394,9 @@ export const overtimeContext = (mode: DataMode, e: MockEmployee, date: string): 
         basis: overtimeBasisFor(settings.mode),
         checkIn: day.checkIn,
         checkOut: day.checkOut,
-        checkOutAuto: day.checkOutAuto,
-        ...(day.checkOutByEmployee ? { checkOutByEmployee: true } : {}),
+        outDays: day.outDays,
+        open: day.open,
+        pendingCorrection: day.correction?.state === 'pending',
         minutesAtWork: day.minutesAtWork,
         loggedMinutes: loggedOn(mode, e, date),
         extraMinutes: day.overtimeMinutes,

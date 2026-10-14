@@ -8,7 +8,7 @@ This contract is served by the prototype's mock layer today (`src/prototype/mock
   - Payroll calls it as the corporate user (`corporate/{corporateId}`).
 - **Envelope:** every response uses the usual `SuccessGenericResponse<T>`: `{ status, message, responseCode: "000", data: T }`.
 - **Types:** all shapes are defined in `src/domains/attendanceTimesheet/types.ts`. The client is `src/domains/attendanceTimesheet/api.ts`.
-- **Formats:** dates are `YYYY-MM-DD`, months are `YYYY-MM`, times are `HH:mm` (24h, company local time), and timestamps are ISO-8601.
+- **Formats:** dates are `YYYY-MM-DD`, months are `YYYY-MM`, times are `HH:mm` (24h, company local time), and timestamps are ISO-8601. Screens show times in 12-hour format ("9:30 AM"; calendar cells "9:30a").
 - **Errors:** a broken rule returns a 4xx with a human-readable `message`. The UI shows that message as-is.
   - 400: invalid input.
   - 403: not your report.
@@ -29,7 +29,7 @@ Defaults:
 - `graceMinutes: 10`, `halfDayThresholdMinutes: 240`, `overtimeMinimumMinutes: 30`.
 - Weekly off: SAT and SUN.
 - `timesheetApproval: { enabled: true, submissionWeekday: 'FRIDAY' }`.
-- `level2`: attendance HR, overtime FINANCE, timesheet NONE (fixed), leave HR, reimbursement FINANCE.
+- `level2`: attendance PAYROLL, overtime PAYROLL, timesheet NONE (fixed for now), leave HR, reimbursement FINANCE. Options per type: HR, FINANCE, PAYROLL, NONE.
 
 The legacy endpoints `hr-settings/grace-period` and `hr-settings/work-schedule` read and write the same `graceMinutes` and `shift`.
 
@@ -37,9 +37,11 @@ The legacy endpoints `hr-settings/grace-period` and `hr-settings/work-schedule` 
 
 | Mode | Tabs | Timesheet day | Overtime basis |
 |---|---|---|---|
-| `attendance` | Attendance, Overtime | — | (out − in) − shift length |
-| `both` | Attendance, Timesheet, Overtime | check-in → check-out | (out − in) − shift length |
+| `attendance` | Attendance, Overtime | — | hours worked − shift length |
+| `both` | Attendance, Timesheet, Overtime | check-in → check-out (past midnight when overnight) | hours worked − shift length |
 | `timesheet` | Timesheet, Overtime (no check-in) | the shift | hours logged − (shift − break) |
+
+Hours worked = (check-out + outDays × 24h) − check-in, breaks included, all on the check-in day.
 | `none` | — (section hidden) | — | no overtime |
 
 On weekly offs and holidays, all time worked counts as overtime.
@@ -51,13 +53,16 @@ On weekly offs and holidays, all time worked counts as overtime.
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
 | GET | `overview` | — | `AtsOverview` (card name, tabs, today, this week, counts) |
-| GET | `home` | — | `EssHomeView`: the Overview's "Last 10 working days" (`recentDays`), "Needs your action" (`actions`: sent-back weeks, missed check-outs in the last 14 days without a correction, unclaimed overtime), "Your requests" (latest status of leave, overtime, reimbursement, attendance correction and profile update requests, newest first, max 6), announcements and the shortcut-card summaries |
-| POST | `check-in` / `check-out` | — | `AtsOverview` |
+| GET | `home` | — | `EssHomeView`: the Overview's "Last 10 working days" (`recentDays`), "Needs your action" (`actions`: still checked in from an earlier day — first, with "Go to attendance" — sent-back weeks, unclaimed overtime), "Your requests" (latest status of leave, overtime, reimbursement, attendance correction and profile update requests, newest first, max 6), announcements and the shortcut-card summaries |
+| POST | `check-in` / `check-out` | — | `AtsOverview`. Check-in returns 409 "Check out from {date} first." while an earlier day is still open. |
+| POST | `check-out/previous` | — | `AtsOverview`. Checks out of the earlier day still open: today's current time, with `outDays` = the days between. |
+| POST | `breaks/start` / `breaks/end` | — | `AtsOverview`. Only while checked in today; checking out ends a running break. |
+| PUT | `breaks` | `{ breaks: AttendanceBreak[] }` | `AtsOverview`. Today's breaks, edited directly (`validateBreaks`). |
+| PUT | `attendance/{date}/breaks/{index}` | `{ description }` | `TimesheetWeekView` (that day's week). A break's description, from the timesheet; times don't change here. |
 | GET | `attendance` | `?month=YYYY-MM` | `AttendanceMonthView` |
 | GET | `corrections` | — | `(AttendanceCorrection & { statusLabel })[]` |
 | POST | `corrections` | `CorrectionInput` | `AttendanceCorrection` |
 | POST | `corrections/{id}/cancel` | — | list as above |
-| POST | `attendance/{date}/check-out` | `{ checkOut: 'HH:mm', note?: string }` | `AttendanceDay` — self-service check-out for a missed (auto-closed) day; saved straight away, no request |
 | GET | `profile` | — | `MyProfileView` (work details, approved personal details, the pending update, the last decided one) |
 | POST | `profile/update-request` | `Partial<PersonalDetails>` (any subset; only changed fields are kept) | `MyProfileView` |
 | POST | `profile/update-request/{id}/withdraw` | — | `MyProfileView` |
@@ -76,36 +81,38 @@ On weekly offs and holidays, all time worked counts as overtime.
 
 **Attendance rules**
 - One check-in and one check-out per day. Each works once: a second check-in or check-out for the same day returns 409 ("You've already checked in today." / "You've already checked out today."). `AtsOverview.today.canCheckIn` / `canCheckOut` say which button is enabled.
-- **Missed check-out:** a past day with a check-in and no check-out is closed automatically at **11:59 PM** (`checkOut: '23:59'`, `checkOutAuto: true`). Shown as "Missed (closed automatically at 11:59 PM)".
-  - Time at work is unknown ("Not known until you update the check-out"), so `minutesAtWork` is 0 and the day is never a half day.
-  - It never counts as overtime (and is never suggested) until the real check-out is updated.
-  - Expected hours use the shift (case #9 below), not check-in → 11:59 PM.
-  - For the timesheet bar and the outside-check-in flag the day runs to the shift end: entries after it show as "{dur} after shift end" with "Update check-out".
-  - **The fix is self-service** (Overview v5): `POST attendance/{date}/check-out` saves the real check-out straight away — no manager or HR approval. Its "Actual check-out" is pre-filled with the shift end (from the timesheet flag: the latest entry's end). Offered from the day drawer, the Overview's "You didn't check out" notification, the timesheet's "after shift end" flag, and the correction popup whenever the picked day is an un-updated missed check-out ("Update check-out": check-out time, optional note, "Save check-out").
-  - Guardrails (rule `validateOwnCheckOut`, 409 / 400 otherwise): the time is after that day's check-in and no later than 23:59; not in a payroll-processed month; not while a correction for the day is waiting; **once per day** — after that, a change is a normal correction (approval needed).
-  - The record is marked `checkOutSource: 'employee'` with `checkOutEnteredAt` (and `checkOutNote`). Views expose `AttendanceDay.checkOutByEmployee: { at, note? }` (and `OvertimeContext.checkOutByEmployee`): the employee sees "Entered by you"; the manager's timesheet day view, overtime approvals and HR's Attendance notes show "entered by employee".
-  - Everything derived from the record recalculates: time at work, expected hours, the timesheet window and its outside-check-in flag, overtime and its suggestions. Overtime from the day is still requested and approved as usual.
-  - Existing `kind: 'update-check-out'` corrections (seeded or raised earlier) still go through approval; the app no longer creates new ones.
+- **No automatic check-out** (HR rules): a session stays open until the employee checks out — even across days and weekends.
+  - `AttendanceDay.open` = checked in and not out; `carried` = still open from an earlier day. A carried day shows "Still checked in" and isn't counted (time at work, totals, timesheet target, overtime) until it's checked out.
+  - The employee can't check in for a new day while an earlier day (up to 60 days back) is open: `overview.today.openFrom = { date, checkIn }`, `canCheckIn: false`, and `POST check-in` returns 409 "Check out from {date} first."
+  - `POST check-out/previous` records today's current time as that day's check-out, with `outDays` = the days between (Friday closed on Monday = 3). Then check-in is allowed. If that's not when they left, they request a correction.
+- **Overnight:** all hours count to the check-in day. `AttendanceRecord.outDays` (0 = same day, 1 = next day, …). Hours worked = (check-out + outDays × 24h) − check-in; overtime, the weekend/holiday rule and the payroll month all follow the check-in day.
+- **Breaks:** `AttendanceRecord.breaks: { start, end | null, description? }[]`, several per day.
+  - Start break / End break only while checked in today (409 otherwise). Checking out ends a running break.
+  - Today's breaks are edited directly (`PUT breaks`, rule `validateBreaks`): HH:mm times, within check-in → check-out (or now), no overlaps, at most one running break (the last one, only while still checked in).
+  - Past days' breaks change only through a correction request (mentioned in the reason, for now). Descriptions can be edited from the timesheet.
+  - Hours worked include breaks. `AttendanceDay.breaks`, `breakMinutes` (a running break counts until now), `onBreak`.
 - Statuses:
   - **Late:** check-in after shift start + grace.
   - **Half day:** time at work under the threshold.
   - Otherwise: Present, Absent, On leave (approved full-day leave), Holiday (public), Weekly off, or Worked on weekly off/holiday.
   - `not-checked-in` (today) and `upcoming` (future) are not final statuses.
-- Corrections go through the approval chain. Once fully approved, they replace the day's check-in and check-out (`source: 'correction'`).
+- **Every attendance change is a correction request** — reporting manager, then Payroll. There's no self-service update. `CorrectionInput` is `{ date, checkIn?, checkOut?, outDays? (0 same day, 1 next day), reason }`; a check-out before the check-in on the same day returns 400 "Check-out must be after check-in. If you left after midnight, choose “Next day”." A day still checked in has to be checked out first (409).
+- Once fully approved, a correction replaces the day's check-in, check-out and `outDays` (breaks are kept; `source: 'correction'`).
 - Only one pending correction is allowed per day.
 
 **Timesheet entries**
 
-`TimesheetEntry` is `{ id, date, start: string | null, end: string | null, mins, description }`.
+`TimesheetEntry` is `{ id, date, start: string | null, end: string | null, startNext?, endNext?, mins, description }`.
 - **Timed entry:** `start` and `end` are set, and `mins` always equals end − start.
+- **Next-day times** (HR rules): `startNext` / `endNext` put a time after midnight. Minutes from the day's start = time + 24h when the flag is set; overlap, outside-check-in and totals all use these. "10:00 PM – 2:00 AM (next day)".
 - **Hours-only entry:** `start` and `end` are `null`, and `mins` is what the employee entered. Use it when they don't track exact times.
 
-`TimesheetEntryInput` (add, edit, change request) is `{ date, start?, end?, mins?, description }`. The server normalises it:
+`TimesheetEntryInput` (add, edit, change request) is `{ date, start?, end?, startNext?, endNext?, mins?, description }`. The server normalises it:
 
 | Sent | Saved as |
 |---|---|
-| `start` + `end` | Timed; `mins` = end − start |
-| `start` + `mins` | Timed; `end` = start + mins |
+| `start` + `end` | Timed; `mins` = end − start. An end earlier than the start is the next morning (`endNext`). |
+| `start` + `mins` | Timed; `end` = start + mins, wrapping past midnight (`endNext`) |
 | `mins` only | Hours-only |
 
 The form's Hours field accepts `1:30`, `1.5` or `1h 30m` (`parseHours` in the rules module).
@@ -116,16 +123,16 @@ Validation (`validateEntry`), in the order it checks. The messages are `ENTRY_ME
 |---|---|
 | Bad date / bad time format (API only) | Pick a valid date. / Enter times as HH:mm. |
 | End without start | Add a start time too, or clear the end time. |
-| End before start | End time must be after the start time. |
+| Same start and end | Start and end can’t be the same time. |
 | Start without end or hours | Add an end time or the hours. |
 | Unreadable hours | Write hours like 1:30, 1.5 or 1h 30m. |
 | Nothing entered * | Enter a start and end time, or just the hours. |
 | Zero hours | Add the hours worked, or a start and end time. |
 | More than 24h in one entry | One entry can’t be more than 24 hours. |
-| Start + hours runs past midnight * | This entry would run past midnight. Split it across two days. |
+| Ends later than the next day | An entry has to end by the next day. |
 | Missing description | Describe what you worked on. |
 | Day total over 24h | That takes the day over 24 hours. |
-| Overlap with another **timed** entry | Overlaps with 09:00–12:00 (*description*). |
+| Overlap with another **timed** entry or a recorded break | Overlaps with 9:00 AM – 12:00 PM (*description*). / Overlaps with 1:00 PM – 2:00 PM (break). |
 
 How hours-only entries behave:
 - They count everywhere hours are summed: day and week totals, unlogged hours, overtime in Timesheet-only mode, and the payroll and team figures.
@@ -133,32 +140,30 @@ How hours-only entries behave:
 - Within a day, timed entries are sorted by start, then hours-only entries follow (`sortEntries`).
 - The change diff compares start, end, mins and description.
 
-**Expected hours**
+**Expected hours (the day's timesheet target)**
 
-`expectedMinutes` in the rules module is the single rule behind totals, unlogged hours, the team grid and payroll:
-- Weekly off, holiday or full-day leave: **0**.
-- Timesheet-only mode: **shift length − break**.
-- Both mode: **(check-out − check-in) − break**. With no check-in, today or later: **shift length − break**. A missed check-out: **shift length − break**.
+`expectedMinutes` in the rules module is the single rule behind totals, unlogged hours, the team grid and payroll. The timesheet should cover every checked-in hour, breaks included: **recorded breaks count as logged time** (they show as read-only Break rows), so unlogged = target − logged.
 
-Edge cases. Each one has a unit test in `src/prototype/rules/__tests__/attendance.test.ts`:
-
-| # | Case | Expected |
+| Case | Target | Before (HR rules) |
 |---|---|---|
-| 1 | Both mode, past working day with no check-in (absent) | **0**. The absence shows in the Attendance tab, not as unlogged timesheet hours. If time was logged that day, the "no check-in recorded" flag still offers an attendance correction. |
-| 2 | Both mode, today, checked in but not out | Check-in → **shift end**, minus break, until the employee checks out |
-| 3 | Approved full-day leave but checked in anyway | The **check-in window** applies (they worked) |
-| 4 | Half-day leave (works the other half) | The **check-in window**, e.g. about 3h |
-| 5 | Worked on a weekly off or holiday | **0**; all the time worked counts as overtime instead |
-| 6 | Before the joining date | **0** |
-| 7 | Check-in after the shift ends (window shorter than the break) | **0**, never negative |
-| 8 | Attendance-only mode | **0** (no timesheets) |
-| 9 | Both mode, missed check-out (closed automatically at 11:59 PM) | **Shift length − break**, not check-in → 11:59 PM |
+| Both mode, checked in and out | **Hours worked**: check-out (+ outDays × 24h) − check-in, breaks included | (out − in) − break |
+| Both mode, overnight | Until the next-day check-out, e.g. 9:00 AM → 5:00 AM = **20h** | not possible (no next-day check-out) |
+| Both mode, still checked in today | Check-in → **now** (so far) | check-in → shift end − break |
+| Both mode, still checked in from an earlier day | **0** until checked out | shift − break (old case #9; the automatic check-out is gone) |
+| Both mode, no check-in (past, today or future) | **0** | 0 past; shift − break today and later |
+| Both mode, worked on a weekly off or holiday | **Hours worked** (all of it is overtime too) | 0 |
+| Both mode, check-in after the shift ends | Hours worked (e.g. 30m) | 0 (never below 0 after the break) |
+| Approved leave but checked in / half-day leave | Hours worked | (window − break) |
+| Timesheet-only mode, working day | **Shift length** (no break deduction) | shift − break |
+| Weekly off, holiday or full-day leave (no check-in); before joining; attendance-only or none mode | **0** | unchanged |
+
+Each case has a unit test in `src/prototype/rules/__tests__/attendance.test.ts` ("expected hours (the timesheet target)").
 
 **Timesheet rules**
 - Past, present and future days can all be logged.
 - In `both` mode, timed entries outside check-in and check-out set `TimesheetDay.outsideCheckIn`:
   - The flag carries a pre-filled `suggested` check-in and check-out.
-  - Its `action` is `update-check-out` on a missed check-out day (entries after the shift end), otherwise `request-correction`. A missed check-out counts as the shift end here, never 11:59 PM.
+  - Its `action` is always `request-correction` (next-day times included: a late entry suggests a next-day check-out). Nothing is flagged while the day is still checked in.
   - This time never counts as overtime.
   - On a past day with entries but no check-in, the flag prompts a correction. `suggested` comes from the timed entries, or is `null` when there are only hours-only entries.
 - Week statuses: `DRAFT → SUBMITTED → APPROVED | SENT_BACK` (sent back with a required comment).
@@ -175,7 +180,7 @@ Edge cases. Each one has a unit test in `src/prototype/rules/__tests__/attendanc
 **Overtime rules**
 - `worked`: the date is today or earlier.
 - `planned`: the date is today or later, and the description is required. After the date, `context.extraMinutes` shows the actual extra time.
-- Suggestions are made only for past days whose extra time is at least the minimum and that have no request yet.
+- Suggestions are made only for past days whose extra time is at least the minimum and that have no request yet — never while the day is still checked in, nor while an attendance correction for it is waiting. Overnight hours count to the check-in day. Overtime is only created when the employee submits a request.
 - One active request is allowed per day.
 
 **Locks:** once payroll is processed for a month, every day in it is read-only everywhere. Each day and week view carries `locked` and `lockReason`.
@@ -205,7 +210,7 @@ For the "What changed" view, the week view's `changeRequest` carries `baseEntrie
 
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
-| GET | `payroll/approvals/counts` | `?role=HR\|FINANCE` | `{ attendance, overtime, profile }` waiting for that role |
+| GET | `payroll/approvals/counts` | `?role=PAYROLL\|HR\|FINANCE` | `{ attendance, overtime, profile }` waiting for that role |
 | GET | `payroll/approvals/{attendance\|overtime\|profile}` | `?role=&scope=waiting\|all` | `RequestItem[]` (requests whose chain includes that role; profile items carry `profile.changes`) |
 | POST | `payroll/approvals/{type}/{id}/approve` / `reject` | `?role=`, `{ comment? }` | `RequestItem` |
 | GET | `payroll/timesheet-status` | `?month=` (default: earliest unprocessed) | `TimesheetStatusView` (status only, never entries) |
@@ -215,7 +220,7 @@ For the "What changed" view, the week view's `changeRequest` carries `baseEntrie
 
 **Approval chain:**
 - Level 1 is the reporting manager.
-- Level 2 comes from settings: attendance goes to HR, overtime to Finance, and timesheets have no level 2.
+- Level 2 comes from settings: attendance corrections and overtime go to the single **Payroll** queue (`PENDING_PAYROLL`), leave to HR, reimbursements to Finance; timesheets have no level 2 for now.
 - Rejecting at any level needs a comment and is final.
 - The CEO skips level 1 and goes straight to level 2.
 - **Profile updates** have no manager step: HR is the only step ("HR team"). The request holds only the changed fields as `{ from, to }` (photo included, as a data URL). The profile changes only when HR approves. One pending update per employee (a second returns 409); the employee can withdraw it.
@@ -237,7 +242,9 @@ Demo data is relative to today. Sneha Iyer (ACME-004, reports to Arjun Mehta) ha
 - A day in that week with time logged after her check-out, and an hours-only entry ("Writing release notes", 1h).
 - An approved week with a pending change request.
 - A day this week (or last week) with unclaimed overtime.
-- A missed check-out yesterday (closed automatically at 11:59 PM), with entries after the shift end.
+- Still checked in from the last working day (no automatic check-out), and not checked in today — check-in is blocked until she checks out of it.
+- An overnight day two weeks back: 9:00 AM → 5:00 AM (next day), with entries until 5:00 AM (next day) — 20h at work, 11h overtime suggested.
+- A 1:00–2:00 PM "Lunch" break on every worked day (everyone).
 - A planned entry on the next working day.
 - An approved leave in the next fortnight.
 

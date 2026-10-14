@@ -32,7 +32,7 @@ import { dayOvertime } from './dayModel';
 import CorrectionModal from '../components/CorrectionModal';
 import OvertimeRequestModal from '../components/OvertimeRequestModal';
 import { useAtsScope } from '../hooks/useAtsScope';
-import type { CorrectionKind, OvertimeView, TimesheetDay, TimesheetEntry, TimesheetWeekView } from '../types';
+import type { CorrectionTimes, OvertimeView, TimesheetDay, TimesheetEntry, TimesheetWeekView } from '../types';
 import Calendar3, { inRangeFor } from './Calendar3';
 import DayRows from './DayRows';
 import EntriesPanel from './EntriesPanel';
@@ -55,9 +55,8 @@ export interface TimesheetTabProps {
 
 interface CorrectionTarget {
     date: string;
-    kind: CorrectionKind;
-    initial: { checkIn: string | null; checkOut: string | null };
-    current: { checkIn: string | null; checkOut: string | null; checkOutAuto: boolean };
+    initial: CorrectionTimes;
+    current: CorrectionTimes & { open?: boolean };
 }
 
 /** Change-request draft: the full proposed week, edited locally. */
@@ -213,9 +212,8 @@ const TimesheetTab = ({ onChanged, initialDate }: TimesheetTabProps) => {
         if (!flag) return;
         setCorrection({
             date: day.date,
-            kind: flag.action === 'update-check-out' ? 'update-check-out' : 'correction',
             initial: flag.suggested,
-            current: { checkIn: day.attendance.checkIn, checkOut: day.attendance.checkOut, checkOutAuto: day.attendance.checkOutAuto },
+            current: { checkIn: day.attendance.checkIn, checkOut: day.attendance.checkOut, outDays: day.attendance.outDays, open: day.attendance.open },
         });
     };
 

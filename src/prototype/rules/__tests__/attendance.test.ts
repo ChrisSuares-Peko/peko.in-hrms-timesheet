@@ -15,8 +15,14 @@ import {
     dayWindow,
     ENTRY_MESSAGES,
     editModeFor,
-    effectiveCheckOut,
+    breakMinutesOf,
+    displayTime,
+    displayTimeOn,
     entryMins,
+    entryTimeText,
+    shortTime,
+    validateBreaks,
+    workedMinutes,
     entriesOverlap,
     expectedMinutes,
     formatDuration,
@@ -35,7 +41,6 @@ import {
     payrollBlockers,
     qualifyingOvertime,
     shouldSuggestOvertime,
-    validateOwnCheckOut,
     sortEntries,
     startTrail,
     tabsFor,
@@ -68,18 +73,28 @@ const hoursOnly = (id: string, date: string, mins: number, description = 'Work')
     mins,
     description,
 });
-const day = (over: Partial<AttendanceDay>): AttendanceDay => ({
-    date: '2026-10-05',
-    status: 'present',
-    checkIn: '09:30',
-    checkOut: '18:30',
-    checkOutAuto: false,
-    minutesAtWork: 540,
-    lateMinutes: 0,
-    overtimeMinutes: 0,
-    locked: false,
-    ...over,
-});
+const day = (over: Partial<AttendanceDay>): AttendanceDay => {
+    const d: AttendanceDay = {
+        date: '2026-10-05',
+        status: 'present',
+        checkIn: '09:30',
+        checkOut: '18:30',
+        outDays: 0,
+        open: false,
+        carried: false,
+        minutesAtWork: 0,
+        breaks: [],
+        breakMinutes: 0,
+        onBreak: false,
+        lateMinutes: 0,
+        overtimeMinutes: 0,
+        locked: false,
+        ...over,
+    };
+    // hours worked follow the times unless given
+    if (over.minutesAtWork === undefined) d.minutesAtWork = workedMinutes({ checkIn: d.checkIn, checkOut: d.checkOut, outDays: d.outDays });
+    return d;
+};
 
 describe('dates', () => {
     it('weeks run Monday to Sunday', () => {
@@ -100,6 +115,17 @@ describe('dates', () => {
         expect(formatDuration(390)).toBe('6h 30m');
         expect(formatDuration(360)).toBe('6h');
         expect(formatDuration(45)).toBe('45m');
+    });
+    // PROTOTYPE-SETUP (HR rules, Slice 5): 12-hour times everywhere.
+    it('shows 12-hour times', () => {
+        expect(displayTime('09:30')).toBe('9:30 AM');
+        expect(displayTime('00:05')).toBe('12:05 AM');
+        expect(displayTime('12:00')).toBe('12:00 PM');
+        expect(displayTime('18:41')).toBe('6:41 PM');
+        expect(shortTime('09:30')).toBe('9:30a');
+        expect(shortTime('18:41')).toBe('6:41p');
+        expect(displayTimeOn('05:00', 1)).toBe('5:00 AM (next day)');
+        expect(displayTimeOn('09:10', 3)).toBe('9:10 AM (3 days later)');
     });
 });
 
@@ -134,15 +160,25 @@ describe('attendance status', () => {
         expect(deriveDay({ ...base, date: '2026-10-03', checkIn: null, checkOut: null }).status).toBe('weekly-off');
         expect(deriveDay({ ...base, date: '2026-10-03', checkIn: '10:00', checkOut: '14:00' }).status).toBe('worked-off-day');
     });
-    // PROTOTYPE-SETUP (Overview, Slice 1): the automatic check-out moved to 11:59 PM.
-    it('a missed check-out closes at 11:59 PM, for a past day only', () => {
-        expect(effectiveCheckOut({ date: '2026-10-05', today: TODAY, checkIn: '09:35', checkOut: null })).toEqual({ checkOut: '23:59', auto: true });
-        expect(effectiveCheckOut({ date: TODAY, today: TODAY, checkIn: '09:35', checkOut: null })).toEqual({ checkOut: null, auto: false });
-    });
-    it('a missed check-out: time at work is unknown (0) and it is never a half day', () => {
-        const d = deriveDay({ ...base, checkIn: '09:35', checkOut: null });
-        expect(d).toMatchObject({ checkOut: '23:59', checkOutAuto: true, minutesAtWork: 0, status: 'present' });
+    // PROTOTYPE-SETUP (HR rules, Slice 1): no automatic check-out — an earlier day stays open.
+    it('no automatic check-out: an earlier day without a check-out stays open (still checked in)', () => {
+        const d = deriveDay({ ...base, checkIn: '09:35', checkOut: null, nowMinutes: 10 * 60 });
+        expect(d).toMatchObject({ checkOut: null, open: true, carried: true, status: 'present' });
+        // so far: two days (Mon → Wed 10:00) — never a half day while open
+        expect(d.minutesAtWork).toBe(2 * 24 * 60 + 25);
         expect(deriveDay({ ...base, checkIn: '15:00', checkOut: null }).status).toBe('late');
+    });
+    it('overnight: hours count to the check-in day (check-out + outDays × 24h − check-in)', () => {
+        const d = deriveDay({ ...base, checkIn: '09:00', checkOut: '05:00', outDays: 1 });
+        expect(d).toMatchObject({ outDays: 1, open: false, minutesAtWork: 20 * 60, status: 'present' });
+        expect(workedMinutes({ checkIn: '09:30', checkOut: '10:00', outDays: 3 })).toBe(3 * 24 * 60 + 30); // Friday closed on Monday
+    });
+    it('breaks: hours worked include them; a running break counts until now (today only)', () => {
+        const breaks = [{ start: '13:00', end: '14:00' }, { start: '16:00', end: null }];
+        expect(breakMinutesOf(breaks)).toBe(60);
+        expect(breakMinutesOf(breaks, 16 * 60 + 20)).toBe(80);
+        const d = deriveDay({ ...base, date: TODAY, nowMinutes: 16 * 60 + 20, checkIn: '09:30', checkOut: null, breaks });
+        expect(d).toMatchObject({ onBreak: true, breakMinutes: 80, minutesAtWork: 6 * 60 + 50 });
     });
     it('counts time on the clock today', () => {
         expect(deriveDay({ ...base, date: TODAY, nowMinutes: 12 * 60, checkIn: '09:30', checkOut: null }).minutesAtWork).toBe(150);
@@ -158,11 +194,10 @@ describe('overtime', () => {
     it('timesheet basis: logged minus (shift − break)', () => {
         expect(overtimeMinutes({ mode: 'timesheet', settings: S, isOffDay: false, checkIn: null, checkOut: null, loggedMinutes: 9 * 60 })).toBe(60);
     });
-    it('a missed check-out never counts as overtime, even on an off day', () => {
-        expect(overtimeMinutes({ mode: 'both', settings: S, isOffDay: false, checkIn: '09:30', checkOut: '23:59', checkOutAuto: true, loggedMinutes: 0 })).toBe(0);
-        expect(overtimeMinutes({ mode: 'attendance', settings: S, isOffDay: true, checkIn: '10:00', checkOut: '23:59', checkOutAuto: true, loggedMinutes: 0 })).toBe(0);
-        // a missed day never reaches the minimum, so it's never suggested
-        expect(shouldSuggestOvertime({ date: '2026-10-05', today: TODAY, extraMinutes: 0, minimumMinutes: 30, hasRequest: false })).toBe(false);
+    it('nothing while still checked in; overnight hours count to the check-in day', () => {
+        expect(overtimeMinutes({ mode: 'both', settings: S, isOffDay: false, checkIn: '09:30', checkOut: null, loggedMinutes: 0 })).toBe(0);
+        expect(overtimeMinutes({ mode: 'both', settings: S, isOffDay: false, checkIn: '09:00', checkOut: '05:00', outDays: 1, loggedMinutes: 0 })).toBe(11 * 60);
+        expect(overtimeMinutes({ mode: 'attendance', settings: S, isOffDay: true, checkIn: '20:00', checkOut: '02:00', outDays: 1, loggedMinutes: 0 })).toBe(6 * 60);
     });
     it('off days: all time counts', () => {
         expect(overtimeMinutes({ mode: 'both', settings: S, isOffDay: true, checkIn: '10:00', checkOut: '14:00', loggedMinutes: 0 })).toBe(240);
@@ -174,6 +209,9 @@ describe('overtime', () => {
         expect(shouldSuggestOvertime({ ...s, extraMinutes: 29 })).toBe(false);
         expect(shouldSuggestOvertime({ ...s, date: TODAY })).toBe(false);
         expect(shouldSuggestOvertime({ ...s, hasRequest: true })).toBe(false);
+        // PROTOTYPE-SETUP (HR rules, Slice 1): not while still checked in, nor while a correction is pending
+        expect(shouldSuggestOvertime({ ...s, open: true })).toBe(false);
+        expect(shouldSuggestOvertime({ ...s, pendingCorrection: true })).toBe(false);
     });
     it('worked is today or earlier; planned today or later with a description', () => {
         expect(() => validateOvertimeInput({ kind: 'worked', date: '2026-10-08', minutes: 60 }, TODAY)).toThrow(RuleError);
@@ -186,8 +224,8 @@ describe('overtime', () => {
 
 describe('timesheet entries', () => {
     const existing = [entry('a', '2026-10-05', '09:30', '12:00')];
-    it('requires end after start and a description', () => {
-        expect(() => validateEntry({ date: '2026-10-05', start: '13:00', end: '12:00', description: 'x' }, [])).toThrow(/after the start/);
+    it('an end earlier than the start is the next morning; a description is required', () => {
+        expect(validateEntry({ date: '2026-10-05', start: '22:00', end: '01:00', description: 'x' }, [])).toMatchObject({ start: '22:00', end: '01:00', endNext: true, mins: 180 });
         expect(() => validateEntry({ date: '2026-10-05', start: '13:00', end: '14:00', description: ' ' }, [])).toThrow(/Describe what you worked on/);
     });
     it('blocks overlaps but allows touching entries and editing itself', () => {
@@ -198,42 +236,64 @@ describe('timesheet entries', () => {
 });
 
 describe('day window', () => {
-    it('timesheet mode uses the shift', () => {
+    it('timesheet mode uses the shift (the target is the shift length)', () => {
         const w = dayWindow({ mode: 'timesheet', settings: S, day: day({}), today: TODAY });
-        expect(w).toMatchObject({ kind: 'shift', start: '09:30', end: '18:30', expectedMinutes: 480 });
+        expect(w).toMatchObject({ kind: 'shift', start: '09:30', end: '18:30', startMinutes: 570, endMinutes: 1110, expectedMinutes: 540 });
     });
-    it('both mode uses check-in to check-out', () => {
+    it('both mode uses check-in to check-out, breaks included', () => {
         const w = dayWindow({ mode: 'both', settings: S, day: day({ checkIn: '09:42', checkOut: '19:12' }), today: TODAY });
-        expect(w).toMatchObject({ kind: 'attendance', start: '09:42', end: '19:12', expectedMinutes: 510 });
-        expect(w.label).toBe('Checked in 9:42 – out 19:12');
+        expect(w).toMatchObject({ kind: 'attendance', start: '09:42', end: '19:12', expectedMinutes: 570 });
+        expect(w.label).toBe('Checked in 9:42 AM, out 7:12 PM');
     });
-    it('a missed check-out: the window runs to shift end, not 11:59 PM', () => {
-        const w = dayWindow({ mode: 'both', settings: S, day: day({ checkIn: '09:31', checkOut: '23:59', checkOutAuto: true }), today: TODAY });
-        expect(w).toMatchObject({ kind: 'attendance', start: '09:31', end: '18:30', expectedMinutes: 480 });
-        expect(w.label).toBe('Checked in 9:31, no check-out (closed automatically at 11:59 PM)');
+    it('an overnight day runs past midnight', () => {
+        const w = dayWindow({ mode: 'both', settings: S, day: day({ checkIn: '09:00', checkOut: '05:00', outDays: 1 }), today: TODAY });
+        expect(w).toMatchObject({ startMinutes: 540, endMinutes: 1740, expectedMinutes: 1200, label: 'Checked in 9:00 AM, out 5:00 AM (next day)' });
+    });
+    it('still checked in: the window runs until now', () => {
+        const w = dayWindow({ mode: 'both', settings: S, day: day({ date: TODAY, checkIn: '09:40', checkOut: null, open: true, minutesAtWork: 100 }), today: TODAY });
+        expect(w).toMatchObject({ open: true, endMinutes: 680, expectedMinutes: 100, label: 'Checked in 9:40 AM, still checked in' });
     });
 });
 
 describe('logged outside check-in hours (both mode)', () => {
-    it('flags entries after a manual check-out as a correction, never overtime', () => {
-        const f = outsideCheckInFlag({ settings: S, mode: 'both', day: day({ checkOut: '18:00' }), entries: [entry('a', '2026-10-05', '09:30', '13:00'), entry('b', '2026-10-05', '17:00', '19:30')] });
-        expect(f).toEqual({ entryIds: ['b'], action: 'request-correction', suggested: { checkIn: '09:30', checkOut: '19:30' } });
+    it('flags entries after the check-out as a correction, never overtime', () => {
+        const f = outsideCheckInFlag({ mode: 'both', day: day({ checkOut: '18:00' }), entries: [entry('a', '2026-10-05', '09:30', '13:00'), entry('b', '2026-10-05', '17:00', '19:30')] });
+        expect(f).toEqual({ entryIds: ['b'], action: 'request-correction', suggested: { checkIn: '09:30', checkOut: '19:30', outDays: 0 } });
     });
-    it('a missed check-out day: entries after the shift end offer Update check-out', () => {
-        const missed = day({ checkIn: '09:31', checkOut: '23:59', checkOutAuto: true });
-        const f = outsideCheckInFlag({ settings: S, mode: 'both', day: missed, entries: [entry('a', '2026-10-05', '09:31', '18:00'), entry('b', '2026-10-05', '18:00', '20:15')] });
-        expect(f).toEqual({ entryIds: ['b'], action: 'update-check-out', suggested: { checkIn: '09:31', checkOut: '20:15' } });
-        // inside the shift: nothing to flag
-        expect(outsideCheckInFlag({ settings: S, mode: 'both', day: missed, entries: [entry('a', '2026-10-05', '09:31', '18:30')] })).toBeUndefined();
+    it('entries after midnight suggest a next-day check-out', () => {
+        const late = { ...entry('n', '2026-10-05', '22:00', '01:00'), endNext: true, mins: 180 };
+        const f = outsideCheckInFlag({ mode: 'both', day: day({ checkOut: '23:00' }), entries: [late] });
+        expect(f?.suggested).toEqual({ checkIn: '09:30', checkOut: '01:00', outDays: 1 });
+        // inside an overnight session: nothing to flag
+        expect(outsideCheckInFlag({ mode: 'both', day: day({ checkIn: '09:00', checkOut: '05:00', outDays: 1 }), entries: [late] })).toBeUndefined();
     });
-    it('a missed check-out day with time before check-in: a correction, never pre-filled with 23:59', () => {
-        const missed = day({ checkIn: '10:00', checkOut: '23:59', checkOutAuto: true });
-        const f = outsideCheckInFlag({ settings: S, mode: 'both', day: missed, entries: [entry('a', '2026-10-05', '09:00', '12:00')] });
-        expect(f).toMatchObject({ action: 'request-correction', suggested: { checkIn: '09:00', checkOut: '18:30' } });
+    it('nothing while still checked in, in timesheet mode or inside the window', () => {
+        expect(outsideCheckInFlag({ mode: 'both', day: day({ checkOut: null, open: true }), entries: [entry('b', '2026-10-05', '17:00', '23:30')] })).toBeUndefined();
+        expect(outsideCheckInFlag({ mode: 'timesheet', day: day({ checkOut: '18:00' }), entries: [entry('b', '2026-10-05', '17:00', '19:30')] })).toBeUndefined();
+        expect(outsideCheckInFlag({ mode: 'both', day: day({}), entries: [entry('b', '2026-10-05', '10:00', '18:30')] })).toBeUndefined();
     });
-    it('does nothing in timesheet mode or inside the window', () => {
-        expect(outsideCheckInFlag({ settings: S, mode: 'timesheet', day: day({ checkOut: '18:00' }), entries: [entry('b', '2026-10-05', '17:00', '19:30')] })).toBeUndefined();
-        expect(outsideCheckInFlag({ settings: S, mode: 'both', day: day({}), entries: [entry('b', '2026-10-05', '10:00', '18:30')] })).toBeUndefined();
+});
+
+// PROTOTYPE-SETUP (HR rules, Slice 1): breaks edited by the employee (today only).
+describe('breaks', () => {
+    const session = { checkIn: '09:00', checkOut: '18:00', nowMinutes: 18 * 60 };
+    it('sorted, trimmed, within check-in → check-out, no overlaps', () => {
+        expect(validateBreaks([{ start: '15:00', end: '15:15' }, { start: '13:00', end: '14:00', description: ' Lunch ' }], session)).toEqual([
+            { start: '13:00', end: '14:00', description: 'Lunch' },
+            { start: '15:00', end: '15:15' },
+        ]);
+        expect(() => validateBreaks([{ start: '13:00', end: '14:00' }, { start: '13:59', end: '14:30' }], session)).toThrow(/overlap/);
+        expect(() => validateBreaks([{ start: '08:30', end: '09:30' }], session)).toThrow(/between your check-in/);
+        expect(() => validateBreaks([{ start: '17:30', end: '18:30' }], session)).toThrow(/between your check-in/);
+        expect(() => validateBreaks([{ start: '14:00', end: '13:00' }], session)).toThrow(/end after it starts/);
+        expect(() => validateBreaks([{ start: '1pm', end: '2pm' }], session)).toThrow(/HH:mm/);
+    });
+    it('a running break only as the last one, while still checked in (until now)', () => {
+        const open = { checkIn: '09:00', checkOut: null, nowMinutes: 16 * 60 };
+        expect(validateBreaks([{ start: '13:00', end: '14:00' }, { start: '15:30', end: null }], open)).toHaveLength(2);
+        expect(() => validateBreaks([{ start: '15:30', end: null }, { start: '15:45', end: '15:50' }], open)).toThrow(/still be running/);
+        expect(() => validateBreaks([{ start: '15:30', end: null }], session)).toThrow(/still be running/);
+        expect(() => validateBreaks([{ start: '15:30', end: '16:30' }], open)).toThrow(/between your check-in/);
     });
 });
 
@@ -283,25 +343,30 @@ describe('weeks, change requests and locks', () => {
 
 describe('approval chain', () => {
     const manager = { id: 1001, name: 'Arjun Mehta' };
-    it('manager then HR for attendance, then approved', () => {
+    // PROTOTYPE-SETUP (HR rules, Slice 1): level 2 for attendance and overtime is the Payroll queue.
+    it('manager then Payroll for attendance, then approved', () => {
         let t = startTrail('attendance', manager, S);
         expect(t.status).toBe('PENDING_MANAGER');
+        expect(t.steps.map(x => x.role)).toEqual(['MANAGER', 'PAYROLL']);
         t = decide(t, 'MANAGER', 'APPROVED', undefined, 'now');
-        expect(t.status).toBe('PENDING_HR');
-        t = decide(t, 'HR', 'APPROVED', undefined, 'now');
+        expect(t.status).toBe('PENDING_PAYROLL');
+        t = decide(t, 'PAYROLL', 'APPROVED', undefined, 'now');
         expect(t.status).toBe('APPROVED');
     });
-    it('overtime goes to Finance; rejection needs a comment and is final', () => {
+    it('overtime goes to Payroll; rejection needs a comment and is final', () => {
         const t = startTrail('overtime', manager, S);
         expect(() => decide(t, 'MANAGER', 'REJECTED', '', 'now')).toThrow(/comment/);
         expect(decide(t, 'MANAGER', 'REJECTED', 'No', 'now').status).toBe('REJECTED');
-        expect(decide(decide(t, 'MANAGER', 'APPROVED', undefined, 'now'), 'FINANCE', 'APPROVED', undefined, 'now').status).toBe('APPROVED');
+        expect(decide(decide(t, 'MANAGER', 'APPROVED', undefined, 'now'), 'PAYROLL', 'APPROVED', undefined, 'now').status).toBe('APPROVED');
     });
-    it('the wrong role cannot decide', () => {
-        expect(() => decide(startTrail('overtime', manager, S), 'FINANCE', 'APPROVED', undefined, 'now')).toThrow(RuleError);
+    it('the wrong role cannot decide; leave and reimbursement routing is unchanged', () => {
+        expect(() => decide(startTrail('overtime', manager, S), 'PAYROLL', 'APPROVED', undefined, 'now')).toThrow(RuleError);
+        expect(() => decide(decide(startTrail('overtime', manager, S), 'MANAGER', 'APPROVED', undefined, 'now'), 'FINANCE', 'APPROVED', undefined, 'now')).toThrow(RuleError);
+        expect(startTrail('leave', manager, S).steps[1].role).toBe('HR');
+        expect(startTrail('reimbursement', manager, S).steps[1].role).toBe('FINANCE');
     });
     it('the CEO skips straight to level 2; timesheets have no level 2', () => {
-        expect(startTrail('overtime', null, S).status).toBe('PENDING_FINANCE');
+        expect(startTrail('overtime', null, S).status).toBe('PENDING_PAYROLL');
         expect(startTrail('timesheet', null, S).status).toBe('APPROVED');
         expect(startTrail('timesheet', manager, S).steps).toHaveLength(1);
     });
@@ -315,9 +380,20 @@ describe('entry minutes and sorting', () => {
         expect(entryMins(hoursOnly('h', '2026-10-05', 60))).toBe(60);
         expect(entryMins({ start: '09:00', end: '10:00', mins: 999 })).toBe(60);
     });
-    it('sorts timed entries by start, then hours-only entries', () => {
-        const list = [hoursOnly('h1', '2026-10-05', 30), entry('b', '2026-10-05', '14:00', '15:00'), hoursOnly('h2', '2026-10-05', 15), entry('a', '2026-10-05', '09:00', '10:00'), entry('z', '2026-10-04', '16:00', '17:00')];
-        expect(sortEntries(list).map(e => e.id)).toEqual(['z', 'a', 'b', 'h1', 'h2']);
+    it('sorts timed entries by start (next-day starts last), then hours-only entries', () => {
+        const night = { ...entry('n', '2026-10-05', '02:00', '05:00'), startNext: true, endNext: true };
+        const list = [hoursOnly('h1', '2026-10-05', 30), night, entry('b', '2026-10-05', '14:00', '15:00'), hoursOnly('h2', '2026-10-05', 15), entry('a', '2026-10-05', '09:00', '10:00'), entry('z', '2026-10-04', '16:00', '17:00')];
+        expect(sortEntries(list).map(e => e.id)).toEqual(['z', 'a', 'b', 'n', 'h1', 'h2']);
+    });
+    // PROTOTYPE-SETUP (HR rules, Slice 1): entries can cross midnight.
+    it('next-day entries: minutes and overlap across midnight', () => {
+        const cross = { ...entry('c', '2026-10-05', '22:00', '02:00'), endNext: true };
+        const night = { ...entry('n', '2026-10-05', '01:00', '03:00'), startNext: true, endNext: true };
+        expect(entryMins(cross)).toBe(240);
+        expect(entryMins(night)).toBe(120);
+        expect(entriesOverlap(cross, night)).toBe(true);
+        expect(entriesOverlap(cross, entry('e', '2026-10-05', '09:00', '10:00'))).toBe(false);
+        expect(entryTimeText(cross)).toBe('10:00 PM – 2:00 AM (next day)');
     });
     it('hours-only entries never overlap', () => {
         expect(entriesOverlap(hoursOnly('h', '2026-10-05', 600), entry('a', '2026-10-05', '09:00', '10:00'))).toBe(false);
@@ -368,7 +444,7 @@ describe('validateEntry (entry form)', () => {
         expect(ok({ date: D, start: '09:00', end: '10:00', hoursText: 'abc', description: 'x' })).toMatchObject({ mins: 60 });
     });
     it('rejects each invalid combination with its message', () => {
-        expect(msg({ date: D, start: '13:00', end: '12:00', description: 'x' })).toBe(ENTRY_MESSAGES.endBeforeStart);
+        expect(msg({ date: D, start: '12:00', end: '12:00', description: 'x' })).toBe(ENTRY_MESSAGES.sameStartEnd);
         expect(msg({ date: D, end: '12:00', description: 'x' })).toBe(ENTRY_MESSAGES.endWithoutStart);
         expect(msg({ date: D, start: '12:00', description: 'x' })).toBe(ENTRY_MESSAGES.startWithoutEnd);
         expect(msg({ date: D, hoursText: 'abc', description: 'x' })).toBe(ENTRY_MESSAGES.unreadableHours);
@@ -376,7 +452,10 @@ describe('validateEntry (entry form)', () => {
         expect(msg({ date: D, hoursText: '25', description: 'x' })).toBe(ENTRY_MESSAGES.over24);
         expect(msg({ date: D, hoursText: '1', description: ' ' })).toBe(ENTRY_MESSAGES.description);
         expect(msg({ date: D, description: 'x' })).toBe(ENTRY_MESSAGES.missing);
-        expect(msg({ date: D, start: '23:00', hoursText: '2', description: 'x' })).toBe(ENTRY_MESSAGES.pastMidnight);
+        // PROTOTYPE-SETUP (HR rules, Slice 1): no more "split it across two days" — start + hours wraps past midnight
+        expect(ok({ date: D, start: '23:00', hoursText: '2', description: 'x' })).toMatchObject({ start: '23:00', end: '01:00', endNext: true, mins: 120 });
+        expect(ok({ date: D, start: '01:00', startNext: true, end: '03:00', description: 'x' })).toMatchObject({ startNext: true, endNext: true, mins: 120 });
+        expect(msg({ date: D, start: '20:00', startNext: true, hoursText: '6', description: 'x' })).toBe(ENTRY_MESSAGES.pastNextDay);
     });
     it('rejects a day over 24h (hours-only entries count)', () => {
         expect(msg({ date: D, hoursText: '5', description: 'x' }, [hoursOnly('h', D, 20 * 60)])).toBe(ENTRY_MESSAGES.dayOver24);
@@ -384,7 +463,9 @@ describe('validateEntry (entry form)', () => {
     });
     it('overlap applies to timed entries only', () => {
         const others = [entry('a', D, '09:00', '12:00'), hoursOnly('h', D, 120)];
-        expect(msg({ date: D, start: '11:00', end: '13:00', description: 'x' }, others)).toBe('Overlaps with 09:00–12:00 (Work).');
+        expect(msg({ date: D, start: '11:00', end: '13:00', description: 'x' }, others)).toBe('Overlaps with 9:00 AM – 12:00 PM (Work).');
+        const lunch = { ...entry('break:0', D, '13:00', '14:00', 'Lunch') };
+        expect(msg({ date: D, start: '13:30', end: '15:00', description: 'x' }, [lunch])).toBe('Overlaps with 1:00 PM – 2:00 PM (break).');
         expect(msg({ date: D, hoursText: '2', description: 'x' }, others)).toBe('no error');
         expect(msg({ id: 'a', date: D, start: '10:00', end: '12:30', description: 'x' }, others)).toBe('no error');
     });
@@ -392,12 +473,12 @@ describe('validateEntry (entry form)', () => {
 
 describe('hours-only entries in the other rules', () => {
     it('are never outside check-in hours', () => {
-        const f = outsideCheckInFlag({ settings: S, mode: 'both', day: day({ checkOut: '18:00' }), entries: [hoursOnly('h', '2026-10-05', 600)] });
+        const f = outsideCheckInFlag({ mode: 'both', day: day({ checkOut: '18:00' }), entries: [hoursOnly('h', '2026-10-05', 600)] });
         expect(f).toBeUndefined();
     });
     it('still prompt a correction on a past day with no check-in', () => {
-        const f = outsideCheckInFlag({ settings: S, mode: 'both', day: day({ status: 'absent', checkIn: null, checkOut: null }), entries: [hoursOnly('h', '2026-10-05', 60)] });
-        expect(f).toEqual({ entryIds: ['h'], action: 'request-correction', suggested: { checkIn: null, checkOut: null } });
+        const f = outsideCheckInFlag({ mode: 'both', day: day({ status: 'absent', checkIn: null, checkOut: null }), entries: [hoursOnly('h', '2026-10-05', 60)] });
+        expect(f).toEqual({ entryIds: ['h'], action: 'request-correction', suggested: { checkIn: null, checkOut: null, outDays: 0 } });
     });
     it('count toward timesheet-only overtime', () => {
         const logged = entryMins(entry('a', '2026-10-05', '09:30', '17:30')) + entryMins(hoursOnly('h', '2026-10-05', 90));
@@ -410,50 +491,46 @@ describe('hours-only entries in the other rules', () => {
     });
 });
 
-describe('expected hours — one rule, nine edge cases', () => {
+// PROTOTYPE-SETUP (HR rules, Slice 1): the timesheet target = every checked-in hour, breaks included.
+describe('expected hours (the timesheet target)', () => {
     const exp = (over: Partial<AttendanceDay>, mode: 'both' | 'timesheet' | 'attendance' = 'both', dateOfJoin?: string) =>
         expectedMinutes({ mode, settings: S, day: day(over), today: TODAY, dateOfJoin });
-    it('normal days: both = window − break, timesheet = shift − break, off/holiday/leave = 0', () => {
-        expect(exp({ checkIn: '09:30', checkOut: '19:00' })).toBe(510);
-        expect(exp({}, 'timesheet')).toBe(480);
-        expect(exp({ status: 'weekly-off', checkIn: null, checkOut: null })).toBe(0);
-        expect(exp({ status: 'holiday', checkIn: null, checkOut: null })).toBe(0);
-        expect(exp({ status: 'on-leave', checkIn: null, checkOut: null })).toBe(0);
-        expect(exp({ date: '2026-10-08', status: 'upcoming', checkIn: null, checkOut: null })).toBe(480);
+    it('checked in and out: hours worked, breaks included (was: minus the break)', () => {
+        expect(exp({ checkIn: '09:30', checkOut: '19:00' })).toBe(570);
+        expect(exp({ status: 'half-day', checkIn: '14:00', checkOut: '18:30' })).toBe(270);
+        expect(exp({ checkIn: '18:40', checkOut: '19:10' })).toBe(30); // was 0 (window shorter than the break)
     });
-    it('#1 both mode, past working day with no check-in (absent) → 0', () => {
-        expect(exp({ status: 'absent', checkIn: null, checkOut: null })).toBe(0);
+    it('overnight: until the next-day check-out', () => {
+        expect(exp({ checkIn: '09:00', checkOut: '05:00', outDays: 1 })).toBe(20 * 60);
     });
-    it('#2 both mode, today, checked in and not out → check-in to shift end, minus break', () => {
-        expect(exp({ date: TODAY, status: 'present', checkIn: '09:00', checkOut: null })).toBe(510);
-    });
-    it('#3 approved leave but checked in → the check-in window applies', () => {
-        // status isn't on-leave when there's a check-in (deriveDay), so the window is used
-        expect(exp({ status: 'present', label: 'Casual Leave', checkIn: '10:00', checkOut: '15:00' })).toBe(240);
-    });
-    it('#4 half-day leave (works the other half) → the check-in window', () => {
-        expect(exp({ status: 'half-day', checkIn: '14:00', checkOut: '18:30' })).toBe(210);
-    });
-    it('#5 worked on a weekly off or holiday → 0 (all that time is overtime instead)', () => {
-        expect(exp({ status: 'worked-off-day', checkIn: '10:00', checkOut: '14:00' })).toBe(0);
-        expect(overtimeMinutes({ mode: 'both', settings: S, isOffDay: true, checkIn: '10:00', checkOut: '14:00', loggedMinutes: 0 })).toBe(240);
-    });
-    it('#6 before the joining date → 0', () => {
+    it('timesheet-only: the shift length, no break deduction (was shift − break); off days 0', () => {
+        expect(exp({}, 'timesheet')).toBe(540);
+        expect(exp({ status: 'weekly-off', checkIn: null, checkOut: null }, 'timesheet')).toBe(0);
         expect(exp({}, 'timesheet', '2026-10-06')).toBe(0);
     });
-    it('#7 check-in after the shift ends (window shorter than the break) → 0, never negative', () => {
-        expect(exp({ checkIn: '18:40', checkOut: '19:10' })).toBe(0);
+    it('still checked in: today so far; an earlier day 0 until checked out', () => {
+        expect(exp({ date: TODAY, checkIn: '09:00', checkOut: null, open: true, minutesAtWork: 125 })).toBe(125);
+        expect(exp({ checkIn: '09:00', checkOut: null, open: true, carried: true, minutesAtWork: 3000 })).toBe(0);
     });
-    it('#8 attendance-only mode → 0', () => {
+    it('no check-in: 0 whatever the day (was shift − break today and later)', () => {
+        expect(exp({ status: 'absent', checkIn: null, checkOut: null })).toBe(0);
+        expect(exp({ date: TODAY, status: 'not-checked-in', checkIn: null, checkOut: null })).toBe(0);
+        expect(exp({ date: '2026-10-08', status: 'upcoming', checkIn: null, checkOut: null })).toBe(0);
+    });
+    it('leave, weekly off, holiday: 0; worked on an off day: the hours worked (was 0)', () => {
+        expect(exp({ status: 'on-leave', checkIn: null, checkOut: null })).toBe(0);
+        expect(exp({ status: 'weekly-off', checkIn: null, checkOut: null })).toBe(0);
+        expect(exp({ status: 'holiday', checkIn: null, checkOut: null })).toBe(0);
+        expect(exp({ status: 'worked-off-day', checkIn: '10:00', checkOut: '14:00' })).toBe(240);
+        expect(exp({ status: 'present', label: 'Casual Leave', checkIn: '10:00', checkOut: '15:00' })).toBe(300);
+    });
+    it('attendance-only mode, before joining: 0', () => {
         expect(exp({}, 'attendance')).toBe(0);
-    });
-    it('#9 a missed check-out (auto 11:59 PM) → shift − break, not check-in to 11:59 PM', () => {
-        expect(exp({ checkIn: '09:31', checkOut: '23:59', checkOutAuto: true })).toBe(480);
-        expect(exp({ checkIn: '11:00', checkOut: '23:59', checkOutAuto: true })).toBe(480);
+        expect(exp({}, 'both', '2026-10-06')).toBe(0);
     });
     it('dayWindow uses the same number', () => {
         expect(dayWindow({ mode: 'both', settings: S, day: day({ status: 'absent', checkIn: null, checkOut: null }), today: TODAY }).expectedMinutes).toBe(0);
-        expect(dayWindow({ mode: 'both', settings: S, day: day({ checkIn: '09:42', checkOut: '19:12' }), today: TODAY }).expectedMinutes).toBe(510);
+        expect(dayWindow({ mode: 'both', settings: S, day: day({ checkIn: '09:42', checkOut: '19:12' }), today: TODAY }).expectedMinutes).toBe(570);
     });
 });
 
@@ -529,26 +606,5 @@ describe('overtime at the HR minimum', () => {
         expect(qualifyingOvertime(29, 30)).toBe(0);
         expect(qualifyingOvertime(4, 0)).toBe(4);
         expect(qualifyingOvertime(0, 0)).toBe(0);
-    });
-});
-
-// PROTOTYPE-SETUP (Overview v5, Slice 4): the self-service check-out guardrails.
-describe('self-service check-out rule', () => {
-    const autoDay = { checkIn: '09:31', checkOutAuto: true, locked: false };
-    const ok = { day: autoDay, checkOut: '19:10', alreadyEntered: false, pendingCorrection: false };
-    it('accepts a time after the check-in, up to 23:59', () => {
-        expect(validateOwnCheckOut(ok)).toBe(19 * 60 + 10);
-        expect(validateOwnCheckOut({ ...ok, checkOut: '23:59' })).toBe(23 * 60 + 59);
-    });
-    it('rejects out-of-range times', () => {
-        expect(() => validateOwnCheckOut({ ...ok, checkOut: '09:31' })).toThrow(/after your check-in \(9:31\)/);
-        expect(() => validateOwnCheckOut({ ...ok, checkOut: '24:00' })).toThrow(/23:59/);
-        expect(() => validateOwnCheckOut({ ...ok, checkOut: '7pm' })).toThrow(/HH:mm/);
-    });
-    it('once per day, auto-closed days only, not locked, not with a correction waiting', () => {
-        expect(() => validateOwnCheckOut({ ...ok, alreadyEntered: true })).toThrow(/request a correction/);
-        expect(() => validateOwnCheckOut({ ...ok, day: { ...autoDay, checkOutAuto: false } })).toThrow(/closed automatically/);
-        expect(() => validateOwnCheckOut({ ...ok, day: { ...autoDay, locked: true, lockReason: 'Payroll for August 2026 has been processed.' } })).toThrow(/processed/);
-        expect(() => validateOwnCheckOut({ ...ok, pendingCorrection: true })).toThrow(/waiting for approval/);
     });
 });

@@ -2,7 +2,7 @@
 // records (data/time-attendance.ts MockAttendance), so the existing Payroll screens (Daily Log, Monthly
 // Summary, Shift Schedule, dashboard tiles) show the same check-ins, auto check-outs and approved corrections
 // as the new ESS screens.
-import { addMonths, monthBounds, monthDates } from '@src/prototype/rules/attendance';
+import { addDays, addMonths, formatDuration, monthBounds, monthDates } from '@src/prototype/rules/attendance';
 
 import { attendanceDay, employeesFor, getSettings, overtimeOfEmployee, recordOf, today } from './atsStore';
 import { MockEmployee, findEmployee } from '../data/employees';
@@ -37,17 +37,18 @@ export const legacyDay = (mode: DataMode, e: MockEmployee, date: string): MockAt
     const notes = [
         d.status === 'worked-off-day' ? d.label : null,
         d.status === 'on-leave' ? d.label : null,
-        d.checkOutAuto ? 'Missed check-out (closed automatically at 11:59 PM)' : null,
+        // PROTOTYPE-SETUP (HR rules, Slice 1): no automatic check-out; breaks recorded; next-day check-outs.
+        d.open ? 'Still checked in' : null,
+        d.outDays === 1 ? 'Checked out the next day' : null,
+        d.breakMinutes ? `Breaks ${formatDuration(d.breakMinutes)}` : null,
         recordOf(mode, e, date)?.source === 'correction' ? 'Corrected (approved)' : null,
-        // PROTOTYPE-SETUP (Overview v5, Slice 4): HR sees an auto check-out the employee replaced themselves.
-        d.checkOutByEmployee ? 'Check-out entered by employee' : null,
     ].filter(Boolean);
     return {
         id: legacyIdOf(e, date),
         employee: e,
         date,
         checkIn: d.checkIn ? `${date}T${d.checkIn}:00` : null,
-        checkOut: d.checkOut ? `${date}T${d.checkOut}:00` : null,
+        checkOut: d.checkOut ? `${addDays(date, d.outDays)}T${d.checkOut}:00` : null,
         status,
         lateMinutes: d.lateMinutes,
         totalHours: completed ? round2(Math.max(0, d.minutesAtWork - settings.breakMinutes) / 60) : 0,

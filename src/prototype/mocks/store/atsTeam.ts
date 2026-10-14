@@ -33,6 +33,7 @@ import {
     diffEntries,
     diffSummary,
     displayTime,
+    displayTimeOn,
     entryMins,
     formatDuration,
     hasTimesheets,
@@ -74,6 +75,7 @@ import {
     nowIso,
     overtimeContext,
     pendingChangeRequest,
+    recordOf,
     personRef,
     processedMonths,
     saveRecord,
@@ -304,12 +306,13 @@ export type RequestType = 'attendance' | 'overtime' | 'profile';
 const correctionItem = (mode: DataMode, c: AttendanceCorrection, viewer: ApproverRole): RequestItem | null => {
     const e = findEmployee(c.employeeId);
     if (!e) return null;
-    const what = c.kind === 'update-check-out' ? 'Update check-out' : 'Attendance correction';
     const fmt = (v: string | null) => (v ? displayTime(v) : '—');
+    const fmtOut = (v: string | null, days: number) => (v ? displayTimeOn(v, days) : 'not checked out');
+    // PROTOTYPE-SETUP (HR rules, Slice 1): next-day check-outs read "5:00 AM (next day)".
     const changes = [
         c.requested.checkIn !== c.current.checkIn && `Check-in ${fmt(c.current.checkIn)} → ${fmt(c.requested.checkIn)}`,
-        c.requested.checkOut !== c.current.checkOut &&
-            `Check-out ${c.current.checkOutAuto ? 'missed (auto 11:59 PM)' : fmt(c.current.checkOut)} → ${fmt(c.requested.checkOut)}`,
+        (c.requested.checkOut !== c.current.checkOut || c.requested.outDays !== c.current.outDays) &&
+            `Check-out ${fmtOut(c.current.checkOut, c.current.outDays)} → ${fmtOut(c.requested.checkOut, c.requested.outDays)}`,
     ].filter(Boolean);
     const blocked = c.trail.status.startsWith('PENDING') && isDayLocked(mode, c.date) ? lockReasonFor(c.date) : undefined;
     return {
@@ -317,13 +320,13 @@ const correctionItem = (mode: DataMode, c: AttendanceCorrection, viewer: Approve
         id: c.id,
         employee: personRef(e),
         manager: managerRef(e),
-        title: `${what} · ${dayLabel(c.date)}`,
+        title: `Attendance correction · ${dayLabel(c.date)}`,
         detail: changes.join(' · ') || 'No time change',
         notes: c.reason,
         at: c.createdAt,
         trail: c.trail,
         statusLabel: trailLabel(c.trail),
-        correction: { kind: c.kind, current: c.current, requested: c.requested },
+        correction: { current: c.current, requested: c.requested },
         ...(blocked ? { blockedReason: blocked } : {}),
         waitingForYou: awaiting(c.trail) === viewer,
     };
@@ -436,7 +439,17 @@ export const decideRequest = (
         const trail = decide(c.trail, actor.role, decision, comment, at);
         atsCorrections.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
         if (trail.status === 'APPROVED') {
-            saveRecord(mode, { employeeId: c.employeeId, date: c.date, checkIn: c.requested.checkIn, checkOut: c.requested.checkOut, source: 'correction' });
+            // Breaks are kept; the times (and the check-out day) come from the request.
+            const existing = recordOf(mode, findEmployee(c.employeeId)!, c.date);
+            saveRecord(mode, {
+                ...(existing ?? { breaks: [] }),
+                employeeId: c.employeeId,
+                date: c.date,
+                checkIn: c.requested.checkIn,
+                checkOut: c.requested.checkOut,
+                outDays: c.requested.checkOut ? c.requested.outDays : 0,
+                source: 'correction',
+            });
         }
         return correctionItem(mode, { ...c, trail }, actor.role)!;
     }
@@ -563,7 +576,7 @@ export const autoRunSubmissionDay = (mode: DataMode) => {
 
 // PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' = neither attendance nor timesheet tracking.
 const MODES = ['attendance', 'both', 'timesheet', 'none'] as const;
-const L2: Level2Approver[] = ['HR', 'FINANCE', 'NONE'];
+const L2: Level2Approver[] = ['HR', 'FINANCE', 'PAYROLL', 'NONE'];
 const HHMM = /^\d{2}:\d{2}$/;
 const int = (v: unknown, min: number, max: number, fallback: number) => {
     const n = Number(v);

@@ -4,10 +4,9 @@
 import type {
     AtsOverview,
     AttendanceCorrection,
-    AttendanceDay,
+    AttendanceBreak,
     AttendanceMonthView,
     AttendanceTotals,
-    OwnCheckOutUpdate,
     ChangeRequest,
     ChangeRequestInput,
     CorrectionInput,
@@ -27,11 +26,17 @@ import {
     cancelTrail,
     canSubmitWeek,
     changeRequestBlockedReason,
+    BREAK_MESSAGES,
+    breaksAsEntries,
+    checkOutMinutes,
     datesTouched,
+    daysBetween,
     diffEntries,
     diffSummary,
     displayTime,
+    displayTimeOn,
     entryMins,
+    entryTimeText,
     formatDuration,
     sortEntries,
     hasCheckIn,
@@ -52,8 +57,8 @@ import {
     toMinutes,
     trailLabel,
     validateEntry,
+    validateBreaks,
     validateOvertimeInput,
-    validateOwnCheckOut,
     weekDates,
     weekStartOf,
     weeksOverlappingMonth,
@@ -61,7 +66,6 @@ import {
 
 import {
     activeOvertimeOn,
-    atsAttendance,
     atsChangeRequests,
     atsCorrections,
     atsOvertime,
@@ -75,6 +79,8 @@ import {
     loggedOn,
     managerRef,
     nowIso,
+    nowMinutes,
+    openSessionBefore,
     overtimeContext,
     overtimeOfEmployee,
     pendingChangeRequest,
@@ -86,6 +92,7 @@ import {
     weekOf,
     weekView,
     weeksSummary,
+    breaksOn,
 } from './atsStore';
 import { SYSTEM_ACTOR, actorOf } from '../data/ats-seed';
 import { MockEmployee } from '../data/employees';
@@ -106,10 +113,8 @@ const event = (e: MockEmployee, action: HistoryEvent['action'], detail?: string)
 });
 
 // PROTOTYPE-SETUP (V2): hours-only entries have no times — label them by their hours.
-const entryLabel = (x: Pick<TimesheetEntry, 'date' | 'start' | 'end' | 'mins'>) =>
-    x.start && x.end
-        ? `${dayLabel(x.date)} ${displayTime(x.start)}–${displayTime(x.end)}`
-        : `${dayLabel(x.date)} ${formatDuration(entryMins(x))} (no set time)`;
+const entryLabel = (x: Pick<TimesheetEntry, 'date' | 'start' | 'end' | 'startNext' | 'endNext' | 'mins'>) =>
+    x.start && x.end ? `${dayLabel(x.date)} ${entryTimeText(x)}` : `${dayLabel(x.date)} ${formatDuration(entryMins(x))} (no set time)`;
 
 // ---- overview & attendance --------------------------------------------------------------------------
 
@@ -119,10 +124,14 @@ export const overviewOf = (mode: DataMode, e: MockEmployee): AtsOverview => {
     const day = attendanceDay(mode, e, t);
     const rec = recordOf(mode, e, t);
     const punch = hasCheckIn(settings.mode);
-    const canCheckIn = punch && !rec?.checkIn && day.status !== 'on-leave';
+    // PROTOTYPE-SETUP (HR rules, Slice 1): an earlier day still checked in blocks today's check-in.
+    const open = punch ? openSessionBefore(mode, e, t) : undefined;
+    const canCheckIn = punch && !rec?.checkIn && !open && day.status !== 'on-leave';
     const canCheckOut = punch && Boolean(rec?.checkIn) && !rec?.checkOut;
+    const canEndBreak = canCheckOut && day.onBreak;
     let hint: string | undefined;
-    if (punch && day.status === 'on-leave') hint = `You're on ${day.label ?? 'leave'} today.`;
+    if (punch && open) hint = `Check out from ${dayLabel(open.date)} first.`;
+    else if (punch && day.status === 'on-leave') hint = `You're on ${day.label ?? 'leave'} today.`;
     else if (punch && rec?.checkOut) hint = `Checked out at ${displayTime(rec.checkOut)}.`;
     const ws = weekStartOf(t);
     const thisWeek = weekView(mode, e, ws);
@@ -131,7 +140,16 @@ export const overviewOf = (mode: DataMode, e: MockEmployee): AtsOverview => {
         mode: settings.mode,
         title: titleFor(settings.mode),
         tabs: tabsFor(settings.mode),
-        today: { ...day, canCheckIn, canCheckOut, ...(hint ? { hint } : {}), loggedMinutes: loggedOn(mode, e, t) },
+        today: {
+            ...day,
+            canCheckIn,
+            canCheckOut,
+            canStartBreak: canCheckOut && !day.onBreak,
+            canEndBreak,
+            ...(open?.checkIn ? { openFrom: { date: open.date, checkIn: open.checkIn } } : {}),
+            ...(hint ? { hint } : {}),
+            loggedMinutes: loggedOn(mode, e, t),
+        },
         shift: settings.shift,
         graceMinutes: settings.graceMinutes,
         approvalEnabled: settings.timesheetApproval.enabled,
@@ -144,13 +162,20 @@ export const overviewOf = (mode: DataMode, e: MockEmployee): AtsOverview => {
     };
 };
 
+/** Ends a running break at `at` (or at its own start when that's later — e.g. a session closed on a later day). */
+const endRunningBreak = (breaks: AttendanceBreak[] | undefined, at: string): AttendanceBreak[] =>
+    (breaks ?? []).map(b => (b.end ? b : { ...b, end: toMinutes(at) > toMinutes(b.start) ? at : b.start }));
+
 export const checkIn = (mode: DataMode, e: MockEmployee) => {
     const settings = getSettings(mode);
     if (!hasCheckIn(settings.mode)) throw new RuleError(checkInOffMessage(settings.mode));
     const t = today();
     if (recordOf(mode, e, t)?.checkIn) throw new RuleError("You've already checked in today.");
+    // PROTOTYPE-SETUP (HR rules, Slice 1): no automatic check-out — the earlier day has to be checked out first.
+    const open = openSessionBefore(mode, e, t);
+    if (open) throw new RuleError(`Check out from ${dayLabel(open.date)} first.`);
     if (attendanceDay(mode, e, t).status === 'on-leave') throw new RuleError("You're on approved leave today.");
-    saveRecord(mode, { employeeId: e.id, date: t, checkIn: clockNow(), checkOut: null, source: 'ess' });
+    saveRecord(mode, { employeeId: e.id, date: t, checkIn: clockNow(), checkOut: null, outDays: 0, breaks: [], source: 'ess' });
     return overviewOf(mode, e);
 };
 
@@ -161,8 +186,76 @@ export const checkOut = (mode: DataMode, e: MockEmployee) => {
     if (rec.checkOut) throw new RuleError("You've already checked out today.");
     const now = clockNow();
     const out = toMinutes(now) > toMinutes(rec.checkIn) ? now : rec.checkIn;
-    saveRecord(mode, { ...rec, checkOut: out });
+    // Checking out ends a running break.
+    saveRecord(mode, { ...rec, checkOut: out, outDays: 0, breaks: endRunningBreak(rec.breaks, out) });
     return overviewOf(mode, e);
+};
+
+/**
+ * PROTOTYPE-SETUP (HR rules, Slice 1): checks out of the earlier day still open — today's current time becomes its
+ * check-out, with outDays = the days between (Friday closed on Monday = 3). A running break ends where it started.
+ * The employee can request a correction if that's not when they left.
+ */
+export const checkOutPrevious = (mode: DataMode, e: MockEmployee) => {
+    const settings = getSettings(mode);
+    if (!hasCheckIn(settings.mode)) throw new RuleError(checkInOffMessage(settings.mode));
+    const t = today();
+    const open = openSessionBefore(mode, e, t);
+    if (!open?.checkIn) throw new RuleError("You're not checked in from an earlier day.");
+    const out = clockNow();
+    const outDays = daysBetween(open.date, t);
+    saveRecord(mode, { ...open, checkOut: out, outDays, breaks: (open.breaks ?? []).map(b => (b.end ? b : { ...b, end: b.start })) });
+    return overviewOf(mode, e);
+};
+
+// ---- breaks (PROTOTYPE-SETUP: HR rules, Slice 1) ---------------------------------------------------------
+
+const todaysOpenRecord = (mode: DataMode, e: MockEmployee) => {
+    const rec = recordOf(mode, e, today());
+    if (!rec?.checkIn || rec.checkOut) throw new RuleError(BREAK_MESSAGES.notCheckedIn);
+    return rec;
+};
+
+/** Start break: only while checked in today, and not already on one. */
+export const startBreak = (mode: DataMode, e: MockEmployee) => {
+    const rec = todaysOpenRecord(mode, e);
+    if ((rec.breaks ?? []).some(b => !b.end)) throw new RuleError(BREAK_MESSAGES.onBreak);
+    saveRecord(mode, { ...rec, breaks: [...(rec.breaks ?? []), { start: clockNow(), end: null }] });
+    return overviewOf(mode, e);
+};
+
+/** End break: ends the running break now. */
+export const endBreak = (mode: DataMode, e: MockEmployee) => {
+    const rec = todaysOpenRecord(mode, e);
+    if (!(rec.breaks ?? []).some(b => !b.end)) throw new RuleError(BREAK_MESSAGES.noBreak);
+    saveRecord(mode, { ...rec, breaks: endRunningBreak(rec.breaks, clockNow()) });
+    return overviewOf(mode, e);
+};
+
+/**
+ * Edit today's breaks directly (start, end, description; no overlaps; within check-in → check-out or now).
+ * Past days' breaks change only through a correction request.
+ */
+export const updateTodayBreaks = (mode: DataMode, e: MockEmployee, input: { breaks?: AttendanceBreak[] }) => {
+    const rec = recordOf(mode, e, today());
+    if (!rec?.checkIn) throw new RuleError(BREAK_MESSAGES.notCheckedIn);
+    const breaks = validateBreaks(input?.breaks ?? [], { checkIn: rec.checkIn, checkOut: rec.checkOut, nowMinutes: Math.max(toMinutes(rec.checkIn), nowMinutes()) });
+    saveRecord(mode, { ...rec, breaks });
+    return overviewOf(mode, e);
+};
+
+/**
+ * PROTOTYPE-SETUP (HR rules, Slice 3): a break's description, from the timesheet ("Add description"). Any unlocked
+ * day; the times themselves don't change here.
+ */
+export const updateBreakDescription = (mode: DataMode, e: MockEmployee, date: string, index: number, input: { description?: string }) => {
+    if (isDayLocked(mode, date)) throw new RuleError(lockReasonFor(date));
+    const rec = recordOf(mode, e, date);
+    const target = rec?.breaks?.[index];
+    if (!rec || !target) throw new RuleError('Break not found.', 404);
+    const description = input?.description?.trim().slice(0, 200) ?? '';
+    saveRecord(mode, { ...rec, breaks: rec.breaks!.map((b, i) => (i === index ? { start: b.start, end: b.end, ...(description ? { description } : {}) } : b)) });
+    return weekView(mode, e, weekStartOf(date));
 };
 
 const emptyTotals = (): AttendanceTotals => ({
@@ -174,7 +267,7 @@ const emptyTotals = (): AttendanceTotals => ({
     holidays: 0,
     weeklyOff: 0,
     workedOffDays: 0,
-    missedCheckOuts: 0,
+    breakMinutes: 0,
     minutesAtWork: 0,
     overtimeMinutes: 0,
     lateMinutes: 0,
@@ -194,15 +287,22 @@ export const attendanceMonthOf = (
         .map(d => attendanceDay(mode, e, d))
         .map(d => (opts.overtimeAtMinimum ? { ...d, overtimeMinutes: qualifyingOvertime(d.overtimeMinutes, minimum) } : d));
     const totals = days.reduce((acc, d) => {
-        const next = { ...acc, minutesAtWork: acc.minutesAtWork + d.minutesAtWork, overtimeMinutes: acc.overtimeMinutes + d.overtimeMinutes, lateMinutes: acc.lateMinutes + d.lateMinutes };
+        // PROTOTYPE-SETUP (HR rules, Slice 2): days still checked in aren't counted yet.
+        const counted = !d.open;
+        const next = {
+            ...acc,
+            minutesAtWork: acc.minutesAtWork + (counted ? d.minutesAtWork : 0),
+            breakMinutes: acc.breakMinutes + (counted ? d.breakMinutes : 0),
+            overtimeMinutes: acc.overtimeMinutes + d.overtimeMinutes,
+            lateMinutes: acc.lateMinutes + d.lateMinutes,
+        };
         if (d.status === 'present') next.present += 1;
         if (d.status === 'late') next.late += 1;
         if (d.status === 'half-day') next.halfDay += 1;
         if (d.status === 'absent') next.absent += 1;
         if (d.status === 'on-leave') next.onLeave += 1;
-        // PROTOTYPE-SETUP (Attendance final, Slice 2): weekday holidays only; missed check-outs not yet updated.
+        // PROTOTYPE-SETUP (Attendance final, Slice 2): weekday holidays only.
         if (d.status === 'holiday' && !isWeeklyOff(d.date, settings)) next.holidays += 1;
-        if (d.checkOutAuto) next.missedCheckOuts += 1;
         if (d.status === 'weekly-off') next.weeklyOff += 1;
         if (d.status === 'worked-off-day') next.workedOffDays += 1;
         return next;
@@ -211,44 +311,6 @@ export const attendanceMonthOf = (
     return { month, monthLabel: monthLabel(month), days, totals, locked, ...(locked ? { lockReason: lockReasonFor(monthBounds(month).first) } : {}) };
 };
 
-// ---- self-service check-out update (Overview v5, Slice 4) ------------------------------------------------
-
-/**
- * PROTOTYPE-SETUP (Overview v5, Slice 4): the employee enters the real check-out of a day that closed
- * automatically at 11:59 PM. Saved straight away — no request, no approval — and marked as entered by the employee.
- * Everything derived from the record (time at work, expected hours, overtime, the timesheet window and its
- * outside-check-in flag) recalculates on the next read. Overtime from the day is still claimed and approved as usual.
- */
-export const updateOwnCheckOut = (mode: DataMode, e: MockEmployee, input: { date?: string; checkOut?: string; note?: string }): AttendanceDay => {
-    const settings = getSettings(mode);
-    if (!hasCheckIn(settings.mode)) throw new RuleError(checkInOffMessage(settings.mode));
-    const date = input?.date;
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date >= today()) throw new RuleError('Pick a past day that closed automatically.', 400);
-    const rec = recordOf(mode, e, date);
-    validateOwnCheckOut({
-        day: attendanceDay(mode, e, date),
-        checkOut: input.checkOut,
-        alreadyEntered: rec?.checkOutSource === 'employee',
-        pendingCorrection: correctionsOf(mode, e).some(c => c.date === date && c.trail.status.startsWith('PENDING')),
-    });
-    const note = input.note?.trim().slice(0, 300);
-    saveRecord(mode, {
-        ...rec!,
-        checkOut: input.checkOut!,
-        checkOutSource: 'employee',
-        checkOutEnteredAt: nowIso(),
-        ...(note ? { checkOutNote: note } : {}),
-    });
-    return attendanceDay(mode, e, date);
-};
-
-/** PROTOTYPE-SETUP (Attendance layout, Slice 3): the employee's self-entered check-outs, newest first. */
-export const ownCheckOutsOf = (mode: DataMode, e: MockEmployee): OwnCheckOutUpdate[] =>
-    Object.values(atsAttendance.get(mode))
-        .filter(r => r.employeeId === e.id && r.checkOutSource === 'employee' && r.checkOut)
-        .map(r => ({ date: r.date, checkIn: r.checkIn, checkOut: r.checkOut!, at: r.checkOutEnteredAt ?? '', ...(r.checkOutNote ? { note: r.checkOutNote } : {}) }))
-        .sort((a, b) => b.at.localeCompare(a.at));
-
 // ---- attendance corrections ---------------------------------------------------------------------------
 
 export const correctionsView = (mode: DataMode, e: MockEmployee) =>
@@ -256,6 +318,11 @@ export const correctionsView = (mode: DataMode, e: MockEmployee) =>
 
 const HHMM = /^\d{2}:\d{2}$/;
 
+/**
+ * PROTOTYPE-SETUP (HR rules, Slice 1): every attendance change is a correction request — the reporting manager,
+ * then Payroll. outDays: 0 = check-out the same day, 1 = the next day. A day still checked in has to be checked out
+ * first. A past break's change is mentioned in the reason.
+ */
 export const createCorrection = (mode: DataMode, e: MockEmployee, input: CorrectionInput): AttendanceCorrection => {
     const settings = getSettings(mode);
     if (!hasCheckIn(settings.mode)) {
@@ -268,20 +335,21 @@ export const createCorrection = (mode: DataMode, e: MockEmployee, input: Correct
     const reason = input.reason?.trim();
     if (!reason) throw new RuleError('Add a reason for the correction.', 400);
     const day = attendanceDay(mode, e, input.date);
-    const requestedIn = input.kind === 'update-check-out' ? day.checkIn : input.checkIn ?? day.checkIn;
-    const requestedOut = input.checkOut ?? (input.kind === 'update-check-out' ? null : day.checkOut);
-    if (input.kind === 'update-check-out') {
-        if (!day.checkOutAuto) throw new RuleError('Update check-out is only for a day that was checked out automatically.');
-        if (!requestedOut) throw new RuleError('Enter the time you actually left.', 400);
+    if (day.open) {
+        throw new RuleError(day.carried ? 'Still checked in. Check out from the Today panel first.' : 'Check out first, then request a correction.');
     }
+    const requestedIn = input.checkIn ?? day.checkIn;
+    const requestedOut = input.checkOut ?? day.checkOut;
+    const outDays = input.outDays ?? (input.checkOut === undefined ? day.outDays : 0);
     if (!requestedIn && !requestedOut) throw new RuleError('Enter the check-in or check-out time.', 400);
     if ((requestedIn && !HHMM.test(requestedIn)) || (requestedOut && !HHMM.test(requestedOut))) {
         throw new RuleError('Enter times as HH:mm.', 400);
     }
-    if (requestedIn && requestedOut && toMinutes(requestedOut) <= toMinutes(requestedIn)) {
-        throw new RuleError('Check-out must be after check-in.', 400);
+    if (!Number.isInteger(outDays) || outDays < 0 || outDays > 1) throw new RuleError('Check-out can be the same day or the next day.', 400);
+    if (requestedIn && requestedOut && checkOutMinutes(requestedOut, outDays) <= toMinutes(requestedIn)) {
+        throw new RuleError('Check-out must be after check-in. If you left after midnight, choose “Next day”.', 400);
     }
-    if (requestedIn === day.checkIn && requestedOut === day.checkOut && !day.checkOutAuto) {
+    if (requestedIn === day.checkIn && requestedOut === day.checkOut && outDays === day.outDays) {
         throw new RuleError('Those are already the recorded times.', 400);
     }
     if (correctionsOf(mode, e).some(c => c.date === input.date && c.trail.status.startsWith('PENDING'))) {
@@ -292,9 +360,8 @@ export const createCorrection = (mode: DataMode, e: MockEmployee, input: Correct
         id: `ac-${Date.now().toString(36)}`,
         employeeId: e.id,
         date: input.date,
-        kind: input.kind === 'update-check-out' ? 'update-check-out' : 'correction',
-        current: { checkIn: day.checkIn, checkOut: day.checkOut, checkOutAuto: day.checkOutAuto },
-        requested: { checkIn: requestedIn, checkOut: requestedOut },
+        current: { checkIn: day.checkIn, checkOut: day.checkOut, outDays: day.outDays },
+        requested: { checkIn: requestedIn, checkOut: requestedOut, outDays: requestedOut ? outDays : 0 },
         reason,
         ...(input.fromTimesheet ? { fromTimesheet: true } : {}),
         trail: startTrail('attendance', managerRef(e), settings),
@@ -332,10 +399,14 @@ const assertWeekDirect = (mode: DataMode, week: TimesheetWeek) => {
     }
 };
 
+/** PROTOTYPE-SETUP (HR rules, Slice 3): entries can't overlap recorded breaks either. */
+const withBreaks = (mode: DataMode, e: MockEmployee, date: string | undefined, entries: TimesheetEntry[]) =>
+    date ? [...entries, ...breaksAsEntries(date, breaksOn(mode, e, date), date === today() ? nowMinutes() : undefined)] : entries;
+
 export const addEntry = (mode: DataMode, e: MockEmployee, input: TimesheetEntryInput) => {
     assertTimesheets(mode);
     const week = weekOf(mode, e, weekStartOf(input?.date ?? ''));
-    const clean = validateEntry(input, week.entries);
+    const clean = validateEntry(input, withBreaks(mode, e, input?.date, week.entries));
     assertDayEditable(mode, e, clean.date);
     assertWeekDirect(mode, week);
     const entry: TimesheetEntry = { id: uid('te'), ...clean };
@@ -357,7 +428,7 @@ export const editEntry = (mode: DataMode, e: MockEmployee, entryId: string, inpu
     assertDayEditable(mode, e, before.date);
     assertWeekDirect(mode, week);
     if (weekStartOf(input?.date ?? '') !== week.weekStart) throw new RuleError('Keep the entry within the same week.', 400);
-    const clean = validateEntry({ ...input, id: entryId }, week.entries);
+    const clean = validateEntry({ ...input, id: entryId }, withBreaks(mode, e, input?.date, week.entries));
     assertDayEditable(mode, e, clean.date);
     const after = { id: entryId, ...clean };
     saveWeek(mode, {
@@ -522,12 +593,20 @@ const suggestionsOf = (mode: DataMode, e: MockEmployee): OvertimeSuggestion[] =>
         .filter(d => d >= e.dateOfJoin && !isDayLocked(mode, d))
         .map(d => ({ d, ctx: overtimeContext(mode, e, d) }))
         .filter(({ d, ctx }) =>
-            shouldSuggestOvertime({ date: d, today: t, extraMinutes: ctx.extraMinutes, minimumMinutes: settings.overtimeMinimumMinutes, hasRequest: Boolean(activeOvertimeOn(mode, e, d)) })
+            shouldSuggestOvertime({
+                date: d,
+                today: t,
+                extraMinutes: ctx.extraMinutes,
+                minimumMinutes: settings.overtimeMinimumMinutes,
+                hasRequest: Boolean(activeOvertimeOn(mode, e, d)),
+                open: ctx.open,
+                pendingCorrection: ctx.pendingCorrection,
+            })
         )
         .map(({ d, ctx }) => {
             let reason = `Logged ${formatDuration(ctx.loggedMinutes)} — ${formatDuration(ctx.extraMinutes)} over the day`;
             if (basis === 'attendance' && ctx.checkIn && ctx.checkOut) {
-                reason = `Checked in ${displayTime(ctx.checkIn)}, out ${displayTime(ctx.checkOut)} — ${formatDuration(ctx.extraMinutes)} beyond your shift`;
+                reason = `Checked in ${displayTime(ctx.checkIn)}, out ${displayTimeOn(ctx.checkOut, ctx.outDays)} — ${formatDuration(ctx.extraMinutes)} beyond your shift`;
             }
             const day = attendanceDay(mode, e, d);
             if (day.status === 'worked-off-day') reason = `Worked ${formatDuration(ctx.extraMinutes)} on a ${day.label?.includes('holiday') ? 'holiday' : 'weekly off'}`;

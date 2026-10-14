@@ -1,11 +1,13 @@
 // PROTOTYPE-SETUP: ESS Service 1, Slice 3 — month calendar of attendance days (Mon–Sun grid). Each day shows its
-// status as a colour and a short label (a one/two-letter code on phones). Dots mark a correction request and
-// an automatic check-out. Days before joining are muted and can't be opened.
+// status as a colour and a short label (a one/two-letter code on phones). A dot marks a correction request; a blue
+// dot a day still checked in. Days before joining are muted and can't be opened.
+// PROTOTYPE-SETUP (HR rules, Slice 2): times in the short 12-hour form ("9:30a–6:41p"), "+1" for a next-day
+// check-out, "Still in" for an earlier day still checked in.
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { Button, Empty, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
 
-import { DAY_STATUS_LABEL } from '../components/format';
+import { DAY_STATUS_LABEL, shortTime } from '../components/format';
 import type { AttendanceDay, AttendanceMonthView, DayStatus } from '../types';
 
 const { Text } = Typography;
@@ -56,17 +58,18 @@ const tooltipFor = (d: AttendanceDay) => {
     const parts = [
         d.status === 'holiday' && d.label ? d.label : DAY_STATUS_LABEL[d.status],
         d.correction && `Correction: ${d.correction.statusLabel}`,
-        d.checkOutAuto && 'Missed check-out (closed automatically at 11:59 PM)',
+        d.carried && 'Still checked in',
+        d.outDays === 1 && 'Checked out the next day',
     ];
     return parts.filter(Boolean).join(' · ');
 };
 
-// PROTOTYPE-SETUP (V2): the day's times under the status (tablet and up), like the prototype:
-// "09:20–18:30", "09:20–23:59 auto" after a missed check-out, "In 09:24" while still checked in.
+// PROTOTYPE-SETUP (V2; HR rules, Slice 2): the day's times under the status (tablet and up), like the prototype:
+// "9:20a–6:30p", "9:00a–5:00a +1" after a next-day check-out, "In 9:24a" today, "Still in" for an earlier open day.
 export const cellTimes = (d: AttendanceDay) => {
     if (!d.checkIn) return '';
-    if (!d.checkOut) return `In ${d.checkIn}`;
-    return `${d.checkIn}–${d.checkOut}${d.checkOutAuto ? ' auto' : ''}`;
+    if (!d.checkOut) return d.carried ? 'Still in' : `In ${shortTime(d.checkIn)}`;
+    return `${shortTime(d.checkIn)}–${shortTime(d.checkOut)}${d.outDays ? ` +${d.outDays}` : ''}`;
 };
 
 const DayCell = ({
@@ -137,7 +140,7 @@ const DayCell = ({
                             }`}
                         />
                     )}
-                    {day.checkOutAuto && <span className="block w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                    {day.carried && <span className="block w-1.5 h-1.5 rounded-full bg-blue-500" />}
                 </span>
             </button>
         </Tooltip>
@@ -258,7 +261,7 @@ const AttendanceCalendar = ({
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-[#616161]">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
-                    Missed check-out (auto 11:59 PM)
+                    Still checked in
                 </span>
             </div>
         </div>

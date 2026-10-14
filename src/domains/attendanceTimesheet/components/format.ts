@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 
 import type { DayStatus, TimesheetStatus } from '../types';
 
-export { DAY_STATUS_LABEL, displayTime, formatDuration } from '@src/prototype/rules/attendance';
+export { DAY_STATUS_LABEL, displayTime, displayTimeOn, entryTimeText, formatDuration, shortTime } from '@src/prototype/rules/attendance';
 
 /** "Wed, 23 Sep" */
 export const fmtDay = (iso: string) => dayjs(iso).format('ddd, D MMM');
