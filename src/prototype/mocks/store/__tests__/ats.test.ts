@@ -441,3 +441,24 @@ describe('self-service check-out update', () => {
         expect(() => updateOwnCheckOut(M, sneha, { date, checkOut: '18:30' })).toThrow(/processed/);
     });
 });
+
+// PROTOTYPE-SETUP (Attendance final, Slice 2): month totals — missed check-outs and weekday holidays.
+describe('attendance month totals', () => {
+    it('counts missed check-outs not yet updated, and leaves them out of time at work', () => {
+        const month = s.autoDay.slice(0, 7);
+        const before = attendanceMonthOf(M, sneha, month, { overtimeAtMinimum: true });
+        expect(before.totals.missedCheckOuts).toBe(before.days.filter(d => d.checkOutAuto).length);
+        expect(before.totals.missedCheckOuts).toBeGreaterThanOrEqual(1);
+        updateOwnCheckOut(M, sneha, { date: s.autoDay, checkOut: '18:31' });
+        const after = attendanceMonthOf(M, sneha, month, { overtimeAtMinimum: true });
+        expect(after.totals.missedCheckOuts).toBe(before.totals.missedCheckOuts - 1);
+        expect(after.totals.minutesAtWork).toBe(before.totals.minutesAtWork + (18 * 60 + 31 - (9 * 60 + 31)));
+    });
+    it('counts holidays on working weekdays only', () => {
+        [0, -1, -2, -3].forEach(n => {
+            const v = attendanceMonthOf(M, sneha, addMonths(currentMonth(), n));
+            const weekday = v.days.filter(d => d.status === 'holiday' && ![0, 6].includes(new Date(`${d.date}T00:00:00`).getDay()));
+            expect(v.totals.holidays).toBe(weekday.length);
+        });
+    });
+});

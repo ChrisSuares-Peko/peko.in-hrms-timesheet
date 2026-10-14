@@ -146,21 +146,23 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
     };
 
     const totals = view?.month === month ? view.totals : null;
-    // PROTOTYPE-SETUP (Attendance layout, Slice 2): 8 compact tiles. Time at work and overtime share the last one:
-    // overtime counts qualifying days only (the month view applies the HR minimum); time at work leaves out missed
-    // check-outs that haven't been updated (they have no known time at work).
+    // PROTOTYPE-SETUP (Attendance final, Slice 2): 9 compact tiles, 3 × 3, tinted by type (the reference's totals).
+    // Holidays are weekday holidays; Missed check-outs are days closed at 11:59 PM and not yet updated. The last tile
+    // merges time at work (which leaves those days out) with overtime from qualifying days only (the HR minimum).
     const tiles: TotalTileProps[] = totals
         ? [
               { label: 'Present', value: totals.present, tone: 'bg-[#ECFDF3]' },
               { label: 'Late', value: totals.late, tone: 'bg-[#FFFAEB]' },
-              { label: 'Half day', value: totals.halfDay, tone: 'bg-[#FFF1E6]' },
+              { label: 'Half day', value: totals.halfDay, tone: 'bg-[#FFFAEB]' },
               { label: 'Absent', value: totals.absent, tone: 'bg-[#FEF3F2]' },
-              { label: 'On leave', value: totals.onLeave, tone: 'bg-[#F9F0FF]' },
-              { label: 'Holidays', value: totals.holidays, tone: 'bg-[#E6FFFB]' },
-              { label: 'Worked off-days', value: totals.workedOffDays, tone: 'bg-[#F0F5FF]' },
+              { label: 'On leave', value: totals.onLeave, tone: 'bg-[#EEF3FF]' },
+              { label: 'Holidays', value: totals.holidays, tone: 'bg-[#EEF3FF]' },
+              { label: 'Worked off-days', value: totals.workedOffDays, tone: 'bg-[#FFFAEB]' },
+              { label: 'Missed check-outs', value: totals.missedCheckOuts, tone: 'bg-[#EFF1F4]' },
               {
                   label: `worked, ${totals.overtimeMinutes ? `${formatDuration(totals.overtimeMinutes)} overtime` : 'no overtime'}`,
                   value: formatDuration(totals.minutesAtWork),
+                  tone: 'bg-[#F7F7F7] ring-1 ring-inset ring-[#e6e6e6]',
                   hint: 'Excludes days with a missed check-out.',
               },
           ]
@@ -188,20 +190,18 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                 <Panel
                     className="att-totals flex flex-col"
                     title={`${view?.month === month ? view.monthLabel : dayjs(`${month}-01`).format('MMMM YYYY')} totals`}
-                    subtitle={
-                        month === today.slice(0, 7) ? 'So far this month' : undefined
-                    }
+                    subtitle={month === today.slice(0, 7) ? 'So far this month' : 'Whole month'}
                 >
-                    {/* 4 × 2 (2 × 4 on phones); at 1200px+ the tiles fill the row's height (no empty block under them). */}
+                    {/* 3 × 3 at every width (they fit at 375px); side by side with Today the tiles share the row's height. */}
                     {totals ? (
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:flex-1 xl:auto-rows-fr">
+                        <div className="grid grid-cols-3 gap-2 md:flex-1 md:auto-rows-fr">
                             {tiles.map(t => (
                                 <TotalTile key={t.label} {...t} />
                             ))}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:flex-1 xl:auto-rows-fr">
-                            {Array.from({ length: 8 }, (_, i) => (
+                        <div className="grid grid-cols-3 gap-2 md:flex-1 md:auto-rows-fr">
+                            {Array.from({ length: 9 }, (_, i) => (
                                 <span
                                     key={i}
                                     className="block h-[58px] rounded-xl bg-gray-100 animate-pulse"

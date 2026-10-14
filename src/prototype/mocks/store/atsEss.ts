@@ -37,6 +37,7 @@ import {
     hasCheckIn,
     hasTimesheets,
     hasTracking,
+    isWeeklyOff,
     qualifyingOvertime,
     lockReasonFor,
     monthBounds,
@@ -173,6 +174,7 @@ const emptyTotals = (): AttendanceTotals => ({
     holidays: 0,
     weeklyOff: 0,
     workedOffDays: 0,
+    missedCheckOuts: 0,
     minutesAtWork: 0,
     overtimeMinutes: 0,
     lateMinutes: 0,
@@ -186,7 +188,8 @@ export const attendanceMonthOf = (
     // HR minimum (days and the month's total). The manager's member view is unchanged.
     opts: { overtimeAtMinimum?: boolean } = {}
 ): AttendanceMonthView => {
-    const minimum = getSettings(mode).overtimeMinimumMinutes;
+    const settings = getSettings(mode);
+    const minimum = settings.overtimeMinimumMinutes;
     const days = monthDates(month)
         .map(d => attendanceDay(mode, e, d))
         .map(d => (opts.overtimeAtMinimum ? { ...d, overtimeMinutes: qualifyingOvertime(d.overtimeMinutes, minimum) } : d));
@@ -197,7 +200,9 @@ export const attendanceMonthOf = (
         if (d.status === 'half-day') next.halfDay += 1;
         if (d.status === 'absent') next.absent += 1;
         if (d.status === 'on-leave') next.onLeave += 1;
-        if (d.status === 'holiday') next.holidays += 1;
+        // PROTOTYPE-SETUP (Attendance final, Slice 2): weekday holidays only; missed check-outs not yet updated.
+        if (d.status === 'holiday' && !isWeeklyOff(d.date, settings)) next.holidays += 1;
+        if (d.checkOutAuto) next.missedCheckOuts += 1;
         if (d.status === 'weekly-off') next.weeklyOff += 1;
         if (d.status === 'worked-off-day') next.workedOffDays += 1;
         return next;

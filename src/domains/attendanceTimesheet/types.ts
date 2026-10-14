@@ -121,9 +121,13 @@ export interface AttendanceTotals {
     halfDay: number;
     absent: number;
     onLeave: number;
+    /** Public holidays on working weekdays (Attendance final, Slice 2: a holiday on a weekly off isn't counted). */
     holidays: number;
     weeklyOff: number;
     workedOffDays: number;
+    /** PROTOTYPE-SETUP (Attendance final, Slice 2): days closed automatically at 11:59 PM and not yet updated. */
+    missedCheckOuts: number;
+    /** Excludes missed check-outs that haven't been updated (their time at work isn't known). */
     minutesAtWork: number;
     overtimeMinutes: number;
     lateMinutes: number;
