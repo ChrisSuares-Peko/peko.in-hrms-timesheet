@@ -485,6 +485,34 @@ img.has-img{object-fit:cover;display:block}
 .punch .btn:disabled{background:var(--track);border-color:var(--track);color:var(--muted);opacity:1;cursor:not-allowed}
 .req-ph{width:48px;height:48px;border-radius:50%;margin-top:6px}
 .input:disabled{background:var(--surface-2);color:var(--ink-2)}
+
+/* v7 attendance tab layout */
+.att-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.att-grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr) minmax(0,1fr);grid-template-areas:"today totals req" "cal cal req";gap:16px;align-items:stretch}
+.att-today{grid-area:today;display:flex;flex-direction:column}
+.att-today .punch{margin-top:auto}
+.att-totals{grid-area:totals}
+.att-cal{grid-area:cal}
+.att-cal>.panel{border:0;border-radius:8px}
+.att-req{grid-area:req;position:relative;min-height:480px}
+.att-req-in{position:absolute;inset:0;display:flex;flex-direction:column}
+.att-req-list{flex:1;overflow-y:auto;padding:0 12px 12px}
+.tot-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+.tot{border-radius:10px;padding:8px 10px;display:flex;flex-direction:column;gap:1px;background:var(--surface-2);min-width:0}
+.tot b{font-size:18px;font-weight:500;font-variant-numeric:tabular-nums;line-height:1.2}
+.tot span{font-size:12px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis}
+.tot.t-present{background:var(--green-soft)}.tot.t-late,.tot.t-half,.tot.t-offwork{background:var(--amber-soft)}.tot.t-absent{background:var(--red-soft)}.tot.t-leave,.tot.t-holiday{background:var(--blue-soft)}.tot.t-off{background:var(--track)}.tot.t-work{background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--line)}
+.rec-now{display:flex;flex-direction:column;gap:2px;background:var(--surface-2);border-radius:10px;padding:10px 12px;margin-bottom:14px}
+.rec-now span{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.rec-now b{font-weight:500}
+.ci{padding:10px 8px;border-bottom:1px solid var(--line)}
+.ci:last-child{border-bottom:0}
+.ci b{font-weight:500}
+.att-empty{height:100%;min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;color:var(--muted);padding:20px}
+.att-empty b{color:var(--ink);font-weight:500}
+.att-empty span{font-size:13px;max-width:240px}
+@media (max-width:1100px){.att-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"today totals" "cal cal" "req req"}.att-req{position:static;min-height:0}.att-req-in{position:static}.att-req-list{max-height:420px}}
+@media (max-width:860px){.att-grid{grid-template-columns:1fr;grid-template-areas:"today" "totals" "cal" "req"}.att-head .btn{width:100%;justify-content:center}}
 </style>
 </head>
 <body>
@@ -775,7 +803,7 @@ const sumMins = list => (list || []).reduce((t, e) => t + entryMins(e), 0);
 function attOf(s, emp, k) {
   const a = s.attendance[emp.id + '|' + k];
   if (!a || !a.in) return null;
-  if (a.out) return { in: a.in, out: a.out, auto: false };
+  if (a.out) return { in: a.in, out: a.out, auto: false, self: a.src === 'employee' };
   if (k < TODAY) return { in: a.in, out: '23:59', auto: true }; // automatic check-out at 11:59 PM
   return { in: a.in, out: null, auto: false };
 }
@@ -998,6 +1026,7 @@ function reqStatusText(r) {
   return r.status === 'approved' ? 'approved' : 'rejected';
 }
 function ReqStatusChip({ r }) {
+  if (r.self) return html`<span className="chip green"><span className="dot"></span>Check-out entered by ${EMAP[r.empId].name.split(' ')[0]}</span>`;
   const cls = r.status === 'approved' ? 'green' : r.status === 'rejected' ? 'red' : 'blue';
   const lbl = r.type === 'overtime' && r.data.kind === 'planned' ? 'Planned overtime' : TYPE_LABEL[r.type];
   return html`<span className=${'chip ' + cls}><span className="dot"></span>${lbl} ${reqStatusText(r)}</span>`;
@@ -1009,6 +1038,7 @@ function Chain({ r }) {
   const s2 = t2 ? (t2.action === 'Approved' ? 'done' : 'rejected') : r.status === 'pending_l2' ? 'pending' : '';
   const sym = st => st === 'done' ? '✓' : st === 'rejected' ? '✕' : st === 'pending' ? '…' : '';
   const showL2 = !!r.l2 || r.status === 'pending_l1';
+  if (r.self) return html`<div className="chain"><span className="step done">✓ Entered by employee</span><span className="muted">Missed check-out updates don’t need approval</span></div>`;
   if (r.type === 'profile') return html`<div className="chain"><span className=${'step ' + s2}>${sym(s2)} HR team</span><span className="muted">Profile changes go straight to HR</span></div>`;
   return html`<div className="chain">
     <span className=${'step ' + s1}>${sym(s1)} ${e.mgr ? EMAP[e.mgr].name + ' (manager)' : 'No manager, skipped'}</span>
@@ -1101,35 +1131,78 @@ function OvertimeModal({ emp, kind: kind0, prefill, onClose }) {
     ${err && html`<div className="err">${err}</div>`}
   <//>`;
 }
-function AttendanceFixModal({ emp, k, prefill, onClose }) {
+/* correction popup: pick a date, see what's recorded, then correct it.
+   A missed (auto 11:59 PM) check-out that hasn't been updated yet is saved directly, with no approval. */
+function AttendanceFixModal({ emp, k: k0, prefill, onClose }) {
   const { store, update, notify } = useApp();
-  const a = attOf(store, emp, k);
-  const raw = store.attendance[emp.id + '|' + k] || {};
-  const autoOnly = a && a.auto && !prefill;
-  const [tin, setIn] = useState(prefill ? prefill.in : a ? a.in : '09:30');
-  const [tout, setOut] = useState(prefill ? prefill.out : a && a.out ? (a.auto ? toTime(shiftOf(emp)[1]) : a.out) : '18:30');
+  const [k, setK] = useState(k0 || '');
+  const [tin, setIn] = useState('');
+  const [tout, setOut] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const [askSwap, setAskSwap] = useState(null);
   const [reason, setReason] = useState('');
   const [err, setErr] = useState('');
   const mgr = emp.mgr ? EMAP[emp.mgr] : null;
-  const go = () => {
+  const [ss, se] = shiftOf(emp);
+  const rec = k ? attOf(store, emp, k) : null;
+  const selfMode = !!(rec && rec.auto);
+  const pendingFor = d => store.requests.find(r => r.type === 'attendance' && r.empId === emp.id && r.data.date === d && (r.status === 'pending_l1' || r.status === 'pending_l2'));
+  const loadDay = (d, pf) => {
+    const a = attOf(store, emp, d);
+    setIn(pf ? pf.in : a ? a.in : '');
+    setOut(pf ? pf.out : a && a.out ? (a.auto ? toTime(se) : a.out) : '');
+    setDirty(false); setErr('');
+  };
+  useEffect(() => { if (k0) loadDay(k0, prefill); }, []);
+  const dateProblem = d => !d ? 'Pick a date.' : d > TODAY ? 'You can’t correct a future date.' : isLocked(store, d) ? 'Payroll is processed for ' + fmtMonth(monthOf(d)) + ', so it can’t be changed.' : pendingFor(d) ? 'There’s already a correction waiting for this day.' : '';
+  const pickDate = d => {
+    if (dirty && k && d !== k) { setAskSwap(d); return; }
+    setK(d); setAskSwap(null);
+    if (!dateProblem(d)) loadDay(d); else setErr(dateProblem(d));
+  };
+  const recordedText = !k ? 'Pick a date to see what was recorded.' : !rec ? 'No check-in recorded' : rec.auto ? 'Check-in ' + rec.in + ' · Check-out missed (closed automatically at 11:59 PM)' : 'Check-in ' + rec.in + ' · Check-out ' + (rec.out || 'not yet') + (rec.self ? ' (entered by you)' : '');
+  const save = () => {
+    const p = dateProblem(k); if (p) return setErr(p);
+    if (selfMode) {
+      if (!tout) return setErr('Enter the time you actually left.');
+      if (toMin(tout) <= toMin(rec.in)) return setErr('Check-out must be after your check-in at ' + rec.in + '.');
+      update(s => {
+        s.attendance[emp.id + '|' + k] = { in: rec.in, out: tout, src: 'employee', at: TODAY };
+        s.requests.unshift({ id: 'REQ-' + (s.seq++), type: 'attendance', self: true, empId: emp.id, created: TODAY, data: { date: k, autoFix: true, from: { in: rec.in, out: '23:59' }, to: { in: rec.in, out: tout }, reason: reason.trim() || 'Updated missed check-out' }, status: 'approved', l2: null, trail: [{ level: 0, by: emp.name, action: 'Submitted', at: TODAY }] });
+      });
+      notify('Check-out saved for ' + fmtDate(k));
+      return onClose();
+    }
+    if (!tin || !tout) return setErr('Enter both times.');
     if (toMin(tout) <= toMin(tin)) return setErr('Check-out must be after check-in.');
+    if (rec && tin === rec.in && tout === rec.out) return setErr('Change at least one time.');
     if (!reason.trim()) return setErr('Add a reason.');
-    if (a && tin === a.in && tout === a.out && !a.auto) return setErr('Change at least one time.');
-    update(s => createRequest(s, 'attendance', emp.id, { date: k, autoFix: !!(a && a.auto), from: { in: a ? a.in : '–', out: a && a.out ? a.out : '' }, to: { in: tin, out: tout }, reason: reason.trim() }));
+    update(s => createRequest(s, 'attendance', emp.id, { date: k, from: { in: rec ? rec.in : '–', out: rec && rec.out ? rec.out : '' }, to: { in: tin, out: tout }, reason: reason.trim() }));
     notify('Sent to ' + (mgr ? mgr.name : 'HR'));
     onClose();
   };
-  return html`<${Modal} title=${(autoOnly ? 'Update check-out for ' : 'Correct attendance for ') + fmtDate(k)} onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="o" className="btn primary" onClick=${go}>Send request</button>`]}>
-    ${a && a.auto && html`<div className="banner blue"><div>You didn't check out, so the day closed automatically at 11:59 PM. Enter the time you actually left.</div></div>`}
-    ${prefill && html`<div className="banner blue"><div>Filled in from your timesheet entries for this day.</div></div>`}
-    <div className="row" style=${{ flexWrap: 'nowrap' }}>
-      <div className="field" style=${{ flex: 1 }}><label htmlFor="ai">Check in</label><input id="ai" className="input" type="time" value=${tin} disabled=${autoOnly} onInput=${e => { setIn(e.target.value); setErr(''); }} /></div>
-      <div className="field" style=${{ flex: 1 }}><label htmlFor="ao">${autoOnly ? 'Actual check-out' : 'Check out'}</label><input id="ao" className="input" type="time" value=${tout} autoFocus=${autoOnly} onInput=${e => { setOut(e.target.value); setErr(''); }} /></div>
-    </div>
-    <div className="small muted" style=${{ marginBottom: '12px' }}>Recorded: ${raw.in ? raw.in + ' to ' + (a && a.out ? a.out + (a.auto ? ' (auto)' : '') : 'no check-out') : 'no check-in'}</div>
-    <div className="field"><label htmlFor="ar">Reason</label><textarea id="ar" className="input" value=${reason} onInput=${e => { setReason(e.target.value); setErr(''); }}></textarea></div>
-    <div className="small muted">${approvalLine(store, emp, 'attendance')}</div>
-    ${err && html`<div className="err">${err}</div>`}
+  const title = selfMode ? 'Update check-out · ' + fmtDate(k) : 'Request attendance correction' + (k ? ' · ' + fmtDate(k) : '');
+  return html`<${Modal} title=${title} onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="o" className="btn primary" onClick=${save}>${selfMode ? 'Save check-out' : 'Send for approval'}</button>`]}>
+    <div className="field"><label htmlFor="fx-d">Date</label><input id="fx-d" className="input" type="date" max=${TODAY} value=${k} onChange=${e => pickDate(e.target.value)} /></div>
+    ${askSwap && html`<div className="banner amber"><div style=${{ flex: 1 }}>You’ve edited the times. Load ${fmtDate(askSwap)} instead and replace them?</div>
+      <button className="btn sm" onClick=${() => { const d = askSwap; setAskSwap(null); setDirty(false); setK(d); if (!dateProblem(d)) loadDay(d); else setErr(dateProblem(d)); }}>Replace</button><button className="btn sm ghost" onClick=${() => setAskSwap(null)}>Keep editing</button></div>`}
+    <div className="rec-now"><span>Recorded now</span><b>${recordedText}</b></div>
+    ${selfMode ? html`<div>
+        <div className="banner blue"><div>This updates your check-out right away, with no approval needed. Your manager can see you entered it. You can only do this once for a day.</div></div>
+        <div className="row" style=${{ flexWrap: 'nowrap' }}>
+          <div className="field" style=${{ flex: 1 }}><label>Check-in</label><input className="input" type="time" value=${rec.in} disabled /></div>
+          <div className="field" style=${{ flex: 1 }}><label htmlFor="fx-o">Actual check-out</label><input id="fx-o" className="input" type="time" value=${tout} autoFocus onInput=${e => { setOut(e.target.value); setDirty(true); setErr(''); }} /></div>
+        </div>
+        <div className="field"><label htmlFor="fx-n">Note (optional)</label><textarea id="fx-n" className="input" value=${reason} onInput=${e => setReason(e.target.value)}></textarea></div>
+      </div>` : html`<div>
+        <div className="row" style=${{ flexWrap: 'nowrap' }}>
+          <div className="field" style=${{ flex: 1 }}><label htmlFor="fx-i">Check-in</label><input id="fx-i" className="input" type="time" placeholder=${toTime(ss)} disabled=${!k} value=${tin} onInput=${e => { setIn(e.target.value); setDirty(true); setErr(''); }} /></div>
+          <div className="field" style=${{ flex: 1 }}><label htmlFor="fx-o2">Check-out</label><input id="fx-o2" className="input" type="time" placeholder=${toTime(se)} disabled=${!k} value=${tout} onInput=${e => { setOut(e.target.value); setDirty(true); setErr(''); }} /></div>
+        </div>
+        <div className="field"><label htmlFor="fx-r">Reason</label><textarea id="fx-r" className="input" maxLength="300" disabled=${!k} placeholder="e.g. Was at a client site in the morning" value=${reason} onInput=${e => { setReason(e.target.value); setErr(''); }}></textarea><span className="small muted" style=${{ textAlign: 'right' }}>${reason.length} / 300</span></div>
+        <div className="small muted">Your manager reviews this first, then HR, before your attendance changes.</div>
+      </div>`}
+    ${err && html`<div className="err" style=${{ marginTop: '8px' }}>${err}</div>`}
   <//>`;
 }
 
@@ -1147,75 +1220,138 @@ function PunchButtons({ emp, full }) {
     <button className=${'btn ' + (checkedIn ? 'primary' : '')} disabled=${!checkedIn} title=${!a.in ? 'Check in first' : a.out ? 'Checked out at ' + a.out : ''} onClick=${doOut}>${a.out ? 'Checked out ' + a.out : 'Check out'}</button>
   </div>`;
 }
-const AUTO_NOTE = 'There’s an automatic check-out at 11:59 PM every day. If you forget to check out, update it to the real time afterwards.';
+const AUTO_NOTE = 'Auto check-out at 11:59 PM if you forget.';
 function TodayPanel({ emp }) {
-  const { store, update, notify } = useApp();
+  const { store } = useApp();
   const [, tick] = useState(0);
   useEffect(() => { const t = setInterval(() => tick(x => x + 1), 30000); return () => clearInterval(t); }, []);
   const a = store.attendance[emp.id + '|' + TODAY] || {};
   const [ss, se] = shiftOf(emp);
-  const now = nowMin(); const nowT = toTime(r5(now) >= 1440 ? 1435 : r5(now));
   const st = dayStatus(store, emp, TODAY);
   const lv = leaveOn(store, emp.id, TODAY);
+  const now = nowMin();
   const worked = a.in ? (a.out ? toMin(a.out) : now) - toMin(a.in) : 0;
-  return html`<div className="panel pad todaybox" style=${{ marginBottom: '18px' }}>
-    <div><div className="muted small">${fmtLong(TODAY)}${holidayOf(TODAY) ? ', ' + holidayOf(TODAY) : ''}</div>
-      <div className="clock">${a.in ? dur(Math.max(0, worked)) : '0h'}</div>
-      <div className="small" style=${{ color: 'var(--ink-2)' }}>${lv ? 'On ' + lv.data.leaveType.toLowerCase() + ' leave today' : !a.in ? 'Not checked in. Shift ' + toTime(ss) + '–' + toTime(se) : a.out ? 'Checked in ' + a.in + ', checked out ' + a.out : 'Checked in at ' + a.in + (st.late ? ' (late)' : '') + '. Shift ends ' + toTime(se)}</div>
+  let line = 'Not checked in · Shift ' + toTime(ss) + '–' + toTime(se), tone = '';
+  if (lv) { line = 'On ' + lv.data.leaveType.toLowerCase() + ' leave today'; tone = 'blue'; }
+  else if (holidayOf(TODAY)) { line = holidayOf(TODAY) + ' · Office closed'; tone = 'blue'; }
+  else if (a.out) { line = 'Checked out at ' + a.out + ' · ' + dur(Math.max(0, worked)) + ' at work'; tone = 'green'; }
+  else if (a.in) { line = 'Checked in at ' + a.in + ' · ' + dur(Math.max(0, worked)); tone = st.late ? 'amber' : 'green'; }
+  else if (isWeekend(TODAY)) line = 'Weekly off';
+  return html`<section className="panel pad att-today" aria-label="Today">
+    <h3>Today</h3>
+    <div className="muted small" style=${{ marginTop: '2px' }}>${fmtLong(TODAY)} · Shift ${toTime(ss)}–${toTime(se)} · ${store.settings.graceMin} min grace</div>
+    <div className=${'ov-status ' + tone}><span>${line}</span></div>
+    <${PunchButtons} emp=${emp} full />
+    <div className="small muted" style=${{ marginTop: '8px' }}>${AUTO_NOTE}</div>
+  </section>`;
+}
+function AttTotals({ emp, month }) {
+  const { store } = useApp();
+  const c = { present: 0, late: 0, half: 0, absent: 0, leave: 0, holiday: 0, offwork: 0, missed: 0, worked: 0, ot: 0 };
+  for (let k = firstOf(month); monthOf(k) === month; k = addDays(k, 1)) {
+    if (holidayOf(k) && !isWeekend(k)) c.holiday++;
+    if (k > TODAY) continue;
+    const st = dayStatus(store, emp, k);
+    if (st.key === 'present' || st.key === 'late') c.present++;
+    if (st.key === 'late') c.late++;
+    if (st.key === 'half') c.half++;
+    if (st.key === 'absent') c.absent++;
+    if (st.key === 'leave') c.leave++;
+    if (st.key === 'offwork') c.offwork++;
+    const a = attOf(store, emp, k);
+    if (a && a.auto) c.missed++;
+    if (a && a.out && !a.auto) c.worked += toMin(a.out) - toMin(a.in);
+    const o = k < TODAY ? otSuggestion(store, emp, k) : null; if (o && store.settings.mode !== 'timesheet') c.ot += o.extra;
+  }
+  const tiles = [['Present', c.present, 'present'], ['Late', c.late, 'late'], ['Half day', c.half, 'half'], ['Absent', c.absent, 'absent'], ['On leave', c.leave, 'leave'], ['Holidays', c.holiday, 'holiday'], ['Worked off-days', c.offwork, 'offwork'], ['Missed check-outs', c.missed, 'off']];
+  return html`<section className="panel pad att-totals" aria-label="Month totals">
+    <h3>${fmtMonth(month)} totals</h3>
+    <div className="muted small" style=${{ marginTop: '2px' }}>${month === monthOf(TODAY) ? 'So far this month' : 'Whole month'}</div>
+    <div className="tot-grid">
+      ${tiles.map(([l, v, cls]) => html`<div key=${l} className=${'tot t-' + cls}><b>${v}</b><span>${l}</span></div>`)}
+      <div className="tot t-work" title="Excludes days with a missed check-out."><b>${dur(c.worked)}</b><span>worked${c.ot ? ', ' + dur(c.ot) + ' overtime' : ', no overtime'}</span></div>
     </div>
-    <span className="spacer"></span>
-    <${PunchButtons} emp=${emp} />
-    <div className="small muted" style=${{ width: '100%' }}>${AUTO_NOTE}</div>
+  </section>`;
+}
+function DayDetailModal({ emp, k, onClose, onFix }) {
+  const { store } = useApp();
+  const a = attOf(store, emp, k);
+  const st = dayStatus(store, emp, k);
+  const ot = k < TODAY ? otSuggestion(store, emp, k) : null;
+  const pending = store.requests.find(r => r.type === 'attendance' && r.empId === emp.id && r.data.date === k && (r.status === 'pending_l1' || r.status === 'pending_l2'));
+  let action;
+  if (pending) action = html`<${ReqStatusChip} r=${pending} />`;
+  else if (isLocked(store, k)) action = html`<span className="small muted">${Icon.lock} Payroll processed for this month. No changes.</span>`;
+  else if (k > TODAY) action = html`<span className="small muted">Nothing to do for a future day.</span>`;
+  else if (a && a.auto) action = html`<button className="btn primary" onClick=${() => onFix(k)}>Update check-out</button>`;
+  else if (k < TODAY || (a && a.out)) action = html`<button className="btn" onClick=${() => onFix(k)}>Request correction</button>`;
+  else action = html`<span className="small muted">Use Check in / Check out for today.</span>`;
+  return html`<${Modal} title=${fmtLong(k)} onClose=${onClose} footer=${[html`<span key="a" style=${{ marginRight: 'auto' }}>${action}</span>`, html`<button key="c" className="btn" onClick=${onClose}>Close</button>`]}>
+    <div style=${{ marginBottom: '12px' }}>${st.label ? html`<span className=${'mini ' + st.key}>${st.label}</span>` : html`<span className="muted small">Upcoming</span>`}</div>
+    <dl className="kv">
+      <dt>Shift</dt><dd>${isOff(k) ? 'Off' : shiftOf(emp).map(toTime).join('–')}</dd>
+      <dt>Check in</dt><dd>${a ? a.in : '–'}</dd>
+      <dt>Check out</dt><dd>${a && a.out ? (a.auto ? 'Missed (closed automatically at 11:59 PM)' : a.out + (a.self ? ' · entered by you' : '')) : a ? 'Still checked in' : '–'}</dd>
+      <dt>Time at work</dt><dd>${a && a.out ? (a.auto ? 'Not known until you update the check-out' : dur(toMin(a.out) - toMin(a.in))) : '–'}</dd>
+      ${ot ? html`<dt>Overtime</dt><dd>${dur(ot.extra)}</dd>` : null}
+    </dl>
+  <//>`;
+}
+function CorrectionItem({ r }) {
+  const d = r.data;
+  const change = [d.from.in !== d.to.in ? d.from.in + ' → ' + d.to.in : null, d.from.out !== d.to.out ? (d.from.out === '23:59' || !d.from.out ? 'missed' : d.from.out) + ' → ' + d.to.out : null].filter(Boolean).join(', ');
+  const cls = r.self ? 'green' : r.status === 'approved' ? 'green' : r.status === 'rejected' ? 'red' : 'blue';
+  const label = r.self ? 'Saved' : r.status === 'approved' ? 'Approved' : r.status === 'rejected' ? 'Rejected' : 'Pending';
+  return html`<div className="ci">
+    <div className="row" style=${{ gap: '8px' }}><b>${fmtDate(d.date)}</b><span className="muted small">${r.self ? 'Check-out update' : 'Correction'}</span><span className="spacer"></span><span className=${'chip ' + cls}>${label}</span></div>
+    <div className="small" style=${{ color: 'var(--ink-2)', marginTop: '2px' }}>${change}</div>
+    <div className="small muted" style=${{ marginTop: '2px' }}>${r.self ? 'Entered by you · no approval needed' : r.status === 'pending_l1' || r.status === 'pending_l2' ? 'Waiting ' + reqStatusText(r) : (r.trail.filter(t => t.comment).slice(-1)[0] || {}).comment || reqStatusText(r).replace(/^./, c => c.toUpperCase())}</div>
   </div>`;
 }
 function MyAttendance({ emp, initDate }) {
   const { store } = useApp();
   const [month, setMonth] = useState(monthOf(initDate || TODAY));
-  const [sel, setSel] = useState(initDate || TODAY);
+  const [day, setDay] = useState(initDate || null);
   const [fix, setFix] = useState(null);
-  const mine = store.requests.filter(r => r.empId === emp.id && r.type === 'attendance');
-  const days = []; for (let k = firstOf(month); monthOf(k) === month; k = addDays(k, 1)) days.push(k);
-  const counts = { present: 0, late: 0, half: 0, absent: 0, leave: 0, auto: 0 };
-  days.filter(k => k <= TODAY).forEach(k => { const st = dayStatus(store, emp, k); if (counts[st.key] != null) counts[st.key]++; if (st.key === 'late') counts.present++; const a = attOf(store, emp, k); if (a && a.auto) counts.auto++; });
+  const [filter, setFilter] = useState('pending');
+  const mine = store.requests.filter(r => r.empId === emp.id && r.type === 'attendance').sort((x, y) => x.created < y.created ? 1 : -1);
+  const pend = mine.filter(r => r.status === 'pending_l1' || r.status === 'pending_l2');
+  const list = filter === 'pending' ? pend : mine;
   const cell = k => { const st = dayStatus(store, emp, k); const a = attOf(store, emp, k); return [
     st.label ? html`<span key="m" className=${'mini ' + st.key}>${st.label}</span>` : null,
     html`<span key="d" className=${'dot-m ' + (st.key || 'none')}></span>`,
-    a && a.out ? html`<span key="t" className="cs">${a.in}–${a.out}${a.auto ? ' auto' : ''}</span>` : a ? html`<span key="t" className="cs">In ${a.in}</span>` : null]; };
-  const a = attOf(store, emp, sel);
-  const st = dayStatus(store, emp, sel);
-  const pending = mine.find(r => r.data.date === sel && (r.status === 'pending_l1' || r.status === 'pending_l2'));
-  const ot = otSuggestion(store, emp, sel);
+    a && a.out ? html`<span key="t" className="cs">${a.in}–${a.auto ? 'missed' : a.out}</span>` : a ? html`<span key="t" className="cs">In ${a.in}</span>` : null]; };
   return html`<div>
-    <${TodayPanel} emp=${emp} />
-    <div className="viewbar">
-      <button className="btn sm" aria-label="Previous month" onClick=${() => setMonth(addMonths(month, -1))}>‹</button>
-      <span className="range">${fmtMonth(month)}</span>
-      <button className="btn sm" aria-label="Next month" onClick=${() => setMonth(addMonths(month, 1))}>›</button>
-      ${month !== monthOf(TODAY) && html`<button className="btn sm ghost" onClick=${() => { setMonth(monthOf(TODAY)); setSel(TODAY); }}>This month</button>`}
-      <span className="spacer"></span>
-      <span className="chip green">${counts.present} present</span>${counts.late ? html`<span className="chip amber">${counts.late} late</span>` : null}${counts.half ? html`<span className="chip amber">${counts.half} half day</span>` : null}${counts.absent ? html`<span className="chip red">${counts.absent} absent</span>` : null}${counts.leave ? html`<span className="chip blue">${counts.leave} on leave</span>` : null}${counts.auto ? html`<span className="chip">${counts.auto} auto check-out</span>` : null}
+    <div className="att-head"><span className="muted small">Check in and out, see your month, and fix anything that’s wrong.</span><span className="spacer"></span><button className="btn primary" onClick=${() => setFix({})}>Request correction</button></div>
+    <div className="att-grid">
+      <${TodayPanel} emp=${emp} />
+      <${AttTotals} emp=${emp} month=${month} />
+      <section className="panel pad att-cal" aria-label="Attendance calendar">
+        <div className="row" style=${{ marginBottom: '10px' }}><h3>Attendance calendar</h3><span className="spacer"></span>
+          <button className="btn sm" aria-label="Previous month" onClick=${() => setMonth(addMonths(month, -1))}>‹</button>
+          <span style=${{ minWidth: '120px', textAlign: 'center', fontWeight: 500 }}>${fmtMonth(month)}</span>
+          <button className="btn sm" aria-label="Next month" onClick=${() => setMonth(addMonths(month, 1))}>›</button></div>
+        <${MonthGrid} month=${month} selected=${day} onPick=${setDay} cell=${cell} />
+        <div className="small muted" style=${{ marginTop: '8px' }}>Tap a day for details, or to update a missed check-out.</div>
+      </section>
+      <div className="att-req">
+        <section className="panel att-req-in" aria-label="My correction requests">
+          <div className="pad" style=${{ paddingBottom: '10px' }}>
+            <h3>My correction requests</h3>
+            <div style=${{ marginTop: '10px' }}><${Seg} label="Filter" value=${filter} onChange=${setFilter} options=${[['pending', 'Pending (' + pend.length + ')'], ['all', 'All (' + mine.length + ')']]} /></div>
+          </div>
+          <div className="att-req-list">
+            ${list.map(r => html`<${CorrectionItem} key=${r.id} r=${r} />`)}
+            ${list.length === 0 && html`<div className="att-empty">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+              <b>${filter === 'pending' ? 'Nothing waiting' : 'No corrections yet'}</b>
+              <span>${filter === 'pending' ? 'Corrections you send show here until they’re approved.' : 'If a check-in or check-out is wrong, request a correction.'}</span>
+              <button className="btn link small" onClick=${() => setFix({})}>Request correction</button></div>`}
+          </div>
+        </section>
+      </div>
     </div>
-    <div className="split">
-      <${MonthGrid} month=${month} selected=${sel} onPick=${setSel} cell=${cell} />
-      <aside className="card panel pad">
-        <h3>${fmtLong(sel)}</h3>
-        <div style=${{ margin: '8px 0 12px' }}>${st.label ? html`<span className=${'mini ' + st.key}>${st.label}</span>` : html`<span className="muted small">Upcoming</span>`}</div>
-        <dl className="kv">
-          <dt>Shift</dt><dd>${isOff(sel) ? 'Off' : shiftOf(emp).map(toTime).join('–')}</dd>
-          <dt>Check in</dt><dd>${a ? a.in : '–'}</dd>
-          <dt>Check out</dt><dd>${a && a.out ? (a.auto ? 'Missed (closed automatically at 11:59 PM)' : a.out) : a ? 'Still checked in' : '–'}</dd>
-          <dt>Time at work</dt><dd>${a && a.out ? (a.auto ? 'Not known until you update the check-out' : dur(toMin(a.out) - toMin(a.in))) : '–'}</dd>
-        </dl>
-        ${ot && store.settings.mode !== 'timesheet' && html`<div className="flag ot"><span>${otText(ot, emp)}</span></div>`}
-        <div className="divider"></div>
-        ${pending ? html`<${ReqStatusChip} r=${pending} />` : isLocked(store, sel) ? html`<div className="small muted">${Icon.lock} Payroll processed for this month. No changes.</div>`
-          : sel > TODAY ? html`<div className="small muted">Nothing to do for a future day.</div>`
-          : a && a.auto ? html`<button className="btn primary" onClick=${() => setFix({ k: sel })}>Update check-out</button>`
-          : sel < TODAY || (a && a.out) ? html`<button className="btn" onClick=${() => setFix({ k: sel })}>Request correction</button>` : html`<div className="small muted">Use Check in / Check out above for today.</div>`}
-      </aside>
-    </div>
-    <h3 style=${{ margin: '22px 0 10px' }}>My correction requests</h3>
-    <div className="panel">${mine.length ? mine.map(r => html`<${ReqRow} key=${r.id} r=${r} />`) : html`<${Empty} title="No corrections raised">Pick a day in the calendar to request one.<//>`}</div>
+    ${day && html`<${DayDetailModal} emp=${emp} k=${day} onClose=${() => setDay(null)} onFix=${k => { setDay(null); setFix({ k }); }} />`}
     ${fix && html`<${AttendanceFixModal} emp=${emp} k=${fix.k} prefill=${fix.prefill} onClose=${() => setFix(null)} />`}
   </div>`;
 }
@@ -2044,7 +2180,7 @@ function OvNotifications({ emp, isManager, go }) {
   if (isManager) { const reports = EMP.filter(e => e.mgr === emp.id).map(e => e.id); const n = teamTimesheetItems(store, emp.id).length + store.requests.filter(r => reports.includes(r.empId) && r.status === 'pending_l1' && reqVisible(store, r)).length; if (n) actions.unshift({ id: 'team', tone: 'info', title: n + ' waiting for your approval', text: 'Timesheets and requests from your team.', btn: 'Open My team', go: ['team'] }); }
   // updates from my requests
   const updates = store.requests.filter(r => r.empId === emp.id && reqVisible(store, r)).map(r => { const last = r.trail[r.trail.length - 1]; return { r, at: last.at, last }; }).sort((x, y) => x.at < y.at ? 1 : -1).slice(0, 6);
-  const updText = ({ r, last }) => r.status === 'approved' ? 'Approved' + (last.by ? ' by ' + last.by : '') : r.status === 'rejected' ? 'Rejected by ' + last.by + (last.comment ? ': ' + last.comment : '') : 'Waiting ' + reqStatusText(r);
+  const updText = ({ r, last }) => r.self ? 'Saved, no approval needed' : r.status === 'approved' ? 'Approved' + (last.by ? ' by ' + last.by : '') : r.status === 'rejected' ? 'Rejected by ' + last.by + (last.comment ? ': ' + last.comment : '') : 'Waiting ' + reqStatusText(r);
   const pageFor = r => r.type === 'profile' ? ['profile'] : r.type === 'leave' ? ['leave'] : r.type === 'reimbursement' ? ['reimbursement'] : r.type === 'overtime' ? ['time', { tab: 'overtime' }] : ['time', { tab: 'attendance', date: r.data.date }];
   // announcements
   let nextHol = null; for (let i = 1; i <= 120 && !nextHol; i++) { const k = addDays(TODAY, i); if (holidayOf(k) && !isWeekend(k)) nextHol = k; }
