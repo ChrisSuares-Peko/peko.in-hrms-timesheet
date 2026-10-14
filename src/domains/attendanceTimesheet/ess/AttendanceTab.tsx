@@ -4,7 +4,7 @@
 import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { LockOutlined } from '@ant-design/icons';
-import { Alert, Button, Tooltip } from 'antd';
+import { Alert, Button, Segmented, Tooltip } from 'antd';
 import dayjs from 'dayjs';
 
 import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
@@ -23,7 +23,7 @@ import { useAtsScope } from '../hooks/useAtsScope';
 import { AttendancePunch } from '../overview/OvAttendanceCard';
 import type { AtsOverview, AttendanceDay, AttendanceMonthView, CorrectionKind, OwnCheckOutUpdate } from '../types';
 import AttendanceCalendar, { CalendarMonthNav } from './AttendanceCalendar';
-import CorrectionsList from './CorrectionsList';
+import CorrectionsList, { CorrectionsFilter, isPending } from './CorrectionsList';
 import DayDetailDrawer from './DayDetailDrawer';
 import { Panel, todayIso } from './ui';
 
@@ -72,6 +72,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
     const [corrections, setCorrections] = useState<CorrectionWithStatus[] | null>(null);
     /** PROTOTYPE-SETUP (Attendance layout, Slice 3): check-outs entered by the employee, listed with the requests. */
     const [ownUpdates, setOwnUpdates] = useState<OwnCheckOutUpdate[]>([]);
+    const [reqFilter, setReqFilter] = useState<CorrectionsFilter>('pending');
     const [selected, setSelected] = useState<string | null>(initialDate ?? null);
     const [modal, setModal] = useState<ModalState | null>(null);
     const [cancelling, setCancelling] = useState(false);
@@ -140,6 +141,8 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
     };
 
     const requestCorrection = () => setModal({ date: null, kind: 'correction' });
+    const pendingCount = (corrections ?? []).filter(isPending).length;
+    const allCount = (corrections?.length ?? 0) + ownUpdates.length;
     const changeMonth = (m: string) => {
         setSelected(null);
         setMonth(m);
@@ -239,10 +242,21 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                 {/* Spans both rows; ≥1200px its content never makes the rows taller — the list scrolls inside. */}
                 <div className="att-req">
                     <Panel className="att-req-in" title="My correction requests">
+                        {/* PROTOTYPE-SETUP (Attendance final, Slice 3): Pending / All with counts (default Pending). */}
+                        <Segmented<CorrectionsFilter>
+                            className="mb-3 self-start"
+                            value={reqFilter}
+                            onChange={setReqFilter}
+                            options={[
+                                { value: 'pending', label: `Pending (${pendingCount})` },
+                                { value: 'all', label: `All (${allCount})` },
+                            ]}
+                        />
                         <div className="att-req-list">
                             <CorrectionsList
                                 items={corrections}
                                 ownUpdates={ownUpdates}
+                                filter={reqFilter}
                                 onRequest={requestCorrection}
                                 onUpdated={list => {
                                     setCorrections(list);
