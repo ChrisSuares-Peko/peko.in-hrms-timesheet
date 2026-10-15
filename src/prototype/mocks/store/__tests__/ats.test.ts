@@ -2,7 +2,8 @@
 // (the same functions the endpoints call). Dates are relative to the real today.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { addDays, addMonths, daysBetween, startTrail, toMinutes, weekStartOf } from '@src/prototype/rules/attendance';
+import { DEFAULT_FILING, addDays, addMonths, daysBetween, startTrail, toMinutes, weekStartOf } from '@src/prototype/rules/attendance';
+import { findOverlaps, periodEndOf, reviewPeriod, submissionPrompt } from '@src/prototype/rules/timesheetFiling';
 
 import { atsScenario } from '../../data/ats-seed';
 import { findEmployee } from '../../data/employees';
@@ -10,6 +11,7 @@ import { isWorkingDay } from '../../data/time-calendar';
 import { LEAVES } from '../../data/time-leaves';
 import {
     addEntry,
+    deleteEntry,
     editEntry,
     attendanceMonthOf,
     checkIn,
@@ -21,23 +23,29 @@ import {
     endBreak,
     overviewOf,
     startBreak,
+    requestChange,
+    reviewOf,
     submitWeek,
+    timesheetPeriodsOf,
     updateBreakDescription,
     updateTodayBreaks,
 } from '../atsEss';
 import { homeOf } from '../atsHome';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../atsProfile';
-import { atsAttendance, attendanceDay, currentMonth, lastMonth, recordOf, resetTodayCheckIn, weekView } from '../atsStore';
+import { atsAttendance, attendanceDay, currentMonth, getSettings, lastMonth, recordOf, resetTodayCheckIn, weekView } from '../atsStore';
 import {
     approveWeek,
+    autoRunSubmissionDay,
     decideRequest,
     level2Counts,
     level2Requests,
     payrollMonthStatus,
     processPayrollMonth,
     runSubmissionDay,
+    sendBackWeek,
     teamRequests,
     teamToday,
+    teamWeekGrid,
     timesheetQueue,
     updateSettings,
 } from '../atsTeam';
@@ -100,6 +108,11 @@ describe('flows', () => {
         const ws = s.sentBackWeek;
         const friday = weekView(M, sneha, ws).days[4].date;
         addEntry(M, sneha, { date: friday, start: '14:00', end: '18:30', description: 'Bug fixes – invoice export' });
+        // PROTOTYPE-SETUP (Timesheet filing): start and end are required by default, so the hours-only entry blocks
+        // the resubmission until it gets times.
+        expect(() => submitWeek(M, sneha, ws)).toThrow('1 entry needs more details before you submit: Enter a start and end time.');
+        const notes = weekView(M, sneha, ws).week.entries.find(x => x.description === 'Writing release notes')!;
+        editEntry(M, sneha, notes.id, { date: notes.date, start: '19:30', end: '20:30', description: notes.description });
         submitWeek(M, sneha, ws);
         expect(timesheetQueue(M, arjun, 'waiting').some(i => i.weekStart === ws)).toBe(true);
         approveWeek(M, arjun, String(sneha.id), ws);
@@ -169,8 +182,12 @@ describe('flows', () => {
     });
 });
 
-// PROTOTYPE-SETUP (V2): hours-only entries end to end.
+// PROTOTYPE-SETUP (V2): hours-only entries end to end. PROTOTYPE-SETUP (Timesheet filing): new ones are logged when the
+// company files a duration only (Pattern B).
+const DURATION_ONLY = { ...DEFAULT_FILING, fields: { projectCode: false, startTime: false, endTime: false, duration: true } };
+
 describe('hours-only entries', () => {
+    beforeEach(() => updateSettings(M, { timesheetFiling: DURATION_ONLY }));
     it('the sent-back week has "Writing release notes" (1h, no set time)', () => {
         const e = weekView(M, sneha, s.sentBackWeek).week.entries.find(x => x.description === 'Writing release notes');
         expect(e).toMatchObject({ start: null, end: null, mins: 60 });
@@ -189,14 +206,15 @@ describe('hours-only entries', () => {
         const edited = editEntry(M, sneha, added.id, { date, mins: 120, description: 'Reading the RFC' });
         expect(edited.days.find(d => d.date === date)!.entries.find(x => x.id === added.id)).toMatchObject({ mins: 120, start: null });
     });
-    it('start + hours is saved with the end calculated', () => {
+    it('duration-only filing keeps the duration and invents no times', () => {
         const date = s.thisWeek < s.today ? s.thisWeek : s.today;
         const v = addEntry(M, sneha, { date, start: '21:00', mins: 45, description: 'Late call' });
-        expect(v.days.find(d => d.date === date)!.entries.find(x => x.description === 'Late call')).toMatchObject({ start: '21:00', end: '21:45', mins: 45 });
+        expect(v.days.find(d => d.date === date)!.entries.find(x => x.description === 'Late call')).toMatchObject({ start: null, end: null, mins: 45 });
+        expect(() => addEntry(M, sneha, { date, description: 'No duration' })).toThrow('Enter how long you worked, e.g. 1:30 or 1h 30m.');
     });
     it('timesheet-only overtime counts hours-only entries', () => {
         // Approval off, so any unlocked week can be edited directly.
-        updateSettings(M, { mode: 'timesheet', timesheetApproval: { enabled: false, submissionWeekday: 'FRIDAY' } });
+        updateSettings(M, { mode: 'timesheet', timesheetApproval: { enabled: false, submissionWeekday: 'FRIDAY' }, timesheetFiling: DURATION_ONLY });
         const date = s.overtimeDay;
         const extraBefore = overtimeViewOf(M, sneha, currentMonth()).suggestions.find(x => x.date === date)?.minutes ?? 0;
         expect(weekView(M, sneha, weekStartOf(date)).editMode).toBe('direct');
@@ -206,14 +224,151 @@ describe('hours-only entries', () => {
     });
 });
 
-// PROTOTYPE-SETUP (V2): no manual submit — the message names the configured submission day.
-describe('manual submit', () => {
-    it('names the configured submission day', () => {
-        const day = new Date().getDay() === 3 ? 'TUESDAY' : 'WEDNESDAY';
-        updateSettings(M, { timesheetApproval: { enabled: true, submissionWeekday: day } });
-        expect(weekView(M, sneha, s.thisWeek).week.status).toBe('DRAFT');
-        const label = day === 'TUESDAY' ? 'Tuesday' : 'Wednesday';
-        expect(() => submitWeek(M, sneha, s.thisWeek)).toThrow(`Weeks go to your manager automatically every ${label}.`);
+// PROTOTYPE-SETUP (Timesheet filing): the employee submits a period by hand; automatic submission still runs.
+describe('timesheet filing: submission', () => {
+    /** A past working day of this week (else last week) other than the open day. */
+    const pastDay = () =>
+        [0, 1, 2, 3, 4, -7, -6, -5, -4, -3].map(i => addDays(s.thisWeek, i)).find(d => d < s.today && d !== s.openDay && isWorkingDay(d))!;
+
+    it('a draft can be submitted by hand once it has started; a second click is refused, not duplicated', () => {
+        const view = weekView(M, sneha, s.today);
+        expect(view.week.status).toBe('DRAFT');
+        expect(view.canSubmit).toBe(true);
+        expect(view.filing).toMatchObject({ frequency: 'WEEKLY', period: { start: s.thisWeek, end: addDays(s.thisWeek, 6) } });
+        const done = submitWeek(M, sneha, s.thisWeek, { acknowledged: { overlaps: true, gaps: true } });
+        expect(done.week.status).toBe('SUBMITTED');
+        expect(done.week.history.filter(h => h.action === 'SUBMITTED')).toHaveLength(1);
+        expect(() => submitWeek(M, sneha, s.thisWeek)).toThrow(`This timesheet is already with ${arjun.fullName}.`);
+        expect(weekView(M, sneha, s.thisWeek).week.history.filter(h => h.action === 'SUBMITTED')).toHaveLength(1);
+        expect(timesheetQueue(M, arjun, 'waiting').some(i => i.weekStart === s.thisWeek && i.periodEnd === addDays(s.thisWeek, 6))).toBe(true);
+    });
+
+    it('a future period can’t be submitted', () => {
+        expect(() => submitWeek(M, sneha, addDays(s.thisWeek, 7))).toThrow("You can't submit a period that hasn't started.");
+    });
+
+    it('overlaps are saved and warned, never blocking; the acknowledgement goes in the history', () => {
+        const date = pastDay();
+        addEntry(M, sneha, { date, start: '10:00', end: '10:45', description: 'Extra sync' });
+        const view = weekView(M, sneha, date);
+        const review = reviewOf(view);
+        expect(review.overlaps.length).toBeGreaterThan(0);
+        expect(submissionPrompt(review, 'manual')).toBe('overlaps');
+        expect(submissionPrompt(review, 'manual', { overlaps: true })).not.toBe('overlaps');
+        const done = submitWeek(M, sneha, view.week.weekStart, { acknowledged: { overlaps: true, gaps: true } });
+        expect(done.week.status).toBe('SUBMITTED');
+        expect(done.week.history.at(-1)).toMatchObject({ action: 'SUBMITTED', detail: expect.stringMatching(/^Submitted with \d+ overlaps?/) });
+    });
+
+    it('a gap over 5 minutes warns before a manual submission; Submit anyway still submits', () => {
+        const date = pastDay();
+        const view = weekView(M, sneha, date);
+        const day = view.days.find(d => d.date === date)!;
+        // Delete the day's last entry: the end of the day is no longer covered.
+        const last = day.entries[day.entries.length - 1];
+        const after = deleteEntry(M, sneha, last.id);
+        const review = reviewOf(after);
+        expect(review.gaps.find(g => g.date === date)?.gaps[0]).toMatchObject({ minutes: last.mins });
+        expect(submissionPrompt(review, 'manual', { overlaps: true })).toBe('gaps');
+        expect(submitWeek(M, sneha, after.week.weekStart, { acknowledged: { gaps: true, overlaps: true } }).week.status).toBe('SUBMITTED');
+    });
+
+    it('automatic submission never waits for warnings: gaps are noted in the history, the period still goes', () => {
+        const date = pastDay();
+        const day = weekView(M, sneha, date).days.find(d => d.date === date)!;
+        deleteEntry(M, sneha, day.entries[day.entries.length - 1].id);
+        const before = weekView(M, sneha, date);
+        expect(submissionPrompt(reviewOf(before), 'auto')).toBeNull();
+        const result = runSubmissionDay(M);
+        expect(result.submitted.some(x => x.employeeId === sneha.id && x.weekStart === before.week.weekStart)).toBe(true);
+        const sent = weekView(M, sneha, date).week;
+        expect(sent.status).toBe('SUBMITTED');
+        expect(sent.history.at(-1)).toMatchObject({ action: 'AUTO_SUBMITTED', detail: expect.stringMatching(/not reviewed: .*gaps? over 5 min/) });
+    });
+
+    it('sent back → resubmitted → approved (the existing approval workflow)', () => {
+        submitWeek(M, sneha, s.thisWeek, { acknowledged: { overlaps: true, gaps: true } });
+        sendBackWeek(M, arjun, String(sneha.id), s.thisWeek, 'Please add the standup.');
+        expect(weekView(M, sneha, s.thisWeek)).toMatchObject({ week: { status: 'SENT_BACK' }, canSubmit: true });
+        submitWeek(M, sneha, s.thisWeek, { acknowledged: { overlaps: true, gaps: true } });
+        approveWeek(M, arjun, String(sneha.id), s.thisWeek);
+        expect(weekView(M, sneha, s.thisWeek)).toMatchObject({ week: { status: 'APPROVED' }, editMode: 'change-request', canSubmit: false });
+    });
+});
+
+describe('timesheet filing: settings drive the fields and periods', () => {
+    it('project codes: required when on (and normalised), not asked for when off', () => {
+        const date = s.thisWeek < s.today ? s.thisWeek : s.today;
+        expect(() => updateSettings(M, { timesheetFiling: { ...DEFAULT_FILING, fields: { ...DEFAULT_FILING.fields, endTime: false } } })).toThrow(/work as a pair/);
+        updateSettings(M, { timesheetFiling: { ...DEFAULT_FILING, fields: { ...DEFAULT_FILING.fields, projectCode: true } } });
+        expect(() => addEntry(M, sneha, { date, start: '20:00', end: '20:30', description: 'x' })).toThrow('Add a project code.');
+        const v = addEntry(M, sneha, { date, start: '20:00', end: '20:30', description: 'x', projectCode: ' pay-101 ' });
+        expect(v.days.find(d => d.date === date)!.entries.find(x => x.start === '20:00')).toMatchObject({ projectCode: 'PAY-101' });
+        updateSettings(M, { timesheetFiling: DEFAULT_FILING });
+        expect(() => addEntry(M, sneha, { date, start: '20:30', end: '21:00', description: 'y' })).not.toThrow();
+    });
+
+    it('start + end filing requires both times; the duration comes from them', () => {
+        const date = s.thisWeek < s.today ? s.thisWeek : s.today;
+        expect(() => addEntry(M, sneha, { date, mins: 60, description: 'x' })).toThrow('Enter a start and end time.');
+        const v = addEntry(M, sneha, { date, start: '21:00', end: '22:30', mins: 15, description: 'Release checks' });
+        expect(v.days.find(d => d.date === date)!.entries.find(x => x.description === 'Release checks')).toMatchObject({ mins: 90 });
+    });
+
+    it('daily filing: one day per period; drafts regroup, submitted periods keep their dates', () => {
+        submitWeek(M, sneha, s.thisWeek, { acknowledged: { overlaps: true, gaps: true } });
+        updateSettings(M, { timesheetFiling: { ...DEFAULT_FILING, frequency: 'DAILY' } });
+        expect(getSettings(M).timesheetFiling.frequency).toBe('DAILY');
+        // This week was submitted: it keeps its Monday–Sunday dates.
+        expect(weekView(M, sneha, s.today).filing.period).toMatchObject({ start: s.thisWeek, end: addDays(s.thisWeek, 6) });
+        const next = addDays(s.thisWeek, 9);
+        expect(weekView(M, sneha, next).filing.period).toMatchObject({ start: next, end: next, label: expect.stringMatching(/^\w{3}, \d{1,2} \w{3} \d{4}$/) });
+    });
+
+    it('monthly filing: the month, clipped after periods already submitted', () => {
+        updateSettings(M, { timesheetFiling: { ...DEFAULT_FILING, frequency: 'MONTHLY' } });
+        const view = weekView(M, sneha, s.today);
+        const p = view.filing.period;
+        expect(p.end).toBe(`${s.today.slice(0, 7)}-${String(new Date(Number(s.today.slice(0, 4)), Number(s.today.slice(5, 7)), 0).getDate()).padStart(2, '0')}`);
+        // The draft weeks of this month were regrouped into it: its start is the day after the last submitted week.
+        expect(p.start <= s.thisWeek).toBe(true);
+        expect(view.week.entries.length).toBeGreaterThan(0);
+        const periods = timesheetPeriodsOf(M, sneha, `${s.today.slice(0, 7)}-01`, s.today);
+        periods.slice(1).forEach((x, i) => expect(x.filing.period.start).toBe(addDays(periods[i].filing.period.end, 1)));
+        // Monthly drafts go out on the month's last day.
+        expect(view.filing.autoSubmitOn).toBe(p.end);
+    });
+
+    it('the team grid shows one status for the periods a week touches', () => {
+        updateSettings(M, { timesheetFiling: { ...DEFAULT_FILING, frequency: 'DAILY' } });
+        const row = teamWeekGrid(M, arjun, s.thisWeek).rows.find(r => r.employee.id === sneha.id)!;
+        expect(row.status).toBe('DRAFT');
+    });
+
+    it('the automatic run respects the frequency (daily: the days already over)', () => {
+        updateSettings(M, { timesheetFiling: { ...DEFAULT_FILING, frequency: 'DAILY' } });
+        const result = runSubmissionDay(M);
+        const mine = result.submitted.filter(x => x.employeeId === sneha.id);
+        expect(mine.length).toBeGreaterThan(0);
+        mine.forEach(x => {
+            expect(x.periodEnd).toBe(x.weekStart);
+            expect(x.periodEnd < s.today).toBe(true);
+        });
+        expect(weekView(M, sneha, s.today).week.status).toBe('DRAFT');
+        expect(() => autoRunSubmissionDay(M)).not.toThrow();
+    });
+
+    it('a change request validates only added and edited entries against the fields', () => {
+        updateSettings(M, { timesheetFiling: { ...DEFAULT_FILING, fields: { ...DEFAULT_FILING.fields, projectCode: true } } });
+        const approved = weekView(M, sneha, s.crWeek);
+        const { entries } = approved.week;
+        // Untouched entries pass as approved; an added entry needs a code.
+        expect(() =>
+            requestChange(M, sneha, s.crWeek, { reason: 'Add a call', entries: [...entries, { date: approved.days[0].date, start: '20:00', end: '20:30', description: 'Call' }] })
+        ).toThrow('Add a project code.');
+        const ok = requestChange(M, sneha, s.crWeek, { reason: 'Add a call', entries: [...entries, { date: approved.days[0].date, start: '20:00', end: '20:30', description: 'Call', projectCode: 'INV-220' }] });
+        expect(ok.changeRequest?.status).toBe('PENDING');
+        expect(periodEndOf(ok.week)).toBe(addDays(s.crWeek, 6));
     });
 });
 
@@ -362,10 +517,15 @@ describe('overnight day', () => {
         const date = [0, 1, 2, 3, 4].map(i => addDays(s.thisWeek, i)).find(d => d < s.today && d !== s.openDay) ?? s.thisWeek;
         const v = addEntry(M, sneha, { date, start: '22:00', end: '01:00', description: 'Night release' });
         expect(v.days.find(d => d.date === date)!.entries.find(x => x.description === 'Night release')).toMatchObject({ start: '22:00', end: '01:00', endNext: true, mins: 180 });
-        expect(() => addEntry(M, sneha, { date, start: '00:30', startNext: true, end: '02:00', description: 'x' })).toThrow('Overlaps with 10:00 PM – 1:00 AM (next day) (Night release).');
+        // PROTOTYPE-SETUP (Timesheet filing): an overlap is saved and warned about (across midnight too).
+        const both = addEntry(M, sneha, { date, start: '00:30', startNext: true, end: '02:00', description: 'x' });
+        const night = both.days.find(d => d.date === date)!.entries;
+        const overlaps = findOverlaps(night).filter(o => [o.a, o.b].every(id => night.find(e => e.id === id)!.start !== null && ['Night release', 'x'].includes(night.find(e => e.id === id)!.description)));
+        expect(overlaps).toEqual([expect.objectContaining({ date, from: 24 * 60 + 30, to: 25 * 60 })]);
         expect(() => addEntry(M, sneha, { date, start: '23:30', end: '23:30', description: 'x' })).toThrow('Start and end can’t be the same time.');
-        const hours = addEntry(M, sneha, { date, start: '01:30', startNext: true, mins: 60, description: 'Checks' });
-        expect(hours.days.find(d => d.date === date)!.entries.find(x => x.description === 'Checks')).toMatchObject({ start: '01:30', end: '02:30', startNext: true, endNext: true, mins: 60 });
+        const checks = addEntry(M, sneha, { date, start: '01:30', startNext: true, end: '02:30', description: 'Checks' });
+        expect(checks.days.find(d => d.date === date)!.entries.find(x => x.description === 'Checks')).toMatchObject({ start: '01:30', end: '02:30', startNext: true, endNext: true, mins: 60 });
+        expect(reviewPeriod({ days: checks.days, fields: DEFAULT_FILING.fields, mode: 'both', today: s.today }).overlaps.length).toBeGreaterThan(0);
     });
 });
 

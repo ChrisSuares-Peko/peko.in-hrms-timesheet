@@ -2,6 +2,8 @@
 // times come from the rules module so labels match the rules everywhere.
 import dayjs from 'dayjs';
 
+import { periodLabel } from '@src/prototype/rules/timesheetFiling';
+
 import type { DayStatus, TimesheetStatus } from '../types';
 
 export { DAY_STATUS_LABEL, displayTime, displayTimeOn, entryTimeText, formatDuration, shortTime } from '@src/prototype/rules/attendance';
@@ -12,6 +14,11 @@ export const fmtDay = (iso: string) => dayjs(iso).format('ddd, D MMM');
 export const fmtDate = (iso: string) => dayjs(iso).format('D MMM YYYY');
 /** "Week of 21 Sep" */
 export const fmtWeek = (weekStart: string) => `Week of ${dayjs(weekStart).format('D MMM')}`;
+/**
+ * PROTOTYPE-SETUP (Timesheet filing): a filing period — "12–18 Oct 2026", "Thu, 15 Oct 2026", "October 2026". Without
+ * an end, the Monday–Sunday week.
+ */
+export const fmtPeriod = (start: string, end?: string) => periodLabel(start, end ?? dayjs(start).add(6, 'day').format('YYYY-MM-DD'));
 /** "21–27 Sep 2026" */
 export const fmtWeekRange = (weekStart: string) => {
     const s = dayjs(weekStart);

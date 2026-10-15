@@ -23,6 +23,8 @@ const CARD =
 /** Off days and leave are worth a tag in timesheet mode; "Upcoming" / "Present" are not. */
 const TIMESHEET_TAG_STATUSES = ['on-leave', 'holiday', 'weekly-off', 'worked-off-day'];
 
+const PERIOD_TITLE = { DAILY: 'Today', WEEKLY: 'This week', MONTHLY: 'This month' } as const;
+
 const WeekProgress = ({ overview }: { overview: AtsOverview }) => {
     const { thisWeek } = overview;
     const pct = thisWeek.expectedMinutes
@@ -31,7 +33,8 @@ const WeekProgress = ({ overview }: { overview: AtsOverview }) => {
     return (
         <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between gap-2 flex-wrap">
-                <Text className="text-xs text-[#616161]">This week</Text>
+                {/* PROTOTYPE-SETUP (Timesheet filing): the filing period covering today (a day, a week or a month). */}
+                <Text className="text-xs text-[#616161]">{PERIOD_TITLE[thisWeek.frequency]}</Text>
                 {overview.approvalEnabled && <WeekStatusTag status={thisWeek.status} />}
             </div>
             <Text className="text-sm text-valueText">

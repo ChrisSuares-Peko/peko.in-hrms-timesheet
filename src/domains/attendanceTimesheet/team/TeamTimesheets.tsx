@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { getTeamMonth, getTeamWeek } from '../api';
 import { NoTeamEmpty, PersonCell } from './teamShared';
-import { fmtWeek, fmtWeekRange, formatDuration, WEEK_STATUS } from '../components/format';
+import { fmtPeriod, fmtWeekRange, formatDuration, WEEK_STATUS } from '../components/format';
 import { WeekStatusTag } from '../components/StatusTags';
 import { useAtsPaths } from '../hooks/useAtsPaths';
 import { useAtsScope } from '../hooks/useAtsScope';
@@ -105,7 +105,7 @@ const Stepper = ({
 const WeekChips = ({ weeks, onOpen }: { weeks: MonthRow['weeks']; onOpen: (weekStart: string) => void }) => (
     <Flex gap={4} wrap="wrap">
         {weeks.map(w => (
-            <Tooltip key={w.weekStart} title={`${fmtWeek(w.weekStart)} · ${WEEK_STATUS[w.status].label}${w.changePending ? ' · change pending' : ''}`}>
+            <Tooltip key={w.weekStart} title={`${fmtPeriod(w.weekStart, w.periodEnd)} · ${WEEK_STATUS[w.status].label}${w.changePending ? ' · change pending' : ''}`}>
                 <Tag
                     color={w.changePending ? 'warning' : WEEK_STATUS[w.status].color}
                     className="!m-0 cursor-pointer"

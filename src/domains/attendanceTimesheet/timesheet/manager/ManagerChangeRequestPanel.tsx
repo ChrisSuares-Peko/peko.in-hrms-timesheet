@@ -36,7 +36,7 @@ const ManagerChangeRequestPanel = ({ cr, perspective, busy, onCancel }: ChangeRe
                             <span className="break-words text-gray-900">“{cr.decision.comment}”</span>
                         )}
                         {!approved && (
-                            <span className="text-xs text-gray-600">The approved version of the week stays.</span>
+                            <span className="text-xs text-gray-600">The approved version of the timesheet stays.</span>
                         )}
                     </div>
                 }
@@ -57,7 +57,7 @@ const ManagerChangeRequestPanel = ({ cr, perspective, busy, onCancel }: ChangeRe
                 {onCancel && (
                     <Popconfirm
                         title="Cancel this change request?"
-                        description="The approved week stays as it is."
+                        description="The approved timesheet stays as it is."
                         okText="Cancel request"
                         cancelText="Keep it"
                         onConfirm={onCancel}

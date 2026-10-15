@@ -229,8 +229,9 @@ describe('timesheet entries', () => {
         expect(validateEntry({ date: '2026-10-05', start: '22:00', end: '01:00', description: 'x' }, [])).toMatchObject({ start: '22:00', end: '01:00', endNext: true, mins: 180 });
         expect(() => validateEntry({ date: '2026-10-05', start: '13:00', end: '14:00', description: ' ' }, [])).toThrow(/Describe what you worked on/);
     });
-    it('blocks overlaps but allows touching entries and editing itself', () => {
-        expect(() => validateEntry({ date: '2026-10-05', start: '11:00', end: '13:00', description: 'x' }, existing)).toThrow(/Overlaps/);
+    // PROTOTYPE-SETUP (Timesheet filing): overlapping task entries are saved (the employee is warned — findOverlaps).
+    it('allows overlapping, touching and self-editing entries', () => {
+        expect(() => validateEntry({ date: '2026-10-05', start: '11:00', end: '13:00', description: 'x' }, existing)).not.toThrow();
         expect(() => validateEntry({ date: '2026-10-05', start: '12:00', end: '13:00', description: 'x' }, existing)).not.toThrow();
         expect(() => validateEntry({ id: 'a', date: '2026-10-05', start: '10:00', end: '12:30', description: 'x' }, existing)).not.toThrow();
     });
@@ -337,7 +338,16 @@ describe('weeks, change requests and locks', () => {
             employees,
             statusOf: (_id, ws) => (ws === '2026-09-21' ? 'SENT_BACK' : 'APPROVED'),
         });
-        expect(blockers).toEqual([{ employee: employees[0], weekStart: '2026-09-21', status: 'SENT_BACK' }]);
+        expect(blockers).toEqual([{ employee: employees[0], weekStart: '2026-09-21', periodEnd: '2026-09-27', status: 'SENT_BACK' }]);
+        // PROTOTYPE-SETUP (Timesheet filing): any frequency — the employee's periods overlapping the month.
+        const monthly = payrollBlockers({
+            month: '2026-09',
+            approvalEnabled: true,
+            employees,
+            statusOf: () => 'APPROVED',
+            periodsOf: () => [{ weekStart: '2026-09-01', periodEnd: '2026-09-30', status: 'SUBMITTED' }],
+        });
+        expect(monthly).toEqual([{ employee: employees[0], weekStart: '2026-09-01', periodEnd: '2026-09-30', status: 'SUBMITTED' }]);
         expect(payrollBlockers({ month: '2026-09', approvalEnabled: false, employees, statusOf: () => 'DRAFT' })).toEqual([]);
     });
 });
@@ -462,9 +472,9 @@ describe('validateEntry (entry form)', () => {
         expect(msg({ date: D, hoursText: '5', description: 'x' }, [hoursOnly('h', D, 20 * 60)])).toBe(ENTRY_MESSAGES.dayOver24);
         expect(msg({ date: D, hoursText: '4', description: 'x' }, [hoursOnly('h', D, 20 * 60)])).toBe('no error');
     });
-    it('overlap applies to timed entries only', () => {
+    it('overlapping a task entry is allowed; overlapping a recorded break is not', () => {
         const others = [entry('a', D, '09:00', '12:00'), hoursOnly('h', D, 120)];
-        expect(msg({ date: D, start: '11:00', end: '13:00', description: 'x' }, others)).toBe('Overlaps with 9:00 AM – 12:00 PM (Work).');
+        expect(msg({ date: D, start: '11:00', end: '13:00', description: 'x' }, others)).toBe('no error');
         const lunch = { ...entry('break:0', D, '13:00', '14:00', 'Lunch') };
         expect(msg({ date: D, start: '13:30', end: '15:00', description: 'x' }, [lunch])).toBe('Overlaps with 1:00 PM – 2:00 PM (break).');
         expect(msg({ date: D, hoursText: '2', description: 'x' }, others)).toBe('no error');

@@ -16,7 +16,7 @@ import { showToast } from '@src/slices/apiSlice';
 
 import { getPayrollMonths, processPayrollMonth } from '../api';
 import { payrollLinks, usePayrollScope } from './usePayrollAts';
-import { fmtWeekRange } from '../components/format';
+import { fmtPeriod } from '../components/format';
 import { WeekStatusTag } from '../components/StatusTags';
 import type { PayrollBlocker, PayrollMonthStatus } from '../types';
 
@@ -45,10 +45,10 @@ const columns: ColumnsType<PayrollBlocker> = [
         render: (_, b) => b.manager?.name ?? <Text type="secondary">No manager</Text>,
     },
     {
-        title: 'Week',
+        title: 'Period',
         key: 'week',
         width: 160,
-        render: (_, b) => <Text className="whitespace-nowrap">{fmtWeekRange(b.weekStart)}</Text>,
+        render: (_, b) => <Text className="whitespace-nowrap">{fmtPeriod(b.weekStart, b.periodEnd)}</Text>,
     },
     {
         title: 'Status',

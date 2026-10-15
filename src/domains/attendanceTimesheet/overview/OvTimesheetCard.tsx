@@ -4,6 +4,8 @@
 // more"), and "+ Add entry", which opens the entry form (same rules as the Timesheet tab, no hint) in a small modal
 // (Overview v5, Slice 1) that closes after a successful add or on Cancel — the card never changes height. The week's status is a small chip ("Week: Draft ·
 // auto-submits Fri 16 Oct"). When today can't be edited, a one-line message replaces the button.
+// PROTOTYPE-SETUP (Timesheet filing): the chip names the filing period ("Day" / "Week" / "Month") and its automatic
+// submission date; the form and the entry lines follow the company's fields (no times in duration-only filing).
 import { useState } from 'react';
 
 import { PlusOutlined } from '@ant-design/icons';
@@ -12,7 +14,8 @@ import dayjs from 'dayjs';
 
 import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
 import { useAppDispatch } from '@src/hooks/store';
-import { WEEKDAYS, addDays, entryMins, entryTimeText, formatDuration, isTimed } from '@src/prototype/rules/attendance';
+import { entryMins, entryTimeText, formatDuration, isTimed, usesTimes } from '@src/prototype/rules/attendance';
+import { PERIOD_NOUN, periodKind } from '@src/prototype/rules/timesheetFiling';
 import { showToast } from '@src/slices/apiSlice';
 
 import { addEntry } from '../api';
@@ -26,16 +29,19 @@ const { Text } = Typography;
 
 const SHOWN_ENTRIES = 2;
 
-/** The week chip: "Week: Draft · auto-submits Fri 16 Oct" / "Week: Submitted" / "Week: Change pending" / … */
+/** The period chip: "Week: Draft · auto-submits Fri 16 Oct" / "Month: Submitted" / "Day: Change pending" / … */
 export const weekChip = (week: TimesheetWeekView): { text: string; color?: string; className?: string } => {
-    if (!week.approvalEnabled) return { text: 'Week: recorded (no approval)' };
-    if (week.changeRequest?.status === 'PENDING') return { text: 'Week: Change pending', className: '!bg-[#E4F6EC] !text-[#067647]' };
+    const { period, frequency } = week.filing;
+    const noun = PERIOD_NOUN[periodKind(period.start, period.end, frequency)];
+    const name = noun.charAt(0).toUpperCase() + noun.slice(1);
+    if (!week.approvalEnabled) return { text: `${name}: recorded (no approval)` };
+    if (week.changeRequest?.status === 'PENDING') return { text: `${name}: Change pending`, className: '!bg-[#E4F6EC] !text-[#067647]' };
     const { status } = week.week;
     if (status === 'DRAFT') {
-        const submitOn = addDays(week.week.weekStart, WEEKDAYS.indexOf(week.submissionWeekday));
-        return { text: `Week: Draft · auto-submits ${dayjs(submitOn).format('ddd D MMM')}` };
+        const on = week.filing.autoSubmitOn;
+        return { text: `${name}: Draft${on ? ` · auto-submits ${dayjs(on).format('ddd D MMM')}` : ''}` };
     }
-    return { text: `Week: ${WEEK_STATUS[status].label}`, color: WEEK_STATUS[status].color };
+    return { text: `${name}: ${WEEK_STATUS[status].label}`, color: WEEK_STATUS[status].color };
 };
 
 const OvTimesheetCard = ({
@@ -66,6 +72,8 @@ const OvTimesheetCard = ({
     const shown = day.entries.slice(-SHOWN_ENTRIES);
     const more = day.entries.length - shown.length;
     const chip = weekChip(week);
+    const { fields } = week.filing;
+    const times = usesTimes(fields);
 
     const save = async (value: EntryFormValue) => {
         setBusy(true);
@@ -105,10 +113,12 @@ const OvTimesheetCard = ({
             {shown.length ? (
                 <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
                     {shown.map(e => (
-                        <li key={e.id} className="grid grid-cols-[136px_52px_minmax(0,1fr)] items-baseline gap-2 text-sm">
-                            <span className={`tabular-nums ${isTimed(e) ? 'text-[#080808]' : 'italic text-[#9e9e9e]'}`}>
-                                {entryTimeText(e)}
-                            </span>
+                        <li key={e.id} className={`grid ${times ? 'grid-cols-[136px_52px_minmax(0,1fr)]' : 'grid-cols-[52px_minmax(0,1fr)]'} items-baseline gap-2 text-sm`}>
+                            {times && (
+                                <span className={`tabular-nums ${isTimed(e) ? 'text-[#080808]' : 'italic text-[#9e9e9e]'}`}>
+                                    {entryTimeText(e)}
+                                </span>
+                            )}
                             <span className="tabular-nums text-[#616161]">{formatDuration(entryMins(e))}</span>
                             <span className="truncate text-[#080808]" title={e.description}>
                                 {e.description}
@@ -134,7 +144,19 @@ const OvTimesheetCard = ({
                 onCancel={() => setAdding(false)}
             >
                 <div className="pt-2">
-                    <EntryForm date={today} others={day.entries} quick compact hideHint multilineDescription busy={busy} onSave={save} onCancel={() => setAdding(false)} />
+                    <EntryForm
+                        date={today}
+                        others={day.entries}
+                        fields={fields}
+                        projectCodes={week.filing.projectCodes}
+                        quick
+                        compact
+                        hideHint
+                        multilineDescription
+                        busy={busy}
+                        onSave={save}
+                        onCancel={() => setAdding(false)}
+                    />
                 </div>
             </Modal>
         </EssCard>

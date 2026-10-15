@@ -28,7 +28,8 @@ Defaults:
 - Shift `09:30–18:30` (the shift includes the break), `breakMinutes: 60`.
 - `graceMinutes: 10`, `halfDayThresholdMinutes: 240`, `overtimeMinimumMinutes: 30`.
 - Weekly off: SAT and SUN.
-- `timesheetApproval: { enabled: true, submissionWeekday: 'FRIDAY' }`.
+- `timesheetApproval: { enabled: true, submissionWeekday: 'FRIDAY' }` (the weekday is used for weekly filing).
+- `timesheetFiling: { frequency: 'WEEKLY', fields: { startTime: true, endTime: true, duration: true, projectCode: false }, projectCodes: [...] }` — see **Timesheet filing** below. PUT refuses an impossible field combination with 400 (start and end time go together; start + end, or duration, must be on). Changing `frequency` regroups draft timesheets into the new periods; submitted, approved and sent-back ones keep their dates.
 - `level2`: attendance PAYROLL, overtime PAYROLL, timesheet NONE (fixed for now), leave HR, reimbursement FINANCE. Options per type: HR, FINANCE, PAYROLL, NONE.
 
 The legacy endpoints `hr-settings/grace-period` and `hr-settings/work-schedule` read and write the same `graceMinutes` and `shift`.
@@ -66,13 +67,14 @@ On weekly offs and holidays, all time worked counts as overtime.
 | GET | `profile` | — | `MyProfileView` (work details, approved personal details, the pending update, the last decided one) |
 | POST | `profile/update-request` | `Partial<PersonalDetails>` (any subset; only changed fields are kept) | `MyProfileView` |
 | POST | `profile/update-request/{id}/withdraw` | — | `MyProfileView` |
-| GET | `timesheet/week` | `?date=` (any day of the week) | `TimesheetWeekView` |
+| GET | `timesheet/week` | `?date=` (any day of the filing period) | `TimesheetWeekView` — the filing period covering the date (a day, a week or a month) |
+| GET | `timesheet/periods` | `?from=&to=` (at most two months) | `TimesheetWeekView[]` — every filing period overlapping the range, in order |
 | GET | `timesheet/month` | `?month=` | `TimesheetMonthView` |
 | POST | `timesheet/entries` | `TimesheetEntryInput` | `TimesheetWeekView` |
 | PUT | `timesheet/entries/{entryId}` | `TimesheetEntryInput` (same week) | `TimesheetWeekView` |
 | DELETE | `timesheet/entries/{entryId}` | — | `TimesheetWeekView` |
-| POST | `timesheet/weeks/{weekStart}/submit` | — (resubmits a SENT_BACK week only) | `TimesheetWeekView` |
-| POST | `timesheet/weeks/{weekStart}/change-request` | `ChangeRequestInput` (full proposed week + reason) | `TimesheetWeekView` |
+| POST | `timesheet/weeks/{weekStart}/submit` | `{ acknowledged?: { overlaps?: boolean; gaps?: boolean } }` — submits a started DRAFT period or resubmits a SENT_BACK one (`weekStart` = the period's first day) | `TimesheetWeekView` |
+| POST | `timesheet/weeks/{weekStart}/change-request` | `ChangeRequestInput` (full proposed period + reason) | `TimesheetWeekView` |
 | POST | `timesheet/weeks/{weekStart}/change-request/cancel` | — | `TimesheetWeekView` |
 | GET | `overtime` | `?month=` (stats month; default current) | `OvertimeView` |
 | GET | `overtime/context` | `?date=` | `OvertimeContext` |
@@ -102,18 +104,21 @@ On weekly offs and holidays, all time worked counts as overtime.
 
 **Timesheet entries**
 
-`TimesheetEntry` is `{ id, date, start: string | null, end: string | null, startNext?, endNext?, mins, description }`.
+`TimesheetEntry` is `{ id, date, start: string | null, end: string | null, startNext?, endNext?, mins, description, projectCode? }`.
 - **Timed entry:** `start` and `end` are set, and `mins` always equals end − start.
 - **Next-day times** (HR rules): `startNext` / `endNext` put a time after midnight. Minutes from the day's start = time + 24h when the flag is set; overlap, outside-check-in and totals all use these. "10:00 PM – 2:00 AM (next day)".
 - **Hours-only entry:** `start` and `end` are `null`, and `mins` is what the employee entered. Use it when they don't track exact times.
 
-`TimesheetEntryInput` (add, edit, change request) is `{ date, start?, end?, startNext?, endNext?, mins?, description }`. The server normalises it:
+`TimesheetEntryInput` (add, edit, change request) is `{ date, start?, end?, startNext?, endNext?, mins?, description, projectCode? }`. The server normalises it against the company's fields (`settings.timesheetFiling.fields`):
 
-| Sent | Saved as |
-|---|---|
-| `start` + `end` | Timed; `mins` = end − start. An end earlier than the start is the next morning (`endNext`). |
-| `start` + `mins` | Timed; `end` = start + mins, wrapping past midnight (`endNext`) |
-| `mins` only | Hours-only |
+| Fields | Sent | Saved as |
+|---|---|---|
+| Start + end on (Patterns A and C) | `start` + `end` (required) | Timed; `mins` = end − start (any `mins` sent is ignored). An end earlier than the start is the next morning (`endNext`). |
+| Duration only (Pattern B) | `mins` (required) | Hours-only; any times sent are dropped, none are invented |
+| Project code on | `projectCode` (required) | Normalised to upper case; up to 20 letters, numbers, dots, dashes or slashes |
+| Project code off | `projectCode` (optional) | Kept when valid, never required |
+
+Without the company's fields (older callers and tests), the rules also accept `start` + `mins` (end = start + mins) and `mins` alone.
 
 The form's Hours field accepts `1:30`, `1.5` or `1h 30m` (`parseHours` in the rules module).
 
@@ -131,14 +136,19 @@ Validation (`validateEntry`), in the order it checks. The messages are `ENTRY_ME
 | More than 24h in one entry | One entry can’t be more than 24 hours. |
 | Ends later than the next day | An entry has to end by the next day. |
 | Missing description | Describe what you worked on. |
+| Start + end filing, a time missing * | Enter a start and end time. |
+| Duration-only filing, no duration * | Enter how long you worked, e.g. 1:30 or 1h 30m. |
+| Project codes on, no code / a bad code * | Add a project code. / Use a project code of up to 20 letters, numbers, dots, dashes or slashes. |
 | Day total over 24h | That takes the day over 24 hours. |
-| Overlap with another **timed** entry or a recorded break | Overlaps with 9:00 AM – 12:00 PM (*description*). / Overlaps with 1:00 PM – 2:00 PM (break). |
+| Overlap with a recorded break | Overlaps with 1:00 PM – 2:00 PM (break). |
+
+Overlapping **another task entry** is allowed (Timesheet filing): the entry is saved, and the employee is warned (see below).
 
 How hours-only entries behave:
 - They count everywhere hours are summed: day and week totals, unlogged hours, overtime in Timesheet-only mode, and the payroll and team figures.
 - They never overlap anything and are never "outside check-in hours". Only timed entries are checked for either.
 - Within a day, timed entries are sorted by start, then hours-only entries follow (`sortEntries`).
-- The change diff compares start, end, mins and description.
+- The change diff compares start, end, mins, description and project code.
 
 **Expected hours (the day's timesheet target)**
 
@@ -166,16 +176,54 @@ Each case has a unit test in `src/prototype/rules/__tests__/attendance.test.ts` 
   - Its `action` is always `request-correction` (next-day times included: a late entry suggests a next-day check-out). Nothing is flagged while the day is still checked in.
   - This time never counts as overtime.
   - On a past day with entries but no check-in, the flag prompts a correction. `suggested` comes from the timed entries, or is `null` when there are only hours-only entries.
-- Week statuses: `DRAFT → SUBMITTED → APPROVED | SENT_BACK` (sent back with a required comment).
-- No manual submit. Open (DRAFT) weeks go to the manager automatically on the configured submission day (`timesheetApproval.submissionWeekday`). The submit endpoint only resubmits a SENT_BACK week. On a DRAFT week it returns 409 "Weeks go to your manager automatically every {day}." with the configured day.
-- Editing a SUBMITTED week updates it in place.
+- Period statuses: `DRAFT → SUBMITTED → APPROVED | SENT_BACK` (sent back with a required comment).
+- Manual submission (Timesheet filing): the employee submits a DRAFT period once it has started, or resubmits a SENT_BACK one. A future period returns 409 "You can't submit a period that hasn't started."; a submitted one 409 "This timesheet is already with {manager}." (so a repeated click never submits twice). Entries missing a required field return 400 "{n} entries need more details before you submit: {message}". Draft periods also go out automatically (see below).
+- Editing a SUBMITTED period updates it in place.
 - An APPROVED week returns `editMode: 'change-request'`. The employee sends the whole proposed week with a required reason.
   - The manager approves the change request, or rejects it and the approved version stays.
   - The manager's decision is final.
   - A new change request replaces a pending one.
 - With approval off, weeks stay DRAFT, are just recorded, and are editable until payroll is processed.
-- On the submission weekday, every DRAFT week up to the current one goes to the manager. Sent-back weeks wait for the employee.
+- On an automatic submission day, every due DRAFT period goes to the manager (see **Timesheet filing**). Sent-back periods wait for the employee.
 - The CEO has no manager, so the CEO's weeks and change requests are auto-approved.
+
+**Timesheet filing** (PROTOTYPE-SETUP: Timesheet filing — rules in `src/prototype/rules/timesheetFiling.ts`, tests in `rules/__tests__/timesheetFiling.test.ts`)
+
+*Filing periods.* A period is the unit that is submitted and approved. It's stored as `TimesheetWeek`: `weekStart` is the period's first day and `periodEnd` its last (absent on weekly records = weekStart + 6, so existing data reads unchanged).
+- `frequency`: `DAILY` (one day), `WEEKLY` (Monday–Sunday) or `MONTHLY` (the calendar month).
+- A date's period is the stored period covering it; otherwise the natural period for the frequency, clipped so it never overlaps a stored one. E.g. after weeks up to 18 Oct were submitted, monthly filing makes 19–31 Oct the October period.
+- Changing the frequency regroups drafts (their entries and history move to the new periods). Submitted, approved and sent-back periods keep their dates.
+- `TimesheetWeekView.filing` = `{ frequency, fields, projectCodes, period: { start, end, label }, autoSubmitOn }`. Labels: "Thu, 15 Oct 2026", "12–18 Oct 2026", "October 2026".
+
+*Fields.* `fields = { startTime, endTime, duration, projectCode }`. Valid combinations: start + end (Pattern A — the duration is calculated); start + end + duration (Pattern C — the calculated duration is shown as its own read-only field); duration only (Pattern B). Start and end go together; with neither times nor duration nothing can be recorded. The description is always required. Disabled fields are hidden and never required.
+
+*Overlaps* (`findOverlaps`). Timed task entries are placed on one timeline (date + next-day times), so a 10:00 PM – 2:00 AM entry meets the next day's 1:00 AM entry, while the same clock time on two dates never overlaps. Touching entries, hours-only entries and breaks never overlap. An overlap never blocks: the form shows "Overlaps {entry} ({times}) from {range}. Check your timings — you can still save it.", the entries carry an "Overlaps …" tag, and the period card counts them.
+
+*Gaps* (`dayGapCheck`, `findGaps`). Within a workday with reliable boundaries, time no entry or recorded break covers for **more than 5 minutes** (exactly 5 doesn't count):
+- both mode: check-in → check-out (not while still checked in; nothing without a check-in);
+- timesheet-only mode: the shift, on past working days.
+
+No gap check for future days, days without working hours, duration-only filing, or a day with untimed entries (where they fall is unknown).
+
+*Submitting* (`reviewPeriod`, `submissionPrompt`).
+
+| Trigger | Missing details | Overlaps | Gaps over 5 min |
+|---|---|---|---|
+| Manual (Submit / Resubmit) | Block — "Review entries" (400 from the server too) | Warn — "Review entries" / "Continue anyway" | Warn — "Review entries" / "Submit anyway" |
+| Automatic | Not stopped | Not shown | Not shown |
+
+- Overlaps are asked about first, then gaps. Acknowledged warnings are sent as `acknowledged` and recorded on the SUBMITTED event ("Submitted with 1 overlap · 2 gaps over 5 min").
+- "Review entries" opens the day with the entries outlined.
+- The success toast shows only once the server has accepted the submission.
+- An automatic submission never waits for an acknowledgement. What it didn't stop for is noted on the AUTO_SUBMITTED event ("… · not reviewed: 2 gaps over 5 min").
+
+*Automatic submission* (`isAutoSubmitDay`, `periodsDueForSubmission`, `autoSubmitDateFor`), with approval on:
+
+| Frequency | Runs | Sends |
+|---|---|---|
+| Weekly | on `submissionWeekday` | every started draft (this week included, as before) |
+| Daily | every day | every draft day already over |
+| Monthly | on the month's last day | every started draft |
 
 **Overtime rules**
 - `worked`: the date is today or earlier.
@@ -192,7 +240,7 @@ Each case has a unit test in `src/prototype/rules/__tests__/attendance.test.ts` 
 | GET | `team/today` | — | `TeamTodayView` |
 | GET | `team/timesheets/week` | `?date=` | `TeamWeekGrid` |
 | GET | `team/timesheets/month` | `?month=` | `TeamMonthSummary` |
-| GET | `team/members/{employeeId}/timesheet/week` | `?date=` | `TimesheetWeekView` (`editMode: 'read-only'`) |
+| GET | `team/members/{employeeId}/timesheet/week` | `?date=` | `TimesheetWeekView` (`editMode: 'read-only'`) — the filing period covering the date; the reviewer sees each entry's times, duration, project code and description, and the period's checks (overlaps, gaps over 5 min, missing details) |
 | GET | `team/members/{employeeId}/timesheet/month` | `?month=` | `TimesheetMonthView` |
 | GET | `team/members/{employeeId}/attendance` | `?month=` | `AttendanceMonthView` |
 | GET | `team/approvals/counts` | — | `ApprovalCounts` |
@@ -227,7 +275,7 @@ For the "What changed" view, the week view's `changeRequest` carries `baseEntrie
 - Profile validation (`validatePersonalDetails`): mobile needs at least 10 digits; personal email must look like an email; emergency contact needs a name and a 10-digit number; a photo is at most 1 MB.
 - HR and Finance only ever see timesheet statuses, never entries.
 
-**Payroll blockers:** with approval on, a month can't be processed until every week that overlaps it is APPROVED. A week with a pending change request still counts as approved. Each blocker lists the employee, the manager, the week and its status.
+**Payroll blockers:** with approval on, a month can't be processed until every filing period that overlaps it is APPROVED. A period with a pending change request still counts as approved. Each blocker lists the employee, the manager, the period (`weekStart`, `periodEnd`) and its status.
 
 ## Demo only
 

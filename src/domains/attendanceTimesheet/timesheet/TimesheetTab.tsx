@@ -8,13 +8,19 @@
 // Entries can be timed or hours-only. An approved week is changed through a change request edited locally and
 // sent as the full proposed week. 'both' mode flags time logged outside check-in hours and offers a correction;
 // past days with extra time offer overtime.
+// PROTOTYPE-SETUP (Timesheet filing): the status card is the company's filing period (day / week / month) with ‹ ›,
+// a summary and its warnings. Submit (or Resubmit) runs the period's checks first (submissionPrompt): entries missing
+// a required field stop it ("Review entries"); overlaps, then gaps over 5 minutes, warn ("Review entries" /
+// "Continue anyway" / "Submit anyway"). The toast only shows once the server has accepted it; a second click can't
+// submit twice. Automatic submission happens on the server and never shows these warnings.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Skeleton } from 'antd';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
 import { useAppDispatch } from '@src/hooks/store';
-import { DEFAULT_SETTINGS, diffEntries, weekStartOf } from '@src/prototype/rules/attendance';
+import { DEFAULT_SETTINGS, diffEntries } from '@src/prototype/rules/attendance';
+import { SubmissionAcknowledgement, SubmissionPrompt, reviewPeriod, submissionPrompt } from '@src/prototype/rules/timesheetFiling';
 import { showToast } from '@src/slices/apiSlice';
 
 import {
@@ -26,7 +32,7 @@ import {
     getOvertime,
     getTimesheetMonth,
     getTimesheetNotices,
-    getTimesheetWeek,
+    getTimesheetPeriods,
     requestChange,
     submitWeek,
     updateBreakDescription,
@@ -35,7 +41,7 @@ import { dayOvertime } from './dayModel';
 import CorrectionModal from '../components/CorrectionModal';
 import OvertimeRequestModal from '../components/OvertimeRequestModal';
 import { useAtsScope } from '../hooks/useAtsScope';
-import type { AtsTab, CorrectionTimes, OvertimeView, TimesheetDay, TimesheetEntry, TimesheetNotices, TimesheetWeekView } from '../types';
+import type { AtsTab, CorrectionTimes, FilingFrequency, OvertimeView, TimesheetDay, TimesheetEntry, TimesheetNotices, TimesheetWeekView } from '../types';
 import Calendar3, { inRangeFor } from './Calendar3';
 import DayRows from './DayRows';
 import EntriesPanel from './EntriesPanel';
@@ -43,6 +49,7 @@ import type { EntryFormValue } from './EntryForm';
 import { withEntries } from './helpers';
 import NoticesPanel from './NoticesPanel';
 import SendChangeModal from './SendChangeModal';
+import SubmitReviewModal from './SubmitReviewModal';
 import './timesheet.css';
 import { useCalendarMonths } from './useCalendarMonths';
 import { isListedDay, useTimesheetNav } from './useTimesheetNav';
@@ -75,9 +82,10 @@ const DRAFT_PREFIX = 'draft-';
 const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) => {
     const scope = useAtsScope();
     const dispatch = useAppDispatch();
-    const loadWeek = useCallback((d: string) => getTimesheetWeek(scope, d), [scope]);
+    const loadRange = useCallback((from: string, to: string) => getTimesheetPeriods(scope, from, to), [scope]);
     const loadMonth = useCallback((m: string) => getTimesheetMonth(scope, m), [scope]);
-    const nav = useTimesheetNav({ loadWeek, initialDate });
+    const [frequency, setFrequency] = useState<FilingFrequency | undefined>();
+    const nav = useTimesheetNav({ loadRange, initialDate, frequency });
     const { today, focusWeek, setWeek, reload } = nav;
 
     const [busy, setBusy] = useState(false);
@@ -93,10 +101,19 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
     const [notices, setNotices] = useState<TimesheetNotices | null>(null);
     const [shift, setShift] = useState(DEFAULT_SETTINGS.shift);
     const seq = useRef(0);
+    /** PROTOTYPE-SETUP (Timesheet filing): the submission warning showing, and what was acknowledged so far. */
+    const [prompt, setPrompt] = useState<{ kind: Exclude<SubmissionPrompt, null>; ack: SubmissionAcknowledgement } | null>(null);
+    /** "Review entries": the entries outlined in their day's panel. */
+    const [highlight, setHighlight] = useState<Set<string>>(new Set());
+    const submitting = useRef(false);
 
     useEffect(() => setShowProposed(false), [nav.focusWeekStart]);
     useEffect(() => {
-        getAtsSettings(scope).then(s => s && setShift(s.shift));
+        getAtsSettings(scope).then(s => {
+            if (!s) return;
+            setShift(s.shift);
+            setFrequency(s.timesheetFiling?.frequency ?? 'WEEKLY');
+        });
     }, [scope]);
     useEffect(() => {
         getOvertime(scope).then(v => v && setOvertime(v));
@@ -148,19 +165,21 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
     // ---- the period's days -----------------------------------------------------------------------------
 
     const atsMode = focusWeek?.mode ?? nav.periodWeeks[0]?.mode ?? 'both';
+    const { from: rangeFrom, to: rangeTo } = nav.range;
     const periodDays = useMemo(() => {
         if (!nav.periodReady) return null;
-        const all = nav.periodWeeks.flatMap(w => daysOf(w).map(d => ({ d, join: w.employee.dateOfJoin })));
+        const all = nav.periodWeeks
+            .flatMap(w => daysOf(w).map(d => ({ d, join: w.employee.dateOfJoin })))
+            .filter(x => x.d.date >= rangeFrom && x.d.date <= rangeTo);
         if (nav.mode === 'day') return all.filter(x => x.d.date === nav.date).map(x => x.d);
-        if (nav.mode === 'week') return all.filter(x => isListedDay(x.d, x.join)).map(x => x.d);
-        return all.filter(x => x.d.date.slice(0, 7) === nav.month && isListedDay(x.d, x.join)).map(x => x.d);
-    }, [nav.periodReady, nav.periodWeeks, nav.mode, nav.date, nav.month, daysOf]);
+        return all.filter(x => isListedDay(x.d, x.join)).map(x => x.d);
+    }, [nav.periodReady, nav.periodWeeks, nav.mode, nav.date, rangeFrom, rangeTo, daysOf]);
     const logged = (periodDays ?? []).reduce((s, d) => s + d.loggedMinutes, 0);
     const expected = (periodDays ?? []).reduce((s, d) => s + d.expectedMinutes, 0);
 
     // ---- editing --------------------------------------------------------------------------------------
 
-    const weekOfDay = (day: TimesheetDay) => nav.weeks[weekStartOf(day.date)];
+    const weekOfDay = (day: TimesheetDay) => nav.viewFor(day.date);
 
     const isEditable = (day: TimesheetDay) => {
         const w = weekOfDay(day);
@@ -171,7 +190,7 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
     };
 
     const save = async (day: TimesheetDay, value: EntryFormValue, id?: string) => {
-        const ws = weekStartOf(day.date);
+        const ws = weekOfDay(day)?.week.weekStart;
         if (draft && draft.weekStart === ws) {
             if (id) setDraft(d => d && { ...d, entries: d.entries.map(e => (e.id === id ? { id, ...value } : e)) });
             else {
@@ -185,7 +204,7 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
     };
 
     const remove = (day: TimesheetDay, id: string) => {
-        const ws = weekStartOf(day.date);
+        const ws = weekOfDay(day)?.week.weekStart;
         if (draft && draft.weekStart === ws) {
             setDraft(d => d && { ...d, entries: d.entries.filter(e => e.id !== id) });
             return;
@@ -218,11 +237,55 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
     const saveBreakDescription = (day: TimesheetDay, index: number, description: string) =>
         apply(() => updateBreakDescription(scope, day.date, index, description), 'Break description saved');
 
-    /** Notices: open another week in Week view. */
+    /** Notices: open another filing period (its first day). */
     const openWeek = (weekStart: string) => {
         setDraft(null);
-        if (nav.mode !== 'week') nav.changeMode('week');
         nav.pick(weekStart);
+    };
+
+    // ---- submission (PROTOTYPE-SETUP: Timesheet filing) ---------------------------------------------------
+
+    const review = useMemo(
+        () => (focusWeek ? reviewPeriod({ days: focusWeek.days, fields: focusWeek.filing.fields, mode: focusWeek.mode, today }) : null),
+        [focusWeek, today]
+    );
+
+    const send = async (ack: SubmissionAcknowledgement) => {
+        if (!focusWeek || submitting.current) return;
+        submitting.current = true;
+        setPrompt(null);
+        const manager = focusWeek.employee.managerName ?? 'your manager';
+        const again = focusWeek.week.status === 'SENT_BACK';
+        await apply(() => submitWeek(scope, focusWeek.week.weekStart, ack), again ? `Resubmitted to ${manager}` : `Submitted to ${manager}`);
+        submitting.current = false;
+    };
+
+    /** Submit / Resubmit, or the next warning still to acknowledge. */
+    const advance = (ack: SubmissionAcknowledgement) => {
+        if (!review) return;
+        const kind = submissionPrompt(review, 'manual', ack);
+        if (kind) setPrompt({ kind, ack });
+        else send(ack);
+    };
+
+    /** "Review entries": open the day with the entries outlined; the submission waits for another click. */
+    const reviewEntries = (date: string, ids: string[]) => {
+        setPrompt(null);
+        setDraft(null);
+        setHighlight(new Set(ids));
+        if (nav.mode === 'day') nav.setDate(date);
+        else nav.pick(date);
+    };
+
+    /** The card's warnings link: the first thing to look at. */
+    const reviewFirst = () => {
+        if (!review) return;
+        const issue = review.issues[0];
+        const overlap = review.overlaps[0];
+        const gap = review.gaps[0];
+        if (issue) reviewEntries(issue.date, review.issues.filter(i => i.date === issue.date).map(i => i.entryId));
+        else if (overlap) reviewEntries(overlap.date, review.overlaps.filter(o => o.date === overlap.date).flatMap(o => [o.a, o.b]));
+        else if (gap) reviewEntries(gap.date, []);
     };
 
     const onFix = (day: TimesheetDay) => {
@@ -279,10 +342,10 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
                         busy={busy}
                         editingChanges={changeCount}
                         showProposed={showProposed}
-                        onResubmit={() =>
-                            focusWeek &&
-                            apply(() => submitWeek(scope, focusWeek.week.weekStart), `Resubmitted to ${focusWeek.employee.managerName ?? 'your manager'}`)
-                        }
+                        review={draft ? null : review}
+                        onSubmit={() => advance({})}
+                        onStepPeriod={nav.stepPeriod}
+                        onReview={reviewFirst}
                         onRequestChange={startDraft}
                         onToggleProposed={() => setShowProposed(v => !v)}
                         onWithdraw={() =>
@@ -335,6 +398,9 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
                             onRequestOvertime={(d, minutes) => setOvertimeAsk({ date: d.date, minutes })}
                             onFix={onFix}
                             onBreakDescription={draft ? undefined : saveBreakDescription}
+                            fields={weekOfDay(day)?.filing.fields}
+                            projectCodes={weekOfDay(day)?.filing.projectCodes}
+                            highlight={highlight}
                         />
                     )}
                 />
@@ -356,6 +422,15 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
                     onClose={() => setSendOpen(false)}
                 />
             )}
+            <SubmitReviewModal
+                kind={prompt?.kind ?? null}
+                review={review}
+                entries={focusWeek?.week.entries ?? []}
+                busy={busy}
+                onReview={reviewEntries}
+                onContinue={() => prompt && advance({ ...prompt.ack, [prompt.kind]: true })}
+                onClose={() => setPrompt(null)}
+            />
             <CorrectionModal
                 open={!!correction}
                 date={correction?.date ?? null}

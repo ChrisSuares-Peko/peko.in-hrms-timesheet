@@ -22,6 +22,8 @@ import type {
     ProfileChange,
     TimesheetEditMode,
     TimesheetEntry,
+    TimesheetFields,
+    TimesheetFilingSettings,
     TimesheetStatus,
     Weekday,
 } from '@src/domains/attendanceTimesheet/types';
@@ -165,6 +167,16 @@ export const addMonths = (month: string, delta: number) => {
 
 // ---- settings & modes ---------------------------------------------------------------------------------------
 
+/**
+ * PROTOTYPE-SETUP (Timesheet filing): weekly filing; start and end times with a visible (calculated) duration;
+ * project codes off. The suggested codes are offered when a company turns project codes on.
+ */
+export const DEFAULT_FILING: TimesheetFilingSettings = {
+    frequency: 'WEEKLY',
+    fields: { projectCode: false, startTime: true, endTime: true, duration: true },
+    projectCodes: ['PAY-101', 'INV-220', 'NTF-310', 'ENG-OPS', 'SAL-120', 'OPS-210', 'FIN-300', 'HR-110', 'LDR-001'],
+};
+
 export const DEFAULT_SETTINGS: AtsSettings = {
     mode: 'both',
     shift: { start: '09:30', end: '18:30' },
@@ -176,6 +188,7 @@ export const DEFAULT_SETTINGS: AtsSettings = {
     timesheetApproval: { enabled: true, submissionWeekday: 'FRIDAY' },
     // PROTOTYPE-SETUP (HR rules, Slice 1): attendance corrections and overtime go to the Payroll queue at level 2.
     level2: { attendance: 'PAYROLL', overtime: 'PAYROLL', timesheet: 'NONE', leave: 'HR', reimbursement: 'FINANCE' },
+    timesheetFiling: DEFAULT_FILING,
     updatedAt: '',
 };
 
@@ -533,6 +546,29 @@ export const formatHoursInput = (mins: number) => `${Math.floor(mins / 60)}:${St
 const MAX_DAY_MINUTES = 24 * 60;
 const HHMM_RE = /^\d{2}:\d{2}$/;
 
+// ---- task-entry fields (PROTOTYPE-SETUP: Timesheet filing) -------------------------------------------------
+
+/** Start and end times are asked for (Patterns A and C): the duration is calculated from them. */
+export const usesTimes = (f: Pick<TimesheetFields, 'startTime' | 'endTime'>) => f.startTime && f.endTime;
+
+export const FILING_FIELD_MESSAGES = {
+    pair: 'Start time and end time work as a pair. Turn both on or both off.',
+    none: 'Turn on start and end times, or duration, so employees can record how long they worked.',
+} as const;
+
+/** Why a field combination can't work, or null. Start and end go together; some way of recording time is on. */
+export const filingFieldsError = (f: TimesheetFields) => {
+    if (f.startTime !== f.endTime) return FILING_FIELD_MESSAGES.pair;
+    if (!f.startTime && !f.duration) return FILING_FIELD_MESSAGES.none;
+    return null;
+};
+
+/** "pay-101 " → "PAY-101" */
+export const normaliseProjectCode = (v: string | null | undefined) => (v ?? '').trim().toUpperCase();
+
+/** Up to 20 letters, numbers, dots, dashes or slashes, starting with a letter or number. */
+export const PROJECT_CODE_RE = /^[A-Z0-9][A-Z0-9._/-]{0,19}$/;
+
 /**
  * Validation messages — the prototype's wording (docs/prototypes/attendance-timesheet.html), plus `missing`
  * (nothing entered at all). PROTOTYPE-SETUP (HR rules, Slice 1): an end earlier than the start is the next morning
@@ -551,6 +587,11 @@ export const ENTRY_MESSAGES = {
     pastNextDay: 'An entry has to end by the next day.',
     description: 'Describe what you worked on.',
     dayOver24: 'That takes the day over 24 hours.',
+    // PROTOTYPE-SETUP (Timesheet filing): per the company's fields.
+    needTimes: 'Enter a start and end time.',
+    needDuration: 'Enter how long you worked, e.g. 1:30 or 1h 30m.',
+    projectCode: 'Add a project code.',
+    projectCodeFormat: 'Use a project code of up to 20 letters, numbers, dots, dashes or slashes.',
 } as const;
 
 /** "Overlaps with 9:00 AM – 12:00 PM (Code review)." / "Overlaps with 1:00 PM – 2:00 PM (break)." */
@@ -564,9 +605,13 @@ export const overlapMessage = (clash: Pick<TimesheetEntry, 'id' | 'start' | 'end
  * midnight, and an end earlier than (or equal to, with a next-day flag) the start is the next day. The result carries
  * startNext / endNext when true.
  * Order: end without start · same start and end · start without end or hours · unreadable hours · zero hours ·
- * over 24h · past the next day · description · day over 24h · overlap with another timed entry or a break.
+ * over 24h · past the next day · description · project code · day over 24h · overlap with a break.
  * `others` = the day's (or week's) entries and breaks; the edited entry itself is skipped by id. `hoursText` is
  * what the user typed in Hours (or pass `mins`).
+ * PROTOTYPE-SETUP (Timesheet filing): with the company's `fields`, start and end are required when times are on
+ * (any typed hours are ignored — the duration comes from the times), and only a duration is taken when they are off
+ * (no timestamps are invented). A project code is required when project codes are on, and kept otherwise. Overlapping
+ * task entries are allowed (the employee is warned — see findOverlaps); overlapping a recorded break is not.
  */
 export const validateEntry = (
     input: {
@@ -578,17 +623,22 @@ export const validateEntry = (
         mins?: number | null;
         hoursText?: string;
         description: string;
+        projectCode?: string | null;
         id?: string;
     },
-    others: TimesheetEntry[]
+    others: TimesheetEntry[],
+    fields?: TimesheetFields
 ): Omit<TimesheetEntry, 'id'> => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(input.date ?? '')) throw new RuleError(ENTRY_MESSAGES.date, 400);
-    const start = input.start || null;
-    const typedEnd = input.end || null;
+    const timesOff = Boolean(fields && !usesTimes(fields));
+    const start = timesOff ? null : input.start || null;
+    const typedEnd = timesOff ? null : input.end || null;
     if ((start && !HHMM_RE.test(start)) || (typedEnd && !HHMM_RE.test(typedEnd))) {
         throw new RuleError(ENTRY_MESSAGES.time, 400);
     }
     if (typedEnd && !start) throw new RuleError(ENTRY_MESSAGES.endWithoutStart, 400);
+    if (fields && usesTimes(fields) && (!start || !typedEnd)) throw new RuleError(ENTRY_MESSAGES.needTimes, 400);
+    if (timesOff && !input.hoursText?.trim() && input.mins == null) throw new RuleError(ENTRY_MESSAGES.needDuration, 400);
     const from = start ? toMinutes(start) + (input.startNext ? MINUTES_PER_DAY : 0) : 0;
     let to = 0;
     if (start && typedEnd) {
@@ -612,21 +662,26 @@ export const validateEntry = (
     if (start && from + minutes > 2 * MINUTES_PER_DAY) throw new RuleError(ENTRY_MESSAGES.pastNextDay, 400);
     const description = input.description?.trim() ?? '';
     if (!description) throw new RuleError(ENTRY_MESSAGES.description, 400);
+    const code = normaliseProjectCode(input.projectCode);
+    if (fields?.projectCode && !code) throw new RuleError(ENTRY_MESSAGES.projectCode, 400);
+    if (fields?.projectCode && !PROJECT_CODE_RE.test(code)) throw new RuleError(ENTRY_MESSAGES.projectCodeFormat, 400);
+    // Project codes off: a code already on the entry is kept (not shown, not required).
+    const projectCode = code && PROJECT_CODE_RE.test(code) ? { projectCode: code } : {};
 
     const sameDay = others.filter(o => o.date === input.date && o.id !== input.id);
     if (sameDay.reduce((sum, o) => sum + entryMins(o), 0) + minutes > MAX_DAY_MINUTES) {
         throw new RuleError(ENTRY_MESSAGES.dayOver24, 400);
     }
-    if (!start) return { date: input.date, start: null, end: null, mins: Math.round(minutes), description };
+    if (!start) return { date: input.date, start: null, end: null, mins: Math.round(minutes), description, ...projectCode };
     const endAbs = from + minutes;
     const flags = {
         ...(from >= MINUTES_PER_DAY ? { startNext: true } : {}),
         ...(endAbs >= MINUTES_PER_DAY ? { endNext: true } : {}),
     };
     const candidate = { id: input.id, date: input.date, start, end: clockOf(endAbs), ...flags };
-    const clash = findOverlap(sameDay, candidate);
-    if (clash && isTimed(clash)) throw new RuleError(overlapMessage(clash));
-    return { date: input.date, start, end: clockOf(endAbs), ...flags, mins: Math.round(minutes), description };
+    const breakClash = findOverlap(sameDay.filter(o => o.id.startsWith('break:')), candidate);
+    if (breakClash && isTimed(breakClash)) throw new RuleError(overlapMessage(breakClash));
+    return { date: input.date, start, end: clockOf(endAbs), ...flags, mins: Math.round(minutes), description, ...projectCode };
 };
 
 // ---- expected hours -----------------------------------------------------------------------------------
@@ -768,8 +823,9 @@ export interface EntryDiff {
     edited: { before: TimesheetEntry; after: TimesheetEntry }[];
 }
 
-/** Compares date, start, end, minutes and description. */
+/** Compares date, start, end, minutes, description and project code. */
 const sameEntry = (a: TimesheetEntry, b: TimesheetEntry) =>
+    (a.projectCode ?? '') === (b.projectCode ?? '') &&
     a.date === b.date &&
     a.start === b.start &&
     a.end === b.end &&
@@ -886,6 +942,11 @@ export const payrollBlockers = <E extends { id: number; dateOfJoin: string }>(in
     approvalEnabled: boolean;
     employees: E[];
     statusOf: (employeeId: number, weekStart: string) => TimesheetStatus;
+    /**
+     * PROTOTYPE-SETUP (Timesheet filing): the employee's filing periods overlapping the month (any frequency). Without
+     * it, the Monday–Sunday weeks overlapping the month.
+     */
+    periodsOf?: (employee: E) => { weekStart: string; periodEnd: string; status: TimesheetStatus }[];
 }) => {
     if (!input.approvalEnabled) return [];
     const { last } = monthBounds(input.month);
@@ -893,9 +954,11 @@ export const payrollBlockers = <E extends { id: number; dateOfJoin: string }>(in
     return input.employees
         .filter(e => e.dateOfJoin <= last)
         .flatMap(e =>
-            weeks
-                .filter(ws => addDays(ws, 6) >= e.dateOfJoin)
-                .map(ws => ({ employee: e, weekStart: ws, status: input.statusOf(e.id, ws) }))
+            (input.periodsOf
+                ? input.periodsOf(e)
+                : weeks.map(ws => ({ weekStart: ws, periodEnd: addDays(ws, 6), status: input.statusOf(e.id, ws) })))
+                .filter(p => p.periodEnd >= e.dateOfJoin)
+                .map(p => ({ employee: e, weekStart: p.weekStart, periodEnd: p.periodEnd, status: p.status }))
                 .filter(x => x.status !== 'APPROVED')
         );
 };

@@ -9,9 +9,10 @@ import { LockOutlined } from '@ant-design/icons';
 import { Alert, Tag } from 'antd';
 
 import { formatDuration } from '@src/prototype/rules/attendance';
+import { reviewPeriod, reviewSummary } from '@src/prototype/rules/timesheetFiling';
 
-import { TimesheetPerspective, weekdayLabel } from './managerHelpers';
-import { fmtDate, fmtWeekRange } from '../../components/format';
+import { TimesheetPerspective, todayIso } from './managerHelpers';
+import { fmtDate, fmtDay } from '../../components/format';
 import { WeekStatusTag } from '../../components/StatusTags';
 import type { TimesheetWeekView } from '../../types';
 
@@ -37,16 +38,18 @@ export const WeekStatusBar = ({ view, perspective, actions, note }: WeekStatusBa
             week.decision.comment ? ` — “${week.decision.comment}”` : ''
         }`;
     } else if (week.status === 'DRAFT' && perspective === 'manager') {
-        defaultNote = `Not submitted yet. Open weeks are sent for approval automatically every ${weekdayLabel(
-            view.submissionWeekday
-        )}.`;
+        defaultNote = view.filing.autoSubmitOn
+            ? `Not submitted yet. It goes for approval automatically on ${fmtDay(view.filing.autoSubmitOn)}.`
+            : 'Not submitted yet.';
     }
+    // PROTOTYPE-SETUP (Timesheet filing): what the reviewer should look at — overlaps, gaps over 5 minutes, missing details.
+    const checks = view.mode === 'none' ? '' : reviewSummary(reviewPeriod({ days: view.days, fields: view.filing.fields, mode: view.mode, today: todayIso() }));
 
     return (
         <div className="flex min-w-0 flex-col gap-2 rounded-[26px] border border-solid border-[#e6e6e6] bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-gray-900">Week of {fmtWeekRange(week.weekStart)}</span>
+                    <span className="text-sm font-semibold text-gray-900">{view.filing.period.label}</span>
                     {view.approvalEnabled ? (
                         <WeekStatusTag status={week.status} changePending={changePending} />
                     ) : (
@@ -67,6 +70,11 @@ export const WeekStatusBar = ({ view, perspective, actions, note }: WeekStatusBa
                         <span className="text-amber-600"> · {formatDuration(totals.unloggedMinutes)} unlogged</span>
                     )}
                 </span>
+                {checks && (
+                    <span className="text-xs text-[#93370D]" data-period-checks>
+                        Check: {checks}
+                    </span>
+                )}
                 {(note ?? defaultNote) && <span className="text-xs text-gray-500">{note ?? defaultNote}</span>}
             </div>
             {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
@@ -93,7 +101,7 @@ export const WeekNotices = ({ view, perspective }: WeekNoticesProps) => {
                     type="warning"
                     showIcon
                     icon={<LockOutlined />}
-                    message="This week is read-only"
+                    message="This timesheet is read-only"
                     description={lockReason ?? 'Payroll for this period has been processed.'}
                 />
             )}
@@ -102,7 +110,7 @@ export const WeekNotices = ({ view, perspective }: WeekNoticesProps) => {
                     type="info"
                     showIcon
                     icon={<LockOutlined />}
-                    message="Some days in this week are read-only"
+                    message="Some days in this timesheet are read-only"
                     description={lockReason}
                 />
             )}
@@ -122,8 +130,8 @@ export const WeekNotices = ({ view, perspective }: WeekNoticesProps) => {
                             )}
                             <span className="text-xs text-gray-600">
                                 {employee
-                                    ? 'Fix the week below, then resubmit it.'
-                                    : 'Waiting for the employee to fix and resubmit the week.'}
+                                    ? 'Fix the timesheet below, then resubmit it.'
+                                    : 'Waiting for the employee to fix and resubmit the timesheet.'}
                             </span>
                         </div>
                     }
@@ -138,7 +146,7 @@ export const WeekNotices = ({ view, perspective }: WeekNoticesProps) => {
                     }${week.submittedAt ? ` on ${fmtDate(week.submittedAt)}` : ''} — waiting for approval`}
                     description={
                         employee
-                            ? 'You can still edit this week. Your changes update the submitted week.'
+                            ? 'You can still edit this timesheet. Your changes update the submitted one.'
                             : undefined
                     }
                 />

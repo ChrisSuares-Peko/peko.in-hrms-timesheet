@@ -15,7 +15,7 @@ import {
     rejectChangeRequest,
     sendBackWeek,
 } from '../api';
-import { fmtStamp, fmtWeekRange, formatDuration } from '../components/format';
+import { fmtStamp, formatDuration } from '../components/format';
 import { WeekStatusTag } from '../components/StatusTags';
 import { useAtsScope } from '../hooks/useAtsScope';
 import ManagerChangeDiff from '../timesheet/manager/ManagerChangeDiff';
@@ -104,8 +104,8 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
         setBusy(null);
         if (res === false) return;
         const done: Record<Action, string> = {
-            'approve-week': 'Week approved',
-            'send-back': 'Week sent back',
+            'approve-week': 'Timesheet approved',
+            'send-back': 'Timesheet sent back',
             'approve-change': 'Change approved',
             'reject-change': 'Change rejected',
         };
@@ -163,7 +163,7 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
                             disabled={Boolean(busy)}
                             onClick={() => run('approve-week')}
                         >
-                            Approve week
+                            Approve
                         </Button>
                     </Flex>
                 ) : (
@@ -191,7 +191,7 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
     const renderBody = () => {
         if (!view) {
             if (loading) return <Skeleton active paragraph={{ rows: 8 }} />;
-            return <Alert type="error" showIcon message="This week couldn't be loaded." />;
+            return <Alert type="error" showIcon message="This timesheet couldn't be loaded." />;
         }
         const { totals } = view;
         return (
@@ -199,7 +199,7 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
                 <Flex justify="space-between" align="center" wrap="wrap" gap={12}>
                     <PersonCell person={view.employee} size={44} sub={`${view.employee.designation} · ${view.employee.employeeId}`} />
                     <Flex vertical align="flex-end" gap={4}>
-                        <Typography.Text strong>{fmtWeekRange(view.week.weekStart)}</Typography.Text>
+                        <Typography.Text strong>{view.filing.period.label}</Typography.Text>
                         <Flex gap={6} align="center" wrap="wrap" justify="flex-end">
                             <Typography.Text type="secondary" className="text-sm">
                                 Logged {formatDuration(totals.loggedMinutes)} of {formatDuration(totals.expectedMinutes)}
@@ -216,7 +216,7 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
                         message={`Submitted${view.week.autoSubmitted ? ' automatically on submission day' : ''}${
                             view.week.submittedAt ? ` · ${fmtStamp(view.week.submittedAt)}` : ''
                         }`}
-                        description="Check the week below, then approve it or send it back with a comment."
+                        description="Check the timesheet below, then approve it or send it back with a comment."
                     />
                 )}
 

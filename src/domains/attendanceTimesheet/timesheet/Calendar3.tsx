@@ -11,7 +11,7 @@ import dayjs from 'dayjs';
 import { ESS_CARD } from '@src/components/ess/essTokens';
 import { addDays, monthDates, weekStartOf } from '@src/prototype/rules/attendance';
 
-import type { TimesheetMonthView, TimesheetStatus } from '../types';
+import type { PeriodSummary, TimesheetMonthView } from '../types';
 import { calendarMonths } from './useCalendarMonths';
 
 type CalState = 'off' | 'sub' | 'ok' | 'back' | '';
@@ -57,10 +57,11 @@ const dayInfo = (view: TimesheetMonthView | undefined, date: string): DayInfo =>
     };
 };
 
+/** PROTOTYPE-SETUP (Timesheet filing): the status of the filing period covering the date (a day, a week or a month). */
 const weekStatusOn = (
     view: TimesheetMonthView | undefined,
     date: string
-): { status: TimesheetStatus; changePending: boolean } | undefined => view?.weeks.find(w => w.weekStart === weekStartOf(date));
+): PeriodSummary | undefined => view?.weeks.find(w => w.weekStart <= date && w.periodEnd >= date);
 
 interface MiniMonthProps extends Pick<Calendar3Props, 'today' | 'selected' | 'inRange' | 'approvalEnabled' | 'onPick'> {
     month: string;
@@ -72,12 +73,12 @@ interface MiniMonthProps extends Pick<Calendar3Props, 'today' | 'selected' | 'in
 const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnabled, onPick }: MiniMonthProps) => {
     const dates = monthDates(month);
     const lead = (dayjs(dates[0]).day() + 6) % 7;
-    const thisWeek = weekStartOf(today);
     const stateOf = (date: string, info: DayInfo): CalState => {
         if (info.off) return 'off';
-        if (!approvalEnabled || weekStartOf(date) > thisWeek) return '';
+        if (!approvalEnabled) return '';
         const w = weekStatusOn(view, date);
-        if (!w) return '';
+        // Periods that haven't started yet aren't coloured (a running period is, all its days).
+        if (!w || w.weekStart > today) return '';
         if (w.status === 'SENT_BACK') return 'back';
         if (w.changePending || w.status === 'SUBMITTED') return 'sub';
         if (w.status === 'APPROVED') return 'ok';

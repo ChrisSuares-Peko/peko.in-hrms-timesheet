@@ -1,6 +1,6 @@
 // PROTOTYPE-SETUP: ESS Service 1 — Payroll → HR Settings → "Attendance & Timesheet". The single place for the
-// full set of ATS settings: mode, standard day, day rules, weekly offs, timesheet approval and the approval
-// matrix. Saved with PUT settings (updateAtsSettings). ESS Settings still edits grace period and the default
+// full set of ATS settings: mode, standard day, day rules, weekly offs, timesheet filing (PROTOTYPE-SETUP: Timesheet
+// filing — frequency, task-entry fields, suggested project codes), timesheet approval and the approval matrix. Saved with PUT settings (updateAtsSettings). ESS Settings still edits grace period and the default
 // shift through the legacy hr-settings endpoints, which read and write the same values.
 import { useEffect, useState } from 'react';
 
@@ -28,13 +28,13 @@ import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 
 import { useAppDispatch } from '@src/hooks/store';
-import { WEEKDAYS, formatDuration } from '@src/prototype/rules/attendance';
+import { DEFAULT_FILING, WEEKDAYS, filingFieldsError, formatDuration } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
 
 import { updateAtsSettings } from '../api';
 import { usePayrollScope, useAtsSettings } from './usePayrollAts';
 import { fmtStamp } from '../components/format';
-import type { ApprovalType, AtsMode, AtsSettings, Level2Approver, Level2ConfigurableType, Weekday } from '../types';
+import type { ApprovalType, AtsMode, AtsSettings, FilingFrequency, Level2Approver, Level2ConfigurableType, Weekday } from '../types';
 
 dayjs.extend(customParseFormat);
 
@@ -54,7 +54,30 @@ interface FormValues {
     approvalEnabled: boolean;
     submissionWeekday: Weekday;
     level2: Record<Level2Key, Level2Approver>;
+    frequency: FilingFrequency;
+    fieldStart: boolean;
+    fieldEnd: boolean;
+    fieldDuration: boolean;
+    fieldProjectCode: boolean;
+    projectCodes: string[];
 }
+
+const FREQUENCY_OPTIONS: { value: FilingFrequency; label: string }[] = [
+    { value: 'DAILY', label: 'Daily' },
+    { value: 'WEEKLY', label: 'Weekly' },
+    { value: 'MONTHLY', label: 'Monthly' },
+];
+
+/** What the employee is asked for, in words (the three valid patterns). */
+const patternText = (start: boolean, end: boolean, duration: boolean) => {
+    if (start && end) {
+        return duration
+            ? 'Employees enter a start and end time; the duration is calculated and shown as its own field.'
+            : 'Employees enter a start and end time; the duration is calculated from them.';
+    }
+    if (duration) return 'Employees enter how long they worked. With no times, overlaps and gaps aren’t checked.';
+    return '';
+};
 
 const MODES: { value: AtsMode; label: string; tabs: string; overtime: string }[] = [
     {
@@ -73,7 +96,7 @@ const MODES: { value: AtsMode; label: string; tabs: string; overtime: string }[]
         value: 'timesheet',
         label: 'Timesheet only',
         tabs: 'No check-in. Employees log their work against the shift. Tabs: Timesheet, Overtime.',
-        overtime: 'Overtime is hours logged beyond the working day (shift minus break).',
+        overtime: 'Overtime is hours logged beyond the shift.',
     },
     // PROTOTYPE-SETUP (Overview v4, Slice 5): the fourth mode.
     {
@@ -132,6 +155,12 @@ const toForm = (s: AtsSettings): FormValues => ({
         leave: s.level2.leave,
         reimbursement: s.level2.reimbursement,
     },
+    frequency: (s.timesheetFiling ?? DEFAULT_FILING).frequency,
+    fieldStart: (s.timesheetFiling ?? DEFAULT_FILING).fields.startTime,
+    fieldEnd: (s.timesheetFiling ?? DEFAULT_FILING).fields.endTime,
+    fieldDuration: (s.timesheetFiling ?? DEFAULT_FILING).fields.duration,
+    fieldProjectCode: (s.timesheetFiling ?? DEFAULT_FILING).fields.projectCode,
+    projectCodes: (s.timesheetFiling ?? DEFAULT_FILING).projectCodes,
 });
 
 const fromForm = (v: FormValues): Partial<AtsSettings> => ({
@@ -144,6 +173,11 @@ const fromForm = (v: FormValues): Partial<AtsSettings> => ({
     weeklyOff: WEEKDAYS.filter(d => v.weeklyOff.includes(d)),
     timesheetApproval: { enabled: v.approvalEnabled, submissionWeekday: v.submissionWeekday },
     level2: { ...v.level2, timesheet: 'NONE' },
+    timesheetFiling: {
+        frequency: v.frequency,
+        fields: { startTime: v.fieldStart, endTime: v.fieldEnd, duration: v.fieldDuration, projectCode: v.fieldProjectCode },
+        projectCodes: v.projectCodes.map(c => c.trim().toUpperCase()).filter(Boolean),
+    },
 });
 
 const ModeCards = ({
@@ -193,6 +227,11 @@ const AtsSettingsTab = () => {
     const shiftEnd = Form.useWatch('shiftEnd', form);
     const breakMinutes = Form.useWatch('breakMinutes', form);
     const submissionWeekday = Form.useWatch('submissionWeekday', form);
+    const frequency: FilingFrequency | undefined = Form.useWatch('frequency', form);
+    const fieldStart = Form.useWatch('fieldStart', form);
+    const fieldEnd = Form.useWatch('fieldEnd', form);
+    const fieldDuration = Form.useWatch('fieldDuration', form);
+    const fieldProjectCode = Form.useWatch('fieldProjectCode', form);
 
     useEffect(() => {
         if (settings) form.setFieldsValue(toForm(settings));
@@ -214,8 +253,20 @@ const AtsSettingsTab = () => {
     const workMinutes =
         shiftMinutes !== undefined && shiftMinutes > 0 ? shiftMinutes - (breakMinutes ?? 0) : undefined;
     const timesheetsOff = mode === 'attendance' || mode === 'none';
+    const fieldsError = filingFieldsError({
+        startTime: Boolean(fieldStart),
+        endTime: Boolean(fieldEnd),
+        duration: Boolean(fieldDuration),
+        projectCode: Boolean(fieldProjectCode),
+    });
+    const freq = frequency ?? (settings.timesheetFiling ?? DEFAULT_FILING).frequency;
+    let approvalLine = `Every open week goes to the reporting manager on ${dayName(submissionWeekday ?? settings.timesheetApproval.submissionWeekday)}.`;
+    if (freq === 'DAILY') approvalLine = 'Every day’s timesheet goes to the reporting manager automatically the next day.';
+    if (freq === 'MONTHLY') approvalLine = 'Every month’s timesheet goes to the reporting manager automatically on its last day.';
 
     const save = async () => {
+        // PROTOTYPE-SETUP (Timesheet filing): an impossible field combination can't be saved (the card explains why).
+        if (fieldsError && !timesheetsOff) return;
         // Hidden sections (e.g. approval in Attendance only mode) keep their values: send the full set.
         const values: FormValues = { ...toForm(settings), ...form.getFieldsValue(true) };
         setSaving(true);
@@ -415,6 +466,67 @@ const AtsSettingsTab = () => {
                     </Form.Item>
                 </Card>
 
+                {/* PROTOTYPE-SETUP (Timesheet filing): how often employees file, and what a task entry asks for. */}
+                <Card title="Timesheet filing" size="small">
+                    {timesheetsOff ? (
+                        <Text type="secondary">Timesheets are turned off in Attendance only mode.</Text>
+                    ) : (
+                        <Flex vertical gap={12}>
+                            <Form.Item
+                                name="frequency"
+                                label="Filing frequency"
+                                className="!mb-0"
+                                extra="Changing it regroups draft timesheets into the new periods. Submitted, approved and sent-back ones keep their dates."
+                            >
+                                <Radio.Group options={FREQUENCY_OPTIONS} optionType="button" buttonStyle="solid" aria-label="Filing frequency" />
+                            </Form.Item>
+                            <div>
+                                <Text className="mb-1.5 block text-sm">Task entry fields</Text>
+                                <Text type="secondary" className="mb-2 block text-xs">
+                                    The description is always asked for.
+                                </Text>
+                                <div className="grid max-w-2xl grid-cols-2 gap-2 md:grid-cols-4">
+                                    {(
+                                        [
+                                            ['fieldStart', 'Start time'],
+                                            ['fieldEnd', 'End time'],
+                                            ['fieldDuration', 'Duration'],
+                                            ['fieldProjectCode', 'Project code'],
+                                        ] as const
+                                    ).map(([name, label]) => (
+                                        <Flex key={name} align="center" gap={8}>
+                                            <Form.Item name={name} valuePropName="checked" noStyle>
+                                                <Switch size="small" aria-label={label} />
+                                            </Form.Item>
+                                            <Text>{label}</Text>
+                                        </Flex>
+                                    ))}
+                                </div>
+                            </div>
+                            {fieldsError ? (
+                                <Alert type="error" showIcon message={fieldsError} data-fields-error />
+                            ) : (
+                                <Text type="secondary" className="text-xs" data-fields-pattern>
+                                    {patternText(Boolean(fieldStart), Boolean(fieldEnd), Boolean(fieldDuration))}
+                                    {fieldStart && fieldEnd
+                                        ? ' Overlapping entries and gaps over 5 minutes are flagged before an employee submits.'
+                                        : ''}
+                                </Text>
+                            )}
+                            {fieldProjectCode && (
+                                <Form.Item
+                                    name="projectCodes"
+                                    label="Suggested project codes"
+                                    className="!mb-0"
+                                    extra="Offered as employees type. They can enter another code too (up to 20 letters, numbers, dots, dashes or slashes)."
+                                >
+                                    <Select mode="tags" tokenSeparators={[',', ' ']} placeholder="e.g. PAY-101" aria-label="Suggested project codes" />
+                                </Form.Item>
+                            )}
+                        </Flex>
+                    )}
+                </Card>
+
                 <Card title="Timesheet approval" size="small">
                     {timesheetsOff ? (
                         <Text type="secondary">
@@ -432,14 +544,12 @@ const AtsSettingsTab = () => {
                                     </Text>
                                     <Text type="secondary" className="text-xs">
                                         {approvalEnabled
-                                            ? `Every open week goes to the reporting manager on ${dayName(
-                                                  submissionWeekday ?? settings.timesheetApproval.submissionWeekday
-                                              )}. Payroll for a month can't be processed until every week in it is approved.`
+                                            ? `${approvalLine} Employees can also submit once a period has started. Payroll for a month can't be processed until every timesheet in it is approved.`
                                             : "Timesheets are just recorded. Employees can edit them until payroll is processed, and payroll isn't blocked."}
                                     </Text>
                                 </Flex>
                             </Flex>
-                            {approvalEnabled && (
+                            {approvalEnabled && freq === 'WEEKLY' && (
                                 <Form.Item
                                     name="submissionWeekday"
                                     label="Submission day"
@@ -478,7 +588,7 @@ const AtsSettingsTab = () => {
                     <Button onClick={() => form.setFieldsValue(toForm(settings))} disabled={saving}>
                         Discard changes
                     </Button>
-                    <Button type="primary" danger htmlType="submit" loading={saving}>
+                    <Button type="primary" danger htmlType="submit" loading={saving} disabled={Boolean(fieldsError) && !timesheetsOff}>
                         Save settings
                     </Button>
                 </Flex>

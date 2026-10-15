@@ -9,6 +9,7 @@ import type {
     ChangeRequest,
     OvertimeContext,
     OvertimeRequest,
+    PeriodSummary,
     PersonRef,
     TimesheetBreakRow,
     TimesheetDay,
@@ -18,12 +19,12 @@ import type {
     TimesheetWeekView,
 } from '@src/domains/attendanceTimesheet/types';
 import {
+    DEFAULT_FILING,
     DEFAULT_SETTINGS,
     OPEN_SESSION_LOOKBACK_DAYS,
     addDays,
     addMonths,
     breaksAsEntries,
-    canSubmitWeek,
     dayWindow,
     deriveDay,
     editModeFor,
@@ -33,6 +34,7 @@ import {
     sortEntries,
     lockReasonFor,
     toMinutes,
+    monthBounds,
     monthLabel,
     monthOf,
     outsideCheckInFlag,
@@ -40,9 +42,16 @@ import {
     overtimeMinutes,
     requestState,
     trailLabel,
-    weekDates,
-    weekStartOf,
 } from '@src/prototype/rules/attendance';
+import {
+    autoSubmitDateFor,
+    canSubmitPeriod,
+    clipPeriod,
+    datesBetween,
+    naturalPeriod,
+    periodEndOf,
+    periodLabel,
+} from '@src/prototype/rules/timesheetFiling';
 
 import { createCollection } from './persistentStore';
 import { buildAtsSeed, recordKey, weekId } from '../data/ats-seed';
@@ -96,7 +105,11 @@ export const today = () => todayIso();
 export const currentMonth = () => monthOf(toIsoDate(new Date()));
 export const lastMonth = () => monthOf(monthsAgo(1, 1));
 
-export const getSettings = (mode: DataMode) => atsSettings.get(mode);
+/** PROTOTYPE-SETUP (Timesheet filing): settings saved before filing settings existed get the defaults. */
+export const getSettings = (mode: DataMode): AtsSettings => {
+    const s = atsSettings.get(mode);
+    return s.timesheetFiling ? s : { ...s, timesheetFiling: DEFAULT_FILING };
+};
 
 /** Employees in this data set (none in Empty mode; the ESS personas still work on their own data). */
 export const employeesFor = (mode: DataMode) => (mode === 'empty' ? [] : EMPLOYEES);
@@ -152,25 +165,102 @@ export const publicHolidayOn = (date: string) => {
     return h?.category === 'public' ? h.title : undefined;
 };
 
-// ---- weeks & entries -----------------------------------------------------------------------------------
+// ---- filing periods & entries (PROTOTYPE-SETUP: Timesheet filing) -------------------------------------------
+// A filing period is a stored record (TimesheetWeek: weekStart … periodEnd) or, where none is stored, the natural
+// period for the company's frequency (day / Monday–Sunday week / month), clipped so it never overlaps a stored one.
+// Changing the frequency regroups drafts (regroupDrafts); submitted, approved and sent-back periods keep their dates.
 
-export const weekOf = (mode: DataMode, e: MockEmployee, weekStart: string): TimesheetWeek =>
-    atsWeeks.get(mode)[weekId(e.id, weekStart)] ?? {
-        id: weekId(e.id, weekStart),
-        employeeId: e.id,
-        weekStart,
-        status: 'DRAFT',
-        entries: [],
-        approvedEntries: null,
-        history: [],
-    };
+/** An employee's stored periods, sorted by start — cached per stored object (it's replaced on every write). */
+const periodIndex = new WeakMap<Record<string, TimesheetWeek>, Map<number, TimesheetWeek[]>>();
+
+export const storedPeriodsOf = (mode: DataMode, e: Pick<MockEmployee, 'id'>): TimesheetWeek[] => {
+    const all = atsWeeks.get(mode);
+    let index = periodIndex.get(all);
+    if (!index) {
+        index = new Map();
+        Object.values(all)
+            .sort((a, b) => a.weekStart.localeCompare(b.weekStart))
+            .forEach(w => index!.set(w.employeeId, [...(index!.get(w.employeeId) ?? []), w]));
+        periodIndex.set(all, index);
+    }
+    return index.get(e.id) ?? [];
+};
+
+/** The period covering a date: the stored one, else the natural period clipped by the stored ones. */
+export const periodBoundsFor = (mode: DataMode, e: Pick<MockEmployee, 'id'>, date: string) => {
+    const stored = storedPeriodsOf(mode, e);
+    const hit = stored.find(w => w.weekStart <= date && periodEndOf(w) >= date);
+    if (hit) return { start: hit.weekStart, end: periodEndOf(hit) };
+    const natural = naturalPeriod(date, getSettings(mode).timesheetFiling.frequency);
+    return clipPeriod(natural, date, stored.map(w => ({ start: w.weekStart, end: periodEndOf(w) })));
+};
+
+/** The filing period (record) covering a date — a new, empty draft when nothing is stored yet. */
+export const weekOf = (mode: DataMode, e: MockEmployee, date: string): TimesheetWeek => {
+    const { start, end } = periodBoundsFor(mode, e, date);
+    return (
+        atsWeeks.get(mode)[weekId(e.id, start)] ?? {
+            id: weekId(e.id, start),
+            employeeId: e.id,
+            weekStart: start,
+            ...(end !== addDays(start, 6) ? { periodEnd: end } : {}),
+            status: 'DRAFT',
+            entries: [],
+            approvedEntries: null,
+            history: [],
+        }
+    );
+};
+
+/** Every filing period overlapping from → to, in order. */
+export const periodsBetween = (mode: DataMode, e: MockEmployee, from: string, to: string): TimesheetWeek[] => {
+    const out: TimesheetWeek[] = [];
+    for (let d = from; d <= to; ) {
+        const w = weekOf(mode, e, d);
+        out.push(w);
+        d = addDays(periodEndOf(w), 1);
+    }
+    return out;
+};
+
+export const periodDates = (w: Pick<TimesheetWeek, 'weekStart' | 'periodEnd'>) => datesBetween(w.weekStart, periodEndOf(w));
 
 export const saveWeek = (mode: DataMode, week: TimesheetWeek) =>
     atsWeeks.update(mode, all => ({ ...all, [week.id]: week }));
 
+/**
+ * After the filing frequency changes: every draft period is regrouped into the new periods — its entries move to the
+ * period now covering their date, with the draft's history. Submitted, approved and sent-back periods keep their
+ * dates (the new periods are clipped around them).
+ */
+export const regroupDrafts = (mode: DataMode) => {
+    const all = atsWeeks.get(mode);
+    const drafts = Object.values(all).filter(w => w.status === 'DRAFT');
+    if (!drafts.length) return;
+    atsWeeks.set(mode, Object.fromEntries(Object.entries(all).filter(([, w]) => w.status !== 'DRAFT')));
+    const regrouped: Record<string, TimesheetWeek> = {};
+    [...new Set(drafts.map(w => w.employeeId))].forEach(id => {
+        const e = findEmployee(id);
+        if (!e) return;
+        const mine = drafts.filter(w => w.employeeId === id);
+        mine.flatMap(w => w.entries).forEach(x => {
+            const base = weekOf(mode, e, x.date);
+            const end = periodEndOf(base);
+            const cur = regrouped[base.id] ?? {
+                ...base,
+                history: mine
+                    .filter(w => w.weekStart <= end && periodEndOf(w) >= base.weekStart)
+                    .flatMap(w => w.history)
+                    .sort((a, b) => a.at.localeCompare(b.at)),
+            };
+            regrouped[base.id] = { ...cur, entries: sortEntries([...cur.entries, x]) };
+        });
+    });
+    atsWeeks.update(mode, kept => ({ ...kept, ...regrouped }));
+};
+
 export const entriesOn = (mode: DataMode, e: MockEmployee, date: string) =>
-    weekOf(mode, e, weekStartOf(date))
-        .entries.filter(x => x.date === date);
+    weekOf(mode, e, date).entries.filter(x => x.date === date);
 
 /**
  * PROTOTYPE-SETUP (HR rules, Slice 3): recorded breaks count as logged time (so every checked-in hour is accounted
@@ -340,18 +430,23 @@ export const timesheetDay = (mode: DataMode, e: MockEmployee, date: string, entr
     };
 };
 
+/** The filing period covering `date` (any day in it), with its days. */
 export const weekView = (
     mode: DataMode,
     e: MockEmployee,
-    weekStart: string,
+    date: string,
     opts: { readOnly?: boolean } = {}
 ): TimesheetWeekView => {
     const settings = getSettings(mode);
-    const week = weekOf(mode, e, weekStart);
-    const days = weekDates(weekStart).map(d => timesheetDay(mode, e, d, week.entries));
+    const week = weekOf(mode, e, date);
+    const start = week.weekStart;
+    const end = periodEndOf(week);
+    const days = periodDates(week).map(d => timesheetDay(mode, e, d, week.entries));
     const allDaysLocked = days.every(d => d.locked);
     const approvalEnabled = settings.timesheetApproval.enabled;
     const manager = managerOf(e);
+    const t = today();
+    const tracked = hasTimesheets(settings.mode);
     return {
         employee: { ...personRef(e), dateOfJoin: e.dateOfJoin, managerName: manager?.fullName ?? null },
         week,
@@ -361,11 +456,8 @@ export const weekView = (
         submissionWeekday: settings.timesheetApproval.submissionWeekday,
         mode: settings.mode,
         editMode: !hasTimesheets(settings.mode) ? 'read-only' : editModeFor({ approvalEnabled, status: week.status, allDaysLocked, readOnly: opts.readOnly }),
-        canSubmit:
-            !opts.readOnly &&
-            hasTimesheets(settings.mode) &&
-            weekStart <= weekStartOf(today()) &&
-            canSubmitWeek({ approvalEnabled, status: week.status, allDaysLocked }),
+        // PROTOTYPE-SETUP (Timesheet filing): a started draft can be submitted by hand; a sent-back one resubmitted.
+        canSubmit: !opts.readOnly && tracked && canSubmitPeriod({ approvalEnabled, status: week.status, allDaysLocked, start, today: t }),
         totals: days.reduce(
             (acc, d) => ({
                 loggedMinutes: acc.loggedMinutes + d.loggedMinutes,
@@ -374,8 +466,19 @@ export const weekView = (
             }),
             { loggedMinutes: 0, expectedMinutes: 0, unloggedMinutes: 0 }
         ),
+        filing: {
+            frequency: settings.timesheetFiling.frequency,
+            fields: settings.timesheetFiling.fields,
+            projectCodes: settings.timesheetFiling.projectCodes,
+            period: { start, end, label: periodLabel(start, end) },
+            autoSubmitOn: tracked && week.status === 'DRAFT' ? autoSubmitDateFor({ start, end }, settings, t) : null,
+        },
     };
 };
+
+/** Every filing period overlapping from → to, as full views. */
+export const periodViews = (mode: DataMode, e: MockEmployee, from: string, to: string, opts: { readOnly?: boolean } = {}) =>
+    periodsBetween(mode, e, from, to).map(w => weekView(mode, e, w.weekStart, opts));
 
 // ---- overtime ---------------------------------------------------------------------------------------------
 
@@ -414,11 +517,15 @@ export const monthLabelOf = monthLabel;
 
 export const findEmployeeOr404 = (id: string | number | undefined) => findEmployee(id);
 
-/** Weeks of an employee overlapping a month, with their status. */
-export const weeksSummary = (mode: DataMode, e: MockEmployee, weekStarts: string[]) =>
-    weekStarts
-        .filter(ws => addDays(ws, 6) >= e.dateOfJoin)
-        .map(ws => {
-            const w = weekOf(mode, e, ws);
-            return { weekStart: ws, status: w.status, changePending: Boolean(pendingChangeRequest(mode, w)) };
-        });
+/** An employee's filing periods overlapping a month (from their joining date), with their status. */
+export const weeksSummary = (mode: DataMode, e: MockEmployee, month: string): PeriodSummary[] => {
+    const { first, last } = monthBounds(month);
+    const from = e.dateOfJoin > first ? e.dateOfJoin : first;
+    if (from > last) return [];
+    return periodsBetween(mode, e, from, last).map(w => ({
+        weekStart: w.weekStart,
+        periodEnd: periodEndOf(w),
+        status: w.status,
+        changePending: Boolean(pendingChangeRequest(mode, w)),
+    }));
+};

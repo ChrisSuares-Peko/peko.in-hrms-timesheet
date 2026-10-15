@@ -5,15 +5,29 @@
 // PROTOTYPE-SETUP (HR rules, Slice 3): recorded breaks show among the entries as read-only "Break" rows (hatched
 // background, a Break chip, times not editable) with "Add description" / "Edit description"; they count towards
 // logged hours and other entries can't overlap them. Next-day times read "10:00 PM – 2:00 AM (next day)".
-import { useEffect, useState } from 'react';
+// PROTOTYPE-SETUP (Timesheet filing): the entry form follows the company's fields; entries show their project code
+// (when codes are on) and an amber "Overlaps …" tag when they share time with another entry; a day whose timeline
+// has a gap over 5 minutes shows "Not covered: …". Entries named by "Review entries" are outlined and scrolled to.
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { LockOutlined } from '@ant-design/icons';
 import { Button, Input, Popconfirm, Tag } from 'antd';
 
-import { MINUTES_PER_DAY, entryMins, entryStartMinutes, entryTimeText, formatDuration, isTimed, sortEntries } from '@src/prototype/rules/attendance';
+import {
+    DEFAULT_FILING,
+    MINUTES_PER_DAY,
+    entryMins,
+    entryStartMinutes,
+    entryTimeText,
+    formatDuration,
+    isTimed,
+    sortEntries,
+    usesTimes,
+} from '@src/prototype/rules/attendance';
+import { EntryOverlap, dayGapCheck, findOverlaps, rangeText } from '@src/prototype/rules/timesheetFiling';
 
 import { RequestStatusTag } from '../components/StatusTags';
-import type { AtsMode, OvertimeRequest, TimesheetBreakRow, TimesheetDay, TimesheetEntry } from '../types';
+import type { AtsMode, OvertimeRequest, TimesheetBreakRow, TimesheetDay, TimesheetEntry, TimesheetFields } from '../types';
 import { entryOutsideMinutes, outsideChipText, outsideMinutes } from './dayModel';
 import { BREAK_HATCH } from './DayRows';
 import EntryForm, { EntryFormValue, EntrySession } from './EntryForm';
@@ -36,6 +50,11 @@ export interface EntriesPanelProps {
     onFix: (day: TimesheetDay) => void;
     /** Save a break's description (resolves true when saved). */
     onBreakDescription?: (day: TimesheetDay, index: number, description: string) => Promise<boolean> | boolean;
+    /** PROTOTYPE-SETUP (Timesheet filing): the company's fields and suggested project codes. */
+    fields?: TimesheetFields;
+    projectCodes?: string[];
+    /** Entries to outline ("Review entries"); the first is scrolled into view. */
+    highlight?: Set<string>;
 }
 
 /** The day's check-in / check-out in minutes (the form places times after midnight on an overnight day). */
@@ -62,7 +81,7 @@ const BreakLine = ({ day, brk, editable, onSave }: { day: TimesheetDay; brk: Tim
             style={{ background: BREAK_HATCH.replace('#C9CED6', '#F3F4F6').replace('#EEF0F3', '#FFFFFF') }}
             data-break-row
         >
-            <span className="w-[104px] shrink-0 tabular-nums text-gray-700">{entryTimeText({ start: brk.start, end: brk.end })}</span>
+            <span className="w-[140px] shrink-0 tabular-nums text-gray-700">{entryTimeText({ start: brk.start, end: brk.end })}</span>
             <span className="w-[56px] shrink-0 tabular-nums text-gray-500">{formatDuration(brk.minutes)}</span>
             <span className="order-last flex min-w-0 basis-full items-center gap-1.5 md:order-none md:flex-1 md:basis-0">
                 <Tag className="!m-0" bordered={false}>
@@ -119,6 +138,9 @@ const EntryLine = ({
     day,
     mode,
     editable,
+    fields,
+    overlaps,
+    highlighted,
     onEdit,
     onDelete,
 }: {
@@ -126,25 +148,60 @@ const EntryLine = ({
     day: TimesheetDay;
     mode: AtsMode;
     editable: boolean;
+    fields: TimesheetFields;
+    overlaps: EntryOverlap[];
+    highlighted: boolean;
     onEdit: () => void;
     onDelete: () => void;
 }) => {
     const outside = mode === 'both' && Boolean(day.outsideCheckIn) && entryOutsideMinutes(entry, day) > 0;
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (highlighted) ref.current?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    }, [highlighted]);
+    const showTimes = usesTimes(fields);
     return (
         <div
-            className="group flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 border-0 border-b border-solid border-gray-100 py-1.5 text-[13px] last:border-b-0"
+            ref={ref}
+            className={`group flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 border-0 border-b border-solid border-gray-100 py-1.5 text-[13px] last:border-b-0 ${
+                highlighted ? 'rounded-md bg-[#FFFAEB] px-1.5 outline outline-1 outline-[#F5C26B]' : ''
+            }`}
             onDoubleClick={() => editable && onEdit()}
+            data-entry-id={entry.id}
+            data-highlighted={highlighted || undefined}
         >
-            <span className={`${entry.endNext ? 'w-[180px]' : 'w-[140px]'} shrink-0 tabular-nums ${isTimed(entry) ? 'font-medium text-gray-900' : 'italic text-gray-400'}`}>
-                {entryTimeText(entry)}
-            </span>
-            <span className="w-[56px] shrink-0 tabular-nums text-gray-500">{formatDuration(entryMins(entry))}</span>
+            {showTimes && (
+                <span className={`${entry.endNext ? 'w-[180px]' : 'w-[140px]'} shrink-0 tabular-nums ${isTimed(entry) ? 'font-medium text-gray-900' : 'italic text-gray-400'}`}>
+                    {entryTimeText(entry)}
+                </span>
+            )}
+            <span className={`w-[56px] shrink-0 tabular-nums ${showTimes ? 'text-gray-500' : 'font-medium text-gray-900'}`}>{formatDuration(entryMins(entry))}</span>
             {/* PROTOTYPE-SETUP (V2): on phones the description gets its own full-width line under the times. */}
             <span className="order-last min-w-0 basis-full break-words text-gray-700 md:order-none md:flex-1 md:basis-0">
+                {fields.projectCode && entry.projectCode && (
+                    <Tag bordered={false} className="!mr-1.5 align-middle font-mono !text-[11px]" data-project-code>
+                        {entry.projectCode}
+                    </Tag>
+                )}
                 {entry.description}
                 {outside && (
                     <Tag color="blue" className="!ml-1.5 !mr-0 align-middle">
                         outside check-in
+                    </Tag>
+                )}
+                {overlaps.map(o => (
+                    <Tag key={`${o.a}-${o.b}`} color="warning" className="!ml-1.5 !mr-0 align-middle" data-overlap-tag>
+                        Overlaps {rangeText(o.from, o.to)}
+                    </Tag>
+                ))}
+                {showTimes && !isTimed(entry) && (
+                    <Tag color="error" className="!ml-1.5 !mr-0 align-middle">
+                        needs times
+                    </Tag>
+                )}
+                {fields.projectCode && !entry.projectCode && (
+                    <Tag color="error" className="!ml-1.5 !mr-0 align-middle">
+                        needs a project code
                     </Tag>
                 )}
             </span>
@@ -178,9 +235,17 @@ const EntriesPanel = ({
     onRequestOvertime,
     onFix,
     onBreakDescription,
+    fields = DEFAULT_FILING.fields,
+    projectCodes = [],
+    highlight,
 }: EntriesPanelProps) => {
     const [editing, setEditing] = useState<string | null>(null);
     useEffect(() => setEditing(null), [day.date]);
+    const overlaps = useMemo(() => (usesTimes(fields) ? findOverlaps(day.entries) : []), [day.entries, fields]);
+    const gaps = useMemo(() => {
+        const check = dayGapCheck(day, { fields, mode, today });
+        return check.checked ? check.gaps : [];
+    }, [day, fields, mode, today]);
     const entries = sortEntries(day.entries);
     const session = sessionOf(day);
     const breaksAsOthers = breakEntries(day);
@@ -193,7 +258,7 @@ const EntriesPanel = ({
         .map(({ at, ...r }) => r);
     const outside = day.date <= today ? outsideMinutes(day, mode) : 0;
     const flag = day.outsideCheckIn;
-    const showChips = outside > 0 || overtime > 0 || overtimeRequest;
+    const showChips = outside > 0 || overtime > 0 || overtimeRequest || gaps.length > 0;
 
     return (
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
@@ -231,6 +296,11 @@ const EntriesPanel = ({
                         </Button>
                     )}
                     {overtimeRequest && <RequestStatusTag trail={overtimeRequest.trail} label={`Overtime: ${overtimeRequest.statusLabel}`} />}
+                    {gaps.map(g => (
+                        <Tag key={g.from} color="warning" className="!m-0" data-gap-chip>
+                            Not covered: {rangeText(g.from, g.to)} ({formatDuration(g.minutes)})
+                        </Tag>
+                    ))}
                 </div>
             )}
             {rows.length === 0 && !editable && <div className="py-1 text-xs text-gray-500">No time logged.</div>}
@@ -246,6 +316,8 @@ const EntriesPanel = ({
                         initial={e}
                         others={[...entries.filter(o => o.id !== e.id), ...breaksAsOthers]}
                         session={session}
+                        fields={fields}
+                        projectCodes={projectCodes}
                         busy={busy}
                         onCancel={() => setEditing(null)}
                         onSave={async v => {
@@ -261,13 +333,25 @@ const EntriesPanel = ({
                         day={day}
                         mode={mode}
                         editable={editable}
+                        fields={fields}
+                        overlaps={overlaps.filter(o => o.a === e.id || o.b === e.id)}
+                        highlighted={Boolean(highlight?.has(e.id))}
                         onEdit={() => setEditing(e.id)}
                         onDelete={() => onDelete(day, e.id)}
                     />
                 );
             })}
             {editable && !editing && (
-                <EntryForm quick date={day.date} others={[...entries, ...breaksAsOthers]} session={session} busy={busy} onSave={v => onSave(day, v)} />
+                <EntryForm
+                    quick
+                    date={day.date}
+                    others={[...entries, ...breaksAsOthers]}
+                    session={session}
+                    fields={fields}
+                    projectCodes={projectCodes}
+                    busy={busy}
+                    onSave={v => onSave(day, v)}
+                />
             )}
         </div>
     );

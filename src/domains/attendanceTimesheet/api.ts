@@ -3,6 +3,7 @@
 // `false` on error. Rule errors (overlap, locked day, approved week, ...) come back as 4xx: ApiClient's
 // interceptor shows the server message as a toast, so callers only need to check for `false`.
 import { SuccessGenericResponse } from '@customtypes/general';
+import type { SubmissionAcknowledgement } from '@src/prototype/rules/timesheetFiling';
 import { ApiClient } from '@src/services/config';
 
 import type {
@@ -120,9 +121,12 @@ export const updateBreakDescription = (s: AtsScope, date: string, index: number,
 /** PROTOTYPE-SETUP (HR rules, Slice 3): the Timesheet tab's "Needs your action", across all weeks. */
 export const getTimesheetNotices = (s: AtsScope) => call<TimesheetNotices>(s, 'get', 'timesheet/notices');
 
-/** The week containing `date`. */
+/** The filing period containing `date` (a day, a week or a month — the company's frequency). */
 export const getTimesheetWeek = (s: AtsScope, date: string) =>
     call<TimesheetWeekView>(s, 'get', 'timesheet/week', { params: { date } });
+/** PROTOTYPE-SETUP (Timesheet filing): every filing period overlapping from → to (at most two months). */
+export const getTimesheetPeriods = (s: AtsScope, from: string, to: string) =>
+    call<TimesheetWeekView[]>(s, 'get', 'timesheet/periods', { params: { from, to } });
 export const getTimesheetMonth = (s: AtsScope, month: string) =>
     call<TimesheetMonthView>(s, 'get', 'timesheet/month', { params: { month } });
 export const addEntry = (s: AtsScope, body: TimesheetEntryInput) =>
@@ -131,8 +135,12 @@ export const editEntry = (s: AtsScope, entryId: string, body: TimesheetEntryInpu
     call<TimesheetWeekView>(s, 'put', `timesheet/entries/${entryId}`, { body });
 export const deleteEntry = (s: AtsScope, entryId: string) =>
     call<TimesheetWeekView>(s, 'delete', `timesheet/entries/${entryId}`);
-export const submitWeek = (s: AtsScope, weekStart: string) =>
-    call<TimesheetWeekView>(s, 'post', `timesheet/weeks/${weekStart}/submit`);
+/**
+ * Submit (or resubmit) the period starting `weekStart`. PROTOTYPE-SETUP (Timesheet filing): `acknowledged` = the
+ * warnings the employee chose to continue past (overlaps, gaps over 5 minutes) — recorded in the period's history.
+ */
+export const submitWeek = (s: AtsScope, weekStart: string, acknowledged?: SubmissionAcknowledgement) =>
+    call<TimesheetWeekView>(s, 'post', `timesheet/weeks/${weekStart}/submit`, { body: { acknowledged: acknowledged ?? {} } });
 export const requestChange = (s: AtsScope, weekStart: string, body: ChangeRequestInput) =>
     call<TimesheetWeekView>(s, 'post', `timesheet/weeks/${weekStart}/change-request`, { body });
 export const cancelChangeRequest = (s: AtsScope, weekStart: string) =>

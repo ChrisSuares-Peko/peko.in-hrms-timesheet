@@ -1,6 +1,7 @@
 // PROTOTYPE-SETUP (HR rules, Slice 3): the Timesheet tab's Notices panel (35% next to the calendar; the same height,
 // scrolling inside — timesheet.css). From the prototype:
-//   Week of {date}       the focused week's status Tag, its status line and its action (Resubmit / Request a change /
+//   Filing period        (PROTOTYPE-SETUP: Timesheet filing) the focused period's label, ‹ ›, summary and warnings,
+//                        status Tag, its status line and its action (Resubmit / Request a change /
 //                        Show my changes · Withdraw / Send change · Discard) — WeekStatusCard, bare
 //   Needs your action    across ALL weeks (not the focused one), with a red "N to do" in the header: another
 //                        sent-back week / a week with a change waiting → "Open week"; still checked in from an earlier
@@ -16,7 +17,7 @@ import dayjs from 'dayjs';
 import { ESS_CARD } from '@src/components/ess/essTokens';
 import { formatDuration } from '@src/prototype/rules/attendance';
 
-import { displayTime, fmtStamp } from '../components/format';
+import { displayTime, fmtPeriod, fmtStamp } from '../components/format';
 import type { ActorRef, AtsTab, HistoryEvent, TimesheetNotices } from '../types';
 import { HISTORY_LABEL } from './helpers';
 import { UnloggedDay, unloggedDays } from './UnloggedHoursCard';
@@ -44,11 +45,14 @@ const Group = ({ children }: { children: ReactNode }) => (
 
 const who = (a: ActorRef) => (a.role === 'SYSTEM' ? 'System' : a.name);
 
-/** "Week of 21 Sep" style dates. */
-const dm = (iso: string) => dayjs(iso).format('D MMM');
+/** PROTOTYPE-SETUP (Timesheet filing): "Open day" / "Open week" / "Open month" for a filing period. */
+const openLabel = (start: string, end: string) => {
+    if (start === end) return 'Open day';
+    return dayjs(start).date() === 1 && dayjs(end).add(1, 'day').date() === 1 ? 'Open month' : 'Open week';
+};
 
 export interface NoticesPanelProps {
-    /** The focused week's block (status Tag, line, action). */
+    /** The focused filing period's block (label, status Tag, summary, warnings, line, action). */
     week: ReactNode;
     focusWeekStart: string;
     notices: TimesheetNotices | null;
@@ -69,8 +73,8 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
         .forEach(w =>
             items.push(
                 w.kind === 'sent-back'
-                    ? { id: `sb-${w.weekStart}`, tone: 'back', title: `Week of ${dm(w.weekStart)} sent back`, text: w.text, button: 'Open week', go: () => onOpenWeek(w.weekStart) }
-                    : { id: `ch-${w.weekStart}`, tone: 'info', title: `Change waiting · week of ${dm(w.weekStart)}`, text: w.text, button: 'Open week', go: () => onOpenWeek(w.weekStart) }
+                    ? { id: `sb-${w.weekStart}`, tone: 'back', title: `${fmtPeriod(w.weekStart, w.periodEnd)} sent back`, text: w.text, button: openLabel(w.weekStart, w.periodEnd), go: () => onOpenWeek(w.weekStart) }
+                    : { id: `ch-${w.weekStart}`, tone: 'info', title: `Change waiting · ${fmtPeriod(w.weekStart, w.periodEnd)}`, text: w.text, button: openLabel(w.weekStart, w.periodEnd), go: () => onOpenWeek(w.weekStart) }
             )
         );
     if (notices?.openFrom && onGoTab) {

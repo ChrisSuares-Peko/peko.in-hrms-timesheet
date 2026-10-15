@@ -3,12 +3,16 @@
 // PROTOTYPE-SETUP: ESS Service 1 — navigation + loading for the timesheet tab and viewer: the selected date and
 // view (Day / Week / Month; Week falls back to Day on mobile), the week containing that date, and the month
 // when the Month view is open. Stale responses are ignored.
+// PROTOTYPE-SETUP (Timesheet filing): what is loaded is the filing period containing the date (a day, a week or a
+// month, per the company's frequency) — the unit that is submitted and approved. It loads once per period, the
+// middle view steps by period, and the label is the period's ("12–18 Oct 2026", "October 2026").
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Grid } from 'antd';
 import dayjs from 'dayjs';
 
 import { addDays, addMonths, monthLabel, monthOf, weekStartOf } from '@src/prototype/rules/attendance';
+import { periodEndOf } from '@src/prototype/rules/timesheetFiling';
 
 import { TimesheetViewMode, todayIso } from './managerHelpers';
 import { fmtWeekRange } from '../../components/format';
@@ -47,10 +51,16 @@ export const useManagerTimesheetNav = ({ loadWeek, loadMonth, initialDate, reloa
         if (initialDate) setDate(initialDate);
     }, [initialDate]);
 
+    /** The loaded period covers the date: no new request (unless reloading). */
+    const coveredStart = week && week.week.weekStart <= date && periodEndOf(week.week) >= date ? week.week.weekStart : null;
+    const seen = useRef({ reloadKey, nonce });
     useEffect(() => {
+        const forced = seen.current.reloadKey !== reloadKey || seen.current.nonce !== nonce;
+        seen.current = { reloadKey, nonce };
+        if (coveredStart && !forced) return undefined;
         let alive = true;
         setWeekState('loading');
-        loaders.current.loadWeek(weekStart).then(res => {
+        loaders.current.loadWeek(date).then(res => {
             if (!alive) return;
             if (res) setWeek(res);
             setWeekState(res ? 'ready' : 'error');
@@ -58,7 +68,8 @@ export const useManagerTimesheetNav = ({ loadWeek, loadMonth, initialDate, reloa
         return () => {
             alive = false;
         };
-    }, [weekStart, reloadKey, nonce]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [coveredStart ?? date, reloadKey, nonce]);
 
     useEffect(() => {
         if (viewMode !== 'month') return undefined;
@@ -77,13 +88,14 @@ export const useManagerTimesheetNav = ({ loadWeek, loadMonth, initialDate, reloa
     const step = useCallback(
         (dir: 1 | -1) => {
             if (viewMode === 'day') setDate(d => addDays(d, dir));
+            else if (viewMode === 'week' && week && coveredStart) setDate(dir > 0 ? addDays(periodEndOf(week.week), 1) : addDays(week.week.weekStart, -1));
             else if (viewMode === 'week') setDate(d => addDays(d, 7 * dir));
             else {
                 const m = addMonths(monthOf(date), dir);
                 setDate(m === monthOf(today) ? today : `${m}-01`);
             }
         },
-        [viewMode, date, today]
+        [viewMode, date, today, week, coveredStart]
     );
 
     const openDay = useCallback((d: string) => {
@@ -99,16 +111,16 @@ export const useManagerTimesheetNav = ({ loadWeek, loadMonth, initialDate, reloa
         [today]
     );
 
+    /** The loaded filing period, only once it is the period of the selected date. */
+    const view = coveredStart ? week : null;
+
     let label = monthLabel(month);
     if (viewMode === 'day') label = dayjs(date).format('ddd, D MMM YYYY');
-    if (viewMode === 'week') label = fmtWeekRange(weekStart);
+    if (viewMode === 'week') label = view ? view.filing.period.label : fmtWeekRange(weekStart);
 
     let isCurrent = month === monthOf(today);
     if (viewMode === 'day') isCurrent = date === today;
-    if (viewMode === 'week') isCurrent = weekStart === weekStartOf(today);
-
-    /** The loaded week, only once it is the week of the selected date. */
-    const view = week && week.week.weekStart === weekStart ? week : null;
+    if (viewMode === 'week') isCurrent = view ? view.week.weekStart <= today && periodEndOf(view.week) >= today : weekStart === weekStartOf(today);
     const monthData = monthView && monthView.month === month ? monthView : null;
 
     return {
@@ -118,7 +130,8 @@ export const useManagerTimesheetNav = ({ loadWeek, loadMonth, initialDate, reloa
         setDate,
         mode: viewMode,
         setMode,
-        weekStart,
+        /** The filing period's first day (the date's Monday until it's loaded). */
+        weekStart: view?.week.weekStart ?? weekStart,
         month,
         view,
         weekState,

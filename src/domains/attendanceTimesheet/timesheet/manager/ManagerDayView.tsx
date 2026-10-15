@@ -9,6 +9,7 @@ import { LockOutlined, PlusOutlined } from '@ant-design/icons';
 import { Button, Tag, Tooltip } from 'antd';
 
 import { formatDuration } from '@src/prototype/rules/attendance';
+import { findOverlaps } from '@src/prototype/rules/timesheetFiling';
 
 import ManagerEntryEditor from './ManagerEntryEditor';
 import ManagerEntryRow, { EntryMark } from './ManagerEntryRow';
@@ -17,7 +18,7 @@ import ManagerOutsideFlagBanner from './ManagerOutsideFlagBanner';
 import ManagerTimeTrack, { TimeTrackLegend } from './ManagerTimeTrack';
 import { fmtDay } from '../../components/format';
 import { DayStatusTag } from '../../components/StatusTags';
-import type { AtsMode, DayStatus, TimesheetDay, TimesheetEntryInput } from '../../types';
+import type { AtsMode, DayStatus, TimesheetDay, TimesheetEntryInput, TimesheetFields } from '../../types';
 
 export interface DayEditHandlers {
     busy?: boolean;
@@ -43,6 +44,8 @@ export interface DayViewProps {
     onFlagAction?: (day: TimesheetDay) => void;
     /** Week view: open this day in the Day view. */
     onOpen?: (date: string) => void;
+    /** PROTOTYPE-SETUP (Timesheet filing): the company's task-entry fields. */
+    fields?: TimesheetFields;
 }
 
 const ALWAYS_SHOWN: DayStatus[] = ['on-leave', 'holiday', 'weekly-off', 'worked-off-day'];
@@ -58,8 +61,10 @@ const ManagerDayView = ({
     perspective = 'employee',
     onFlagAction,
     onOpen,
+    fields,
 }: DayViewProps) => {
     const [editing, setEditing] = useState<string | null>(null);
+    const overlapping = new Set(findOverlaps(day.entries).flatMap(o => [o.a, o.b]));
     const isToday = day.date === today;
     const canEdit = !!edit && !day.locked;
     const { status } = day.attendance;
@@ -172,6 +177,8 @@ const ManagerDayView = ({
                                 isOutsideWindow(entry, day.window)
                             }
                             mark={marks?.get(entry.id)}
+                            fields={fields}
+                            overlaps={overlapping.has(entry.id)}
                             canEdit={canEdit && editing === null}
                             busy={edit?.busy}
                             onEdit={() => setEditing(entry.id)}

@@ -54,7 +54,7 @@ const ManagerWeekHistory = ({ history, defaultOpen }: WeekHistoryProps) => {
                             }))}
                         />
                     ) : (
-                        <span className="text-xs text-gray-500">Nothing has happened in this week yet.</span>
+                        <span className="text-xs text-gray-500">Nothing has happened in this timesheet yet.</span>
                     ),
                 },
             ]}

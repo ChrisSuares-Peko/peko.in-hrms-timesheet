@@ -3,7 +3,7 @@
 // ESS - Manager and Payroll see the same data. ESS and manager endpoints answer as the requesting persona
 // (requester.ts); Payroll level-2 endpoints act as the role in `?role=HR|FINANCE`.
 import type { Level2Role, QueueScope } from '@src/domains/attendanceTimesheet/types';
-import { RuleError, weekStartOf } from '@src/prototype/rules/attendance';
+import { RuleError } from '@src/prototype/rules/attendance';
 
 import { findEmployee } from '../data/employees';
 import type { DataMode } from '../envelope';
@@ -34,6 +34,7 @@ import {
     submitWeek,
     timesheetMonthOf,
     timesheetNoticesOf,
+    timesheetPeriodsOf,
 } from '../store/atsEss';
 import { homeOf } from '../store/atsHome';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../store/atsProfile';
@@ -145,14 +146,16 @@ export const atsRoutes: MockRoute[] = [
 
     // ---- ESS: timesheet ---------------------------------------------------------------------------------
     // PROTOTYPE-SETUP (Overview v2, Slice 2): ?date= may be any day of the week (as documented) — use its Monday.
-    route('GET', `${A}/timesheet/week`, ess((ctx, me) => weekView(ctx.mode, me, weekStartOf(dateParam(ctx.query))))),
+    route('GET', `${A}/timesheet/week`, ess((ctx, me) => weekView(ctx.mode, me, dateParam(ctx.query)))),
+    // PROTOTYPE-SETUP (Timesheet filing): the filing periods covering a date range (the Timesheet tab's Day / Week / Month).
+    route('GET', `${A}/timesheet/periods`, ess((ctx, me) => timesheetPeriodsOf(ctx.mode, me, String(ctx.query.from ?? ''), String(ctx.query.to ?? '')))),
     route('GET', `${A}/timesheet/month`, ess((ctx, me) => timesheetMonthOf(ctx.mode, me, monthParam(ctx.query)))),
     // PROTOTYPE-SETUP (HR rules, Slice 3): the Notices panel's "Needs your action", across all weeks.
     route('GET', `${A}/timesheet/notices`, ess((ctx, me) => timesheetNoticesOf(ctx.mode, me))),
     route('POST', `${A}/timesheet/entries`, ess((ctx, me) => addEntry(ctx.mode, me, ctx.body))),
     route('PUT', `${A}/timesheet/entries/:entryId`, ess((ctx, me) => editEntry(ctx.mode, me, ctx.params.entryId!, ctx.body))),
     route('DELETE', `${A}/timesheet/entries/:entryId`, ess((ctx, me) => deleteEntry(ctx.mode, me, ctx.params.entryId!))),
-    route('POST', `${A}/timesheet/weeks/:weekStart/submit`, ess((ctx, me) => submitWeek(ctx.mode, me, ctx.params.weekStart!))),
+    route('POST', `${A}/timesheet/weeks/:weekStart/submit`, ess((ctx, me) => submitWeek(ctx.mode, me, ctx.params.weekStart!, ctx.body))),
     route('POST', `${A}/timesheet/weeks/:weekStart/change-request`, ess((ctx, me) => requestChange(ctx.mode, me, ctx.params.weekStart!, ctx.body))),
     route('POST', `${A}/timesheet/weeks/:weekStart/change-request/cancel`, ess((ctx, me) => cancelChangeRequest(ctx.mode, me, ctx.params.weekStart!))),
 

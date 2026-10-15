@@ -7,7 +7,7 @@ import { LockOutlined, WarningFilled } from '@ant-design/icons';
 import { Button, Tooltip } from 'antd';
 import dayjs from 'dayjs';
 
-import { DAY_STATUS_LABEL, formatDuration, weekDates } from '@src/prototype/rules/attendance';
+import { DAY_STATUS_LABEL, addDays, formatDuration, weekDates, weeksOverlappingMonth } from '@src/prototype/rules/attendance';
 
 import { shortHours } from './managerHelpers';
 import { fmtWeekRange } from '../../components/format';
@@ -54,6 +54,13 @@ const Stat = ({ label, value, tone }: { label: string; value: string; tone?: str
 const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWeek }: MonthViewProps) => {
     const byDate = new Map(month.days.map(d => [d.date, d]));
     const { totals } = month;
+    // PROTOTYPE-SETUP (Timesheet filing): calendar rows; the tags are the statuses of the filing periods each row
+    // touches (one per weekly period; a day's or a month's otherwise).
+    const rows = weeksOverlappingMonth(month.month).map(rowStart => {
+        const rowEnd = addDays(rowStart, 6);
+        const periods = month.weeks.filter(p => p.weekStart <= rowEnd && p.periodEnd >= rowStart);
+        return { w: { weekStart: rowStart }, tags: [...new Map(periods.map(p => [`${p.status}-${p.changePending}`, p])).values()] };
+    });
 
     return (
         <div className="flex min-w-0 flex-col gap-3">
@@ -75,12 +82,14 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                     ))}
                 </div>
                 <div className="flex flex-col gap-2">
-                    {month.weeks.map(w => (
+                    {rows.map(({ w, tags }) => (
                         <div key={w.weekStart} className="flex flex-col gap-1">
                             <div className="flex flex-wrap items-center justify-between gap-1 px-0.5">
                                 <span className="text-xs text-gray-500">{fmtWeekRange(w.weekStart)}</span>
                                 <span className="flex flex-wrap items-center gap-1">
-                                    <WeekStatusTag status={w.status} changePending={w.changePending} />
+                                    {tags.map(p => (
+                                        <WeekStatusTag key={`${p.status}-${p.changePending}`} status={p.status} changePending={p.changePending} />
+                                    ))}
                                     {onOpenWeek && (
                                         <Button
                                             type="link"

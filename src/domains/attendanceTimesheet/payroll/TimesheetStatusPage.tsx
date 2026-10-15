@@ -12,7 +12,7 @@ import { hasTimesheets } from '@src/prototype/rules/attendance';
 
 import { getTimesheetStatus } from '../api';
 import { payrollLinks, useAtsSettings, usePayrollScope } from './usePayrollAts';
-import { fmtWeekRange } from '../components/format';
+import { fmtPeriod } from '../components/format';
 import { WeekStatusTag } from '../components/StatusTags';
 import type { TimesheetStatusView } from '../types';
 
@@ -60,7 +60,7 @@ const columns: ColumnsType<Row> = [
                         gap={6}
                         className="rounded-md border border-solid border-gray-200 px-2 py-1"
                     >
-                        <Text className="whitespace-nowrap text-xs">{fmtWeekRange(w.weekStart)}</Text>
+                        <Text className="whitespace-nowrap text-xs">{fmtPeriod(w.weekStart, w.periodEnd)}</Text>
                         <WeekStatusTag status={w.status} changePending={w.changePending} />
                     </Flex>
                 ))}
@@ -207,7 +207,7 @@ const TimesheetStatusPage = () => {
                 <Alert
                     type="warning"
                     showIcon
-                    message={`Payroll for ${view.monthLabel} is blocked until every week is approved`}
+                    message={`Payroll for ${view.monthLabel} is blocked until every timesheet is approved`}
                     description={
                         <>
                             Ask the managers below to approve, or the employees to resubmit sent-back
@@ -256,7 +256,7 @@ const TimesheetStatusPage = () => {
                         {view.notApproved.length === 0 ? (
                             <Empty
                                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                description="Every week in this month is approved."
+                                description="Every timesheet in this month is approved."
                             />
                         ) : (
                             <div className="w-full overflow-x-auto">

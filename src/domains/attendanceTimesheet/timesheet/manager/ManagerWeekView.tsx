@@ -5,7 +5,7 @@
 import ManagerDayView, { DayEditHandlers } from './ManagerDayView';
 import type { EntryMark } from './ManagerEntryRow';
 import { TimesheetPerspective, trackRange } from './managerHelpers';
-import type { AtsMode, TimesheetDay } from '../../types';
+import type { AtsMode, TimesheetDay, TimesheetFields } from '../../types';
 
 export interface WeekViewProps {
     days: TimesheetDay[];
@@ -16,9 +16,11 @@ export interface WeekViewProps {
     perspective?: TimesheetPerspective;
     onFlagAction?: (day: TimesheetDay) => void;
     onOpenDay?: (date: string) => void;
+    /** PROTOTYPE-SETUP (Timesheet filing): the company's task-entry fields. */
+    fields?: TimesheetFields;
 }
 
-const ManagerWeekView = ({ days, today, atsMode, edit, marks, perspective, onFlagAction, onOpenDay }: WeekViewProps) => {
+const ManagerWeekView = ({ days, today, atsMode, edit, marks, perspective, onFlagAction, onOpenDay, fields }: WeekViewProps) => {
     const range = trackRange(days);
     return (
         <div className="flex min-w-0 flex-col gap-2.5">
@@ -35,6 +37,7 @@ const ManagerWeekView = ({ days, today, atsMode, edit, marks, perspective, onFla
                     perspective={perspective}
                     onFlagAction={onFlagAction}
                     onOpen={onOpenDay}
+                    fields={fields}
                 />
             ))}
         </div>

@@ -27,6 +27,7 @@ import {
     trailLabel,
     weekStartOf,
 } from '@src/prototype/rules/attendance';
+import { periodEndOf, periodLabel } from '@src/prototype/rules/timesheetFiling';
 
 import { overtimeViewOf } from './atsEss';
 import { profileRequestsOf } from './atsProfile';
@@ -42,6 +43,7 @@ import {
     overtimeOfEmployee,
     pendingChangeRequest,
     timesheetDay,
+    periodsBetween,
     today,
     weekOf,
 } from './atsStore';
@@ -76,7 +78,7 @@ const recentDaysOf = (mode: DataMode, e: MockEmployee): OverviewDay[] => {
         .map(date => ({ date, a: attendanceDay(mode, e, date), logged: loggedOn(mode, e, date) }))
         .filter(({ a, logged }) => !['holiday', 'weekly-off'].includes(a.status) || logged > 0 || Boolean(a.checkIn));
     return days.map(({ date, a, logged }) => {
-        const week = weekOf(mode, e, weekStartOf(date));
+        const week = weekOf(mode, e, date);
         const request = activeOvertimeOn(mode, e, date);
         let overtime: OverviewDay['overtime'] = { kind: 'none' };
         if (request) {
@@ -117,15 +119,15 @@ const actionsOf = (mode: DataMode, e: MockEmployee): OverviewAction[] => {
     const t = today();
     const actions: OverviewAction[] = [];
     if (settings.timesheetApproval.enabled && hasTimesheets(settings.mode)) {
-        // Sent-back weeks in the last few months, oldest first.
-        Array.from({ length: 13 }, (_, i) => addDays(weekStartOf(t), -7 * (12 - i)))
-            .map(ws => weekOf(mode, e, ws))
+        // Sent-back filing periods in the last few months, oldest first (PROTOTYPE-SETUP: Timesheet filing).
+        const from = addDays(weekStartOf(t), -7 * 12);
+        periodsBetween(mode, e, from > e.dateOfJoin ? from : e.dateOfJoin, t)
             .filter(w => w.status === 'SENT_BACK')
             .forEach(w =>
                 actions.push({
                     kind: 'sent-back',
                     title: 'Timesheet sent back',
-                    text: `Week of ${dm(w.weekStart)}: ${w.decision?.comment ?? 'Your manager asked for changes.'}`,
+                    text: `${periodLabel(w.weekStart, periodEndOf(w))}: ${w.decision?.comment ?? 'Your manager asked for changes.'}`,
                     button: 'Fix and resubmit',
                     link: { tab: 'timesheet', date: w.weekStart },
                     tone: 'back',

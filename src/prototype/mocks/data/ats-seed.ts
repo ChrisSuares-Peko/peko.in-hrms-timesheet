@@ -214,6 +214,27 @@ const TASKS: Record<DepartmentName, string[]> = {
     Leadership: ['Leadership sync', 'Board deck review', 'Investor call', 'Hiring plan review', 'Customer escalation review'],
 };
 
+/**
+ * PROTOTYPE-SETUP (Timesheet filing): every seeded entry carries a project code (from DEFAULT_FILING.projectCodes), so
+ * a company that turns project codes on finds its existing entries complete.
+ */
+const PROJECT_CODE_BY_WORD: [RegExp, string][] = [
+    [/payment|refund|checkout|payroll calculator|cutover|deploy|rollback|release/i, 'PAY-101'],
+    [/invoice|zenith|client call/i, 'INV-220'],
+    [/notification/i, 'NTF-310'],
+    [/standup|code review|on-call|unit tests|bug|sprint/i, 'ENG-OPS'],
+];
+const DEPARTMENT_CODE: Record<DepartmentName, string> = {
+    Engineering: 'ENG-OPS',
+    Sales: 'SAL-120',
+    Operations: 'OPS-210',
+    Finance: 'FIN-300',
+    HR: 'HR-110',
+    Leadership: 'LDR-001',
+};
+export const projectCodeFor = (department: DepartmentName, description: string) =>
+    (department === 'Engineering' ? PROJECT_CODE_BY_WORD.find(([re]) => re.test(description))?.[1] : undefined) ?? DEPARTMENT_CODE[department];
+
 const task = (e: MockEmployee, date: string, i: number) => {
     const pool = TASKS[e.department];
     return pool[Math.floor(seeded(e.id, date, i, 'task') * pool.length) % pool.length];
@@ -240,6 +261,7 @@ const entriesFor = (e: MockEmployee, date: string, start: string, end: string): 
         end: fromMinutes(b),
         mins: b - a,
         description: task(e, date, i),
+        projectCode: projectCodeFor(e.department, task(e, date, i)),
     }));
 
 /**
@@ -318,6 +340,7 @@ const timedEntry = (
     ...(next.endNext ? { endNext: true } : {}),
     mins: toMinutes(end) + (next.endNext ? MINUTES_PER_DAY : 0) - toMinutes(start) - (next.startNext ? MINUTES_PER_DAY : 0),
     description,
+    projectCode: projectCodeFor('Engineering', description),
 });
 
 const buildWeeks = (s: ReturnType<typeof atsScenario>, attendance: AtsSeed['attendance']) => {
@@ -348,7 +371,7 @@ const snehaScenarios = (s: ReturnType<typeof atsScenario>, seed: AtsSeed) => {
         ...sb.entries.filter(x => !(x.date === s.missingFriday && toMinutes(x.start ?? '00:00') >= LUNCH_START)),
         timedEntry(`te-${sneha.id}-${s.afterCheckOutDay}-x`, s.afterCheckOutDay, '18:15', '19:30', 'Production support – release verification'),
         // PROTOTYPE-SETUP (V2): an hours-only entry — no set times.
-        { id: `te-${sneha.id}-${s.lateDay}-h`, date: s.lateDay, start: null, end: null, mins: 60, description: 'Writing release notes' },
+        { id: `te-${sneha.id}-${s.lateDay}-h`, date: s.lateDay, start: null, end: null, mins: 60, description: 'Writing release notes', projectCode: 'PAY-101' },
     ]);
     const submittedAt = isoDateTime(addDays(s.sentBackWeek, 4), '12:30:00');
     const sentBackAt = isoDateTime(addDays(s.sentBackWeek, 7), '05:10:00');

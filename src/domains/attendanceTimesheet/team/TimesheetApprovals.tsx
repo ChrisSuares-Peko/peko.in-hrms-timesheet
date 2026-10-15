@@ -10,7 +10,7 @@ import { getTimesheetQueue } from '../api';
 import { approvalItemStatus, PersonCell } from './teamShared';
 import TimesheetReviewDrawer from './TimesheetReviewDrawer';
 import type { ReviewTarget } from './TimesheetReviewDrawer';
-import { fmtStamp, fmtWeekRange, formatDuration } from '../components/format';
+import { fmtPeriod, fmtStamp, formatDuration } from '../components/format';
 import { useAtsScope } from '../hooks/useAtsScope';
 import type { QueueScope, TimesheetApprovalItem } from '../types';
 
@@ -34,9 +34,9 @@ const ItemCard = ({ item, onOpen }: { item: TimesheetApprovalItem; onOpen: () =>
                     <PersonCell person={item.employee} />
                     <Flex gap={6} align="center" wrap="wrap">
                         <Tag color={isChange ? 'gold' : 'blue'} className="!m-0">
-                            {isChange ? 'Change request' : 'Week submitted'}
+                            {isChange ? 'Change request' : 'Timesheet submitted'}
                         </Tag>
-                        <Typography.Text strong>{fmtWeekRange(item.weekStart)}</Typography.Text>
+                        <Typography.Text strong>{fmtPeriod(item.weekStart, item.periodEnd)}</Typography.Text>
                     </Flex>
                     <Typography.Text type="secondary" className="text-sm">
                         {isChange ? 'Proposed: logged ' : 'Logged '}

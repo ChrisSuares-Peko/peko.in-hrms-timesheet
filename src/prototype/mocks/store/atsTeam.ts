@@ -19,6 +19,8 @@ import type {
     TeamTodayView,
     TeamWeekGrid,
     TimesheetApprovalItem,
+    TimesheetFilingSettings,
+    TimesheetStatus,
     TimesheetStatusView,
     TimesheetWeek,
     Weekday,
@@ -26,6 +28,7 @@ import type {
 import {
     RuleError,
     WEEKDAYS,
+    addDays,
     addMonths,
     awaiting,
     changeRequestBlockedReason,
@@ -36,23 +39,24 @@ import {
     displayTimeOn,
     entryMins,
     formatDuration,
+    PROJECT_CODE_RE,
+    filingFieldsError,
     hasTimesheets,
-    isSubmissionDay,
     lockReasonFor,
     monthBounds,
     monthDates,
     monthLabel,
+    normaliseProjectCode,
     payrollBlockers,
     profileChangeSummary,
     teamTodayCounts,
     trailLabel,
     weekDates,
     weekStartOf,
-    weeksDueForSubmission,
-    weeksOverlappingMonth,
 } from '@src/prototype/rules/attendance';
+import { isAutoSubmitDay, periodEndOf, periodsDueForSubmission } from '@src/prototype/rules/timesheetFiling';
 
-import { submitWeekRecord } from './atsEss';
+import { autoSubmitNote, submitWeekRecord } from './atsEss';
 import { applyApprovedProfile, atsProfileRequests } from './atsProfile';
 import {
     atsChangeRequests,
@@ -75,11 +79,16 @@ import {
     nowIso,
     overtimeContext,
     pendingChangeRequest,
+    periodDates,
+    periodsBetween,
     recordOf,
     personRef,
+    regroupDrafts,
+    storedPeriodsOf,
     processedMonths,
     saveRecord,
     saveWeek,
+    entriesOn,
     timesheetDay,
     today,
     weekOf,
@@ -126,6 +135,13 @@ const markerFor = (status: string, date: string, logged: number, expected: numbe
     return undefined;
 };
 
+/**
+ * PROTOTYPE-SETUP (Timesheet filing): one status for the filing periods a calendar week touches (daily filing: up to
+ * seven) — the one that needs attention first: sent back, then draft, then submitted, else approved.
+ */
+const combinedStatus = (statuses: TimesheetStatus[]): TimesheetStatus =>
+    (['SENT_BACK', 'DRAFT', 'SUBMITTED'] as TimesheetStatus[]).find(x => statuses.includes(x)) ?? 'APPROVED';
+
 export const teamWeekGrid = (mode: DataMode, manager: MockEmployee, weekStart: string): TeamWeekGrid => {
     const ws = weekStartOf(weekStart);
     const days = weekDates(ws);
@@ -133,9 +149,9 @@ export const teamWeekGrid = (mode: DataMode, manager: MockEmployee, weekStart: s
         weekStart: ws,
         days,
         rows: teamOf(mode, manager).map(e => {
-            const week = weekOf(mode, e, ws);
+            const periods = periodsBetween(mode, e, ws, days[6]);
             const cells = days.map(date => {
-                const d = timesheetDay(mode, e, date, week.entries);
+                const d = timesheetDay(mode, e, date, entriesOn(mode, e, date));
                 const marker = markerFor(d.attendance.status, date, d.loggedMinutes, d.expectedMinutes);
                 return { date, loggedMinutes: d.loggedMinutes, ...(marker ? { marker } : {}), extraMinutes: d.attendance.overtimeMinutes };
             });
@@ -144,8 +160,8 @@ export const teamWeekGrid = (mode: DataMode, manager: MockEmployee, weekStart: s
                 days: cells,
                 totalMinutes: cells.reduce((s, c) => s + c.loggedMinutes, 0),
                 extraMinutes: cells.reduce((s, c) => s + c.extraMinutes, 0),
-                status: week.status,
-                changePending: Boolean(pendingChangeRequest(mode, week)),
+                status: combinedStatus(periods.map(w => w.status)),
+                changePending: periods.some(w => Boolean(pendingChangeRequest(mode, w))),
             };
         }),
     };
@@ -157,13 +173,13 @@ export const teamMonthSummary = (mode: DataMode, manager: MockEmployee, month: s
         month,
         monthLabel: monthLabel(month),
         rows: teamOf(mode, manager).map(e => {
-            const days = monthDates(month).map(date => timesheetDay(mode, e, date, weekOf(mode, e, weekStartOf(date)).entries));
+            const days = monthDates(month).map(date => timesheetDay(mode, e, date, entriesOn(mode, e, date)));
             return {
                 employee: personRef(e),
                 loggedMinutes: days.reduce((s, d) => s + d.loggedMinutes, 0),
                 daysNothingLogged: days.filter(d => d.date < t && d.expectedMinutes > 0 && d.loggedMinutes === 0).length,
                 extraMinutes: days.reduce((s, d) => s + d.attendance.overtimeMinutes, 0),
-                weeks: weeksSummary(mode, e, weeksOverlappingMonth(month)),
+                weeks: weeksSummary(mode, e, month),
             };
         }),
     };
@@ -172,12 +188,13 @@ export const teamMonthSummary = (mode: DataMode, manager: MockEmployee, month: s
 // ---- timesheet approvals (manager) -------------------------------------------------------------------
 
 const weekItem = (mode: DataMode, e: MockEmployee, week: TimesheetWeek): TimesheetApprovalItem => {
-    const days = weekDates(week.weekStart).map(d => timesheetDay(mode, e, d, week.entries));
+    const days = periodDates(week).map(d => timesheetDay(mode, e, d, week.entries));
     return {
         kind: 'TIMESHEET',
         id: week.id,
         weekId: week.id,
         weekStart: week.weekStart,
+        periodEnd: periodEndOf(week),
         employee: personRef(e),
         at: week.decision?.at ?? week.submittedAt ?? '',
         status: week.status,
@@ -202,17 +219,19 @@ export const timesheetQueue = (mode: DataMode, manager: MockEmployee, scope: Que
         .map((c): TimesheetApprovalItem => {
             const e = findEmployee(c.employeeId)!;
             const ws = c.weekId.split(':')[1];
+            const period = weekOf(mode, e, ws);
             const blocked = c.status === 'PENDING' ? changeRequestBlockedReason(c, months) : null;
             return {
                 kind: 'CHANGE_REQUEST',
                 id: c.id,
                 weekId: c.weekId,
                 weekStart: ws,
+                periodEnd: periodEndOf(period),
                 employee: personRef(e),
                 at: c.decision?.at ?? c.requestedAt,
                 status: c.status,
                 loggedMinutes: c.proposedEntries.reduce((s, x) => s + entryMins(x), 0),
-                expectedMinutes: weekDates(ws).reduce((s, d) => s + timesheetDay(mode, e, d, []).expectedMinutes, 0),
+                expectedMinutes: periodDates(period).reduce((s, d) => s + timesheetDay(mode, e, d, []).expectedMinutes, 0),
                 reason: c.reason,
                 diffSummary: diffSummary(diffEntries(c.baseEntries, c.proposedEntries)),
                 ...(blocked ? { blockedReason: blocked } : {}),
@@ -224,12 +243,12 @@ export const timesheetQueue = (mode: DataMode, manager: MockEmployee, scope: Que
 
 const memberWeek = (mode: DataMode, manager: MockEmployee, employeeId: number | string, weekStart: string) => {
     const e = assertManages(manager, findEmployee(employeeId));
-    return { e, week: weekOf(mode, e, weekStartOf(weekStart)) };
+    return { e, week: weekOf(mode, e, weekStart) };
 };
 
 export const approveWeek = (mode: DataMode, manager: MockEmployee, employeeId: string, weekStart: string, comment?: string) => {
     const { e, week } = memberWeek(mode, manager, employeeId, weekStart);
-    if (week.status !== 'SUBMITTED') throw new RuleError('This week is no longer waiting for your approval — refresh the list.');
+    if (week.status !== 'SUBMITTED') throw new RuleError('This timesheet is no longer waiting for your approval — refresh the list.');
     const at = nowIso();
     const note = comment?.trim();
     saveWeek(mode, {
@@ -244,7 +263,7 @@ export const approveWeek = (mode: DataMode, manager: MockEmployee, employeeId: s
 
 export const sendBackWeek = (mode: DataMode, manager: MockEmployee, employeeId: string, weekStart: string, comment?: string) => {
     const { e, week } = memberWeek(mode, manager, employeeId, weekStart);
-    if (week.status !== 'SUBMITTED') throw new RuleError('This week is no longer waiting for your approval — refresh the list.');
+    if (week.status !== 'SUBMITTED') throw new RuleError('This timesheet is no longer waiting for your approval — refresh the list.');
     const note = comment?.trim();
     if (!note) throw new RuleError('Add a comment so they know what to fix.', 400);
     const at = nowIso();
@@ -471,7 +490,8 @@ const blockersFor = (mode: DataMode, month: string) => {
         approvalEnabled: settings.timesheetApproval.enabled && hasTimesheets(settings.mode),
         employees: employeesFor(mode),
         statusOf: (id, ws) => weekOf(mode, findEmployee(id)!, ws).status,
-    }).map(b => ({ employee: personRef(b.employee), manager: managerRef(b.employee), weekStart: b.weekStart, status: b.status }));
+        periodsOf: e => weeksSummary(mode, e, month),
+    }).map(b => ({ employee: personRef(b.employee), manager: managerRef(b.employee), weekStart: b.weekStart, periodEnd: b.periodEnd, status: b.status }));
 };
 
 export const payrollMonthStatus = (mode: DataMode, month: string): PayrollMonthStatus => {
@@ -501,7 +521,7 @@ export const processPayrollMonth = (mode: DataMode, month: string) => {
     if (status.blockers.length) {
         const people = new Set(status.blockers.map(b => b.employee.name));
         throw new RuleError(
-            `Payroll for ${status.monthLabel} can't be processed yet: ${status.blockers.length} timesheet week${status.blockers.length === 1 ? '' : 's'} of ${people.size} employee${people.size === 1 ? '' : 's'} not approved.`
+            `Payroll for ${status.monthLabel} can't be processed yet: ${status.blockers.length} timesheet${status.blockers.length === 1 ? '' : 's'} of ${people.size} employee${people.size === 1 ? '' : 's'} not approved.`
         );
     }
     atsPayroll.update(mode, p => ({ ...p, processed: { ...p.processed, [month]: nowIso() } }));
@@ -511,11 +531,10 @@ export const processPayrollMonth = (mode: DataMode, month: string) => {
 export const timesheetStatusView = (mode: DataMode, month: string): TimesheetStatusView => {
     const settings = getSettings(mode);
     const approvalEnabled = settings.timesheetApproval.enabled && hasTimesheets(settings.mode);
-    const weeks = weeksOverlappingMonth(month);
     const { last } = monthBounds(month);
     const rows = employeesFor(mode)
         .filter(e => e.dateOfJoin <= last)
-        .map(e => ({ employee: personRef(e), manager: managerRef(e), weeks: weeksSummary(mode, e, weeks) }));
+        .map(e => ({ employee: personRef(e), manager: managerRef(e), weeks: weeksSummary(mode, e, month) }));
     const weekCounts: TimesheetStatusView['weekCounts'] = { DRAFT: 0, SUBMITTED: 0, APPROVED: 0, SENT_BACK: 0, CHANGE_PENDING: 0 };
     rows.forEach(r =>
         r.weeks.forEach(w => {
@@ -541,34 +560,41 @@ export const timesheetStatusView = (mode: DataMode, month: string): TimesheetSta
 
 // ---- submission day ---------------------------------------------------------------------------------------
 
-/** Every open (Draft) week up to this one goes to the manager; the CEO's are auto-approved. */
+/**
+ * PROTOTYPE-SETUP (Timesheet filing): the automatic submission for the company's frequency — every draft that is due
+ * (periodsDueForSubmission) goes to the manager; the CEO's are auto-approved. It never shows or waits for a warning:
+ * overlaps, gaps over 5 minutes and missing details it didn't stop for are noted in the period's history.
+ */
 export const runSubmissionDay = (mode: DataMode): SubmissionRunResult => {
     const settings = getSettings(mode);
     const result: SubmissionRunResult = { submissionWeekday: settings.timesheetApproval.submissionWeekday, submitted: [] };
     // PROTOTYPE-SETUP (Overview v4, Slice 5): no timesheets ('attendance' or 'none') → nothing to submit or block on.
     if (!settings.timesheetApproval.enabled || !hasTimesheets(settings.mode)) return result;
     const t = today();
-    const thisWeek = weekStartOf(t);
+    const { frequency } = settings.timesheetFiling;
+    // Daily filing sends the days already over; weekly and monthly the period running today too (as before).
+    const latest = frequency === 'DAILY' ? addDays(t, -1) : t;
     employeesFor(mode).forEach(e => {
-        const stored = Object.values(atsWeeks.get(mode)).filter(w => w.employeeId === e.id);
-        const withCurrent = stored.some(w => w.weekStart === thisWeek) ? stored : [...stored, weekOf(mode, e, thisWeek)];
-        weeksDueForSubmission(withCurrent, t)
-            .filter(w => !weekDates(w.weekStart).every(d => isDayLocked(mode, d)))
+        const stored = storedPeriodsOf(mode, e);
+        const current = latest >= e.dateOfJoin ? weekOf(mode, e, latest) : null;
+        const withCurrent = current && !stored.some(w => w.id === current.id) ? [...stored, current] : stored;
+        periodsDueForSubmission(withCurrent, t, frequency)
+            .filter(w => !periodDates(w).every(d => isDayLocked(mode, d)))
             .forEach(w => {
-                const next = submitWeekRecord(w, e, true);
+                const next = submitWeekRecord(w, e, true, autoSubmitNote(mode, e, w));
                 saveWeek(mode, next);
-                result.submitted.push({ employeeId: e.id, name: e.fullName, weekStart: w.weekStart, ...(next.status === 'APPROVED' ? { autoApproved: true } : {}) });
+                result.submitted.push({ employeeId: e.id, name: e.fullName, weekStart: w.weekStart, periodEnd: periodEndOf(w), ...(next.status === 'APPROVED' ? { autoApproved: true } : {}) });
             });
     });
     atsPayroll.update(mode, p => ({ ...p, lastSubmissionRun: t }));
     return result;
 };
 
-/** On the real submission weekday, run once per day the first time anything is read. */
+/** On a real auto-submit day, run once per day the first time anything is read. */
 export const autoRunSubmissionDay = (mode: DataMode) => {
     const t = today();
     if (atsPayroll.get(mode).lastSubmissionRun === t) return;
-    if (!isSubmissionDay(t, getSettings(mode))) return;
+    if (!isAutoSubmitDay(t, getSettings(mode))) return;
     runSubmissionDay(mode);
 };
 
@@ -581,6 +607,30 @@ const HHMM = /^\d{2}:\d{2}$/;
 const int = (v: unknown, min: number, max: number, fallback: number) => {
     const n = Number(v);
     return Number.isFinite(n) && n >= min && n <= max ? Math.round(n) : fallback;
+};
+
+const FREQUENCIES = ['DAILY', 'WEEKLY', 'MONTHLY'] as const;
+
+/** PROTOTYPE-SETUP (Timesheet filing): frequency, fields (a valid combination) and suggested project codes. */
+const filingFrom = (b: Partial<TimesheetFilingSettings> | undefined, cur: TimesheetFilingSettings): TimesheetFilingSettings => {
+    const flag = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback);
+    const f = b?.fields;
+    const fields = {
+        projectCode: flag(f?.projectCode, cur.fields.projectCode),
+        startTime: flag(f?.startTime, cur.fields.startTime),
+        endTime: flag(f?.endTime, cur.fields.endTime),
+        duration: flag(f?.duration, cur.fields.duration),
+    };
+    const why = filingFieldsError(fields);
+    if (why) throw new RuleError(why, 400);
+    const codes = Array.isArray(b?.projectCodes)
+        ? [...new Set(b!.projectCodes.map(normaliseProjectCode))].filter(c => PROJECT_CODE_RE.test(c)).slice(0, 50)
+        : cur.projectCodes;
+    return {
+        frequency: FREQUENCIES.includes(b?.frequency as (typeof FREQUENCIES)[number]) ? b!.frequency! : cur.frequency,
+        fields,
+        projectCodes: codes,
+    };
 };
 
 export const updateSettings = (mode: DataMode, body: Partial<AtsSettings> | undefined): AtsSettings => {
@@ -605,9 +655,12 @@ export const updateSettings = (mode: DataMode, body: Partial<AtsSettings> | unde
             submissionWeekday: weekday(b.timesheetApproval?.submissionWeekday, cur.timesheetApproval.submissionWeekday),
         },
         level2: { attendance: l2('attendance'), overtime: l2('overtime'), leave: l2('leave'), reimbursement: l2('reimbursement'), timesheet: 'NONE' },
+        timesheetFiling: filingFrom(b.timesheetFiling, cur.timesheetFiling),
         updatedAt: nowIso(),
     };
     atsSettings.set(mode, next);
+    // PROTOTYPE-SETUP (Timesheet filing): drafts move to the new periods; submitted ones keep their dates.
+    if (next.timesheetFiling.frequency !== cur.timesheetFiling.frequency) regroupDrafts(mode);
     return next;
 };
 

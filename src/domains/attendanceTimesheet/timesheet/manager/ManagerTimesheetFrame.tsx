@@ -8,7 +8,7 @@ import type { ReactNode } from 'react';
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { Button, Empty, Segmented, Skeleton } from 'antd';
 
-import { addDays, monthLabel, weekStartOf } from '@src/prototype/rules/attendance';
+import { addDays, monthLabel } from '@src/prototype/rules/attendance';
 
 import ManagerDayStrip from './ManagerDayStrip';
 import ManagerDayView, { DayEditHandlers } from './ManagerDayView';
@@ -20,7 +20,6 @@ import { WeekNotices, WeekStatusBar } from './ManagerWeekHeader';
 import ManagerWeekHistory from './ManagerWeekHistory';
 import ManagerWeekView from './ManagerWeekView';
 import type { TimesheetNav } from './useManagerTimesheetNav';
-import { fmtWeekRange } from '../../components/format';
 import type { TimesheetDay } from '../../types';
 
 export interface TimesheetFrameProps {
@@ -70,9 +69,11 @@ const ManagerTimesheetFrame = ({
     const days = daysOverride ?? view?.days ?? [];
     const weekLoading = !view && nav.weekState !== 'error';
     const isMonth = mode === 'month';
+    // PROTOTYPE-SETUP (Timesheet filing): the middle view is the filing period ("Week" for weekly filing).
+    const periodWord = !view || view.filing.frequency === 'WEEKLY' ? 'Week' : 'Period';
     const modeOptions = [
         { label: 'Day', value: 'day' },
-        ...(nav.isMobile ? [] : [{ label: 'Week', value: 'week' }]),
+        ...(nav.isMobile ? [] : [{ label: periodWord, value: 'week' }]),
         { label: 'Month', value: 'month' },
     ];
 
@@ -87,10 +88,7 @@ const ManagerTimesheetFrame = ({
               }))
         : days.filter(d => d.unloggedMinutes > 0);
     let periodLabel = `in ${monthLabel(nav.month)}`;
-    if (!isMonth) {
-        periodLabel =
-            nav.weekStart === weekStartOf(today) ? 'this week' : `in ${fmtWeekRange(nav.weekStart)}`;
-    }
+    if (!isMonth) periodLabel = view ? `in ${view.filing.period.label}` : 'in this period';
 
     const selectedDay = days.find(d => d.date === nav.date);
     const atsMode = view?.mode ?? 'both';
@@ -118,7 +116,7 @@ const ManagerTimesheetFrame = ({
             );
         }
     } else if (nav.weekState === 'error' && !view) {
-        main = <LoadError what="this week" onRetry={nav.reload} />;
+        main = <LoadError what="this timesheet" onRetry={nav.reload} />;
     } else if (weekLoading) {
         main = (
             <Panel>
@@ -136,6 +134,7 @@ const ManagerTimesheetFrame = ({
                 perspective={perspective}
                 onFlagAction={onFlagAction}
                 onOpenDay={nav.openDay}
+                fields={view?.filing.fields}
             />
         );
     } else {
@@ -159,6 +158,7 @@ const ManagerTimesheetFrame = ({
                         marks={marks}
                         perspective={perspective}
                         onFlagAction={onFlagAction}
+                        fields={view?.filing.fields}
                     />
                 )}
             </div>

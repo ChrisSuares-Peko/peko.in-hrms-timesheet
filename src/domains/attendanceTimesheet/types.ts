@@ -24,6 +24,33 @@ export type Level2ConfigurableType = Exclude<ApprovalType, 'timesheet' | 'profil
 /** PROTOTYPE-SETUP (HR rules, Slice 1): 'PAYROLL' = the Payroll queue (default for attendance and overtime). */
 export type Level2Approver = 'HR' | 'FINANCE' | 'PAYROLL' | 'NONE';
 
+/**
+ * PROTOTYPE-SETUP (Timesheet filing): how often employees file a timesheet. Daily = one day, weekly = Monday–Sunday,
+ * monthly = the calendar month. Periods already submitted, approved or sent back keep their dates when this changes.
+ */
+export type FilingFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+
+/**
+ * PROTOTYPE-SETUP (Timesheet filing): the fields of a task entry the company asks for. Valid combinations:
+ *   start + end (duration calculated) ............ Pattern A
+ *   duration only ................................ Pattern B
+ *   start + end + visible duration field ......... Pattern C (duration still calculated, never typed)
+ * Start and end work as a pair; at least one way of recording time is on (see filingFieldsError).
+ */
+export interface TimesheetFields {
+    projectCode: boolean;
+    startTime: boolean;
+    endTime: boolean;
+    duration: boolean;
+}
+
+export interface TimesheetFilingSettings {
+    frequency: FilingFrequency;
+    fields: TimesheetFields;
+    /** Suggested project codes (employees can also type another code). */
+    projectCodes: string[];
+}
+
 export interface AtsSettings {
     mode: AtsMode;
     /** Standard day. Shift length (end − start) includes the break. */
@@ -38,9 +65,11 @@ export interface AtsSettings {
     weeklyOff: Weekday[];
     timesheetApproval: {
         enabled: boolean;
-        /** Every open week goes to the reporting manager on this day. */
+        /** Weekly filing: every open week goes to the reporting manager on this day. */
         submissionWeekday: Weekday;
     };
+    /** PROTOTYPE-SETUP (Timesheet filing): filing frequency and the task-entry fields. */
+    timesheetFiling: TimesheetFilingSettings;
     /** Level 2 per request type (level 1 is always the reporting manager). Timesheets: manager only. */
     level2: Record<Level2ConfigurableType, Level2Approver> & { timesheet: 'NONE' };
     updatedAt: string;
@@ -308,6 +337,8 @@ export interface TimesheetEntry {
     /** Minutes worked: end − start for a timed entry, as entered for an hours-only entry. */
     mins: number;
     description: string;
+    /** PROTOTYPE-SETUP (Timesheet filing): the project code, when the company asks for one. */
+    projectCode?: string;
 }
 
 /**
@@ -324,6 +355,8 @@ export interface TimesheetEntryInput {
     endNext?: boolean;
     mins?: number | null;
     description: string;
+    /** PROTOTYPE-SETUP (Timesheet filing): required when the company turns project codes on. */
+    projectCode?: string | null;
 }
 
 export type ActorRole = 'EMPLOYEE' | 'MANAGER' | 'HR' | 'FINANCE' | 'SYSTEM';
@@ -359,12 +392,19 @@ export interface HistoryEvent {
     detail?: string;
 }
 
+/**
+ * A timesheet filing period — the unit that is submitted and approved. PROTOTYPE-SETUP (Timesheet filing): the name and
+ * `weekStart` are kept for compatibility; `weekStart` is the period's first day and `periodEnd` its last (absent on
+ * weekly records: weekStart + 6). See periodEndOf.
+ */
 export interface TimesheetWeek {
     /** `${employeeId}:${weekStart}` */
     id: string;
     employeeId: number;
-    /** Monday */
+    /** The period's first day (a Monday for weekly filing). */
     weekStart: string;
+    /** The period's last day (inclusive). Absent = a weekly record (weekStart + 6). */
+    periodEnd?: string;
     status: TimesheetStatus;
     entries: TimesheetEntry[];
     /** Last approved version — what a rejected change request keeps. */
@@ -472,6 +512,29 @@ export interface TimesheetWeekView {
     editMode: TimesheetEditMode;
     canSubmit: boolean;
     totals: { loggedMinutes: number; expectedMinutes: number; unloggedMinutes: number };
+    /** PROTOTYPE-SETUP (Timesheet filing): the period, its fields and when a draft goes out automatically. */
+    filing: PeriodFiling;
+}
+
+/** PROTOTYPE-SETUP (Timesheet filing): what the employee needs to file this period. */
+export interface PeriodFiling {
+    frequency: FilingFrequency;
+    fields: TimesheetFields;
+    projectCodes: string[];
+    /** The period's first and last day, and "12–18 Oct 2026" / "Thu, 15 Oct 2026" / "October 2026". */
+    period: { start: string; end: string; label: string };
+    /** A draft's automatic submission date (null when approval is off or it isn't a draft). */
+    autoSubmitOn: string | null;
+}
+
+/** A filing period in a list (month views, payroll status, team grids). */
+export interface PeriodSummary {
+    /** The period's first day. */
+    weekStart: string;
+    /** The period's last day. */
+    periodEnd: string;
+    status: TimesheetStatus;
+    changePending: boolean;
 }
 
 /**
@@ -480,7 +543,7 @@ export interface TimesheetWeekView {
  * still checked in, and unclaimed overtime.
  */
 export interface TimesheetNotices {
-    weeks: { weekStart: string; kind: 'sent-back' | 'change-pending'; text: string }[];
+    weeks: { weekStart: string; periodEnd: string; kind: 'sent-back' | 'change-pending'; text: string }[];
     openFrom?: { date: string; checkIn: string };
     overtime?: { days: number; minutes: number };
 }
@@ -498,7 +561,7 @@ export interface TimesheetMonthView {
         hasOutsideFlag: boolean;
         locked: boolean;
     }[];
-    weeks: { weekStart: string; status: TimesheetStatus; changePending: boolean }[];
+    weeks: PeriodSummary[];
     totals: { loggedMinutes: number; expectedMinutes: number; daysNothingLogged: number; extraMinutes: number };
 }
 
@@ -526,7 +589,17 @@ export interface AtsOverview {
     shift: { start: string; end: string };
     graceMinutes: number;
     approvalEnabled: boolean;
-    thisWeek: { weekStart: string; status: TimesheetStatus; loggedMinutes: number; expectedMinutes: number };
+    /** PROTOTYPE-SETUP (Timesheet filing): the filing period covering today (a week, a day or a month). */
+    thisWeek: {
+        weekStart: string;
+        periodEnd: string;
+        label: string;
+        frequency: FilingFrequency;
+        status: TimesheetStatus;
+        loggedMinutes: number;
+        expectedMinutes: number;
+        autoSubmitOn: string | null;
+    };
     counts: { pendingCorrections: number; suggestedOvertime: number; pendingOvertime: number };
 }
 
@@ -571,7 +644,7 @@ export interface TeamMonthSummary {
         loggedMinutes: number;
         daysNothingLogged: number;
         extraMinutes: number;
-        weeks: { weekStart: string; status: TimesheetStatus; changePending: boolean }[];
+        weeks: PeriodSummary[];
     }[];
 }
 
@@ -583,6 +656,8 @@ export interface TimesheetApprovalItem {
     id: string;
     weekId: string;
     weekStart: string;
+    /** PROTOTYPE-SETUP (Timesheet filing): the period's last day. */
+    periodEnd: string;
     employee: PersonRef;
     at: string;
     status: TimesheetStatus | ChangeRequest['status'];
@@ -744,6 +819,8 @@ export interface PayrollBlocker {
     employee: PersonRef;
     manager: { id: number; name: string } | null;
     weekStart: string;
+    /** PROTOTYPE-SETUP (Timesheet filing): the blocking period's last day. */
+    periodEnd: string;
     status: TimesheetStatus;
 }
 
@@ -770,12 +847,12 @@ export interface TimesheetStatusView {
     notApproved: {
         employee: PersonRef;
         manager: { id: number; name: string } | null;
-        weeks: { weekStart: string; status: TimesheetStatus; changePending: boolean }[];
+        weeks: PeriodSummary[];
     }[];
     availableMonths: { month: string; label: string; processed: boolean }[];
 }
 
 export interface SubmissionRunResult {
     submissionWeekday: Weekday;
-    submitted: { employeeId: number; name: string; weekStart: string; autoApproved?: boolean }[];
+    submitted: { employeeId: number; name: string; weekStart: string; periodEnd: string; autoApproved?: boolean }[];
 }
