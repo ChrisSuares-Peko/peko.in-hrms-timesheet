@@ -45,7 +45,6 @@ export const BarTrack = ({ day, mode, axisEnd = AXIS_END }: { day: TimesheetDay;
             {win && <div className="absolute inset-y-0 bg-[#D9DDE3]" style={{ left: `${pct(win[0])}%`, width: `${pct(win[1]) - pct(win[0])}%` }} />}
             {barSegments(day, mode).map((s, i) => (
                 <div
-                    // eslint-disable-next-line react/no-array-index-key
                     key={`${s.entry.id}-${i}`}
                     title={`${entryTimeText(s.entry)} ${s.entry.description}`}
                     className={`absolute inset-y-[3px] rounded-sm ${s.outside ? '' : 'bg-[#2E62E8]'}`}

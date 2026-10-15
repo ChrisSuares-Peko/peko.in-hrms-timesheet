@@ -1,5 +1,5 @@
 // PROTOTYPE-SETUP: ESS Service 1 (V2) — a day's entries panel (prototype "EntriesPanel"): overtime and attendance
-// chips with their actions (Request overtime, Update check-out, Request attendance correction), the entry list
+// chips with their actions (Request overtime, Request attendance correction), the entry list
 // (hours-only entries show "No set time"; Edit / Delete on hover, always on touch; double-click to edit), then the
 // quick-add form. Read-only when the day can't be edited.
 // PROTOTYPE-SETUP (HR rules, Slice 3): recorded breaks show among the entries as read-only "Break" rows (hatched
@@ -131,7 +131,6 @@ const EntryLine = ({
 }) => {
     const outside = mode === 'both' && Boolean(day.outsideCheckIn) && entryOutsideMinutes(entry, day) > 0;
     return (
-        // eslint-disable-next-line jsx-a11y/no-static-element-interactions
         <div
             className="group flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 border-0 border-b border-solid border-gray-100 py-1.5 text-[13px] last:border-b-0"
             onDoubleClick={() => editable && onEdit()}

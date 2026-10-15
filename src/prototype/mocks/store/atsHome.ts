@@ -1,7 +1,7 @@
 // PROTOTYPE-SETUP (Overview, Slice 3): what the ESS - Employee Overview shows below the three cards —
 //   recentDays    "Recent days": this week's and last week's working days up to today, newest first
 //                 (weekends / holidays only when worked) — Overview v2, Slice 3
-//   actions       "Needs your action": sent-back weeks, missed check-outs (last 14 days, no correction yet),
+//   actions       "Needs your action": still checked in from an earlier day (HR rules), sent-back weeks,
 //                 unclaimed overtime
 //   requests      "Your requests": latest status of leave, overtime, reimbursement, attendance correction and
 //                 profile update requests, newest first (max 6)

@@ -124,7 +124,6 @@ const VisaPayment = () => {
     const payNow = (hasEmbassyPayment ? (visa?.totalPayNow ?? 0) : (visa?.price ?? 0)) * priceScaleFactor + addonTotal;
 
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return (

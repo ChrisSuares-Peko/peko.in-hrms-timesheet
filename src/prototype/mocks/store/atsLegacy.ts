@@ -1,10 +1,10 @@
 // PROTOTYPE-SETUP: ESS Service 1 — the live Attendance & Timesheet store in the shape of the original attendance
 // records (data/time-attendance.ts MockAttendance), so the existing Payroll screens (Daily Log, Monthly
-// Summary, Shift Schedule, dashboard tiles) show the same check-ins, auto check-outs and approved corrections
+// Summary, Shift Schedule, dashboard tiles) show the same check-ins, open days, next-day check-outs and approved corrections
 // as the new ESS screens.
 import { addDays, addMonths, formatDuration, monthBounds, monthDates } from '@src/prototype/rules/attendance';
 
-import { attendanceDay, employeesFor, getSettings, overtimeOfEmployee, recordOf, today } from './atsStore';
+import { attendanceDay, employeesFor, overtimeOfEmployee, recordOf, today } from './atsStore';
 import { MockEmployee, findEmployee } from '../data/employees';
 import { ATTENDANCE_FROM, AttendanceStatus, MockAttendance } from '../data/time-attendance';
 import type { DataMode } from '../envelope';
@@ -31,7 +31,6 @@ export const legacyDay = (mode: DataMode, e: MockEmployee, date: string): MockAt
     if (!status) return null;
     // Today without a check-in isn't an absence yet.
     if (d.status === 'not-checked-in') return null;
-    const settings = getSettings(mode);
     const completed = Boolean(d.checkIn && d.checkOut);
     const approvedOt = overtimeOfEmployee(mode, e).find(o => o.date === date && o.trail.status === 'APPROVED');
     const notes = [
@@ -51,7 +50,8 @@ export const legacyDay = (mode: DataMode, e: MockEmployee, date: string): MockAt
         checkOut: d.checkOut ? `${addDays(date, d.outDays)}T${d.checkOut}:00` : null,
         status,
         lateMinutes: d.lateMinutes,
-        totalHours: completed ? round2(Math.max(0, d.minutesAtWork - settings.breakMinutes) / 60) : 0,
+        // PROTOTYPE-SETUP (HR rules, Slice 5): hours worked include breaks.
+        totalHours: completed ? round2(d.minutesAtWork / 60) : 0,
         otHours: approvedOt ? round2(approvedOt.minutes / 60) : 0,
         notes: notes.length ? notes.join(' · ') : null,
         method: recordOf(mode, e, date)?.source === 'manual' ? 'manual' : 'ess',

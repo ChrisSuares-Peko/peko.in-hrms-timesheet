@@ -20,8 +20,8 @@ export const fmtWeekRange = (weekStart: string) => {
         ? `${s.format('D')}–${e.format('D MMM YYYY')}`
         : `${s.format('D MMM')} – ${e.format('D MMM YYYY')}`;
 };
-/** "7 Oct, 10:42" for ISO timestamps */
-export const fmtStamp = (iso: string) => dayjs(iso).format('D MMM, HH:mm');
+/** "7 Oct, 10:42 AM" for ISO timestamps (12-hour — HR rules, Slice 5) */
+export const fmtStamp = (iso: string) => dayjs(iso).format('D MMM, h:mm A');
 
 /** antd Tag colours per day status. */
 export const DAY_STATUS_COLOR: Record<DayStatus, string> = {

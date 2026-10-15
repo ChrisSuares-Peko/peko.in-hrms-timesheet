@@ -5,9 +5,9 @@
 // percentages, so the track always scales to its container (works at 375px).
 import { Tooltip } from 'antd';
 
-import { displayTime, entryMinutes, formatDuration, isTimed, toMinutes } from '@src/prototype/rules/attendance';
+import { displayTime, entryEndMinutes, entryMinutes, entryStartMinutes, formatDuration, isTimed } from '@src/prototype/rules/attendance';
 
-import { isOutsideWindow, nowMinutes, trackRange } from './managerHelpers';
+import { entryTimeLabel, isOutsideWindow, nowMinutes, trackRange, windowMinutes } from './managerHelpers';
 import type { TimesheetDay } from '../../types';
 
 export interface TimeTrackProps {
@@ -30,6 +30,7 @@ const ManagerTimeTrack = ({ day, range, isToday, compact }: TimeTrackProps) => {
     const hours = Array.from({ length: Math.floor(span / 60) + 1 }, (_, i) => r[0] + i * 60);
     const labels = hours.filter(h => (h - r[0]) % step === 0);
     const { window: w } = day;
+    const wm = windowMinutes(w);
     const flagged = new Set(day.outsideCheckIn?.entryIds ?? []);
     const now = nowMinutes();
 
@@ -47,7 +48,7 @@ const ManagerTimeTrack = ({ day, range, isToday, compact }: TimeTrackProps) => {
                         style={{ left: `${pct(h, r)}%` }}
                     />
                 ))}
-                {w.kind !== 'none' && w.start && w.end && (
+                {wm && (
                     <div
                         className={`absolute bottom-0 top-0 border-x border-solid ${
                             w.kind === 'attendance'
@@ -55,8 +56,8 @@ const ManagerTimeTrack = ({ day, range, isToday, compact }: TimeTrackProps) => {
                                 : 'border-sky-300 bg-sky-100/70'
                         }`}
                         style={{
-                            left: `${pct(toMinutes(w.start), r)}%`,
-                            width: `${pct(toMinutes(w.end), r) - pct(toMinutes(w.start), r)}%`,
+                            left: `${pct(wm[0], r)}%`,
+                            width: `${pct(wm[1], r) - pct(wm[0], r)}%`,
                         }}
                     />
                 )}
@@ -65,7 +66,7 @@ const ManagerTimeTrack = ({ day, range, isToday, compact }: TimeTrackProps) => {
                     return (
                         <Tooltip
                             key={e.id}
-                            title={`${displayTime(e.start)}–${displayTime(e.end)} · ${formatDuration(
+                            title={`${entryTimeLabel(e)} · ${formatDuration(
                                 entryMinutes(e)
                             )} · ${e.description}${outside ? ' (outside the window)' : ''}`}
                         >
@@ -74,8 +75,8 @@ const ManagerTimeTrack = ({ day, range, isToday, compact }: TimeTrackProps) => {
                                     outside ? 'bg-amber-500' : 'bg-blue-500'
                                 }`}
                                 style={{
-                                    left: `${pct(toMinutes(e.start), r)}%`,
-                                    width: `max(2px, ${pct(toMinutes(e.end), r) - pct(toMinutes(e.start), r)}%)`,
+                                    left: `${pct(entryStartMinutes(e), r)}%`,
+                                    width: `max(2px, ${pct(entryEndMinutes(e), r) - pct(entryStartMinutes(e), r)}%)`,
                                 }}
                             />
                         </Tooltip>
@@ -101,7 +102,8 @@ const ManagerTimeTrack = ({ day, range, isToday, compact }: TimeTrackProps) => {
                                 className="absolute whitespace-nowrap tabular-nums"
                                 style={{ left: `${pct(h, r)}%`, transform: `translateX(${shift})` }}
                             >
-                                {displayTime(`${String(Math.floor(h / 60)).padStart(2, '0')}:00`)}
+                                {displayTime(`${String(Math.floor(h / 60) % 24).padStart(2, '0')}:00`)}
+                                {h >= 24 * 60 ? ' +1' : ''}
                             </span>
                         );
                     })}

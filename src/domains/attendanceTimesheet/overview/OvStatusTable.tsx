@@ -4,11 +4,11 @@
 //   both        Date | Check in | Check out | Hrs worked | Hours logged | Overtime
 //   attendance  Date | Check in | Check out | Hrs worked | Overtime
 //   timesheet   Date | Hours logged | Overtime
-// Hrs worked: check-in → check-out ("3h 12m so far" today, grey "Not known" on a missed check-out, empty for absent
-// or leave). Hours logged (Overview v5, Slice 3): "X of Y" — hours logged in the timesheet out of hours worked
-// ("1h 30m of 3h 12m so far" today; "1h 30m logged" + grey "worked: not known" on a missed check-out; just the logged
-// hours on leave / absent days and in Timesheet-only mode), plain text. Normal cells are plain, so only exceptions stand out: Late /
-// Absent / Leave, "Missed · auto 11:59 PM", "{dur} not claimed" or the overtime request's status, as Tags. Every
+// Hrs worked: check-in → check-out, breaks included ("3h 12m so far" today, empty for absent or leave or a day still
+// checked in from earlier). Hours logged (Overview v5, Slice 3): "X of Y" — hours logged in the timesheet out of hours
+// worked ("1h 30m of 3h 12m so far" today; just the logged hours on leave / absent days and in Timesheet-only mode),
+// plain text. Normal cells are plain, so only exceptions stand out: Late / Absent / Leave, "Still checked in",
+// "(next day)" check-outs, "{dur} not claimed" or the overtime request's status, as Tags (HR rules, Slice 4). Every
 // cell is a link to that day (hover highlights it): check in / out and hrs worked → Attendance, hours logged →
 // Timesheet, overtime → Overtime, the date → Timesheet (Attendance in Attendance-only mode).
 import { ReactNode } from 'react';

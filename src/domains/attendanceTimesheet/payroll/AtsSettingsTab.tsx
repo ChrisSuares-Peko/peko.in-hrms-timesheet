@@ -313,7 +313,7 @@ const AtsSettingsTab = () => {
                                 label="Shift start"
                                 rules={[{ required: true, message: 'Pick a start time' }]}
                             >
-                                <TimePicker format={HHMM} minuteStep={5} className="w-full" allowClear={false} />
+                                <TimePicker format="h:mm A" use12Hours minuteStep={5} className="w-full" allowClear={false} />
                             </Form.Item>
                         </Col>
                         <Col xs={12} md={6}>
@@ -332,7 +332,7 @@ const AtsSettingsTab = () => {
                                     }),
                                 ]}
                             >
-                                <TimePicker format={HHMM} minuteStep={5} className="w-full" allowClear={false} />
+                                <TimePicker format="h:mm A" use12Hours minuteStep={5} className="w-full" allowClear={false} />
                             </Form.Item>
                         </Col>
                         <Col xs={12} md={6}>
@@ -355,12 +355,12 @@ const AtsSettingsTab = () => {
                         </Col>
                     </Row>
                     <Text type="secondary" className="text-xs">
-                        The shift includes the break. Working time is the shift minus the break.
+                        The shift includes the break. Hours worked and overtime use the full shift, breaks included.
                     </Text>
-                    {/* PROTOTYPE-SETUP (Overview, Slice 1): the automatic check-out moved to 11:59 PM. */}
+                    {/* PROTOTYPE-SETUP (HR rules, Slice 5): there is no automatic check-out. */}
                     <Text type="secondary" className="block text-xs">
-                        Anyone who doesn’t check out is checked out automatically at 11:59 PM, and that day never
-                        counts as overtime until the real time is updated.
+                        There’s no automatic check-out. A day stays open until the employee checks out, and they
+                        can’t check in on a new day until then.
                     </Text>
                 </Card>
 

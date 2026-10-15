@@ -82,7 +82,6 @@ export const buildXlsx = async (sheetName: string, header: string[], rows: (stri
     sheet.addRow(header).font = { bold: true };
     rows.forEach(r => sheet.addRow(r));
     sheet.columns.forEach(col => {
-        // eslint-disable-next-line no-param-reassign
         col.width = 20;
     });
     const buffer = await workbook.xlsx.writeBuffer();

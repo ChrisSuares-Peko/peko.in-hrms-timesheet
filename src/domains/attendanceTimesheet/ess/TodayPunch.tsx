@@ -204,7 +204,7 @@ const TodayPunch = ({ overview, onOverview }: TodayPunchProps) => {
                             Check out
                         </Button>
                     )}
-                    {/* PROTOTYPE-SETUP (Overview, Slice 1): the automatic check-out is at 11:59 PM. */}
+                    {/* PROTOTYPE-SETUP (HR rules, Slice 5): no automatic check-out — remind them to check out. */}
                     {t.canCheckOut && <Text className="text-xs text-center text-[#616161]">{REMEMBER_CHECK_OUT_NOTE}</Text>}
                     {t.hint && (
                         <Text className="text-xs text-center text-titleText">{t.hint}</Text>

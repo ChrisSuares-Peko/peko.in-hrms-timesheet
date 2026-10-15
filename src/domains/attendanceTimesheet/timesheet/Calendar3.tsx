@@ -91,13 +91,11 @@ const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnable
             ) : (
                 <div className="grid grid-cols-7 gap-[2px]">
                     {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-                        // eslint-disable-next-line react/no-array-index-key
                         <span key={`h${i}`} className="pb-0.5 text-center text-[10px] text-gray-400">
                             {d}
                         </span>
                     ))}
                     {Array.from({ length: lead }, (_, i) => (
-                        // eslint-disable-next-line react/no-array-index-key
                         <span key={`b${i}`} />
                     ))}
                     {dates.map(date => {

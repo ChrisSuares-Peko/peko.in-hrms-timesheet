@@ -106,7 +106,6 @@ const CartPage = () => {
     useEffect(() => {
         if (!cartData || hasTrackedCartViewedRef.current) return;
         hasTrackedCartViewedRef.current = true;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [cartData]);
 
     const updateDetails = async (

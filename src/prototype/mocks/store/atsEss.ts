@@ -163,9 +163,15 @@ export const overviewOf = (mode: DataMode, e: MockEmployee): AtsOverview => {
     };
 };
 
-/** Ends a running break at `at` (or at its own start when that's later — e.g. a session closed on a later day). */
+/**
+ * Ends a running break at `at`. A break that would end where it started (ended in the same minute, or a session closed
+ * on a later day) is dropped — a zero-length break can't be saved in Edit breaks (HR rules, Slice 5).
+ */
 const endRunningBreak = (breaks: AttendanceBreak[] | undefined, at: string): AttendanceBreak[] =>
-    (breaks ?? []).map(b => (b.end ? b : { ...b, end: toMinutes(at) > toMinutes(b.start) ? at : b.start }));
+    (breaks ?? []).flatMap(b => {
+        if (b.end) return [b];
+        return toMinutes(at) > toMinutes(b.start) ? [{ ...b, end: at }] : [];
+    });
 
 export const checkIn = (mode: DataMode, e: MockEmployee) => {
     const settings = getSettings(mode);
@@ -194,7 +200,7 @@ export const checkOut = (mode: DataMode, e: MockEmployee) => {
 
 /**
  * PROTOTYPE-SETUP (HR rules, Slice 1): checks out of the earlier day still open — today's current time becomes its
- * check-out, with outDays = the days between (Friday closed on Monday = 3). A running break ends where it started.
+ * check-out, with outDays = the days between (Friday closed on Monday = 3). A break still running is dropped.
  * The employee can request a correction if that's not when they left.
  */
 export const checkOutPrevious = (mode: DataMode, e: MockEmployee) => {
@@ -205,7 +211,7 @@ export const checkOutPrevious = (mode: DataMode, e: MockEmployee) => {
     if (!open?.checkIn) throw new RuleError("You're not checked in from an earlier day.");
     const out = clockNow();
     const outDays = daysBetween(open.date, t);
-    saveRecord(mode, { ...open, checkOut: out, outDays, breaks: (open.breaks ?? []).map(b => (b.end ? b : { ...b, end: b.start })) });
+    saveRecord(mode, { ...open, checkOut: out, outDays, breaks: endRunningBreak(open.breaks, '00:00') });
     return overviewOf(mode, e);
 };
 

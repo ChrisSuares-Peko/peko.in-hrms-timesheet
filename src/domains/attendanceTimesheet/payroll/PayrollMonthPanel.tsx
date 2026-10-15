@@ -22,7 +22,7 @@ import type { PayrollBlocker, PayrollMonthStatus } from '../types';
 
 const { Text } = Typography;
 
-const fmtProcessed = (iso?: string) => (iso ? dayjs(iso).format('D MMM YYYY, HH:mm') : '');
+const fmtProcessed = (iso?: string) => (iso ? dayjs(iso).format('D MMM YYYY, h:mm A') : '');
 
 const columns: ColumnsType<PayrollBlocker> = [
     {

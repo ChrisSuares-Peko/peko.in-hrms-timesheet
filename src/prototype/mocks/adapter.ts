@@ -23,7 +23,6 @@ const warnUnmocked = (method: HttpMethod, path: string) => {
     const key = `${method} ${path}`;
     if (warned.has(key)) return;
     warned.add(key);
-    // eslint-disable-next-line no-console
     console.warn(`[prototype-mock] unmocked ${key}`);
 };
 

@@ -39,7 +39,7 @@ The legacy endpoints `hr-settings/grace-period` and `hr-settings/work-schedule` 
 |---|---|---|---|
 | `attendance` | Attendance, Overtime | — | hours worked − shift length |
 | `both` | Attendance, Timesheet, Overtime | check-in → check-out (past midnight when overnight) | hours worked − shift length |
-| `timesheet` | Timesheet, Overtime (no check-in) | the shift | hours logged − (shift − break) |
+| `timesheet` | Timesheet, Overtime (no check-in) | the shift | hours logged − shift length (no break deduction) |
 
 Hours worked = (check-out + outDays × 24h) − check-in, breaks included, all on the check-in day.
 | `none` | — (section hidden) | — | no overtime |

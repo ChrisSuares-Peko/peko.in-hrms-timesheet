@@ -182,10 +182,6 @@ export const DEFAULT_SETTINGS: AtsSettings = {
 /** Shift length, break included (09:30–18:30 = 540). */
 export const shiftMinutes = (s: Pick<AtsSettings, 'shift'>) => toMinutes(s.shift.end) - toMinutes(s.shift.start);
 
-/** The working part of the shift (shift − break). */
-export const workMinutes = (s: Pick<AtsSettings, 'shift' | 'breakMinutes'>) =>
-    Math.max(0, shiftMinutes(s) - s.breakMinutes);
-
 /** attendance: Attendance + Overtime. both: all three. timesheet: Timesheet + Overtime. */
 export const tabsFor = (mode: AtsMode): AtsTab[] => {
     if (mode === 'none') return [];
@@ -375,7 +371,8 @@ export const deriveDay = (input: DayInput): DerivedDay => {
  * Overtime = time beyond the standard day, whatever time someone checked in.
  * attendance / both: hours worked (check-in → check-out, breaks and overnight hours included, all on the check-in
  * day) − shift length (the shift includes the break). Nothing while still checked in (HR rules, Slice 1).
- * timesheet: hours logged − (shift length − break).
+ * timesheet: hours logged − shift length (the timesheet target is the full shift, no break deduction — HR rules,
+ * Slice 5).
  * Weekly offs and holidays: all time worked counts.
  * 'none' mode: no overtime (Overview v4, Slice 5).
  */
@@ -392,7 +389,7 @@ export const overtimeMinutes = (input: {
     if (overtimeBasisFor(input.mode) === 'timesheet') {
         return input.isOffDay
             ? input.loggedMinutes
-            : Math.max(0, input.loggedMinutes - workMinutes(input.settings));
+            : Math.max(0, input.loggedMinutes - shiftMinutes(input.settings));
     }
     if (!input.checkIn || !input.checkOut) return 0; // still checked in: nothing yet
     const worked = workedMinutes(input);

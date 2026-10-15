@@ -1,6 +1,6 @@
 // PROTOTYPE-SETUP: ESS Service 1 — seed scenarios and end-to-end flows through the stateful mock store
 // (the same functions the endpoints call). Dates are relative to the real today.
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { addDays, addMonths, daysBetween, startTrail, toMinutes, weekStartOf } from '@src/prototype/rules/attendance';
 
@@ -268,22 +268,43 @@ describe('breaks', () => {
         return true;
     };
 
+    // Today at a fixed time of day, so breaks have a length (only Date is faked).
+    const at = (hhmm: string) => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        vi.setSystemTime(new Date(`${s.today}T${hhmm}:00`));
+    };
+    afterEach(() => vi.useRealTimers());
+
     it('start / end only while checked in; checking out ends a running break', () => {
+        at('10:00');
         resetTodayCheckIn(M);
         checkOutPrevious(M, sneha);
         expect(() => startBreak(M, sneha)).toThrow(/while you’re checked in/);
         if (!openToday()) return;
+        at('10:05');
         const on = startBreak(M, sneha);
+        at('10:20');
         expect(on.today).toMatchObject({ onBreak: true, canStartBreak: false, canEndBreak: true });
         expect(() => startBreak(M, sneha)).toThrow(/already on a break/);
         const off = endBreak(M, sneha);
         expect(off.today).toMatchObject({ onBreak: false, canStartBreak: true, canEndBreak: false });
         expect(off.today.breaks).toHaveLength(1);
+        expect(off.today.breaks[0]).toMatchObject({ start: '10:05', end: '10:20' });
         expect(() => endBreak(M, sneha)).toThrow(/not on a break/);
         startBreak(M, sneha);
+        at('10:40');
         const out = checkOut(M, sneha);
-        expect(out.today.breaks.every(b => b.end)).toBe(true);
+        expect(out.today.breaks).toEqual([{ start: '10:05', end: '10:20' }, { start: '10:20', end: '10:40' }]);
         expect(() => startBreak(M, sneha)).toThrow(/while you’re checked in/);
+    });
+
+    it('a break ended in the minute it started is dropped, so Edit breaks can still save', () => {
+        at('11:00');
+        if (!openToday()) return;
+        startBreak(M, sneha);
+        const off = endBreak(M, sneha);
+        expect(off.today.breaks).toEqual([]);
+        expect(off.today).toMatchObject({ onBreak: false, canStartBreak: true });
     });
 
     it("today's breaks are edited directly: no overlaps, within check-in → check-out", () => {

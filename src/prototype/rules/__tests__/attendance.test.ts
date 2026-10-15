@@ -191,8 +191,9 @@ describe('overtime', () => {
         // late arrival — still time beyond the standard day
         expect(overtimeMinutes({ mode: 'attendance', settings: S, isOffDay: false, checkIn: '11:00', checkOut: '20:00', loggedMinutes: 0 })).toBe(0);
     });
-    it('timesheet basis: logged minus (shift − break)', () => {
-        expect(overtimeMinutes({ mode: 'timesheet', settings: S, isOffDay: false, checkIn: null, checkOut: null, loggedMinutes: 9 * 60 })).toBe(60);
+    it('timesheet basis: logged minus the shift length (no break deduction)', () => {
+        expect(overtimeMinutes({ mode: 'timesheet', settings: S, isOffDay: false, checkIn: null, checkOut: null, loggedMinutes: 9 * 60 })).toBe(0);
+        expect(overtimeMinutes({ mode: 'timesheet', settings: S, isOffDay: false, checkIn: null, checkOut: null, loggedMinutes: 10 * 60 })).toBe(60);
     });
     it('nothing while still checked in; overnight hours count to the check-in day', () => {
         expect(overtimeMinutes({ mode: 'both', settings: S, isOffDay: false, checkIn: '09:30', checkOut: null, loggedMinutes: 0 })).toBe(0);
@@ -482,7 +483,7 @@ describe('hours-only entries in the other rules', () => {
     });
     it('count toward timesheet-only overtime', () => {
         const logged = entryMins(entry('a', '2026-10-05', '09:30', '17:30')) + entryMins(hoursOnly('h', '2026-10-05', 90));
-        expect(overtimeMinutes({ mode: 'timesheet', settings: S, isOffDay: false, checkIn: null, checkOut: null, loggedMinutes: logged })).toBe(90);
+        expect(overtimeMinutes({ mode: 'timesheet', settings: S, isOffDay: false, checkIn: null, checkOut: null, loggedMinutes: logged })).toBe(30);
     });
     it('the change diff compares minutes too', () => {
         const before = hoursOnly('h', '2026-10-05', 60);

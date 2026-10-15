@@ -44,8 +44,9 @@ const toRecord = (entry: DailyLogEntry, index: number): TimesheetRecord => ({
     date: dayjs(entry.date).format('DD MMM YYYY'),
     shift: entry.employee.shift ?? '--',
     checkIn: formatTime(entry.checkIn),
-    // PROTOTYPE-SETUP (Overview v5, Slice 4): an auto check-out the employee replaced themselves.
-    checkOut: `${formatTime(entry.checkOut)}${entry.notes?.includes('Check-out entered by employee') ? ' · entered by employee' : ''}`,
+    // PROTOTYPE-SETUP (HR rules, Slice 5): no self-entered check-outs any more; a check-out after midnight counts to
+    // the check-in day.
+    checkOut: `${formatTime(entry.checkOut)}${entry.notes?.includes('Checked out the next day') ? ' (next day)' : ''}`,
     workHrs: formatWorkHours(entry.totalHours),
     otHours: formatWorkHours(entry.otHours),
     lateMinutes: entry.lateMinutes,

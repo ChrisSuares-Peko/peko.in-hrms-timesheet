@@ -39,7 +39,7 @@ export interface DayViewProps {
     /** Change-request draft markers per entry id. */
     marks?: Map<string, EntryMark>;
     perspective?: TimesheetPerspective;
-    /** "Update check-out" / "Request correction" on the outside-hours flag. */
+    /** "Request correction" on the outside-hours flag. */
     onFlagAction?: (day: TimesheetDay) => void;
     /** Week view: open this day in the Day view. */
     onOpen?: (date: string) => void;

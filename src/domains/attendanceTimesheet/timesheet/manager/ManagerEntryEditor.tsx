@@ -77,27 +77,29 @@ const ManagerEntryEditor = ({ date, initial, others, busy, onSave, onCancel }: E
             <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <TimePicker
                     size="small"
-                    format={FORMAT}
+                    format="h:mm A"
+                    use12Hours
                     minuteStep={5}
                     needConfirm={false}
                     value={start}
                     onChange={v => setStart(v)}
                     placeholder="Start"
                     aria-label="Start time"
-                    className="w-[88px]"
+                    className="w-[104px]"
                     status={problem && !start ? 'error' : undefined}
                 />
                 <span className="text-gray-400">–</span>
                 <TimePicker
                     size="small"
-                    format={FORMAT}
+                    format="h:mm A"
+                    use12Hours
                     minuteStep={5}
                     needConfirm={false}
                     value={end}
                     onChange={v => setEnd(v)}
                     placeholder="End"
                     aria-label="End time"
-                    className="w-[88px]"
+                    className="w-[104px]"
                     status={problem && !end ? 'error' : undefined}
                 />
                 <Input

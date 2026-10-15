@@ -12,7 +12,7 @@ import dayjs from 'dayjs';
 
 import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
 import { useAppDispatch } from '@src/hooks/store';
-import { WEEKDAYS, addDays, entryMins, formatDuration, isTimed } from '@src/prototype/rules/attendance';
+import { WEEKDAYS, addDays, entryMins, entryTimeText, formatDuration, isTimed } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
 
 import { addEntry } from '../api';
@@ -105,9 +105,9 @@ const OvTimesheetCard = ({
             {shown.length ? (
                 <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
                     {shown.map(e => (
-                        <li key={e.id} className="grid grid-cols-[96px_52px_minmax(0,1fr)] items-baseline gap-2 text-sm">
+                        <li key={e.id} className="grid grid-cols-[136px_52px_minmax(0,1fr)] items-baseline gap-2 text-sm">
                             <span className={`tabular-nums ${isTimed(e) ? 'text-[#080808]' : 'italic text-[#9e9e9e]'}`}>
-                                {isTimed(e) ? `${e.start} – ${e.end}` : 'No set time'}
+                                {entryTimeText(e)}
                             </span>
                             <span className="tabular-nums text-[#616161]">{formatDuration(entryMins(e))}</span>
                             <span className="truncate text-[#080808]" title={e.description}>

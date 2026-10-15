@@ -1,7 +1,7 @@
 // PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
 // frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
 // PROTOTYPE-SETUP: ESS Service 1 — 'both' mode: "Time logged outside check-in hours". Lists the flagged entries
-// and offers "Update check-out" (auto-closed day) or "Request correction", or shows the correction already
+// and offers "Request correction", or shows the correction already
 // raised. Makes clear this time is not overtime. Without `onAction` (manager view) it is informational.
 import { WarningFilled } from '@ant-design/icons';
 import { Alert, Button, Tag } from 'antd';

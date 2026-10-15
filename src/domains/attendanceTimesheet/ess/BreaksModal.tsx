@@ -96,7 +96,6 @@ const BreaksModal = ({ open, overview, onClose, onSaved }: { open: boolean; over
             <Text className="mb-3 block text-sm text-[#616161]">You can change today’s breaks yourself. For an earlier day, request a correction.</Text>
             <div className="flex flex-col gap-2" data-breaks-editor>
                 {rows.map((b, i) => (
-                    // eslint-disable-next-line react/no-array-index-key
                     <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 sm:grid-cols-[110px_110px_minmax(0,1fr)_auto]">
                         <TimePicker
                             aria-label="Break start"

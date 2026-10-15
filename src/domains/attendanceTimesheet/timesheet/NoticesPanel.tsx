@@ -161,7 +161,6 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
                                 {showHistory && (
                                     <ul className="m-0 mt-1.5 list-none p-0">
                                         {events.map((h, i) => (
-                                            // eslint-disable-next-line react/no-array-index-key
                                             <li key={`${h.at}-${i}`} className="grid grid-cols-[86px_minmax(0,1fr)] gap-2.5 border-0 border-b border-solid border-gray-100 py-1.5 text-xs last:border-b-0">
                                                 <span className="text-gray-400">{fmtStamp(h.at)}</span>
                                                 <span className="break-words text-gray-700">

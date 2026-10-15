@@ -18,6 +18,7 @@ import {
     MAX_PHOTO_BYTES,
     PROFILE_MESSAGES,
     RuleError,
+    displayTime,
     profileChanges,
     validatePersonalDetails,
 } from '@src/prototype/rules/attendance';
@@ -204,7 +205,7 @@ const EssProfileEditor = () => {
                         )}
                     </ReadOnly>
                     <ReadOnly label="Shift">
-                        {work.shift.start}–{work.shift.end}
+                        {displayTime(work.shift.start)} – {displayTime(work.shift.end)}
                     </ReadOnly>
                 </div>
             </section>

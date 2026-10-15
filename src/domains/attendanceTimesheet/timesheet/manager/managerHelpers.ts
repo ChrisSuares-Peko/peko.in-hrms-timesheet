@@ -5,7 +5,7 @@
 // the screen (track ranges, draft recomputation, labels).
 import dayjs from 'dayjs';
 
-import { displayTime, entryMinutes, sortEntries, toMinutes } from '@src/prototype/rules/attendance';
+import { displayTime, entryEndMinutes, entryMinutes, entryStartMinutes, sortEntries, toMinutes } from '@src/prototype/rules/attendance';
 
 import type {
     DayWindow,
@@ -28,31 +28,42 @@ export const nowMinutes = () => {
     return now.hour() * 60 + now.minute();
 };
 
-/** PROTOTYPE-SETUP (V2): "9:30–11:00" for a timed entry, "No set time" for an hours-only entry. */
-export const entryTimeLabel = (entry: Pick<TimesheetEntry, 'start' | 'end'>) =>
-    entry.start && entry.end ? `${displayTime(entry.start)}–${displayTime(entry.end)}` : 'No set time';
+type TimedEntry = Pick<TimesheetEntry, 'start' | 'end' | 'startNext' | 'endNext'>;
 
-/** Is a timed entry (partly) outside the day's window? Hours-only entries and days without a window never are. */
-export const isOutsideWindow = (entry: Pick<TimesheetEntry, 'start' | 'end'>, window: DayWindow) => {
-    if (window.kind === 'none' || !window.start || !window.end || !entry.start || !entry.end) return false;
-    return (
-        toMinutes(entry.start) < toMinutes(window.start) ||
-        toMinutes(entry.end) > toMinutes(window.end)
-    );
+/** PROTOTYPE-SETUP (V2): "9:30 AM–11:00 AM" for a timed entry ("… (next day)" past midnight — HR rules, Slice 5),
+ * "No set time" for an hours-only entry. */
+export const entryTimeLabel = (entry: TimedEntry) =>
+    entry.start && entry.end
+        ? `${displayTime(entry.start)}–${displayTime(entry.end)}${entry.endNext ? ' (next day)' : ''}`
+        : 'No set time';
+
+/** The window in minutes from the day's midnight (past 1440 when it runs into the next day). */
+export const windowMinutes = (window: DayWindow): [number, number] | null => {
+    if (window.kind === 'none' || !window.start || !window.end) return null;
+    return [window.startMinutes ?? toMinutes(window.start), window.endMinutes ?? toMinutes(window.end)];
+};
+
+/** Is a timed entry (partly) outside the day's window? Hours-only entries and days without a window never are.
+ * Next-day entries and windows compare past midnight (HR rules, Slice 5). */
+export const isOutsideWindow = (entry: TimedEntry, window: DayWindow) => {
+    const w = windowMinutes(window);
+    if (!w || !entry.start || !entry.end) return false;
+    return entryStartMinutes(entry) < w[0] || entryEndMinutes(entry) > w[1];
 };
 
 const DEFAULT_RANGE: [number, number] = [8 * 60, 20 * 60];
+/** A track never runs past 7 AM the next day (same as the employee's axis). */
+const MAX_END = 31 * 60;
 
 /** The hour range a time track covers: the window and every entry, rounded out to whole hours. */
 export const trackRange = (days: TimesheetDay[]): [number, number] => {
     const points = days.flatMap(d => [
-        ...(d.window.start ? [toMinutes(d.window.start)] : []),
-        ...(d.window.end ? [toMinutes(d.window.end)] : []),
-        ...d.entries.flatMap(e => (e.start && e.end ? [toMinutes(e.start), toMinutes(e.end)] : [])),
+        ...(windowMinutes(d.window) ?? []),
+        ...d.entries.flatMap(e => (e.start && e.end ? [entryStartMinutes(e), entryEndMinutes(e)] : [])),
     ]);
     const lo = Math.min(DEFAULT_RANGE[0], ...points);
     const hi = Math.max(DEFAULT_RANGE[1], ...points);
-    return [Math.max(0, Math.floor(lo / 60) * 60), Math.min(24 * 60, Math.ceil(hi / 60) * 60)];
+    return [Math.max(0, Math.floor(lo / 60) * 60), Math.min(MAX_END, Math.ceil(hi / 60) * 60)];
 };
 
 /** A day with a different set of entries (change-request draft): totals recomputed, flag dropped. */
