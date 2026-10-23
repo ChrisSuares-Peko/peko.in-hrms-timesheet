@@ -59,6 +59,15 @@ A balance (`LeaveBalance`) has these fields:
 - Deductions become final when payroll is processed for the month.
 - Deductions apply only in modes that track check-in.
 
+### Where deductions show (Slice 5)
+
+- **Attendance days.** `AttendanceDay.lateDeduction` is `{ days, from, state, reversedOn? }`. It's set on the overview's `today` and on `attendance` month days.
+  - The Today card shows a note: "Late by 25m. Half a day of Annual leave has been deducted. If you weren’t late, request a correction. It’s reversed automatically once approved."
+  - The day details show a "Late deduction" row, for example "0.5 day · Annual leave".
+- **Overview.** "Needs your action" lists deducted late check-ins as `kind: 'late'` actions: the last 7 days only, skipping pending corrections and processed months, newest first, at most 3. For example: "Late on Fri 23 Oct · −0.5 day" with a "Request correction" button.
+- **Leave page.** It has a "Late check-in deductions" list, plus a Loss of pay card when any days ran past every balance.
+- **Wording.** It lives in `lateTodayNote`, `lateDayDetail`, `lateNotification` and `lateLedgerText` (rules/leavePolicy.ts).
+
 ## Exit settlement
 
 When the employee has an exit date, `exit.settlement` lists the following for each type:

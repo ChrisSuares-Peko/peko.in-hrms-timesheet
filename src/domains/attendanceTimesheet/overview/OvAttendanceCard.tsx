@@ -20,6 +20,7 @@ import { ESS_BUTTON, ESS_CAPTION } from '@src/components/ess/essTokens';
 import { EssCard, EssSectionHeading, EssStatusBlock, EssStatusTone } from '@src/components/ess/EssUi';
 import { useAppDispatch } from '@src/hooks/store';
 import { REMEMBER_CHECK_OUT_NOTE } from '@src/prototype/rules/attendance';
+import { lateTodayNote } from '@src/prototype/rules/leavePolicy';
 import { showToast } from '@src/slices/apiSlice';
 
 import { checkIn, checkOut, checkOutPrevious, endBreak, startBreak } from '../api';
@@ -164,6 +165,12 @@ export const AttendancePunch = ({
     return (
         <>
             <EssStatusBlock tone={strip.tone} title={strip.text} sub={sub} />
+            {/* PROTOTYPE-SETUP (Final batch, Slice 5): leave deducted for today's late check-in. */}
+            {t.lateDeduction && t.lateDeduction.state !== 'reversed' && t.lateMinutes > 0 && (
+                <span className="-mt-1 rounded-lg bg-[#FFFAEB] px-3 py-2 text-xs leading-4 text-[#93370D]" data-late-note>
+                    {lateTodayNote(t.lateDeduction, formatDuration(t.lateMinutes))}
+                </span>
+            )}
             {/* PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — "Working from". */}
             {overview.mode === 'attendance' && <LocationBar overview={overview} onOverview={onOverview} />}
             {t.checkIn && (

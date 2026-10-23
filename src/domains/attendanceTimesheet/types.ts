@@ -174,6 +174,8 @@ export interface AttendanceDay {
     halfLeave?: LeaveHalf | null;
     /** PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — the day's location timeline (default Office). */
     locations?: LocationStamp[];
+    /** PROTOTYPE-SETUP (Final batch, Slice 5): leave deducted for a late check-in (see docs/api/leave-policy.md). */
+    lateDeduction?: Pick<LateDeduction, 'days' | 'from' | 'state' | 'reversedOn'>;
     /** Extra time per the overtime rule for the current mode (0 if none). */
     overtimeMinutes: number;
     /** Holiday name, leave type, "Weekly off", … */
@@ -820,7 +822,8 @@ export interface OverviewDay {
 }
 
 export interface OverviewAction {
-    kind: 'sent-back' | 'still-checked-in' | 'overtime';
+    /** PROTOTYPE-SETUP (Final batch, Slice 5): 'late' — a late check-in deduction in the last 7 days. */
+    kind: 'sent-back' | 'still-checked-in' | 'overtime' | 'late';
     title: string;
     text: string;
     button: string;

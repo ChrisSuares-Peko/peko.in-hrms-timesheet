@@ -51,6 +51,8 @@ interface FormValues {
     graceMinutes: number;
     halfDayHours: number;
     overtimeMinimumMinutes: number;
+    /** PROTOTYPE-SETUP (Final batch, Slice 5): leave deducted per late check-in (0 = off). */
+    lateDeductionDays: number;
     weeklyOff: Weekday[];
     approvalEnabled: boolean;
     submissionWeekday: Weekday;
@@ -150,6 +152,7 @@ const toForm = (s: AtsSettings): FormValues => ({
     graceMinutes: s.graceMinutes,
     halfDayHours: s.halfDayThresholdMinutes / 60,
     overtimeMinimumMinutes: s.overtimeMinimumMinutes,
+    lateDeductionDays: s.lateDeductionDays,
     weeklyOff: s.weeklyOff,
     approvalEnabled: s.timesheetApproval.enabled,
     submissionWeekday: s.timesheetApproval.submissionWeekday,
@@ -176,6 +179,7 @@ const fromForm = (v: FormValues): Partial<AtsSettings> => ({
     graceMinutes: v.graceMinutes,
     halfDayThresholdMinutes: Math.round(v.halfDayHours * 60),
     overtimeMinimumMinutes: v.overtimeMinimumMinutes,
+    lateDeductionDays: v.lateDeductionDays ?? 0,
     weeklyOff: WEEKDAYS.filter(d => v.weeklyOff.includes(d)),
     timesheetApproval: { enabled: v.approvalEnabled, submissionWeekday: v.submissionWeekday, submissionTime: v.submissionTime || '23:00' },
     level2: { ...v.level2 },
@@ -492,6 +496,17 @@ const AtsSettingsTab = () => {
                                 rules={[{ required: true, message: 'Enter the minimum' }]}
                             >
                                 <InputNumber min={0} max={600} step={5} className="w-full" />
+                            </Form.Item>
+                        </Col>
+                        {/* PROTOTYPE-SETUP (Final batch, Slice 5): late check-in deductions. */}
+                        <Col xs={24} sm={8}>
+                            <Form.Item
+                                name="lateDeductionDays"
+                                label="Leave deducted per late check-in"
+                                extra="Days (0 = off). Annual leave first, then Casual, then loss of pay. An approved correction reverses it."
+                                rules={[{ required: true, message: 'Enter the days (0 = off)' }]}
+                            >
+                                <InputNumber min={0} max={2} step={0.5} className="w-full" disabled={mode === 'timesheet'} addonAfter="days" />
                             </Form.Item>
                         </Col>
                     </Row>

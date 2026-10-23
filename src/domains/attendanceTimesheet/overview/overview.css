@@ -13,8 +13,10 @@
     /* PROTOTYPE-SETUP (Overview v5, Slice 1; HR rules, Slice 2): the top row is sized to its normal content — the
        tallest is the Attendance card with three buttons, in its blocked state (an earlier day still checked in: the
        note and "Check out from {date}"): 463px. Checked in / on a break / checked out: 423–449px; Profile 321px;
-       Timesheet 274–300px. Adding an entry or editing breaks is a modal, so nothing in the row ever grows. */
-    --ov-top: 464px;
+       Timesheet 274–300px. Adding an entry or editing breaks is a modal, so nothing in the row ever grows.
+       PROTOTYPE-SETUP (Final batch, Slices 3 and 5): +40px — a late check-in adds the deduction note (three short
+       lines) to the Attendance card, and the Timesheet card has Submit and its status line. */
+    --ov-top: 504px;
     --ov-qa: 244px; /* PROTOTYPE-SETUP (Overview v5, Slice 2): one row of tiles (2-line titles) */
     --ov-rd: 620px; /* overridden per day by the page: fits the rows shown */
     display: grid;
@@ -25,7 +27,7 @@
 /* PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode adds "Working from" (the switch, the client line and
    a two-line trail, or the client name box) to the Attendance card: ~110px more. */
 .ess-ov--attendance {
-    --ov-top: 576px;
+    --ov-top: 616px;
 }
 
 .ess-ov > * {

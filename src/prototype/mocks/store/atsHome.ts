@@ -27,9 +27,10 @@ import {
     trailLabel,
     weekStartOf,
 } from '@src/prototype/rules/attendance';
+import { lateNotification } from '@src/prototype/rules/leavePolicy';
 import { periodEndOf, periodLabel } from '@src/prototype/rules/timesheetFiling';
 
-import { overtimeViewOf } from './atsEss';
+import { lateDeductionsByDate, overtimeViewOf } from './atsEss';
 import { profileRequestsOf } from './atsProfile';
 import { atsReimbursements, leaveRequestsOf } from './atsRequests';
 import {
@@ -38,6 +39,7 @@ import {
     correctionsOf,
     currentMonth,
     getSettings,
+    isDayLocked,
     loggedOn,
     openSessionBefore,
     overtimeOfEmployee,
@@ -112,6 +114,8 @@ const recentDaysOf = (mode: DataMode, e: MockEmployee): OverviewDay[] => {
 
 // ---- needs your action ------------------------------------------------------------------------------------
 
+const LATE_NOTICES_MAX = 3;
+
 const actionsOf = (mode: DataMode, e: MockEmployee): OverviewAction[] => {
     const settings = getSettings(mode);
     const t = today();
@@ -144,6 +148,21 @@ const actionsOf = (mode: DataMode, e: MockEmployee): OverviewAction[] => {
             tone: 'info',
         });
     }
+    // PROTOTYPE-SETUP (Final batch, Slice 5): late check-in deductions in the last 7 days (not while a correction is
+    // pending, not once payroll is processed), newest first, at most 3.
+    [...lateDeductionsByDate(mode, e).values()]
+        .filter(d => d.state === 'deducted' && d.date >= addDays(t, -6) && !isDayLocked(mode, d.date))
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, LATE_NOTICES_MAX)
+        .forEach(d =>
+            actions.push({
+                kind: 'late',
+                ...lateNotification(d, dayjs(d.date).format('ddd D MMM')),
+                button: 'Request correction',
+                link: { tab: 'attendance', date: d.date },
+                tone: 'amber',
+            })
+        );
     const { suggestions } = overtimeViewOf(mode, e, currentMonth());
     if (suggestions.length) {
         const total = suggestions.reduce((s, x) => s + x.minutes, 0);

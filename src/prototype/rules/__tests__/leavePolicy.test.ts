@@ -16,6 +16,10 @@ import {
     leaveYearOf,
     shiftWithHalfLeave,
     validateLeaveRequest,
+    lateDayDetail,
+    lateLedgerText,
+    lateNotification,
+    lateTodayNote,
 } from '../leavePolicy';
 
 const NO_PROBATION: LeavePolicy = { ...DEFAULT_LEAVE_POLICY, probationMonths: 0 };
@@ -208,5 +212,33 @@ describe('half-day leave on the attendance day', () => {
         expect(shiftWithHalfLeave({ start: '09:30', end: '18:30' }, 'FIRST')).toEqual({ start: '14:00', end: '18:30' });
         expect(shiftWithHalfLeave({ start: '09:30', end: '18:30' }, 'SECOND')).toEqual({ start: '09:30', end: '14:00' });
         expect(halfLeaveLabel('SECOND')).toBe('Half-day leave (second half)');
+    });
+});
+
+// PROTOTYPE-SETUP (Final batch, Slice 5): the late deduction wording.
+describe('late deduction wording', () => {
+    const annual = { days: 0.5, from: [{ type: 'ANNUAL' as const, days: 0.5 }], state: 'deducted' as const };
+    const lop = { days: 0.5, from: [{ type: 'LOP' as const, days: 0.5 }], state: 'deducted' as const };
+    it('the Today note', () => {
+        expect(lateTodayNote(annual, '25m')).toBe(
+            'Late by 25m. Half a day of Annual leave has been deducted. If you weren’t late, request a correction. It’s reversed automatically once approved.'
+        );
+        expect(lateTodayNote({ ...lop, state: 'pending' }, '25m')).toBe(
+            'Late by 25m. Half a day is marked as loss of pay (no leave left). Your correction is with your manager. It’s reversed automatically if approved.'
+        );
+        expect(lateTodayNote({ ...annual, days: 1, from: [{ type: 'CASUAL', days: 1 }] }, '1h')).toMatch(/^Late by 1h\. 1 day of Casual leave has been deducted\./);
+    });
+    it('day details, notification and the Leave page row', () => {
+        expect(lateDayDetail(annual)).toBe('0.5 day · Annual leave');
+        expect(lateDayDetail({ ...lop, state: 'pending' })).toBe('0.5 day · Loss of pay (reversed if your pending correction is approved)');
+        expect(lateDayDetail({ ...annual, state: 'reversed' })).toBe('0.5 day · reversed (correction approved)');
+        expect(lateNotification({ ...annual, date: '2026-10-23' }, 'Fri 23 Oct')).toEqual({
+            title: 'Late on Fri 23 Oct · −0.5 day',
+            text: 'Deducted from Annual leave. If you weren’t late, request a correction.',
+        });
+        expect(lateNotification({ ...lop, date: '2026-10-23' }, 'Fri 23 Oct').text).toBe('No leave left, so it’s loss of pay. If you weren’t late, request a correction.');
+        expect(lateLedgerText({ ...annual, state: 'pending' })).toBe('−0.5 · Annual · correction pending');
+        expect(lateLedgerText({ ...annual, state: 'reversed' })).toBe('+0.5 · reversed');
+        expect(lateLedgerText({ days: 0.5, from: [{ type: 'CASUAL', days: 0.25 }, { type: 'LOP', days: 0.25 }], state: 'deducted' })).toBe('−0.5 · Casual + Loss of pay');
     });
 });

@@ -3,6 +3,8 @@
 // handlers turn them into HTTP errors.
 import type {
     AtsOverview,
+    AttendanceDay,
+    LateDeduction,
     AttendanceCorrection,
     AttendanceBreak,
     AttendanceMonthView,
@@ -74,6 +76,7 @@ import {
 } from '@src/prototype/rules/timesheetFiling';
 import { ImportContext, ImportPreview, analyseImport } from '@src/prototype/rules/timesheetImport';
 
+import { leaveViewOf } from './atsLeave';
 import {
     activeOvertimeOn,
     atsCorrections,
@@ -132,10 +135,27 @@ const entryLabel = (x: Pick<TimesheetEntry, 'date' | 'start' | 'end' | 'startNex
 
 // ---- overview & attendance --------------------------------------------------------------------------
 
+/**
+ * PROTOTYPE-SETUP (Final batch, Slice 5): late check-in deductions by date (this leave year), when check-in is tracked
+ * and deductions are on — added to the attendance days the screens show.
+ */
+export const lateDeductionsByDate = (mode: DataMode, e: MockEmployee) => {
+    const settings = getSettings(mode);
+    if (!hasCheckIn(settings.mode) || !settings.lateDeductionDays) return new Map<string, LateDeduction>();
+    return new Map(leaveViewOf(mode, e).lateDeductions.map(d => [d.date, d]));
+};
+
+const withLateDeduction =
+    (late: Map<string, LateDeduction>) =>
+    <D extends AttendanceDay>(d: D): D => {
+        const x = late.get(d.date);
+        return x ? { ...d, lateDeduction: { days: x.days, from: x.from, state: x.state, ...(x.reversedOn ? { reversedOn: x.reversedOn } : {}) } } : d;
+    };
+
 export const overviewOf = (mode: DataMode, e: MockEmployee): AtsOverview => {
     const settings = getSettings(mode);
     const t = today();
-    const day = attendanceDay(mode, e, t);
+    const day = withLateDeduction(lateDeductionsByDate(mode, e))(attendanceDay(mode, e, t));
     const rec = recordOf(mode, e, t);
     const punch = hasCheckIn(settings.mode);
     // PROTOTYPE-SETUP (HR rules, Slice 1): an earlier day still checked in blocks today's check-in.
@@ -342,8 +362,9 @@ export const attendanceMonthOf = (
 ): AttendanceMonthView => {
     const settings = getSettings(mode);
     const minimum = settings.overtimeMinimumMinutes;
+    const late = withLateDeduction(lateDeductionsByDate(mode, e));
     const days = monthDates(month)
-        .map(d => attendanceDay(mode, e, d))
+        .map(d => late(attendanceDay(mode, e, d)))
         .map(d => (opts.overtimeAtMinimum ? { ...d, overtimeMinutes: qualifyingOvertime(d.overtimeMinutes, minimum) } : d));
     const totals = days.reduce((acc, d) => {
         // PROTOTYPE-SETUP (HR rules, Slice 2): days still checked in aren't counted yet.

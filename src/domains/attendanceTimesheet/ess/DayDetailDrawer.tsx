@@ -11,6 +11,7 @@ import { Alert, Button, Drawer, Popconfirm, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 
 import { locationDetailText } from '@src/prototype/rules/attendance';
+import { lateDayDetail } from '@src/prototype/rules/leavePolicy';
 
 import type { CorrectionWithStatus } from '../api';
 import { BEFORE_JOINING } from './AttendanceCalendar';
@@ -114,6 +115,8 @@ const DayDetailDrawer = ({
                         {day.lateMinutes > 0 && (
                             <Row label="Late by">{formatDuration(day.lateMinutes)}</Row>
                         )}
+                        {/* PROTOTYPE-SETUP (Final batch, Slice 5): leave deducted for the late check-in. */}
+                        {day.lateDeduction && <Row label="Late deduction">{lateDayDetail(day.lateDeduction)}</Row>}
                         {/* PROTOTYPE-SETUP (Attendance tab, Slice 3): only overtime that reaches the HR minimum shows. */}
                         {day.overtimeMinutes > 0 && <Row label="Overtime">{formatDuration(day.overtimeMinutes)}</Row>}
                     </div>

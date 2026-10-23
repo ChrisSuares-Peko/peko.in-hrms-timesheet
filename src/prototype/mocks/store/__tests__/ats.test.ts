@@ -21,6 +21,7 @@ import {
     overtimeViewOf,
     endBreak,
     importTimesheet,
+    lateDeductionsByDate,
     overviewOf,
     previewImport,
     setWorkingFrom,
@@ -888,6 +889,23 @@ describe('final batch: late check-in deductions', () => {
     it('0 days per late check-in turns it off', () => {
         updateSettings(M, { lateDeductionDays: 0 });
         expect(leaveViewOf(M, sneha).lateDeductions).toEqual([]);
+        expect(lateDeductionsByDate(M, sneha).size).toBe(0);
+    });
+    // PROTOTYPE-SETUP (Final batch, Slice 5): shown on the days, and as Overview notifications.
+    it('days carry their deduction; recent deducted ones are Overview notifications (max 3, newest first)', () => {
+        const all = [...lateDeductionsByDate(M, sneha).values()];
+        if (!all.length) return;
+        const d = all[0];
+        const day = attendanceMonthOf(M, sneha, d.date.slice(0, 7)).days.find(x => x.date === d.date)!;
+        expect(day.lateDeduction).toMatchObject({ days: d.days, state: d.state });
+        const late = homeOf(M, sneha).actions.filter(a => a.kind === 'late');
+        expect(late.length).toBeLessThanOrEqual(3);
+        const recent = all.filter(x => x.state === 'deducted' && x.date >= addDays(s.today, -6));
+        expect(late.length).toBe(Math.min(3, recent.length));
+        late.forEach(a => {
+            expect(a.title).toMatch(/^Late on \w{3} \d{1,2} \w{3} · −0\.5 day$/);
+            expect(a.button).toBe('Request correction');
+        });
     });
 });
 

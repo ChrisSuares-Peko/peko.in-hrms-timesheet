@@ -74,6 +74,8 @@ export const entitlementOf = (daysPerYear: number, counted: number) => (daysPerY
 
 /** 1.0833 → "1.08", 2 → "2", 0.5 → "0.5" */
 export const fmtDays = (n: number) => String(Math.round(n * 100) / 100);
+/** "0.5 day" / "1 day" / "1.5 days" (a day or less is singular). */
+export const dayWord = (n: number) => `day${n <= 1 ? '' : 's'}`;
 
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /** "1 Nov" */
@@ -119,7 +121,7 @@ interface Scheduled {
 }
 
 const LAPSE_TEXT = (n: number, limit: number) =>
-    `${fmtDays(n)} unused day${n === 1 ? '' : 's'} lapsed (${limit ? `carry-forward limit ${fmtDays(limit)}` : 'no carry forward'})`;
+    `${fmtDays(n)} unused ${dayWord(n)} lapsed (${limit ? `carry-forward limit ${fmtDays(limit)}` : 'no carry forward'})`;
 
 /** Every credit of the year for one type (future ones included), in date order. */
 const creditsOf = (input: LeaveInput, type: LeaveType, year: { start: string; end: string }): { credits: Scheduled[]; entitlement: number } => {
@@ -290,7 +292,7 @@ export const LEAVE_MESSAGES = {
     noWorkingDays: 'Those dates are all weekly offs or holidays.',
     overlap: (summary: string) => `You already have leave on these dates (${summary}).`,
     balance: (n: number, type: LeaveType) =>
-        `You have ${fmtDays(n)} day${n === 1 ? '' : 's'} of ${LEAVE_LABEL[type]} leave available right now. Apply for fewer days or pick another leave type.`,
+        `You have ${fmtDays(n)} ${dayWord(n)} of ${LEAVE_LABEL[type]} leave available right now. Apply for fewer days or pick another leave type.`,
     proof: 'Sick leave of more than 3 days needs a medical certificate or proof.',
     reason: 'Add a short reason.',
     date: 'Pick a valid date.',
@@ -361,3 +363,55 @@ export const shiftWithHalfLeave = (shift: { start: string; end: string }, half: 
 
 /** "Half-day leave (first half)" */
 export const halfLeaveLabel = (half: LeaveHalf) => `Half-day leave (${half === 'FIRST' ? 'first' : 'second'} half)`;
+
+// ---- late check-in deductions: wording (PROTOTYPE-SETUP: Final batch, Slice 5) ------------------------------
+
+type DeductionLike = Pick<LateDeduction, 'days' | 'from' | 'state'>;
+
+
+const onlyLossOfPay = (d: DeductionLike) => d.from.every(f => f.type === 'LOP');
+/** The leave type it came from first (Annual, then Casual). */
+const firstType = (d: DeductionLike) => d.from.find(f => f.type !== 'LOP')?.type as LeaveType | undefined;
+
+/** "Half a day" / "1 day" / "1.5 days" */
+export const daysAmount = (n: number) => {
+    if (n === 0.5) return 'Half a day';
+    return `${fmtDays(n)} ${dayWord(n)}`;
+};
+
+/** The Today card: "Late by 25m. Half a day of Annual leave has been deducted. If you weren’t late, …" */
+export const lateTodayNote = (d: DeductionLike, lateText: string) => {
+    const what = onlyLossOfPay(d)
+        ? `${daysAmount(d.days)} is marked as loss of pay (no leave left).`
+        : `${daysAmount(d.days)} of ${LEAVE_LABEL[firstType(d)!]} leave has been deducted.`;
+    const next =
+        d.state === 'pending'
+            ? 'Your correction is with your manager. It’s reversed automatically if approved.'
+            : 'If you weren’t late, request a correction. It’s reversed automatically once approved.';
+    return `Late by ${lateText}. ${what} ${next}`;
+};
+
+/** Day details: "0.5 day · Annual leave" / "0.5 day · Loss of pay" (+ pending / reversed). */
+export const lateDayDetail = (d: DeductionLike) => {
+    const amount = `${fmtDays(d.days)} ${dayWord(d.days)}`;
+    if (d.state === 'reversed') return `${amount} · reversed (correction approved)`;
+    const where = onlyLossOfPay(d) ? 'Loss of pay' : `${LEAVE_LABEL[firstType(d)!]} leave`;
+    return `${amount} · ${where}${d.state === 'pending' ? ' (reversed if your pending correction is approved)' : ''}`;
+};
+
+/** Overview notification: "Late on Fri 23 Oct · −0.5 day" / "Deducted from Annual leave. If you weren’t late, …" */
+export const lateNotification = (d: DeductionLike & { date: string }, dayText: string) => ({
+    title: `Late on ${dayText} · −${fmtDays(d.days)} ${dayWord(d.days)}`,
+    text: `${onlyLossOfPay(d) ? 'No leave left, so it’s loss of pay.' : `Deducted from ${LEAVE_LABEL[firstType(d)!]} leave.`} If you weren’t late, request a correction.`,
+});
+
+/** Leave page: "−0.5 · Annual" / "−0.5 · Loss of pay" (+ " · correction pending") or "+0.5 · reversed". */
+export const lateLedgerText = (d: DeductionLike) => {
+    if (d.state === 'reversed') return `+${fmtDays(d.days)} · reversed`;
+    const where = d.from.map(f => (f.type === 'LOP' ? 'Loss of pay' : LEAVE_LABEL[f.type])).join(' + ');
+    return `−${fmtDays(d.days)} · ${where}${d.state === 'pending' ? ' · correction pending' : ''}`;
+};
+
+/** "0.5 day is deducted automatically for every check-in after the grace period, Annual leave first. …" */
+export const lateDeductionIntro = (days: number) =>
+    `${fmtDays(days)} ${dayWord(days)} ${days <= 1 ? 'is' : 'are'} deducted automatically for every check-in after the grace period, Annual leave first. If a correction is approved, it’s reversed automatically.`;
