@@ -81,7 +81,7 @@ const Level2ApprovalsPage = () => {
                 <Text type="secondary" className="text-xs sm:text-sm">
                     Payroll, HR and Admin see a request after the employee&apos;s reporting manager approves it, and their approval is final. By
                     default timesheets, attendance corrections and overtime go to Payroll; leave and profile updates to HR; reimbursements to Admin.
-                    Profile updates go straight to HR, with no manager step. See also <Link to={payrollLinks.timesheetStatus()}>Timesheet status</Link>.
+                    Profile updates go straight to HR, with no manager step. “Ask for update” sends an item straight back to the employee; when they resubmit, it goes to their manager first again. See also <Link to={payrollLinks.timesheetStatus()}>Timesheet status</Link>.
                 </Text>
             </Flex>
 

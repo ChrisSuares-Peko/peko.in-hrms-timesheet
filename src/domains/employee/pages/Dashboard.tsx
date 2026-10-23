@@ -2,7 +2,6 @@ import { Col, Flex, Row, Skeleton } from 'antd';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 
 import AtsDashboardCard from '@src/domains/attendanceTimesheet/ess/AtsDashboardCard';
-import MyTeamCard from '@src/domains/attendanceTimesheet/team/MyTeamCard';
 import type { EssOutletContext } from '@src/domains/dashboard/Ess/pages/EssLayout';
 
 import AnnouncementsPanel from '../components/dashboard/AnnouncementsPanel';
@@ -62,7 +61,6 @@ const Dashboard = () => {
                     </Col>
                 )}
             </Row>
-            {essContext?.isManager && !untracked && <MyTeamCard />}
 
             <Row gutter={[24, 24]}>
                 <Col xs={24} lg={13}>

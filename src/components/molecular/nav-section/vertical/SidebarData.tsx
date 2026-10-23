@@ -1,7 +1,7 @@
 import { JSXElementConstructor, ReactElement, useCallback, useMemo, useRef } from 'react';
 
 import { CustomIconComponentProps } from '@ant-design/icons/lib/components/Icon';
-import { Divider } from 'antd';
+import { Badge, Divider } from 'antd';
 import { useLocation } from 'react-router-dom';
 
 import AccountIcon from '@assets/icons/Accounts.svg';
@@ -27,8 +27,11 @@ import {
 } from '@src/domains/dashboard/corporateCards/utils/activeRole';
 // import { ComingSoon } from '@src/domains/dashboard/MoreServices/utils/data';
 import { useAppSelector } from '@src/hooks/store';
+import { EMPLOYEES } from '@src/prototype/mocks/data/employees';
 import { atsSettings } from '@src/prototype/mocks/store/atsStore';
-import { ESS_EMPLOYEE_GROUP, essEmployeeSubItems } from '@src/prototype/persona/essNav';
+import { teamApprovalCounts } from '@src/prototype/mocks/store/atsTeam';
+import { ESS_EMPLOYEE_GROUP, ESS_MANAGER_GROUP, essSubItems } from '@src/prototype/persona/essNav';
+import { ESS_TABS } from '@src/prototype/persona/essPersonas';
 import { paths } from '@src/routes/paths';
 import { checkRole, checkSidebarkAccess } from '@utils/checkAccess';
 import { toServiceRoute } from '@utils/serviceRoute';
@@ -497,18 +500,38 @@ export function useNavData() {
             .map(service => {
                 const route = toServiceRoute(service.label, service.enableMoreService);
                 const isActive = checkRouteIsActive(route);
-                if (route === paths.essEmployee.index) {
-                    // PROTOTYPE-SETUP (Overview, Slice 3): ESS - Employee expands into its pages.
-                    const subItems = essEmployeeSubItems(atsSettings.get(dataMode).mode);
+                const essTab = ESS_TABS.find(t => t.base === route);
+                if (essTab) {
+                    // PROTOTYPE-SETUP (Overview, Slice 3): ESS - Employee expands into its pages. PROTOTYPE-SETUP
+                    // (My team, Slice 5): so does ESS - Manager (the same pages), and "My team" shows only for someone
+                    // with direct reports, with a badge of what's waiting for them.
+                    const {persona} = essTab;
+                    const hasReports = dataMode !== 'empty' && EMPLOYEES.some(e => e.managerEmployeeId === persona.employeeId);
+                    let myTeam: { waiting: number } | null = null;
+                    if (hasReports) {
+                        const c = teamApprovalCounts(dataMode, persona);
+                        myTeam = { waiting: c.timesheets + c.attendance + c.overtime + c.leave + c.reimbursement };
+                    }
+                    const subItems = essSubItems(atsSettings.get(dataMode).mode, route, myTeam);
                     const activeSub = subItems
                         .filter(s => location.pathname === s.key || location.pathname.startsWith(`${s.key}/`))
                         .sort((a, b) => b.key.length - a.key.length)[0]?.key;
                     return {
-                        key: ESS_EMPLOYEE_GROUP,
+                        key: route === paths.essEmployee.index ? ESS_EMPLOYEE_GROUP : ESS_MANAGER_GROUP,
                         label: NavText(service.alias || service.label, isActive),
                         icon: NavIcon(service.icon, isActive),
                         stringLabel: service.label,
-                        children: subItems.map(s => ({ key: s.key, label: NavText(s.text, s.key === activeSub) })),
+                        children: subItems.map(s => ({
+                            key: s.key,
+                            label: s.badge ? (
+                                <span className="inline-flex items-center gap-2" data-nav-badge={s.badge}>
+                                    {NavText(s.text, s.key === activeSub)}
+                                    <Badge count={s.badge} size="small" color="#FF4F4F" />
+                                </span>
+                            ) : (
+                                NavText(s.text, s.key === activeSub)
+                            ),
+                        })),
                     };
                 }
                 return {

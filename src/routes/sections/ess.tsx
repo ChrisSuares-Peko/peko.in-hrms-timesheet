@@ -7,13 +7,11 @@ import { lazy } from 'react';
 import { Navigate } from 'react-router-dom';
 
 import { ESS_TABS } from '@src/prototype/persona/essPersonas';
-import { paths } from '@src/routes/paths';
 
 const EssLayout = lazy(() => import('@src/domains/dashboard/Ess/pages/EssLayout'));
 
 // Home mounts the employee Dashboard directly: EmployeeHome's onboarding gate would send an empty-mode
 // persona to the onboarding wizard, which is not one of the tab's pages.
-const EmployeeDashboard = lazy(() => import('@src/domains/employee/pages/Dashboard'));
 const EssLeavePage = lazy(() => import('@src/domains/attendanceTimesheet/leave/EssLeavePage'));
 const Payslips = lazy(() => import('@src/domains/employee/pages/Payslips'));
 const Reimbursements = lazy(() => import('@src/domains/employee/pages/Reimbursements'));
@@ -33,7 +31,8 @@ const essTabRoutes = (base: string) => [
     {
         element: <EssLayout key={base} />,
         children: [
-            { element: base === paths.essEmployee.index ? <EssOverviewPage /> : <EmployeeDashboard />, index: true },
+            // PROTOTYPE-SETUP (My team, Slice 5): a manager lands on the same Overview as everyone (My team is the only addition).
+            { element: <EssOverviewPage />, index: true },
             { element: <AtsSectionPage />, path: 'attendance-timesheet' },
             { element: <AtsSectionPage />, path: 'attendance-timesheet/:tab' },
             { element: <MyTeamPage />, path: 'my-team' },
