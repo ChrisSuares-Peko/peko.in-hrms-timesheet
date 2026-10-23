@@ -13,9 +13,10 @@ import type {
     AttendanceCorrection,
     AttendanceBreak,
     AttendanceMonthView,
-    ChangeRequestInput,
     CorrectionInput,
     EssHomeView,
+    LeaveRequestInput,
+    LeaveView,
     Level2Role,
     MyProfileView,
     OvertimeContext,
@@ -43,7 +44,8 @@ export interface AtsScope {
     userId: number;
 }
 
-export type AtsRequestType = 'attendance' | 'overtime';
+/** PROTOTYPE-SETUP (Final batch, Slice 1): leave (→ HR) and reimbursements (→ Admin) go to the manager first too. */
+export type AtsRequestType = 'attendance' | 'overtime' | 'leave' | 'reimbursement';
 /** PROTOTYPE-SETUP (Overview, Slice 4): level 2 (HR) also decides profile updates. */
 export type Level2RequestType = AtsRequestType | 'profile';
 
@@ -79,6 +81,11 @@ export const getAtsSettings = (s: AtsScope) => call<AtsSettings>(s, 'get', 'sett
 export const updateAtsSettings = (s: AtsScope, body: Partial<AtsSettings>) =>
     call<AtsSettings>(s, 'put', 'settings', { body });
 /** Demo control: every open week goes to the manager now, as if today were the submission day. */
+/** PROTOTYPE-SETUP (Final batch, Slice 1): "Run auto-submit now" (demo). */
+export const runAutoSubmitNow = (s: AtsScope) => call<SubmissionRunResult>(s, 'post', 'demo/run-auto-submit');
+/** PROTOTYPE-SETUP (Final batch, Slice 1): the persona's joining and leaving dates, for the leave demo. */
+export const setEmployeeLife = (s: AtsScope, body: { dateOfJoin?: string | null; exitDate?: string | null }) =>
+    call<LeaveView>(s, 'put', 'demo/employee-life', { body });
 export const simulateSubmissionDay = (s: AtsScope) =>
     call<SubmissionRunResult>(s, 'post', 'demo/simulate-submission-day');
 /** PROTOTYPE-SETUP (Overview, Slice 1) — demo control: clear today's check-in for both ESS personas. */
@@ -141,10 +148,6 @@ export const deleteEntry = (s: AtsScope, entryId: string) =>
  */
 export const submitWeek = (s: AtsScope, weekStart: string, acknowledged?: SubmissionAcknowledgement) =>
     call<TimesheetWeekView>(s, 'post', `timesheet/weeks/${weekStart}/submit`, { body: { acknowledged: acknowledged ?? {} } });
-export const requestChange = (s: AtsScope, weekStart: string, body: ChangeRequestInput) =>
-    call<TimesheetWeekView>(s, 'post', `timesheet/weeks/${weekStart}/change-request`, { body });
-export const cancelChangeRequest = (s: AtsScope, weekStart: string) =>
-    call<TimesheetWeekView>(s, 'post', `timesheet/weeks/${weekStart}/change-request/cancel`);
 
 export const getOvertime = (s: AtsScope, month?: string) =>
     call<OvertimeView>(s, 'get', 'overtime', month ? { params: { month } } : {});
@@ -175,10 +178,6 @@ export const approveWeek = (s: AtsScope, employeeId: number, weekStart: string, 
     call<TimesheetApprovalItem>(s, 'post', `team/approvals/timesheets/${employeeId}/${weekStart}/approve`, { body: { comment } });
 export const sendBackWeek = (s: AtsScope, employeeId: number, weekStart: string, comment: string) =>
     call<TimesheetApprovalItem>(s, 'post', `team/approvals/timesheets/${employeeId}/${weekStart}/send-back`, { body: { comment } });
-export const approveChangeRequest = (s: AtsScope, id: string, comment?: string) =>
-    call<TimesheetApprovalItem>(s, 'post', `team/approvals/change-requests/${id}/approve`, { body: { comment } });
-export const rejectChangeRequest = (s: AtsScope, id: string, comment: string) =>
-    call<TimesheetApprovalItem>(s, 'post', `team/approvals/change-requests/${id}/reject`, { body: { comment } });
 export const getTeamRequests = (s: AtsScope, type: AtsRequestType, scope: QueueScope) =>
     call<RequestItem[]>(s, 'get', `team/approvals/requests/${type}`, { params: { scope } });
 export const decideTeamRequest = (
@@ -211,3 +210,21 @@ export const getPayrollMonth = (s: AtsScope, month: string) =>
     call<PayrollMonthStatus>(s, 'get', `payroll/months/${month}`);
 export const processPayrollMonth = (s: AtsScope, month: string) =>
     call<PayrollMonthStatus>(s, 'post', `payroll/months/${month}/process`);
+
+// ---- leave (PROTOTYPE-SETUP: Final batch, Slice 1) ---------------------------------------------------------
+
+/** The Leave page: leave year, balances and ledger, late deductions, probation / exit notes, requests. */
+export const getLeaveView = (s: AtsScope) => call<LeaveView>(s, 'get', 'leave');
+export const applyForLeave = (s: AtsScope, body: LeaveRequestInput) => call<LeaveView>(s, 'post', 'leave/requests', { body });
+export const withdrawLeave = (s: AtsScope, id: string) => call<LeaveView>(s, 'post', `leave/requests/${id}/withdraw`);
+
+// ---- timesheets at Payroll (PROTOTYPE-SETUP: Final batch, Slice 1) ---------------------------------------------
+
+export const getPayrollTimesheets = (s: AtsScope, scope: QueueScope) =>
+    call<TimesheetApprovalItem[]>(s, 'get', 'payroll/timesheets', { params: { scope } });
+export const getPayrollWeek = (s: AtsScope, employeeId: number, date: string) =>
+    call<TimesheetWeekView>(s, 'get', `payroll/timesheets/${employeeId}/week`, { params: { date } });
+export const payrollApproveWeek = (s: AtsScope, employeeId: number, weekStart: string, comment?: string) =>
+    call<TimesheetApprovalItem>(s, 'post', `payroll/timesheets/${employeeId}/${weekStart}/approve`, { body: { comment } });
+export const payrollSendBackWeek = (s: AtsScope, employeeId: number, weekStart: string, comment: string) =>
+    call<TimesheetApprovalItem>(s, 'post', `payroll/timesheets/${employeeId}/${weekStart}/send-back`, { body: { comment } });

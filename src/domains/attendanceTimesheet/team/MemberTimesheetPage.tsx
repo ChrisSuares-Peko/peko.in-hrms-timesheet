@@ -143,7 +143,7 @@ const MemberTimesheetPage = () => {
 
     const weekActions = useCallback(
         (view: TimesheetWeekView) => {
-            const needsReview = view.week.status === 'SUBMITTED' || view.changeRequest?.status === 'PENDING';
+            const needsReview = view.week.status === 'SUBMITTED';
             if (!needsReview) return null;
             return (
                 <Button

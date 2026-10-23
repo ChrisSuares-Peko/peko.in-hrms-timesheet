@@ -26,7 +26,8 @@ export interface WeekStatusBarProps {
 
 export const WeekStatusBar = ({ view, perspective, actions, note }: WeekStatusBarProps) => {
     const { week, totals } = view;
-    const changePending = view.changeRequest?.status === 'PENDING';
+    // PROTOTYPE-SETUP (Final batch, Slice 1): edited after it was sent (no change requests any more).
+    const changePending = Boolean(view.week.editedAfter && view.week.baselineEntries);
     let defaultNote: ReactNode = null;
     if (!view.approvalEnabled) {
         defaultNote =

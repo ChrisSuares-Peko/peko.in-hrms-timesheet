@@ -513,6 +513,82 @@ img.has-img{object-fit:cover;display:block}
 .att-empty span{font-size:13px;max-width:240px}
 @media (max-width:1100px){.att-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"today totals" "cal cal" "req req"}.att-req{position:static;min-height:0}.att-req-in{position:static}.att-req-list{max-height:420px}}
 @media (max-width:860px){.att-grid{grid-template-columns:1fr;grid-template-areas:"today" "totals" "cal" "req"}.att-head .btn{width:100%;justify-content:center}}
+
+/* v8 timesheet top: 65/35, compact calendar, notices */
+.ts-top.v2,.ts-top{grid-template-columns:minmax(0,65fr) minmax(0,35fr)}
+.ts-notices{position:relative;min-height:340px}
+.ts-notices-in{position:absolute;inset:0;display:flex;flex-direction:column}
+.ts-notices-body{flex:1;overflow-y:auto;padding:0 12px 12px}
+.nt-week{background:var(--surface-2);border-radius:10px;padding:10px 12px;margin:0 0 4px}
+.nt-week b{font-weight:500}
+.mm-g{gap:2px}
+.mc{height:24px;font-size:11px;border-radius:5px}
+.mm-t{font-size:12px;margin-bottom:4px}
+.mm-h{font-size:10px}
+.cal3{gap:14px}
+.legend{gap:10px;font-size:11px;margin-top:8px}
+.bt-m{display:flex}
+.bt-m i{position:static;flex:none}
+.bt-m em{margin-left:auto;background:repeating-linear-gradient(135deg,var(--line-2) 0 3px,transparent 3px 6px);height:100%}
+@media (max-width:1020px){.ts-top{grid-template-columns:1fr}.ts-notices{position:static;min-height:0}.ts-notices-in{position:static}.ts-notices-body{max-height:420px}}
+
+/* v9 breaks, previous-day gate, overnight */
+.punch.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.punch.three .btn{justify-content:center;white-space:normal;line-height:1.2}
+.btn.brk-on{background:var(--amber-soft);border-color:var(--amber);color:var(--amber-ink)}
+.punch-wrap{display:flex;flex-direction:column;gap:8px}
+.punch-warn{font-size:13px;background:var(--amber-soft);color:var(--amber-ink);border-radius:8px;padding:8px 10px}
+.punch-warn b{font-weight:500}
+.punch-wrap .punch{display:grid;grid-template-columns:2fr 1fr;gap:8px}
+.punch-wrap .punch .btn{justify-content:center}
+.brk-today{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--ink-2);margin:-4px 0 10px}
+.brk-row{display:grid;grid-template-columns:110px 110px minmax(0,1fr) auto;gap:8px;margin-bottom:8px}
+.entry.brk{background:repeating-linear-gradient(135deg,transparent 0 6px,var(--surface-2) 6px 12px)}
+.entry.brk .acts{opacity:1}
+.brk-desc{max-width:220px;display:inline-block;padding:4px 8px}
+.ef .ef-next{grid-column:1/-1;font-size:12px;color:var(--blue-ink);background:var(--blue-soft);border-radius:6px;padding:3px 8px;width:max-content}
+.ef.qa .ef-next{grid-column:2/-1}
+.bt-b{position:absolute;top:3px;bottom:3px;border-radius:2px;background:repeating-linear-gradient(135deg,var(--line-2) 0 3px,var(--track) 3px 6px)}
+.axis-key .k-b{background:repeating-linear-gradient(135deg,var(--line-2) 0 3px,var(--track) 3px 6px)}
+@media (max-width:860px){.brk-row{grid-template-columns:1fr 1fr}.brk-row .input:nth-child(3){grid-column:1/-1}}
+.ov-ts-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.ov-ts-actions .btn{justify-content:center}
+.ov-ts-actions.one{grid-template-columns:1fr}
+.ov-autosave{line-height:1.35}
+.ef,.ef.qa,.ef.proj,.ef.qa.proj,.ef.compact,.ef.compact.proj{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
+.ef .efl{width:112px;flex:none}
+.ef .efl:has(.hrs){width:80px}
+.ef .efl.loc{width:124px}
+.ef .efl.cli{width:150px}
+.ef .efl:has(select[aria-label='Project code']){width:170px}
+.ef .efl.desc{flex:1 1 240px;width:auto}
+.ef>.row{flex:none}
+.ef .err,.ef .ef-hint,.ef .ef-next{flex-basis:100%}
+.ef .qa-plus{display:none}
+.ef.compact .efl{flex:1 1 90px;width:auto}
+.ef.compact .efl.desc{flex-basis:100%}
+.loc-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-2px 0 10px}
+.loc-bar .seg button{padding:5px 10px;font-size:12px}
+.loc-line{font-size:12px;color:var(--ink-2);width:100%;margin:-2px 0 8px}
+.late-note{font-size:12px;background:var(--amber-soft);color:var(--amber-ink);border-radius:8px;padding:7px 10px;margin:-4px 0 10px}
+.lb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px}
+.lb{display:flex;flex-direction:column;gap:2px}
+.lb b{font-size:18px;font-weight:500}
+.lb.lop{background:var(--red-soft)}
+.lb-ledger{margin-top:6px;border-top:1px solid var(--line);max-height:240px;overflow-y:auto}
+.lb-ledger .ul-row{font-size:12px}
+
+/* v10 labelled entry form, projects, upload */
+.efl{display:flex;flex-direction:column;gap:3px;min-width:0}
+.efl>span{font-size:11px;color:var(--muted)}
+.ef>.row{align-self:end}
+.ef .qa-plus{align-self:end;padding-bottom:9px}
+.ef.proj{grid-template-columns:104px 104px 78px 160px minmax(0,1fr) auto}
+.ef.qa.proj{grid-template-columns:18px 104px 104px 78px 160px minmax(0,1fr) auto}
+.ef.compact,.ef.compact.proj{grid-template-columns:1fr 1fr 1fr}
+.ef.compact .efl.desc{grid-column:1/-1}
+@media (max-width:860px){.ef.proj,.ef.qa.proj{grid-template-columns:1fr 1fr 1fr}.ef .efl.desc{grid-column:1/-1}}
+a.btn{text-decoration:none}
 </style>
 </head>
 <body>
@@ -559,6 +635,10 @@ const floor15 = m => Math.floor(m / 15) * 15;
 const inr = n => '₹' + Number(n).toLocaleString('en-IN');
 const clone = o => JSON.parse(JSON.stringify(o));
 const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+// 12-hour display: '13:05' -> '1:05 PM'
+const t12 = t => { if (!t) return ''; const m = toMin(t) % 1440; const h = Math.floor(m / 60), mm = m % 60; return ((h % 12) || 12) + ':' + pad(mm) + ' ' + (h < 12 ? 'AM' : 'PM'); };
+const tShort = t => t12(t).replace(' AM', 'a').replace(' PM', 'p');
+const daysBetween = (a, b) => Math.round((fromKey(b) - fromKey(a)) / 86400000);
 
 function rng(seed) {
   let h = 2166136261;
@@ -623,7 +703,7 @@ const MODE_LABEL = { attendance: 'Attendance only', both: 'Attendance + timeshee
 const SECTION_NAME = { attendance: 'Attendance', both: 'Attendance & Timesheet', timesheet: 'Timesheet' };
 
 /* ---------------- demo data ---------------- */
-const STORE_KEY = 'peko-timesheet-proto-v2';
+const STORE_KEY = 'peko-timesheet-proto-v6';
 const submitDateOf = (s, ws) => addDays(ws, (s.settings.submitDay + 6) % 7);
 function hist(w, at, by, text) { w.history.push({ at, by, text }); }
 
@@ -647,8 +727,8 @@ function genDay(e, inM, outM, rnd, s) {
 
 function buildDemo() {
   const s = {
-    version: 2, builtFor: THIS_WEEK, seq: 1000,
-    settings: { mode: 'both', submitDay: 5, tsApproval: true, graceMin: 15, halfDayMin: 270, breakMin: 60, otMin: 30, l2: { attendance: 'HR', overtime: 'Finance', leave: 'HR', reimbursement: 'Finance', timesheet: 'None' }, lastProcessed: addMonths(monthOf(TODAY), -2) },
+    version: 6, builtFor: THIS_WEEK, seq: 1000,
+    settings: { mode: 'both', submitDay: 5, submitTime: '23:00', projectsOn: false, projects: [{ code: 'PAY-V2', name: 'Payroll v2' }, { code: 'ESS-APP', name: 'ESS mobile app' }, { code: 'CLIENT-BL', name: 'Brightline integration' }, { code: 'INTERNAL', name: 'Internal / meetings' }], tsApproval: true, graceMin: 15, halfDayMin: 270, breakMin: 60, otMin: 30, l2: { attendance: 'Payroll', overtime: 'Payroll', leave: 'HR', reimbursement: 'Admin', timesheet: 'Payroll' }, lastProcessed: addMonths(monthOf(TODAY), -2) },
     weeks: {}, attendance: {}, requests: [],
   };
   const W = [-5, -4, -3, -2, -1, 0].map(i => addDays(THIS_WEEK, i * 7));
@@ -662,7 +742,7 @@ function buildDemo() {
         const inM = r5(ss + Math.round(rnd() * 30) - 5);
         if (k === TODAY) { if (nowMin() >= inM) s.attendance[e.id + '|' + k] = { in: toTime(inM) }; return; }
         const outM = r5(se + Math.round(rnd() * 25) - 10);
-        s.attendance[e.id + '|' + k] = { in: toTime(inM), out: toTime(outM) };
+        s.attendance[e.id + '|' + k] = { in: toTime(inM), out: toTime(outM), breaks: [{ s: '13:00', e: '14:00', desc: 'Lunch' }] };
         entries[k] = genDay(e, inM, outM, rnd, s);
       });
       const w = { status: ws === THIS_WEEK ? 'draft' : 'approved', entries, approved: null, change: null, comment: null, history: [] };
@@ -678,9 +758,9 @@ function buildDemo() {
   const wk = (id, i) => s.weeks[id + '|' + W[5 + i]];
   const workDays = ws => weekDays(ws).filter(k => !isOff(k) && k < TODAY);
   const setDay = (id, k, tin, tout, extra, keepEarly) => {
-    if (tin === null) { delete s.attendance[id + '|' + k]; } else { s.attendance[id + '|' + k] = tout ? { in: tin, out: tout } : { in: tin }; }
+    if (tin === null) { delete s.attendance[id + '|' + k]; } else { const prev = s.attendance[id + '|' + k] || {}; s.attendance[id + '|' + k] = Object.assign({ in: tin, breaks: prev.breaks || [] }, tout ? { out: tout } : {}); }
     if (tin && !keepEarly) { const w0 = s.weeks[id + '|' + mondayOf(k)]; w0.entries[k] = (w0.entries[k] || []).map(en => timed(en) && toMin(en.start) < toMin(tin) ? Object.assign({}, en, { start: toTime(ceil15(toMin(tin))) }) : en).filter(en => toMin(en.end) > toMin(en.start)); }
-    if (extra) { const w = s.weeks[id + '|' + mondayOf(k)]; w.entries[k] = (w.entries[k] || []).concat(extra.map(x => ({ id: 'e' + (s.seq++), start: x[0], end: x[1], desc: x[2] }))); if (w.approved) w.approved = clone(w.entries); }
+    if (extra) { const w = s.weeks[id + '|' + mondayOf(k)]; w.entries[k] = (w.entries[k] || []).concat(extra.map(x => Object.assign({ id: 'e' + (s.seq++), start: x[0], end: x[1], desc: x[2] }, x[3] || {}))); if (w.approved) w.approved = clone(w.entries); }
   };
   ['ACME-003', 'ACME-004', 'ACME-006'].forEach(id => { const w = wk(id, -1); w.status = 'submitted'; w.approved = null; w.history = w.history.slice(0, 1); });
 
@@ -689,7 +769,7 @@ function buildDemo() {
   const R = EMPLOYEE_ID;
   if (wdL[1]) setDay(R, wdL[1], '10:05', '20:20', [['18:30', '20:15', 'Release checklist and deployment']], true);
   if (wdL[2]) setDay(R, wdL[2], '09:20', '20:35', [['18:30', '20:30', 'Release prep for payroll v2']]);
-  if (wdL[3]) setDay(R, wdL[3], '09:30', null, [['18:30', '19:45', 'Fixing release blocker on payslips']]);
+  if (wdL[3]) setDay(R, wdL[3], '09:30', '19:45', [['18:30', '19:45', 'Fixing release blocker on payslips']]);
   const rw = wk(R, -1);
   wdL.slice(-2).forEach(k => (rw.entries[k] || []).forEach(en => { if (en.desc !== 'Fixing release blocker on payslips') en.desc = 'Development'; }));
   if (wdL[0]) rw.entries[wdL[0]] = (rw.entries[wdL[0]] || []).concat([{ id: 'e' + (s.seq++), start: null, end: null, mins: 60, desc: 'Writing release notes' }]);
@@ -702,16 +782,17 @@ function buildDemo() {
   const prop = clone(cw.entries);
   if (wd3[1] && prop[wd3[1]] && prop[wd3[1]].length) { const last = prop[wd3[1]][prop[wd3[1]].length - 1]; last.end = toTime(toMin(last.end) + 30); last.desc = 'Code review for attendance sync PR (ran over)'; }
   if (wd3[2]) prop[wd3[2]] = (prop[wd3[2]] || []).concat([{ id: 'e' + (s.seq++), start: '18:30', end: '19:30', desc: 'Client call with Brightline on payroll integration' }]);
-  cw.change = { entries: prop, reason: "Forgot to log a late client call, and a code review ran longer than I entered.", at: addDays(TODAY, -1), by: 'Rohan Mehta' };
-  hist(cw, addDays(TODAY, -1), 'Rohan Mehta', 'Requested a change: ' + cw.change.reason);
+  cw.baseline = clone(cw.entries); cw.entries = prop; cw.status = 'submitted'; cw.approved = null;
+  hist(cw, addDays(TODAY, -1), 'Rohan Mehta', 'Edited after it was approved (forgot a late client call). Submitted again.');
 
   // Karthik: change request
   const kw = wk('ACME-004', -2), wd2 = workDays(W[3]);
   const kprop = clone(kw.entries);
   const kd = wd2[3] || wd2[0];
   if (kprop[kd] && kprop[kd].length > 1) { kprop[kd].pop(); kprop[kd][0].desc = 'Release checklist and deployment (prod)'; }
-  kw.change = { entries: kprop, reason: 'Logged the deployment twice that day.', at: TODAY, by: 'Karthik Reddy' };
-  hist(kw, TODAY, 'Karthik Reddy', 'Requested a change: ' + kw.change.reason);
+  kw.baseline = clone(kw.entries); kw.entries = kprop; kw.status = 'submitted'; kw.approved = null;
+  hist(kw, TODAY, 'Karthik Reddy', 'Edited after it was approved (logged the deployment twice). Submitted again.');
+  { const sw = wk('ACME-005', -1); sw.status = 'with_payroll'; sw.approved = null; hist(sw, addDays(TODAY, -2), 'Priya Nair', 'Approved, sent to Payroll'); }
 
   // Rohan: this week
   const cur = wk(R, 0);
@@ -723,6 +804,15 @@ function buildDemo() {
   // Rohan: approved overtime 2 weeks ago
   const wdA = workDays(W[3]);
   if (wdA[2]) setDay(R, wdA[2], '09:30', '20:00', [['18:30', '20:00', 'Incident call and fix']]);
+  // Rohan: an overnight day (9:00 AM to 5:00 AM the next morning) that counts to the check-in day
+  if (wdA[3]) {
+    setDay(R, wdA[3], '09:00', '05:00', [['18:30', '22:00', 'Production cutover prep'], ['22:00', '02:00', 'Production cutover', { endNext: true }], ['02:00', '05:00', 'Monitoring and rollback checks', { startNext: true, endNext: true }]]);
+    s.attendance[R + '|' + wdA[3]].outDays = 1;
+  }
+  // Rohan: still checked in from the last working day, so today's check-in is blocked until he checks out
+  { const lastWork = (() => { for (let i = 1; i < 10; i++) { const d = addDays(TODAY, -i); if (!isOff(d)) return d; } return null; })();
+    if (lastWork && s.attendance[R + '|' + lastWork]) { delete s.attendance[R + '|' + lastWork].out; }
+    delete s.attendance[R + '|' + TODAY]; }
 
   // Team today
   if (!isOff(TODAY)) {
@@ -750,6 +840,7 @@ function buildDemo() {
     mk('overtime', R, addDays(wdL[1], 1), { kind: 'worked', date: wdL[1], minutes: 75, note: 'Release went past 7pm' }, 'pending_l2');
     mk('attendance', R, addDays(wdL[1], 1), { date: wdL[1], from: { in: '10:05', out: '20:20' }, to: { in: '09:30', out: '20:20' }, reason: "Badge reader didn't register. I was in the 9:30 standup." }, 'pending_l1');
   }
+  mk('leave', R, addDays(TODAY, -1), { leaveType: 'Casual', from: addDays(N1, 2), to: addDays(N1, 2), days: 0.5, half: 'second', reason: 'Bank appointment in the afternoon' }, 'pending_l1');
   mk('reimbursement', R, addDays(L, 3), { category: 'Travel', amount: 860, date: addDays(L, 2), description: 'Cab fare for Brightline client visit' }, 'pending_l1');
   mk('leave', R, addDays(TODAY, -6), { leaveType: 'Casual', from: N2, to: N2, days: 1, reason: 'Personal errand' }, 'approved');
   mk('leave', 'ACME-003', addDays(TODAY, -1), { leaveType: 'Casual', from: addDays(N1, 3), to: addDays(N1, 4), days: 2, reason: 'Family function in Kochi' }, 'pending_l1');
@@ -764,12 +855,12 @@ function buildDemo() {
   const imranDay = workDays(L)[3] || L;
   mk('attendance', 'ACME-019', addDays(imranDay, 1), { date: imranDay, from: { in: '11:20', out: att('ACME-019', imranDay).out || '18:30' }, to: { in: '09:35', out: att('ACME-019', imranDay).out || '18:30' }, reason: 'Was at an offsite interview drive in the morning.' }, 'pending_l2');
   s.attendance['ACME-019|' + imranDay] = { in: '11:20', out: att('ACME-019', imranDay).out || '18:30' };
-  mk('leave', 'ACME-015', addDays(TODAY, -3), { leaveType: 'Earned', from: N2, to: addDays(N2, 2), days: 3, reason: 'Trip home to Lucknow' }, 'pending_l2');
+  mk('leave', 'ACME-015', addDays(TODAY, -3), { leaveType: 'Annual', from: N2, to: addDays(N2, 2), days: 3, reason: 'Trip home to Lucknow' }, 'pending_l2');
   mk('reimbursement', 'ACME-017', addDays(L, -5), { category: 'Office supplies', amount: 640, date: addDays(L, -6), description: 'Printer toner' }, 'approved');
   return s;
 }
 function loadStore() {
-  try { const raw = localStorage.getItem(STORE_KEY); if (raw) { const s = JSON.parse(raw); if (s && s.version === 2 && s.builtFor === THIS_WEEK) return s; } } catch (e) { /* storage unavailable */ }
+  try { const raw = localStorage.getItem(STORE_KEY); if (raw) { const s = JSON.parse(raw); if (s && s.version === 6 && s.builtFor === THIS_WEEK) return s; } } catch (e) { /* storage unavailable */ }
   return buildDemo();
 }
 
@@ -781,14 +872,22 @@ const isLocked = (s, k) => monthOf(k) <= s.settings.lastProcessed;
 const approvalOn = s => s.settings.tsApproval && s.settings.mode !== 'attendance';
 const weekStatusKey = w => (w.change ? 'change' : w.status);
 const WEEK_STATUS = {
-  draft: { label: 'Draft', cls: '' }, submitted: { label: 'Awaiting manager', cls: 'blue' }, approved: { label: 'Approved', cls: 'green' },
+  draft: { label: 'Draft', cls: '' }, submitted: { label: 'With manager', cls: 'blue' }, with_payroll: { label: 'With Payroll', cls: 'blue' }, approved: { label: 'Approved', cls: 'green' },
   rejected: { label: 'Sent back', cls: 'red' }, change: { label: 'Change pending', cls: 'amber' },
 };
-const entriesOn = (s, id, k) => readWeek(s, id, mondayOf(k)).entries[k] || [];
+// recorded breaks appear in the timesheet as entries (read-only times, optional description)
+function breakEntries(s, id, k) {
+  const a = s.attendance[id + '|' + k];
+  if (!a || !a.breaks) return [];
+  return a.breaks.map((b, i) => ({ id: 'brk' + i, idx: i, isBreak: true, start: b.s, end: b.e || (k === TODAY ? toTime(Math.max(toMin(b.s), nowMin())) : b.s), desc: b.desc || '', open: !b.e }));
+}
+const entriesOn = (s, id, k) => (readWeek(s, id, mondayOf(k)).entries[k] || []).concat(breakEntries(s, id, k));
 const timed = e => !!(e.start && e.end);
-const entryMins = e => timed(e) ? toMin(e.end) - toMin(e.start) : (e.mins || 0);
-const byStart = (x, y) => (timed(x) ? 0 : 1) - (timed(y) ? 0 : 1) || (timed(x) && timed(y) ? toMin(x.start) - toMin(y.start) : 0);
-const entTime = e => timed(e) ? e.start + ' – ' + e.end : 'No set time';
+const eS = e => toMin(e.start) + (e.startNext ? 1440 : 0);   // minutes from the day's midnight, past 24:00 for next-day times
+const eE = e => toMin(e.end) + (e.endNext ? 1440 : 0);
+const entryMins = e => timed(e) ? eE(e) - eS(e) : (e.mins || 0);
+const byStart = (x, y) => (timed(x) ? 0 : 1) - (timed(y) ? 0 : 1) || (timed(x) && timed(y) ? eS(x) - eS(y) : 0);
+const entTime = e => timed(e) ? t12(e.start) + ' – ' + t12(e.end) + (e.endNext ? ' (next day)' : '') : 'No set time';
 function parseHours(v) {
   v = (v || '').trim(); if (!v) return null;
   let m = v.match(/^(\d{1,2}):(\d{1,2})$/); if (m) return +m[2] > 59 ? NaN : +m[1] * 60 + +m[2];
@@ -800,28 +899,47 @@ const fmtH = m => Math.floor(m / 60) + ':' + pad(m % 60);
 const sumMins = list => (list || []).reduce((t, e) => t + entryMins(e), 0);
 
 // attendance record with auto check-out applied for past days
+// no automatic check-out: a session stays open until the employee checks out, even across days
 function attOf(s, emp, k) {
   const a = s.attendance[emp.id + '|' + k];
   if (!a || !a.in) return null;
-  if (a.out) return { in: a.in, out: a.out, auto: false, self: a.src === 'employee' };
-  if (k < TODAY) return { in: a.in, out: '23:59', auto: true }; // automatic check-out at 11:59 PM
-  return { in: a.in, out: null, auto: false };
+  const inM = toMin(a.in);
+  if (a.out) { const outDays = a.outDays || 0; return { in: a.in, out: a.out, outDays, outAbs: toMin(a.out) + 1440 * outDays, auto: false, breaks: a.breaks || [] }; }
+  return { in: a.in, out: null, outDays: 0, outAbs: null, auto: false, open: true, carried: k < TODAY, breaks: a.breaks || [] };
 }
-function leaveOn(s, id, k) { return s.requests.find(r => r.type === 'leave' && r.empId === id && r.status === 'approved' && r.data.from <= k && r.data.to >= k); }
+// minutes between check-in and check-out (or until now, if still checked in)
+function workedMins(a, k) {
+  if (!a) return 0;
+  if (a.out) return Math.max(0, a.outAbs - toMin(a.in));
+  return Math.max(0, daysBetween(k, TODAY) * 1440 + nowMin() - toMin(a.in));
+}
+const fmtOut = a => a && a.out ? t12(a.out) + (a.outDays === 1 ? ' (next day)' : a.outDays > 1 ? ' (' + fmtShort(addDays(a.date || TODAY, 0)) + ')' : '') : '';
+function openSessionBefore(s, emp, today) {
+  for (let i = 1; i <= 60; i++) { const d = addDays(today, -i); const a = s.attendance[emp.id + '|' + d]; if (a && a.in && !a.out) return d; }
+  return null;
+}
+function leaveOn(s, id, k) { return s.requests.find(r => r.type === 'leave' && r.empId === id && r.status === 'approved' && r.data.from <= k && r.data.to >= k && !r.data.half); }
+// approved half-day leave: the employee works the other half
+function halfLeaveOn(s, id, k) { return s.requests.find(r => r.type === 'leave' && r.empId === id && r.status === 'approved' && r.data.from === k && r.data.half); }
+const halfLabel = h => 'Half-day leave (' + (h.data.half === 'first' ? 'first' : 'second') + ' half)';
 function dayStatus(s, emp, k) {
   const a = attOf(s, emp, k);
   const hol = holidayOf(k);
   if (isOff(k)) return a ? { key: 'offwork', label: 'Worked on ' + (hol ? hol : 'weekly off') } : hol ? { key: 'holiday', label: hol } : { key: 'off', label: 'Weekly off' };
   const lv = leaveOn(s, emp.id, k);
   if (lv) return { key: 'leave', label: lv.data.leaveType + ' leave' };
+  const hl = halfLeaveOn(s, emp.id, k);
+  if (hl && !a) return k < TODAY ? { key: 'absent', label: 'Absent (other half)' } : { key: 'leave', label: halfLabel(hl) };
   if (!a) return k < TODAY ? { key: 'absent', label: 'Absent' } : k === TODAY ? { key: 'notin', label: 'Not checked in' } : { key: 'none', label: '' };
-  const ss = shiftOf(emp)[0];
+  // with first-half leave, the working day (and the late mark) starts at mid-shift
+  const ss = shiftOf(emp)[0] + (hl && hl.data.half === 'first' ? Math.round(shiftLen(emp) / 2) : 0);
   const late = toMin(a.in) > ss + s.settings.graceMin;
-  if (!a.out) return { key: 'open', label: late ? 'Checked in late' : 'Checked in', late };
-  const worked = toMin(a.out) - toMin(a.in);
-  if (worked < s.settings.halfDayMin) return { key: 'half', label: 'Half day', late };
-  if (late) return { key: 'late', label: 'Late', late };
-  return { key: 'present', label: 'Present', late };
+  const sfx = hl ? ' · half-day leave' : '';
+  if (!a.out) return { key: 'open', label: (a.carried ? 'Still checked in' : late ? 'Checked in late' : 'Checked in') + sfx, late };
+  const worked = workedMins(a, k);
+  if (!hl && worked < s.settings.halfDayMin) return { key: 'half', label: 'Half day', late };
+  if (late) return { key: 'late', label: 'Late' + sfx, late };
+  return { key: 'present', label: 'Present' + sfx, late };
 }
 function dayWindow(s, emp, k) {
   const [ss, se] = shiftOf(emp);
@@ -829,15 +947,15 @@ function dayWindow(s, emp, k) {
   const hol = holidayOf(k);
   if (s.settings.mode === 'timesheet') return isOff(k) ? { start: null, end: null, label: hol ? hol + ' (holiday)' : 'Weekly off' } : { start: ss, end: se, label: 'Shift ' + shiftTxt };
   const a = attOf(s, emp, k);
-  if (a && a.out) return { start: toMin(a.in), end: toMin(a.out), label: a.auto ? 'Checked in ' + a.in + ', no check-out (closed automatically at 11:59 PM)' : 'Checked in ' + a.in + ', out ' + a.out, auto: a.auto };
-  if (a) return { start: toMin(a.in), end: Math.max(toMin(a.in), k === TODAY ? Math.max(se, nowMin()) : se), label: 'Checked in ' + a.in + ', still checked in', open: true };
+  if (a && a.out) return { start: toMin(a.in), end: a.outAbs, label: 'Checked in ' + t12(a.in) + ', out ' + t12(a.out) + (a.outDays === 1 ? ' (next day)' : a.outDays > 1 ? ' (' + a.outDays + ' days later)' : ''), auto: false };
+  if (a) return { start: toMin(a.in), end: Math.max(toMin(a.in), daysBetween(k, TODAY) * 1440 + nowMin()), label: 'Checked in ' + t12(a.in) + (a.carried ? ', still checked in' : ', still checked in'), open: true };
   if (isOff(k)) return { start: null, end: null, label: hol ? hol + ' (holiday)' : 'Weekly off' };
   if (k >= TODAY) return { start: ss, end: se, label: 'Shift ' + shiftTxt + (k === TODAY ? ', not checked in yet' : '') };
   return { start: null, end: null, label: 'No check-in recorded', missing: true };
 }
 function outsideMins(e, win) {
-  if (!timed(e)) return 0;
-  const a = toMin(e.start), b = toMin(e.end);
+  if (!timed(e) || e.isBreak) return 0;
+  const a = eS(e), b = eE(e);
   if (win.start == null) return b - a;
   return Math.max(0, Math.min(b, win.start) - a) + Math.max(0, b - Math.max(a, win.end));
 }
@@ -850,26 +968,42 @@ function otOfDay(s, emp, k) {
     return { worked, base, extra: Math.max(0, worked - base), off, source: 'timesheet' };
   }
   const a = attOf(s, emp, k);
-  if (!a || !a.out || a.auto) return { worked: 0, base: off ? 0 : shiftLen(emp), extra: 0, off, source: 'attendance', auto: !!(a && a.auto) }; // a missed check-out never counts as overtime
-  const worked = toMin(a.out) - toMin(a.in);
+  if (!a || !a.out) return { worked: 0, base: off ? 0 : shiftLen(emp), extra: 0, off, source: 'attendance' }; // nothing to suggest while still checked in
+  const worked = workedMins(a, k);
   const base = off ? 0 : shiftLen(emp);
   return { worked, base, extra: Math.max(0, worked - base), off, source: 'attendance' };
 }
 const otRequestFor = (s, id, k) => s.requests.find(r => r.type === 'overtime' && r.empId === id && r.data.date === k && r.status !== 'rejected');
 function otSuggestion(s, emp, k) {
-  if (k >= TODAY || s.settings.mode === 'attendance' && false) return null;
+  if (k >= TODAY) return null;
+  // no suggestion while a correction for that day is waiting (the times may change)
+  if (s.requests.some(r => r.type === 'attendance' && r.empId === emp.id && r.data.date === k && (r.status === 'pending_l1' || r.status === 'pending_l2'))) return null;
   const o = otOfDay(s, emp, k);
   return o.extra >= s.settings.otMin ? o : null;
 }
 const otText = (o, emp) => o.off ? 'Worked ' + dur(o.worked) + ' on a day off. All of it counts as overtime.' : 'Worked ' + dur(o.worked) + ', which is ' + dur(o.extra) + ' more than your ' + dur(o.base) + ' day.';
 
+// submit = send for approval: manager first, then Payroll (level 2)
 function submitWeek(s, empId, ws, by, text) {
   const w = writeWeek(s, empId, ws);
-  if (!EMAP[empId].mgr) { w.status = 'approved'; w.approved = clone(w.entries); hist(w, TODAY, 'System', text + ' Auto-approved (no reporting manager).'); }
-  else { w.status = 'submitted'; w.comment = null; hist(w, TODAY, by, text); }
+  w.unsaved = false; w.comment = null;
+  if (!EMAP[empId].mgr) { w.status = s.settings.l2.timesheet !== 'None' ? 'with_payroll' : 'approved'; if (w.status === 'approved') { w.approved = clone(w.entries); delete w.baseline; } hist(w, TODAY, 'System', text + ' No reporting manager, so it skipped level 1.'); }
+  else { w.status = 'submitted'; hist(w, TODAY, by, text); }
 }
+// the admin's scheduled auto-submit: only drafts go out; anything already sent is left alone
 function runSubmission(s) {
-  Object.keys(s.weeks).forEach(key => { const [id, ws] = key.split('|'); if (s.weeks[key].status === 'draft' && ws <= THIS_WEEK) submitWeek(s, id, ws, 'System', 'Auto-submitted on ' + DAY_LONG[s.settings.submitDay]); });
+  Object.keys(s.weeks).forEach(key => { const [id, ws] = key.split('|'); const w = s.weeks[key]; if (w.status === 'draft' && ws <= THIS_WEEK && Object.values(w.entries).some(l => l.length)) submitWeek(s, id, ws, 'System', 'Auto-submitted ' + DAY_LONG[s.settings.submitDay] + ' at ' + t12(s.settings.submitTime || '23:00')); });
+}
+// any edit to a week that was already sent pulls it back to draft; it must be submitted again
+function markEdited(s, empId, ws, by) {
+  const w = writeWeek(s, empId, ws);
+  if (['submitted', 'with_payroll', 'approved'].includes(w.status)) {
+    if (!w.baseline) w.baseline = clone(w.approved || w.entries);
+    hist(w, TODAY, by, 'Edited after it was ' + WEEK_STATUS[w.status].label.toLowerCase() + '. Needs submitting again.');
+    w.status = 'draft';
+  }
+  w.unsaved = true;
+  return w;
 }
 function createRequest(s, type, empId, data) {
   const e = EMAP[empId];
@@ -880,7 +1014,7 @@ function createRequest(s, type, empId, data) {
   return r;
 }
 function applyEffects(s, r) {
-  if (r.type === 'attendance') s.attendance[r.empId + '|' + r.data.date] = { in: r.data.to.in, out: r.data.to.out };
+  if (r.type === 'attendance') { const key = r.empId + '|' + r.data.date; s.attendance[key] = Object.assign({}, s.attendance[key] || {}, { in: r.data.to.in, out: r.data.to.out, outDays: r.data.to.outDays || 0 }); }
   if (r.type === 'profile') { s.profiles = s.profiles || {}; s.profiles[r.empId] = Object.assign({}, s.profiles[r.empId] || {}, r.data.to); }
 }
 // profile changes skip the manager and go straight to HR
@@ -931,9 +1065,13 @@ function teamTimesheetItems(store, mgrId) {
     const [id, ws] = key.split('|');
     if (!reports.includes(id)) return;
     const w = store.weeks[key];
-    if (w.change) items.push({ id, ws, kind: 'change' });
-    else if (w.status === 'submitted') items.push({ id, ws, kind: 'week' });
+    if (w.status === 'submitted') items.push({ id, ws, kind: w.baseline ? 'change' : 'week' });
   });
+  return items.sort((a, b) => a.ws < b.ws ? -1 : 1);
+}
+function payrollTimesheetItems(store) {
+  const items = [];
+  Object.keys(store.weeks).forEach(key => { const [id, ws] = key.split('|'); const w = store.weeks[key]; if (w.status === 'with_payroll') items.push({ id, ws, kind: w.baseline ? 'change' : 'week' }); });
   return items.sort((a, b) => a.ws < b.ws ? -1 : 1);
 }
 const reqVisible = (s, r) => !(s.settings.mode === 'timesheet' && r.type === 'attendance');
@@ -982,8 +1120,9 @@ function approvalLine(s, emp, type) {
 }
 
 /* ---------------- track ---------------- */
-const T0 = 7 * 60, T1 = 22 * 60, TSPAN = T1 - T0;
-const pct = m => ((Math.min(Math.max(m, T0), T1) - T0) / TSPAN) * 100;
+const T0 = 7 * 60;
+const AX = { end: 22 * 60 };   // widened by DayLines when a visible day runs past midnight
+const pct = m => ((Math.min(Math.max(m, T0), AX.end) - T0) / (AX.end - T0)) * 100;
 function DayTrack({ win, list }) {
   const segs = [];
   (list || []).forEach(e => {
@@ -1000,7 +1139,9 @@ function DayTrack({ win, list }) {
   </div>`;
 }
 function Ticks() {
-  return html`<div className="ticks" aria-hidden="true">${[8, 10, 12, 14, 16, 18, 20].map(h => html`<span key=${h} style=${{ left: pct(h * 60) + '%' }}>${h > 12 ? (h - 12) + 'pm' : h === 12 ? '12pm' : h + 'am'}</span>`)}</div>`;
+  const hs = []; for (let h = 8; h * 60 < AX.end; h += AX.end > 24 * 60 ? 3 : 2) hs.push(h);
+  const lbl = h => { const hh = h % 24; return ((hh % 12) || 12) + (hh < 12 ? 'am' : 'pm') + (h >= 24 ? ' +1' : ''); };
+  return html`<div className="ticks" aria-hidden="true">${hs.map(h => html`<span key=${h} style=${{ left: pct(h * 60) + '%' }}>${lbl(h)}</span>`)}</div>`;
 }
 
 /* ---------------- month grid ---------------- */
@@ -1021,13 +1162,14 @@ function MonthGrid({ month, selected, onPick, cell }) {
 
 /* ---------------- request pieces ---------------- */
 function reqStatusText(r) {
+  if (r.status === 'withdrawn') return 'withdrawn';
   if (r.status === 'pending_l1') { const e = EMAP[r.empId]; return 'with ' + (e.mgr ? EMAP[e.mgr].name : 'manager'); }
   if (r.status === 'pending_l2') return 'with ' + r.l2 + ' team';
   return r.status === 'approved' ? 'approved' : 'rejected';
 }
 function ReqStatusChip({ r }) {
   if (r.self) return html`<span className="chip green"><span className="dot"></span>Check-out entered by ${EMAP[r.empId].name.split(' ')[0]}</span>`;
-  const cls = r.status === 'approved' ? 'green' : r.status === 'rejected' ? 'red' : 'blue';
+  const cls = r.status === 'approved' ? 'green' : r.status === 'rejected' ? 'red' : r.status === 'withdrawn' ? '' : 'blue';
   const lbl = r.type === 'overtime' && r.data.kind === 'planned' ? 'Planned overtime' : TYPE_LABEL[r.type];
   return html`<span className=${'chip ' + cls}><span className="dot"></span>${lbl} ${reqStatusText(r)}</span>`;
 }
@@ -1051,17 +1193,18 @@ function reqSummary(r) {
   const d = r.data;
   if (r.type === 'profile') return Object.keys(d.to).map(k => k === 'photo' ? (d.to.photo ? 'New photo' : 'Photo removed') : PROFILE_LABEL[k] + ': ' + (d.from[k] || '—') + ' → ' + (d.to[k] || '—')).join('; ');
   if (r.type === 'overtime') return dur(d.minutes) + ' on ' + fmtDate(d.date) + (holidayOf(d.date) ? ' (' + holidayOf(d.date) + ')' : isWeekend(d.date) ? ' (weekly off)' : '') + (d.note ? '. ' + d.note : '');
-  if (r.type === 'leave') return d.leaveType + ' leave, ' + fmtShort(d.from) + (d.to !== d.from ? ' – ' + fmtShort(d.to) : '') + ' (' + d.days + (d.days === 1 ? ' day' : ' days') + '). ' + d.reason;
+  if (r.type === 'leave') return d.leaveType + ' leave, ' + fmtShort(d.from) + (d.half ? ' (' + d.half + ' half)' : d.to !== d.from ? ' – ' + fmtShort(d.to) : '') + ' (' + (d.half ? 'half a day' : d.days + (d.days === 1 ? ' day' : ' days')) + '). ' + d.reason + (d.proof ? ' · Proof attached: ' + d.proof : '');
   if (r.type === 'reimbursement') return inr(d.amount) + ', ' + d.category + '. ' + d.description;
   if (r.type === 'attendance') {
     const parts = [];
-    if (d.from.in !== d.to.in) parts.push('check-in ' + d.from.in + ' → ' + d.to.in);
-    if (d.from.out !== d.to.out) parts.push('check-out ' + (d.from.out || 'none') + (d.autoFix ? ' (auto)' : '') + ' → ' + d.to.out);
+    const nd = o => o && o.outDays === 1 ? ' (next day)' : '';
+    if (d.from.in !== d.to.in) parts.push('check-in ' + t12(d.from.in) + ' → ' + t12(d.to.in));
+    if (d.from.out !== d.to.out || (d.from.outDays || 0) !== (d.to.outDays || 0)) parts.push('check-out ' + (d.from.out ? t12(d.from.out) + nd(d.from) : 'none') + ' → ' + t12(d.to.out) + nd(d.to));
     return fmtDate(d.date) + ': ' + parts.join(', ') + '. ' + d.reason;
   }
   return '';
 }
-function ReqRow({ r, showEmp, level, actor }) {
+function ReqRow({ r, showEmp, level, actor, canWithdraw }) {
   const { store, update, notify } = useApp();
   const [rejecting, setRejecting] = useState(false);
   const e = EMAP[r.empId];
@@ -1070,7 +1213,7 @@ function ReqRow({ r, showEmp, level, actor }) {
   let context = null;
   if (r.type === 'overtime' && level && r.data.kind !== 'planned' && store.settings.mode !== 'timesheet') {
     const a = attOf(store, e, r.data.date);
-    if (a && a.out) context = a.auto ? 'Attendance that day: in ' + a.in + ', check-out missed (closed automatically at 11:59 PM)' : 'Attendance that day: ' + a.in + ' to ' + a.out + ' (' + dur(toMin(a.out) - toMin(a.in)) + ')';
+    if (a && a.out) context = 'Attendance that day: ' + t12(a.in) + ' to ' + t12(a.out) + (a.outDays === 1 ? ' (next day)' : '') + ' (' + dur(workedMins(a, r.data.date)) + ')'; if (false) context = 'x' + (toMin(a.out) - toMin(a.in)) + ')';
   }
   if (r.type === 'overtime' && level && r.data.kind !== 'planned' && store.settings.mode === 'timesheet') context = 'Timesheet that day: ' + dur(sumMins(entriesOn(store, e.id, r.data.date))) + ' logged';
   if (r.type === 'overtime' && r.data.kind === 'planned' && r.data.date < TODAY) { const o = otOfDay(store, e, r.data.date); context = 'Actually worked ' + dur(o.extra) + ' extra that day.'; }
@@ -1089,6 +1232,7 @@ function ReqRow({ r, showEmp, level, actor }) {
     <div className="row" style=${{ alignItems: 'flex-start' }}>
       ${actionable ? [html`<button key="rj" className="btn sm" onClick=${() => setRejecting(true)}>Reject</button>`,
         html`<button key="ap" className="btn sm good" onClick=${() => { update(s => decideRequest(s, r.id, level, 'approve', '', actor)); notify(reqTitle(r) + ' approved' + (level === 1 && store.settings.l2[r.type] !== 'None' ? ', sent to ' + store.settings.l2[r.type] : '')); }}>Approve</button>`]
+        : canWithdraw && (r.status === 'pending_l1' || r.status === 'pending_l2') ? [html`<${ReqStatusChip} key="c" r=${r} />`, html`<button key="w" className="btn sm" onClick=${() => { update(s => { const x = s.requests.find(y => y.id === r.id); x.status = 'withdrawn'; x.trail.push({ level: 0, by: EMAP[r.empId].name, action: 'Withdrawn', at: TODAY }); }); notify(reqTitle(r) + ' request withdrawn'); }}>Withdraw</button>`]
         : html`<${ReqStatusChip} r=${r} />`}
     </div>
     ${rejecting && html`<${CommentModal} title=${'Reject ' + reqTitle(r).toLowerCase()} label="Reason (shown to the employee)" confirm="Reject" danger required onClose=${() => setRejecting(false)}
@@ -1145,12 +1289,14 @@ function AttendanceFixModal({ emp, k: k0, prefill, onClose }) {
   const mgr = emp.mgr ? EMAP[emp.mgr] : null;
   const [ss, se] = shiftOf(emp);
   const rec = k ? attOf(store, emp, k) : null;
-  const selfMode = !!(rec && rec.auto);
+  const selfMode = false; // every change to attendance goes for approval
+  const [outDays, setOutDays] = useState(0);
   const pendingFor = d => store.requests.find(r => r.type === 'attendance' && r.empId === emp.id && r.data.date === d && (r.status === 'pending_l1' || r.status === 'pending_l2'));
   const loadDay = (d, pf) => {
     const a = attOf(store, emp, d);
     setIn(pf ? pf.in : a ? a.in : '');
-    setOut(pf ? pf.out : a && a.out ? (a.auto ? toTime(se) : a.out) : '');
+    setOut(pf ? pf.out : a && a.out ? a.out : '');
+    setOutDays(pf && pf.outDays != null ? pf.outDays : a && a.out ? (a.outDays || 0) : 0);
     setDirty(false); setErr('');
   };
   useEffect(() => { if (k0) loadDay(k0, prefill); }, []);
@@ -1160,7 +1306,7 @@ function AttendanceFixModal({ emp, k: k0, prefill, onClose }) {
     setK(d); setAskSwap(null);
     if (!dateProblem(d)) loadDay(d); else setErr(dateProblem(d));
   };
-  const recordedText = !k ? 'Pick a date to see what was recorded.' : !rec ? 'No check-in recorded' : rec.auto ? 'Check-in ' + rec.in + ' · Check-out missed (closed automatically at 11:59 PM)' : 'Check-in ' + rec.in + ' · Check-out ' + (rec.out || 'not yet') + (rec.self ? ' (entered by you)' : '');
+  const recordedText = !k ? 'Pick a date to see what was recorded.' : !rec ? 'No check-in recorded' : !rec.out ? 'Check-in ' + t12(rec.in) + ' · Still checked in' : 'Check-in ' + t12(rec.in) + ' · Check-out ' + t12(rec.out) + (rec.outDays === 1 ? ' (next day)' : rec.outDays > 1 ? ' (' + rec.outDays + ' days later)' : '');
   const save = () => {
     const p = dateProblem(k); if (p) return setErr(p);
     if (selfMode) {
@@ -1174,10 +1320,10 @@ function AttendanceFixModal({ emp, k: k0, prefill, onClose }) {
       return onClose();
     }
     if (!tin || !tout) return setErr('Enter both times.');
-    if (toMin(tout) <= toMin(tin)) return setErr('Check-out must be after check-in.');
-    if (rec && tin === rec.in && tout === rec.out) return setErr('Change at least one time.');
+    if (outDays === 0 && toMin(tout) <= toMin(tin)) return setErr('Check-out must be after check-in. If you left after midnight, choose “Next day”.');
+    if (rec && tin === rec.in && tout === rec.out && outDays === (rec.outDays || 0)) return setErr('Change at least one time.');
     if (!reason.trim()) return setErr('Add a reason.');
-    update(s => createRequest(s, 'attendance', emp.id, { date: k, from: { in: rec ? rec.in : '–', out: rec && rec.out ? rec.out : '' }, to: { in: tin, out: tout }, reason: reason.trim() }));
+    update(s => createRequest(s, 'attendance', emp.id, { date: k, from: { in: rec ? rec.in : '–', out: rec && rec.out ? rec.out : '', outDays: rec ? rec.outDays || 0 : 0 }, to: { in: tin, out: tout, outDays }, reason: reason.trim() }));
     notify('Sent to ' + (mgr ? mgr.name : 'HR'));
     onClose();
   };
@@ -1199,8 +1345,9 @@ function AttendanceFixModal({ emp, k: k0, prefill, onClose }) {
           <div className="field" style=${{ flex: 1 }}><label htmlFor="fx-i">Check-in</label><input id="fx-i" className="input" type="time" placeholder=${toTime(ss)} disabled=${!k} value=${tin} onInput=${e => { setIn(e.target.value); setDirty(true); setErr(''); }} /></div>
           <div className="field" style=${{ flex: 1 }}><label htmlFor="fx-o2">Check-out</label><input id="fx-o2" className="input" type="time" placeholder=${toTime(se)} disabled=${!k} value=${tout} onInput=${e => { setOut(e.target.value); setDirty(true); setErr(''); }} /></div>
         </div>
+        <div className="field"><label>Check-out was on</label><${Seg} label="Check-out day" value=${String(outDays)} onChange=${v => { setOutDays(+v); setDirty(true); setErr(''); }} options=${[['0', 'Same day'], ['1', 'Next day']]} /></div>
         <div className="field"><label htmlFor="fx-r">Reason</label><textarea id="fx-r" className="input" maxLength="300" disabled=${!k} placeholder="e.g. Was at a client site in the morning" value=${reason} onInput=${e => { setReason(e.target.value); setErr(''); }}></textarea><span className="small muted" style=${{ textAlign: 'right' }}>${reason.length} / 300</span></div>
-        <div className="small muted">Your manager reviews this first, then HR, before your attendance changes.</div>
+        <div className="small muted">Your manager reviews this first, then Payroll, before your attendance changes. To change a past break, mention it in the reason.</div>
       </div>`}
     ${err && html`<div className="err" style=${{ marginTop: '8px' }}>${err}</div>`}
   <//>`;
@@ -1210,17 +1357,219 @@ function AttendanceFixModal({ emp, k: k0, prefill, onClose }) {
 function PunchButtons({ emp, full }) {
   const { store, update, notify } = useApp();
   const a = store.attendance[emp.id + '|' + TODAY] || {};
-  const nowT = toTime(Math.min(1435, r5(nowMin())));
+  const nowT = toTime(Math.min(1439, nowMin()));
+  const prev = openSessionBefore(store, emp, TODAY);
   const checkedIn = a.in && !a.out;
-  // one check-in and one check-out per day: each button works once, then stays disabled
-  const doIn = () => { if (a.in) return; update(s => { s.attendance[emp.id + '|' + TODAY] = { in: nowT }; }); notify('Checked in at ' + nowT); };
-  const doOut = () => { if (!checkedIn) return; update(s => { s.attendance[emp.id + '|' + TODAY].out = nowT; }); notify('Checked out at ' + nowT); };
-  return html`<div className=${'punch' + (full ? ' full' : '')}>
-    <button className=${'btn ' + (!a.in ? 'primary' : '')} disabled=${!!a.in} title=${a.in ? 'Checked in at ' + a.in : ''} onClick=${doIn}>${a.in ? 'Checked in ' + a.in : 'Check in'}</button>
-    <button className=${'btn ' + (checkedIn ? 'primary' : '')} disabled=${!checkedIn} title=${!a.in ? 'Check in first' : a.out ? 'Checked out at ' + a.out : ''} onClick=${doOut}>${a.out ? 'Checked out ' + a.out : 'Check out'}</button>
+  const onBreak = checkedIn && (a.breaks || []).some(b => !b.e);
+  // you can't start a new day until the previous one is checked out
+  if (prev && !a.in) {
+    const pr = store.attendance[emp.id + '|' + prev];
+    const doPrevOut = () => { const days = daysBetween(prev, TODAY); update(s => { const r = s.attendance[emp.id + '|' + prev]; r.out = nowT; r.outDays = days; r.breaks = (r.breaks || []).map(b => b.e ? b : Object.assign({}, b, { e: b.s })); }); notify('Checked out from ' + fmtDate(prev) + ' at ' + t12(nowT) + '. If that’s not when you left, request a correction.'); };
+    return html`<div className="punch-wrap"><div className="punch-warn">You’re still checked in from <b>${fmtDate(prev)}</b> (since ${t12(pr.in)}). Check out of that day before checking in today.</div>
+      <div className=${'punch' + (full ? ' full' : '')}><button className="btn primary" onClick=${doPrevOut}>Check out from ${fmtDate(prev)}</button><button className="btn" disabled title="Check out from the previous day first">Check in</button></div></div>`;
+  }
+  const doIn = () => { if (a.in) return; update(s => { const pl = (s.prefLoc && s.prefLoc[emp.id]) || { loc: 'office' }; s.attendance[emp.id + '|' + TODAY] = { in: nowT, breaks: [], locs: [{ at: nowT, loc: pl.loc, client: pl.client || null }] }; }); notify('Checked in at ' + t12(nowT)); };
+  const doBreak = () => { if (!checkedIn) return; update(s => { const r = s.attendance[emp.id + '|' + TODAY]; r.breaks = r.breaks || []; const open = r.breaks.find(b => !b.e); if (open) open.e = nowT; else r.breaks.push({ s: nowT }); }); notify(onBreak ? 'Break ended at ' + t12(nowT) : 'Break started at ' + t12(nowT)); };
+  const doOut = () => { if (!checkedIn) return; update(s => { const r = s.attendance[emp.id + '|' + TODAY]; r.out = nowT; r.outDays = 0; r.breaks = (r.breaks || []).map(b => b.e ? b : Object.assign({}, b, { e: nowT })); }); notify('Checked out at ' + t12(nowT)); };
+  return html`<div className=${'punch three' + (full ? ' full' : '')}>
+    <button className=${'btn ' + (!a.in ? 'primary' : '')} disabled=${!!a.in} title=${a.in ? 'Checked in at ' + t12(a.in) : ''} onClick=${doIn}>${a.in ? 'Checked in ' + t12(a.in) : 'Check in'}</button>
+    <button className=${'btn ' + (onBreak ? 'brk-on' : '')} disabled=${!checkedIn} title=${!checkedIn ? 'Available while checked in' : ''} onClick=${doBreak}>${onBreak ? 'End break' : 'Start break'}</button>
+    <button className=${'btn ' + (checkedIn ? 'primary' : '')} disabled=${!checkedIn} title=${!a.in ? 'Check in first' : a.out ? 'Checked out at ' + t12(a.out) : ''} onClick=${doOut}>${a.out ? 'Checked out ' + t12(a.out) : 'Check out'}</button>
   </div>`;
 }
-const AUTO_NOTE = 'Auto check-out at 11:59 PM if you forget.';
+const AUTO_NOTE = 'Remember to check out. You can’t check in on a new day until the previous day is checked out.';
+function todayLine(store, emp) {
+  const a = store.attendance[emp.id + '|' + TODAY] || {};
+  const [ss, se] = shiftOf(emp);
+  const st = dayStatus(store, emp, TODAY);
+  const lv = leaveOn(store, emp.id, TODAY);
+  const prev = openSessionBefore(store, emp, TODAY);
+  const worked = a.in ? (a.out ? toMin(a.out) : nowMin()) - toMin(a.in) : 0;
+  const openBrk = a.in && !a.out ? (a.breaks || []).find(b => !b.e) : null;
+  if (prev && !a.in) return { line: 'Still checked in from ' + fmtDate(prev), tone: 'amber' };
+  if (lv) return { line: 'On ' + lv.data.leaveType.toLowerCase() + ' leave today', tone: 'blue' };
+  if (openBrk) return { line: 'On break since ' + t12(openBrk.s) + ' · ' + dur(Math.max(0, worked)) + ' since check-in', tone: 'amber' };
+  if (a.out) return { line: 'Checked out at ' + t12(a.out) + ' · ' + dur(Math.max(0, worked)) + ' at work', tone: 'green' };
+  if (a.in) return { line: 'Checked in at ' + t12(a.in) + ' · ' + dur(Math.max(0, worked)), tone: st.late ? 'amber' : 'green' };
+  if (holidayOf(TODAY)) return { line: holidayOf(TODAY) + ' · Office closed', tone: 'blue' };
+  if (isWeekend(TODAY)) return { line: 'Weekly off', tone: '' };
+  return { line: 'Not checked in · Shift ' + t12(toTime(ss)) + ' – ' + t12(toTime(se)), tone: '' };
+}
+/* ---- work location: optional, can change any time during the day ---- */
+const LOCS = { office: 'Office', home: 'Home', client: 'Client site' };
+const locText = l => LOCS[l.loc] + (l.loc === 'client' && l.client ? ' (' + l.client + ')' : '');
+function LocationBar({ emp }) {
+  const { store, update, notify } = useApp();
+  const a = store.attendance[emp.id + '|' + TODAY] || {};
+  const locs = a.locs || [];
+  const pref = (store.prefLoc && store.prefLoc[emp.id]) || { loc: 'office' };
+  const cur = locs.length ? locs[locs.length - 1] : pref;
+  const [asking, setAsking] = useState(false); const [client, setClient] = useState(cur.client || '');
+  const nowT = toTime(Math.min(1439, nowMin()));
+  const setLoc = (loc, cl) => {
+    update(s => { s.prefLoc = s.prefLoc || {}; s.prefLoc[emp.id] = { loc, client: cl || null };
+      const r = s.attendance[emp.id + '|' + TODAY];
+      if (r && r.in && !r.out) { r.locs = r.locs || []; const last = r.locs[r.locs.length - 1]; if (!last || last.loc !== loc || (last.client || '') !== (cl || '')) r.locs.push({ at: nowT, loc, client: cl || null }); } });
+    if (a.in && !a.out) notify('Working from ' + LOCS[loc] + (cl ? ' (' + cl + ')' : '') + ' from ' + t12(nowT));
+    setAsking(false);
+  };
+  const pick = loc => { if (loc === 'client') { setAsking(true); return; } setLoc(loc); };
+  // with timesheets on, location is chosen per timesheet entry instead
+  if (store.settings.mode !== 'attendance') return null;
+  const trail = locs.length > 1 || (a.out && locs.length) ? html`<div className="loc-line">${locs.map(l => locText(l) + ' ' + t12(l.at)).join(' → ')}</div>` : null;
+  if (a.in && a.out) return trail;
+  return html`<div className="loc-bar">
+    <span className="small muted">Working from</span>
+    <${Seg} label="Work location" value=${asking ? 'client' : cur.loc} onChange=${pick} options=${[['office', 'Office'], ['home', 'Home'], ['client', 'Client site']]} />
+    ${asking ? html`<span className="row" style=${{ gap: '6px', flexWrap: 'nowrap' }}><input className="input" style=${{ width: '150px' }} placeholder="Client name" value=${client} autoFocus onInput=${e => setClient(e.target.value)} onKeyDown=${e => { if (e.key === 'Enter' && client.trim()) setLoc('client', client.trim()); }} /><button className="btn sm primary" disabled=${!client.trim()} onClick=${() => setLoc('client', client.trim())}>Set</button><button className="btn sm ghost" onClick=${() => setAsking(false)}>Cancel</button></span>` : cur.loc === 'client' && cur.client ? html`<span className="small">${cur.client}</span>` : null}
+    ${trail}
+  </div>`;
+}
+/* ---- late check-in: half a day of leave per late mark (Annual first, then Casual, then loss of pay) ---- */
+/* ---- leave policy engine: leave year, monthly/upfront credits, probation, pro-rata, carry forward ---- */
+const LT = ['Annual', 'Casual', 'Sick'];
+const DEFAULT_LP = { year: 'company', cycleStart: '04-01', probationMonths: 6, types: { Annual: { quota: 12, credit: 'monthly', carry: 30, encash: true }, Casual: { quota: 8, credit: 'upfront', carry: 0, encash: false }, Sick: { quota: 6, credit: 'upfront', carry: 0, encash: false } } };
+const lp = s => s.settings.leavePolicy || DEFAULT_LP;
+const LEAVE_BASE = { Annual: 12, Casual: 8, Sick: 6 };
+const r2 = n => Math.round(n * 100) / 100;
+const fd = n => { const v = r2(n); return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/0$/, ''); };
+const DEFAULT_LIFE = { doj: '2023-06-12', exit: null, prev: { Annual: 5, Casual: 2, Sick: 1 } };
+const empLife = (s, id) => Object.assign({}, DEFAULT_LIFE, (s.empLife && s.empLife[id]) || {});
+const addM = (k, n) => { const m = addMonths(monthOf(k), n); const last = new Date(+m.slice(0, 4), +m.slice(5), 0).getDate(); return m + '-' + pad(Math.min(+k.slice(8), last)); };
+const asOf = (s, id) => { const L = empLife(s, id); return L.exit && L.exit < TODAY ? L.exit : TODAY; };
+function cycleOf(s, id) {
+  const p = lp(s), L = empLife(s, id), d = asOf(s, id);
+  const md = p.year === 'company' ? p.cycleStart : L.doj.slice(5);
+  let start = d.slice(0, 4) + '-' + md; if (start > d) start = (+d.slice(0, 4) - 1) + '-' + md;
+  return { start, end: addDays(addM(start, 12), -1) };
+}
+function leaveYear(s, emp, t) {
+  const p = lp(s), cfg = p.types[t], L = empLife(s, emp.id), cyc = cycleOf(s, emp.id);
+  const monthly = cfg.quota / 12;
+  const probEnd = p.probationMonths > 0 ? addM(L.doj, p.probationMonths) : null;
+  const inProb = ms => !!probEnd && ms < probEnd;
+  const months = []; for (let i = 0; i < 12; i++) months.push({ ms: addM(cyc.start, i), me: addDays(addM(cyc.start, i + 1), -1) });
+  // a month counts if they joined on or before the 15th of it, and (when leaving) left on or after the 15th
+  const elig = months.filter(m => !(L.doj > m.me || (L.doj > addDays(m.ms, 14)) || (L.exit && L.exit < addDays(m.ms, 14))));
+  const ent = monthly * elig.length;
+  const items = []; let carry = 0;
+  if (L.doj < cyc.start) { const prev = (L.prev && L.prev[t]) || 0; carry = Math.min(prev, cfg.carry); if (carry > 0) items.push({ at: cyc.start, d: carry, text: 'Carried forward from last year' }); if (prev > carry) items.push({ at: cyc.start, d: 0, info: true, text: fd(prev - carry) + ' unused day' + (prev - carry === 1 ? '' : 's') + ' lapsed' + (cfg.carry ? ' (carry-forward limit ' + cfg.carry + ')' : ' (no carry forward)') }); }
+  let given = 0;
+  elig.forEach(m => { if (cfg.credit === 'monthly' || inProb(m.ms)) { items.push({ at: L.doj > m.ms ? L.doj : m.ms, d: monthly, text: inProb(m.ms) ? 'Monthly credit during probation' : 'Monthly credit' }); given += monthly; } });
+  if (cfg.credit === 'upfront' && ent - given > 0.001) { const fn = elig.find(m => !inProb(m.ms)); if (fn) { const at = [fn.ms, L.doj > fn.ms ? L.doj : fn.ms, probEnd && probEnd > fn.ms ? probEnd : fn.ms].sort().pop(); items.push({ at, d: ent - given, text: given > 0 ? 'Rest of the year, credited when probation ended' : L.doj > cyc.start ? 'Pro-rated for the months left after joining' : L.exit ? 'Pro-rated to your last day' : 'Yearly credit' }); } }
+  items.sort((a, b) => a.at < b.at ? -1 : 1);
+  return { cyc, ent, carry, monthly, probEnd, items, total: ent + carry };
+}
+function creditedToDate(s, emp, t) { const y = leaveYear(s, emp, t), d = asOf(s, emp.id); return y.items.filter(i => i.at <= d).reduce((x, i) => x + i.d, 0); }
+const lateAmt = s => s.settings.lateDays != null ? s.settings.lateDays : 0.5;
+function lateDaysOf(s, emp) {
+  const out = []; const from = firstOf(addMonths(monthOf(TODAY), -2));
+  for (let k = from; k <= TODAY; k = addDays(k, 1)) {
+    const st = dayStatus(s, emp, k); if (!st.late) continue;
+    const a = attOf(s, emp, k); const hl = halfLeaveOn(s, emp.id, k);
+    const ss = shiftOf(emp)[0] + (hl && hl.data.half === 'first' ? Math.round(shiftLen(emp) / 2) : 0);
+    const pending = s.requests.some(r => r.type === 'attendance' && r.empId === emp.id && r.data.date === k && (r.status === 'pending_l1' || r.status === 'pending_l2'));
+    out.push({ k, mins: toMin(a.in) - ss, pending });
+  }
+  return out;
+}
+function leaveBalances(s, emp) {
+  const cyc = cycleOf(s, emp.id);
+  const used = { Annual: 0, Casual: 0, Sick: 0 };
+  s.requests.filter(r => r.type === 'leave' && r.empId === emp.id && r.status === 'approved' && r.data.to >= cyc.start && r.data.from <= cyc.end).forEach(r => { const t = r.data.leaveType === 'Earned' ? 'Annual' : r.data.leaveType; used[t] = (used[t] || 0) + r.data.days; });
+  const ded = []; let lop = 0; const amt = lateAmt(s);
+  const credited = {}; LT.forEach(t => { credited[t] = creditedToDate(s, emp, t); });
+  const left = t => r2(credited[t] - used[t] - ded.filter(d => d.from === t).reduce((x, d) => x + d.days, 0));
+  if (amt > 0) lateDaysOf(s, emp).forEach(d => { const from = left('Annual') >= amt ? 'Annual' : left('Casual') >= amt ? 'Casual' : 'Loss of pay'; if (from === 'Loss of pay') lop += amt; ded.push(Object.assign({ days: amt, from }, d)); });
+  // corrections that were approved: the late mark is gone, so the deduction is reversed automatically
+  const reversed = s.requests.filter(r => r.type === 'attendance' && r.empId === emp.id && r.status === 'approved' && r.data.from && r.data.from.in && r.data.from.in !== '–').filter(r => { const hl = halfLeaveOn(s, emp.id, r.data.date); const ss = shiftOf(emp)[0] + (hl && hl.data.half === 'first' ? Math.round(shiftLen(emp) / 2) : 0); return toMin(r.data.from.in) > ss + s.settings.graceMin && !dayStatus(s, emp, r.data.date).late; }).map(r => ({ k: r.data.date, days: amt, at: r.trail[r.trail.length - 1].at }));
+  return { used, ded, lop, left, reversed, credited };
+}
+function LateNote({ emp }) {
+  const { store } = useApp();
+  const d = leaveBalances(store, emp).ded.find(x => x.k === TODAY);
+  if (!d) return null;
+  return html`<div className="late-note">Late by ${dur(d.mins)}. ${d.days === 0.5 ? 'Half a day' : d.days + ' day' + (d.days === 1 ? '' : 's')} ${d.from === 'Loss of pay' ? 'is marked as loss of pay (no leave left)' : 'of ' + d.from + ' leave has been deducted'}. ${d.pending ? 'Your correction is with your manager. It’s reversed automatically if approved.' : 'If you weren’t late, request a correction. It’s reversed automatically once approved.'}</div>`;
+}
+function LeaveBalances({ emp }) {
+  const { store } = useApp();
+  const [open, setOpen] = useState(null);
+  const b = leaveBalances(store, emp);
+  const L = empLife(store, emp.id), p = lp(store), d0 = asOf(store, emp.id);
+  const ys = Object.fromEntries(LT.map(t => [t, leaveYear(store, emp, t)]));
+  const cyc = ys.Annual.cyc;
+  const onProb = ys.Annual.probEnd && ys.Annual.probEnd > TODAY && L.doj <= TODAY;
+  const dedOf = t => b.ded.filter(d => d.from === t).reduce((x, d) => x + d.days, 0);
+  const taken = t => store.requests.filter(r => r.type === 'leave' && r.empId === emp.id && r.status === 'approved' && (r.data.leaveType === t || (t === 'Annual' && r.data.leaveType === 'Earned')) && r.data.to >= cyc.start && r.data.from <= cyc.end).map(r => ({ at: r.data.from, d: -r.data.days, text: (r.data.half ? 'Half-day leave' : 'Leave') + ' taken' + (r.data.to !== r.data.from ? ' (to ' + fmtShort(r.data.to) + ')' : '') }));
+  const ledger = t => ys[t].items.filter(i => i.at <= d0).concat(taken(t), b.ded.filter(x => x.from === t).map(x => ({ at: x.k, d: -x.days, text: 'Late check-in deduction' + (x.pending ? ' (correction pending)' : '') }))).sort((a, c) => a.at < c.at ? 1 : -1);
+  const next = t => ys[t].items.find(i => i.at > d0 && !i.info);
+  const settle = L.exit ? LT.map(t => { const left = b.left(t); return { t, encash: left > 0 && p.types[t].encash ? left : 0, recover: left < 0 ? -left : 0 }; }) : null;
+  return html`<div>
+    <div className="small muted" style=${{ marginBottom: '8px' }}>Leave year ${fmtShort(cyc.start)} ${cyc.start.slice(0, 4)} – ${fmtShort(cyc.end)} ${cyc.end.slice(0, 4)} · ${p.year === 'company' ? 'company leave cycle' : 'based on your joining date'}</div>
+    ${onProb ? html`<div className="banner blue"><div><b>On probation until ${fmtLong(ys.Annual.probEnd)}.</b> Leave is credited monthly until then, and the rest of this year’s leave is credited when probation ends.</div></div>` : null}
+    ${settle ? html`<div className="banner amber"><div><b>Leaving on ${fmtLong(L.exit)}.</b> Leave is pro-rated to your last day. ${settle.map(x => x.recover ? x.t + ': ' + fd(x.recover) + ' day' + (x.recover === 1 ? '' : 's') + ' more than earned, recovered in your final settlement.' : x.encash ? x.t + ': ' + fd(x.encash) + ' unused day' + (x.encash === 1 ? '' : 's') + ' encashed in your final settlement.' : '').filter(Boolean).join(' ') || 'Nothing to settle.'}</div></div>` : null}
+    <div className="lb-grid">${LT.map(t => { const y = ys[t], nx = next(t); return html`<div key=${t} className="panel pad lb">
+      <span className="small muted">${t} leave</span><b>${fd(b.left(t))} available</b>
+      <span className="small">${fd(b.credited[t])} credited so far of ${fd(y.total)} this year${y.carry ? ' (incl. ' + fd(y.carry) + ' carried forward)' : ''}</span>
+      <span className="small muted">${fd(b.used[t])} taken${dedOf(t) ? ' · −' + fd(dedOf(t)) + ' late' : ''}${nx ? ' · next +' + fd(nx.d) + ' on ' + fmtShort(nx.at) : ''}</span>
+      <button className="btn link small" style=${{ alignSelf: 'flex-start', marginTop: '4px' }} onClick=${() => setOpen(open === t ? null : t)}>${open === t ? 'Hide ledger' : 'Show ledger'}</button>
+      ${open === t ? html`<div className="lb-ledger">${ledger(t).map((i, j) => html`<div key=${j} className="ul-row" style=${{ cursor: 'default' }}><span>${fmtShort(i.at)} · ${i.text}</span><span style=${{ color: i.info ? 'var(--muted)' : i.d < 0 ? 'var(--red-ink)' : 'var(--green-ink)' }}>${i.info ? '' : (i.d > 0 ? '+' : '−') + fd(Math.abs(i.d))}</span></div>`)}</div>` : null}
+    </div>`; })}
+    ${b.lop ? html`<div className="panel pad lb lop"><span className="small muted">Loss of pay</span><b>${fd(b.lop)} day${b.lop === 1 ? '' : 's'}</b><span className="small">From late check-ins with no leave left</span></div>` : null}</div>
+    ${b.ded.length || b.reversed.length ? html`<div className="panel pad" style=${{ marginBottom: '14px' }}><h3 style=${{ marginBottom: '6px' }}>Late check-in deductions</h3><div className="small muted" style=${{ marginBottom: '6px' }}>${lateAmt(store)} day is deducted automatically for every check-in after the grace period, Annual leave first. If a correction is approved, it’s reversed automatically.</div>
+      ${b.ded.slice().reverse().map(d => html`<div key=${d.k} className="ul-row" style=${{ cursor: 'default' }}><span>${fmtDate(d.k)} · late by ${dur(d.mins)}</span><span>−${d.days} · ${d.from}${d.pending ? html`<span className="muted"> · correction pending</span>` : null}</span></div>`)}
+      ${b.reversed.map(d => html`<div key=${'rv' + d.k} className="ul-row" style=${{ cursor: 'default' }}><span>${fmtDate(d.k)} · correction approved ${fmtShort(d.at)}</span><span style=${{ color: 'var(--green-ink)' }}>+${d.days} · reversed</span></div>`)}</div>` : null}</div>`;
+}
+function LeaveBalancesOld({ emp }) {
+  const { store } = useApp();
+  const b = leaveBalances(store, emp);
+  const dedOf = t => b.ded.filter(d => d.from === t).reduce((x, d) => x + d.days, 0);
+  return html`<div><div className="lb-grid">${Object.keys(LEAVE_BASE).map(t => html`<div key=${t} className="panel pad lb"><span className="small muted">${t} leave</span><b>${b.left(t)} of ${LEAVE_BASE[t]} left</b>
+      <span className="small">${b.used[t]} taken${dedOf(t) ? ' · −' + dedOf(t) + ' late deductions' : ''}</span></div>`)}
+    ${b.lop ? html`<div className="panel pad lb lop"><span className="small muted">Loss of pay</span><b>${b.lop} day${b.lop === 1 ? '' : 's'}</b><span className="small">From late check-ins with no leave left</span></div>` : null}</div>
+    ${b.ded.length || b.reversed.length ? html`<div className="panel pad" style=${{ marginBottom: '14px' }}><h3 style=${{ marginBottom: '6px' }}>Late check-in deductions</h3><div className="small muted" style=${{ marginBottom: '6px' }}>${lateAmt(store)} day is deducted automatically for every check-in after the grace period, Annual leave first. If a correction is approved, it’s reversed automatically.</div>
+      ${b.ded.slice().reverse().map(d => html`<div key=${d.k} className="ul-row" style=${{ cursor: 'default' }}><span>${fmtDate(d.k)} · late by ${dur(d.mins)}</span><span>−${d.days} · ${d.from}${d.pending ? html`<span className="muted"> · correction pending</span>` : null}</span></div>`)}
+      ${b.reversed.map(d => html`<div key=${'rv' + d.k} className="ul-row" style=${{ cursor: 'default' }}><span>${fmtDate(d.k)} · correction approved ${fmtShort(d.at)}</span><span style=${{ color: 'var(--green-ink)' }}>+${d.days} · reversed</span></div>`)}</div>` : null}</div>`;
+}
+function BreaksToday({ emp }) {
+  const { store, update, notify } = useApp();
+  const [edit, setEdit] = useState(false);
+  const a = store.attendance[emp.id + '|' + TODAY];
+  const brks = (a && a.breaks) || [];
+  if (!a || !a.in) return null;
+  const total = brks.reduce((t, b) => t + Math.max(0, toMin(b.e || toTime(Math.min(1439, nowMin()))) - toMin(b.s)), 0);
+  return html`<div className="brk-today"><span>${brks.length ? brks.length + ' break' + (brks.length === 1 ? '' : 's') + ' today · ' + dur(total) : 'No breaks today'}</span>
+    ${brks.length ? html`<button className="btn link small" onClick=${() => setEdit(true)}>Edit breaks</button>` : null}
+    ${edit && html`<${BreaksModal} emp=${emp} onClose=${() => setEdit(false)} />`}</div>`;
+}
+function BreaksModal({ emp, onClose }) {
+  const { store, update, notify } = useApp();
+  const a = store.attendance[emp.id + '|' + TODAY];
+  const [rows, setRows] = useState(clone(a.breaks || []));
+  const [err, setErr] = useState('');
+  const set = (i, k, v) => { const r = clone(rows); r[i][k] = v; setRows(r); setErr(''); };
+  const save = () => {
+    const inM = toMin(a.in), lim = a.out ? toMin(a.out) : nowMin();
+    for (const b of rows) {
+      if (!b.s) return setErr('Every break needs a start time.');
+      if (b.e && toMin(b.e) <= toMin(b.s)) return setErr('A break must end after it starts.');
+      if (toMin(b.s) < inM || (b.e && toMin(b.e) > lim)) return setErr('Breaks must be between your check-in (' + t12(a.in) + ') and ' + (a.out ? 'check-out (' + t12(a.out) + ')' : 'now') + '.');
+    }
+    const sorted = rows.slice().sort((x, y) => toMin(x.s) - toMin(y.s));
+    for (let i = 1; i < sorted.length; i++) if (toMin(sorted[i].s) < toMin(sorted[i - 1].e || '23:59')) return setErr('Breaks can’t overlap.');
+    update(s => { s.attendance[emp.id + '|' + TODAY].breaks = sorted; });
+    notify('Breaks updated'); onClose();
+  };
+  return html`<${Modal} title="Edit today’s breaks" onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="o" className="btn primary" onClick=${save}>Save breaks</button>`]}>
+    <div className="small muted" style=${{ marginBottom: '10px' }}>You can change today’s breaks yourself. For an earlier day, request a correction.</div>
+    ${rows.map((b, i) => html`<div key=${i} className="brk-row">
+      <input className="input" type="time" aria-label="Break start" value=${b.s} onInput=${e => set(i, 's', e.target.value)} />
+      <input className="input" type="time" aria-label="Break end" value=${b.e || ''} placeholder="Still on break" onInput=${e => set(i, 'e', e.target.value)} />
+      <input className="input" placeholder="Description (optional)" value=${b.desc || ''} onInput=${e => set(i, 'desc', e.target.value)} />
+      <button className="btn ghost sm" onClick=${() => setRows(rows.filter((x, j) => j !== i))}>Remove</button></div>`)}
+    ${err && html`<div className="err">${err}</div>`}
+  <//>`;
+}
 function TodayPanel({ emp }) {
   const { store } = useApp();
   const [, tick] = useState(0);
@@ -1229,25 +1578,21 @@ function TodayPanel({ emp }) {
   const [ss, se] = shiftOf(emp);
   const st = dayStatus(store, emp, TODAY);
   const lv = leaveOn(store, emp.id, TODAY);
-  const now = nowMin();
-  const worked = a.in ? (a.out ? toMin(a.out) : now) - toMin(a.in) : 0;
-  let line = 'Not checked in · Shift ' + toTime(ss) + '–' + toTime(se), tone = '';
-  if (lv) { line = 'On ' + lv.data.leaveType.toLowerCase() + ' leave today'; tone = 'blue'; }
-  else if (holidayOf(TODAY)) { line = holidayOf(TODAY) + ' · Office closed'; tone = 'blue'; }
-  else if (a.out) { line = 'Checked out at ' + a.out + ' · ' + dur(Math.max(0, worked)) + ' at work'; tone = 'green'; }
-  else if (a.in) { line = 'Checked in at ' + a.in + ' · ' + dur(Math.max(0, worked)); tone = st.late ? 'amber' : 'green'; }
-  else if (isWeekend(TODAY)) line = 'Weekly off';
+  const { line, tone } = todayLine(store, emp);
   return html`<section className="panel pad att-today" aria-label="Today">
     <h3>Today</h3>
-    <div className="muted small" style=${{ marginTop: '2px' }}>${fmtLong(TODAY)} · Shift ${toTime(ss)}–${toTime(se)} · ${store.settings.graceMin} min grace</div>
+    <div className="muted small" style=${{ marginTop: '2px' }}>${fmtLong(TODAY)} · Shift ${t12(toTime(ss))} – ${t12(toTime(se))} · ${store.settings.graceMin} min grace</div>
     <div className=${'ov-status ' + tone}><span>${line}</span></div>
+    <${LateNote} emp=${emp} />
+    <${LocationBar} emp=${emp} />
+    <${BreaksToday} emp=${emp} />
     <${PunchButtons} emp=${emp} full />
     <div className="small muted" style=${{ marginTop: '8px' }}>${AUTO_NOTE}</div>
   </section>`;
 }
 function AttTotals({ emp, month }) {
   const { store } = useApp();
-  const c = { present: 0, late: 0, half: 0, absent: 0, leave: 0, holiday: 0, offwork: 0, missed: 0, worked: 0, ot: 0 };
+  const c = { present: 0, late: 0, half: 0, absent: 0, leave: 0, holiday: 0, offwork: 0, brk: 0, worked: 0, ot: 0 };
   for (let k = firstOf(month); monthOf(k) === month; k = addDays(k, 1)) {
     if (holidayOf(k) && !isWeekend(k)) c.holiday++;
     if (k > TODAY) continue;
@@ -1259,17 +1604,17 @@ function AttTotals({ emp, month }) {
     if (st.key === 'leave') c.leave++;
     if (st.key === 'offwork') c.offwork++;
     const a = attOf(store, emp, k);
-    if (a && a.auto) c.missed++;
-    if (a && a.out && !a.auto) c.worked += toMin(a.out) - toMin(a.in);
+    if (a) c.brk += (a.breaks || []).reduce((t, b) => t + (b.e ? Math.max(0, toMin(b.e) - toMin(b.s)) : 0), 0);
+    if (a && a.out) c.worked += workedMins(a, k);
     const o = k < TODAY ? otSuggestion(store, emp, k) : null; if (o && store.settings.mode !== 'timesheet') c.ot += o.extra;
   }
-  const tiles = [['Present', c.present, 'present'], ['Late', c.late, 'late'], ['Half day', c.half, 'half'], ['Absent', c.absent, 'absent'], ['On leave', c.leave, 'leave'], ['Holidays', c.holiday, 'holiday'], ['Worked off-days', c.offwork, 'offwork'], ['Missed check-outs', c.missed, 'off']];
+  const tiles = [['Present', c.present, 'present'], ['Late', c.late, 'late'], ['Half day', c.half, 'half'], ['Absent', c.absent, 'absent'], ['On leave', c.leave, 'leave'], ['Holidays', c.holiday, 'holiday'], ['Worked off-days', c.offwork, 'offwork'], ['Break time', dur(c.brk), 'off']];
   return html`<section className="panel pad att-totals" aria-label="Month totals">
     <h3>${fmtMonth(month)} totals</h3>
     <div className="muted small" style=${{ marginTop: '2px' }}>${month === monthOf(TODAY) ? 'So far this month' : 'Whole month'}</div>
     <div className="tot-grid">
       ${tiles.map(([l, v, cls]) => html`<div key=${l} className=${'tot t-' + cls}><b>${v}</b><span>${l}</span></div>`)}
-      <div className="tot t-work" title="Excludes days with a missed check-out."><b>${dur(c.worked)}</b><span>worked${c.ot ? ', ' + dur(c.ot) + ' overtime' : ', no overtime'}</span></div>
+      <div className="tot t-work" title="Check-in to check-out, breaks included. Days you’re still checked in aren’t counted yet."><b>${dur(c.worked)}</b><span>worked${c.ot ? ', ' + dur(c.ot) + ' overtime' : ', no overtime'}</span></div>
     </div>
   </section>`;
 }
@@ -1283,23 +1628,27 @@ function DayDetailModal({ emp, k, onClose, onFix }) {
   if (pending) action = html`<${ReqStatusChip} r=${pending} />`;
   else if (isLocked(store, k)) action = html`<span className="small muted">${Icon.lock} Payroll processed for this month. No changes.</span>`;
   else if (k > TODAY) action = html`<span className="small muted">Nothing to do for a future day.</span>`;
-  else if (a && a.auto) action = html`<button className="btn primary" onClick=${() => onFix(k)}>Update check-out</button>`;
+  else if (a && a.carried) action = html`<span className="small muted">Still checked in. Check out from the Today panel first.</span>`;
   else if (k < TODAY || (a && a.out)) action = html`<button className="btn" onClick=${() => onFix(k)}>Request correction</button>`;
   else action = html`<span className="small muted">Use Check in / Check out for today.</span>`;
   return html`<${Modal} title=${fmtLong(k)} onClose=${onClose} footer=${[html`<span key="a" style=${{ marginRight: 'auto' }}>${action}</span>`, html`<button key="c" className="btn" onClick=${onClose}>Close</button>`]}>
     <div style=${{ marginBottom: '12px' }}>${st.label ? html`<span className=${'mini ' + st.key}>${st.label}</span>` : html`<span className="muted small">Upcoming</span>`}</div>
     <dl className="kv">
       <dt>Shift</dt><dd>${isOff(k) ? 'Off' : shiftOf(emp).map(toTime).join('–')}</dd>
-      <dt>Check in</dt><dd>${a ? a.in : '–'}</dd>
-      <dt>Check out</dt><dd>${a && a.out ? (a.auto ? 'Missed (closed automatically at 11:59 PM)' : a.out + (a.self ? ' · entered by you' : '')) : a ? 'Still checked in' : '–'}</dd>
-      <dt>Time at work</dt><dd>${a && a.out ? (a.auto ? 'Not known until you update the check-out' : dur(toMin(a.out) - toMin(a.in))) : '–'}</dd>
+      <dt>Check in</dt><dd>${a ? t12(a.in) : '–'}</dd>
+      <dt>Check out</dt><dd>${a && a.out ? t12(a.out) + (a.outDays === 1 ? ' (next day)' : a.outDays > 1 ? ' (' + a.outDays + ' days later)' : '') : a ? 'Still checked in' : '–'}</dd>
+      <dt>Time at work</dt><dd>${a ? dur(workedMins(a, k)) + (a.out ? '' : ' so far') : '–'}</dd>
+      ${a && a.locs && a.locs.length ? html`<dt>Location</dt><dd>${a.locs.map(l => locText(l) + ' from ' + t12(l.at)).join(', ')}</dd>` : null}
+      ${(() => { const d = leaveBalances(store, emp).ded.find(x => x.k === k); return d ? html`<dt>Late deduction</dt><dd>${d.days + ' day · ' + d.from + (d.from === 'Loss of pay' ? '' : ' leave') + (d.pending ? ' (reversed if your pending correction is approved)' : '')}</dd>` : null; })()}
+      ${a && a.breaks && a.breaks.length ? html`<dt>Breaks</dt><dd>${a.breaks.map(b => t12(b.s) + ' – ' + (b.e ? t12(b.e) : 'now') + (b.desc ? ' (' + b.desc + ')' : '')).join(', ')}</dd>` : null}
       ${ot ? html`<dt>Overtime</dt><dd>${dur(ot.extra)}</dd>` : null}
     </dl>
   <//>`;
 }
 function CorrectionItem({ r }) {
   const d = r.data;
-  const change = [d.from.in !== d.to.in ? d.from.in + ' → ' + d.to.in : null, d.from.out !== d.to.out ? (d.from.out === '23:59' || !d.from.out ? 'missed' : d.from.out) + ' → ' + d.to.out : null].filter(Boolean).join(', ');
+  const nd = o => o && o.outDays === 1 ? ' (next day)' : '';
+  const change = [d.from.in !== d.to.in ? t12(d.from.in) + ' → ' + t12(d.to.in) : null, d.from.out !== d.to.out || (d.from.outDays || 0) !== (d.to.outDays || 0) ? (d.from.out ? t12(d.from.out) + nd(d.from) : 'not checked out') + ' → ' + t12(d.to.out) + nd(d.to) : null].filter(Boolean).join(', ');
   const cls = r.self ? 'green' : r.status === 'approved' ? 'green' : r.status === 'rejected' ? 'red' : 'blue';
   const label = r.self ? 'Saved' : r.status === 'approved' ? 'Approved' : r.status === 'rejected' ? 'Rejected' : 'Pending';
   return html`<div className="ci">
@@ -1320,7 +1669,7 @@ function MyAttendance({ emp, initDate }) {
   const cell = k => { const st = dayStatus(store, emp, k); const a = attOf(store, emp, k); return [
     st.label ? html`<span key="m" className=${'mini ' + st.key}>${st.label}</span>` : null,
     html`<span key="d" className=${'dot-m ' + (st.key || 'none')}></span>`,
-    a && a.out ? html`<span key="t" className="cs">${a.in}–${a.auto ? 'missed' : a.out}</span>` : a ? html`<span key="t" className="cs">In ${a.in}</span>` : null]; };
+    a && a.out ? html`<span key="t" className="cs">${tShort(a.in)}–${tShort(a.out)}${a.outDays ? ' +' + a.outDays : ''}</span>` : a ? html`<span key="t" className="cs">${a.carried ? 'Still in' : 'In ' + tShort(a.in)}</span>` : null]; };
   return html`<div>
     <div className="att-head"><span className="muted small">Check in and out, see your month, and fix anything that’s wrong.</span><span className="spacer"></span><button className="btn primary" onClick=${() => setFix({})}>Request correction</button></div>
     <div className="att-grid">
@@ -1332,7 +1681,7 @@ function MyAttendance({ emp, initDate }) {
           <span style=${{ minWidth: '120px', textAlign: 'center', fontWeight: 500 }}>${fmtMonth(month)}</span>
           <button className="btn sm" aria-label="Next month" onClick=${() => setMonth(addMonths(month, 1))}>›</button></div>
         <${MonthGrid} month=${month} selected=${day} onPick=${setDay} cell=${cell} />
-        <div className="small muted" style=${{ marginTop: '8px' }}>Tap a day for details, or to update a missed check-out.</div>
+        <div className="small muted" style=${{ marginTop: '8px' }}>Tap a day for details or to request a correction.</div>
       </section>
       <div className="att-req">
         <section className="panel att-req-in" aria-label="My correction requests">
@@ -1411,13 +1760,27 @@ function calState(store, emp, k) {
   if (w.status === 'approved') return 'ok';
   return '';
 }
+// the timesheet should cover every checked-in hour, breaks included
 function expectedFor(store, emp, k) {
-  if (isOff(k) || leaveOn(store, emp.id, k)) return 0;
-  if (store.settings.mode === 'timesheet') return shiftLen(emp) - store.settings.breakMin;
-  const w = dayWindow(store, emp, k);
-  if (w.missing) return 0;
-  if (w.auto) return shiftLen(emp) - store.settings.breakMin; // missed check-out: use the shift, not 23:59
-  return w.start == null ? shiftLen(emp) - store.settings.breakMin : Math.max(0, w.end - w.start - store.settings.breakMin);
+  if (leaveOn(store, emp.id, k)) return 0;
+  if (store.settings.mode === 'timesheet') return isOff(k) ? 0 : halfLeaveOn(store, emp.id, k) ? Math.round(shiftLen(emp) / 2) : shiftLen(emp);
+  const a = attOf(store, emp, k);
+  if (!a) return 0;
+  return workedMins(a, k);
+}
+// hours worked for a day: check-in to check-out (or the shift in timesheet-only mode)
+function workedFor(s, emp, k) {
+  if (leaveOn(s, emp.id, k)) return { mins: 0, kind: 'leave', brk: 0 };
+  if (s.settings.mode === 'timesheet') return isOff(k) ? { mins: 0, kind: 'off', brk: 0 } : { mins: shiftLen(emp), kind: 'shift', brk: 0 };
+  const a = attOf(s, emp, k);
+  if (!a) return { mins: 0, kind: 'none', brk: 0 };
+  return { mins: workedMins(a, k), kind: a.out ? 'worked' : 'sofar', brk: 0 };
+}
+function loggedOfText(w, logged) {
+  if (w.kind === 'unknown') return { main: 'Logged ' + dur(logged), note: 'worked not known' };
+  if (!w.mins) return { main: 'Logged ' + dur(logged), note: '' };
+  const of = w.kind === 'shift' ? ' shift' : w.kind === 'sofar' ? ' so far' : ' worked';
+  return { main: 'Logged ' + dur(logged) + ' of ' + dur(w.mins) + of, note: w.brk ? dur(w.brk) + ' break' : '' };
 }
 function periodOf(store, emp, view, cursor, entriesFor) {
   const ws = mondayOf(cursor);
@@ -1488,7 +1851,8 @@ function HistoryCard({ week }) {
 function BarTrack({ win, list }) {
   const segs = [];
   (list || []).filter(timed).forEach(e => {
-    const a = toMin(e.start), b = toMin(e.end);
+    const a = eS(e), b = eE(e);
+    if (e.isBreak) { segs.push({ a, b, brk: true, e }); return; }
     if (win.start == null) { segs.push({ a, b, out: true, e }); return; }
     if (a < win.start) segs.push({ a, b: Math.min(b, win.start), out: true, e });
     const ia = Math.max(a, win.start), ib = Math.min(b, win.end);
@@ -1497,50 +1861,82 @@ function BarTrack({ win, list }) {
   });
   return html`<div className="bt" aria-hidden="true">
     ${win.start != null && html`<div className="bt-w" style=${{ left: pct(win.start) + '%', width: (pct(win.end) - pct(win.start)) + '%' }}></div>`}
-    ${segs.map((s, i) => html`<div key=${i} className=${s.out ? 'bt-o' : 'bt-e'} title=${s.e.start + '–' + s.e.end + ' ' + s.e.desc} style=${{ left: pct(s.a) + '%', width: Math.max(0.5, pct(s.b) - pct(s.a)) + '%' }}></div>`)}
+    ${segs.map((s, i) => html`<div key=${i} className=${s.brk ? 'bt-b' : s.out ? 'bt-o' : 'bt-e'} title=${entTime(s.e) + ' ' + (s.e.isBreak ? 'Break ' : '') + s.e.desc} style=${{ left: pct(s.a) + '%', width: Math.max(0.5, pct(s.b) - pct(s.a)) + '%' }}></div>`)}
   </div>`;
 }
 /* entry form: start + end work out the hours; or type hours alone */
-function EntryForm({ initial, others, onSave, onCancel, quick, compact }) {
+function EntryForm({ initial, others, onSave, onCancel, quick, compact, session }) {
+  const { store: fstore, update: fupdate } = useApp();
+  const projOn = fstore.settings.projectsOn;
   const init = initial || {};
+  const [project, setProject] = useState(init.project || '');
+  const lastLoc = fstore.lastEntryLoc || { loc: 'office', client: '' };
+  const [loc, setLoc] = useState(init.loc || lastLoc.loc);
+  const [client, setClient] = useState(init.client || (init.loc ? '' : lastLoc.client || ''));
   const [start, setStart] = useState(init.start || '');
   const [end, setEnd] = useState(init.end || '');
   const [hours, setHours] = useState(init.id ? fmtH(entryMins(init)) : '');
   const [desc, setDesc] = useState(init.desc || '');
   const [err, setErr] = useState('');
-  const onStart = v => { setStart(v); setErr(''); const h = parseHours(hours); if (v && end && toMin(end) > toMin(v)) setHours(fmtH(toMin(end) - toMin(v))); else if (v && h > 0 && toMin(v) + h < 24 * 60) setEnd(toTime(toMin(v) + h)); };
-  const onEnd = v => { setEnd(v); setErr(''); if (start && v && toMin(v) > toMin(start)) setHours(fmtH(toMin(v) - toMin(start))); };
-  const onHours = v => { setHours(v); setErr(''); const h = parseHours(v); if (start && h > 0) setEnd(toMin(start) + h < 24 * 60 ? toTime(toMin(start) + h) : ''); };
+  // an end earlier than the start means the next morning; on an overnight day, a start before check-in is after midnight too
+  const crosses = session && session.outAbs != null && session.outAbs > 1440;
+  const startNextOf = st => !!(st && crosses && toMin(st) < session.inMin);
+  const spanOf = (st, en) => { if (!st || !en) return null; const a0 = toMin(st) + (startNextOf(st) ? 1440 : 0); let b0 = toMin(en) + (startNextOf(st) ? 1440 : 0); if (b0 <= a0) b0 += 1440; return { a: a0, b: b0 }; };
+  const onStart = v => { setStart(v); setErr(''); const h = parseHours(hours); const sp = spanOf(v, end); if (sp) setHours(fmtH(sp.b - sp.a)); else if (v && h > 0) setEnd(toTime((toMin(v) + h) % 1440)); };
+  const onEnd = v => { setEnd(v); setErr(''); const sp = spanOf(start, v); if (sp) setHours(fmtH(sp.b - sp.a)); };
+  const onHours = v => { setHours(v); setErr(''); const h = parseHours(v); if (start && h > 0) setEnd(toTime((toMin(start) + h) % 1440)); };
+  const sp = spanOf(start, end);
+  const nextTag = sp ? (sp.a >= 1440 ? 'After midnight (next day)' : sp.b > 1440 ? 'Ends next day' : '') : '';
   const clearTimes = () => { setStart(''); setEnd(''); };
   const save = () => {
     if (!start && end) return setErr('Add a start time too, or clear the end time.');
-    if (start && end && toMin(end) <= toMin(start)) return setErr('End time must be after the start time.');
+    if (start && end && toMin(end) === toMin(start)) return setErr('Start and end can’t be the same time.');
     const h = parseHours(hours);
-    const m = start && end ? toMin(end) - toMin(start) : h;
+    const m = sp ? sp.b - sp.a : h;
     if (start && !end && !(h > 0)) return setErr('Add an end time or the hours.');
     if (Number.isNaN(h) && !(start && end)) return setErr('Write hours like 1:30, 1.5 or 1h 30m.');
     if (!(m > 0)) return setErr('Add the hours worked, or a start and end time.');
     if (m > 24 * 60) return setErr('One entry can’t be more than 24 hours.');
-    if (start && toMin(start) + m > 24 * 60) return setErr('This entry would run past midnight. Split it across two days.');
+    if (loc === 'client' && !client.trim()) return setErr('Add the client’s name for a client-site entry.');
+    if (projOn && !project) return setErr('Pick a project code.');
     if (!desc.trim()) return setErr('Describe what you worked on.');
     if (sumMins(others) + m > 24 * 60) return setErr('That takes the day over 24 hours.');
-    if (start) { const a = toMin(start), b = a + m; const clash = others.filter(timed).find(o => a < toMin(o.end) && b > toMin(o.start)); if (clash) return setErr('Overlaps with ' + clash.start + '–' + clash.end + ' (' + clash.desc + ').'); }
-    const out = start ? { start, end: end || toTime(toMin(start) + m), mins: m, desc: desc.trim() } : { start: null, end: null, mins: m, desc: desc.trim() };
+    if (start) { const a = sp ? sp.a : toMin(start) + (startNextOf(start) ? 1440 : 0), b = a + m; const clash = others.filter(timed).find(o => a < eE(o) && b > eS(o)); if (clash) return setErr('Overlaps with ' + entTime(clash) + (clash.isBreak ? ' (break)' : '') + '.'); if (false) return setErr('Overlaps with ' + clash.start + '–' + clash.end + ' (' + clash.desc + ').'); }
+    const a1 = sp ? sp.a : toMin(start || '00:00') + (startNextOf(start) ? 1440 : 0);
+    const out = start ? { start, end: end || toTime((toMin(start) + m) % 1440), startNext: a1 >= 1440, endNext: a1 + m > 1440, mins: m, desc: desc.trim() } : { start: null, end: null, startNext: false, endNext: false, mins: m, desc: desc.trim() };
+    out.project = projOn ? project : (init.project || null);
+    out.loc = loc; out.client = loc === 'client' ? client.trim() : null;
+    fupdate(s => { s.lastEntryLoc = { loc, client: out.client || '' }; });
     onSave(out);
     if (quick) { setStart(''); setEnd(''); setHours(''); setDesc(''); }
   };
-  return html`<div className=${(quick ? 'ef qa' : 'ef') + (compact ? ' compact' : '')} onKeyDown=${e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') save(); }}>
+  return html`<div className=${(quick ? 'ef qa' : 'ef') + (compact ? ' compact' : '') + (projOn ? ' proj' : '')} onKeyDown=${e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') save(); }}>
     ${quick ? html`<i className="qa-plus" aria-hidden="true">+</i>` : null}
-    <input className="input" type="time" aria-label="Start time (optional)" title="Start (optional)" value=${start} onInput=${e => onStart(e.target.value)} />
-    <input className="input" type="time" aria-label="End time (optional)" title="End (optional)" value=${end} onInput=${e => onEnd(e.target.value)} />
-    <input className="input hrs" inputMode="decimal" placeholder="Hours" aria-label="Hours" value=${hours} onInput=${e => onHours(e.target.value)} />
-    <input className="input desc" placeholder="What did you work on?" aria-label="Description" value=${desc} autoFocus=${!quick} onInput=${e => { setDesc(e.target.value); setErr(''); }} />
+    <label className="efl"><span>Start time</span><input className="input" type="time" aria-label="Start time (optional)" value=${start} onInput=${e => onStart(e.target.value)} /></label>
+    <label className="efl"><span>End time</span><input className="input" type="time" aria-label="End time (optional)" value=${end} onInput=${e => onEnd(e.target.value)} /></label>
+    <label className="efl"><span>Hours</span><input className="input hrs" inputMode="decimal" placeholder="1:30" aria-label="Hours" value=${hours} onInput=${e => onHours(e.target.value)} /></label>
+    ${projOn ? html`<label className="efl"><span>Project</span><select className="input" aria-label="Project code" value=${project} onChange=${e => { setProject(e.target.value); setErr(''); }}><option value="">Pick…</option>${fstore.settings.projects.map(pj => html`<option key=${pj.code} value=${pj.code}>${pj.code} · ${pj.name}</option>`)}</select></label>` : null}
+    <label className="efl loc"><span>Location</span><select className="input" aria-label="Location" value=${loc} onChange=${e => { setLoc(e.target.value); setErr(''); }}><option value="office">Office</option><option value="home">Home</option><option value="client">Client site</option></select></label>
+    ${loc === 'client' ? html`<label className="efl cli"><span>Client</span><input className="input" placeholder="Client name" aria-label="Client name" value=${client} onInput=${e => { setClient(e.target.value); setErr(''); }} /></label>` : null}
+    <label className="efl desc"><span>Description</span><input className="input" placeholder="What did you work on?" aria-label="Description" value=${desc} autoFocus=${!quick} onInput=${e => { setDesc(e.target.value); setErr(''); }} /></label>
     <div className="row" style=${{ gap: '4px', flexWrap: 'nowrap' }}>
       <button className="btn sm primary" onClick=${save}>${quick ? 'Add' : 'Save'}</button>
       ${onCancel ? html`<button className="btn sm ghost" onClick=${onCancel}>Cancel</button>` : null}
     </div>
+    ${nextTag ? html`<span className="ef-next">${nextTag}</span>` : null}
     <span className="ef-hint">${start || end ? html`<span>Hours come from the times. <button className="btn link small" onClick=${clearTimes}>Log hours only</button></span>` : 'Times are optional. Enter hours alone if you don’t track start and end.'}</span>
     ${err && html`<span className="err">${err}</span>`}
+  </div>`;
+}
+function BreakRow({ emp, k, e, editable }) {
+  const { update, notify } = useApp();
+  const [ed, setEd] = useState(false);
+  const [v, setV] = useState(e.desc);
+  const save = () => { update(s => { const r = s.attendance[emp.id + '|' + k]; if (r && r.breaks && r.breaks[e.idx]) r.breaks[e.idx].desc = v.trim(); }); setEd(false); notify('Break description saved'); };
+  return html`<div className="entry brk">
+    <span className="t">${entTime(e)}</span><span className="d">${dur(entryMins(e))}</span>
+    <span className="desc"><span className="chip">Break${e.open ? ' (now)' : ''}</span> ${ed ? html`<input className="input brk-desc" autoFocus value=${v} placeholder="e.g. Lunch" onInput=${x => setV(x.target.value)} onKeyDown=${x => { if (x.key === 'Enter') save(); }} />` : e.desc ? html`<span>${e.desc}</span>` : html`<span className="muted">No description</span>`}</span>
+    <span className="acts">${editable ? (ed ? html`<button className="btn sm primary" onClick=${save}>Save</button>` : html`<button className="btn ghost sm" onClick=${() => { setV(e.desc); setEd(true); }}>${e.desc ? 'Edit description' : 'Add description'}</button>`) : null}</span>
   </div>`;
 }
 function EntriesPanel({ emp, k, list, editable, onSave, onDelete, onRequestOT, onFix }) {
@@ -1549,17 +1945,18 @@ function EntriesPanel({ emp, k, list, editable, onSave, onDelete, onRequestOT, o
   useEffect(() => setEditing(null), [k]);
   const win = dayWindow(store, emp, k);
   const sorted = (list || []).slice().sort(byStart);
-  const tl = sorted.filter(timed);
+  const tl = sorted.filter(e => timed(e) && !e.isBreak);
   const both = store.settings.mode === 'both';
   const outside = both ? sorted.reduce((t, e) => t + outsideMins(e, win), 0) : 0;
   const ot = k < TODAY ? otSuggestion(store, emp, k) : null;
   const otReq = otRequestFor(store, emp.id, k);
   const locked = isLocked(store, k);
   const a = attOf(store, emp, k);
+  const session = a ? { inMin: toMin(a.in), outAbs: a.outAbs } : null;
   const fix = () => {
-    const tin = a ? Math.min(toMin(a.in), ...tl.map(e => toMin(e.start))) : Math.min(...tl.map(e => toMin(e.start)));
-    const tout = a && a.out ? Math.max(toMin(a.out), ...tl.map(e => toMin(e.end))) : Math.max(...tl.map(e => toMin(e.end)));
-    onFix(k, { in: toTime(tin), out: toTime(tout) });
+    const tin = a ? Math.min(toMin(a.in), ...tl.map(eS)) : Math.min(...tl.map(eS));
+    const tout = a && a.out ? Math.max(a.outAbs, ...tl.map(eE)) : Math.max(...tl.map(eE));
+    onFix(k, { in: toTime(tin % 1440), out: toTime(tout % 1440), outDays: Math.floor(tout / 1440) });
   };
   return html`<div className="dl-c">
     ${locked && html`<div className="small muted" style=${{ marginBottom: '8px' }}>${Icon.lock} Payroll processed for this month. Read-only.</div>`}
@@ -1571,14 +1968,14 @@ function EntriesPanel({ emp, k, list, editable, onSave, onDelete, onRequestOT, o
       ${otReq && html`<${ReqStatusChip} r=${otReq} />`}
     </div>` : null}
     ${sorted.length === 0 && !editable && html`<div className="empty-day">No time logged.</div>`}
-    ${sorted.map(e => editing === e.id
-      ? html`<${EntryForm} key=${e.id} initial=${e} others=${sorted.filter(o => o.id !== e.id)} onCancel=${() => setEditing(null)} onSave=${v => { onSave(k, Object.assign({}, e, v)); setEditing(null); }} />`
+    ${sorted.map(e => e.isBreak ? html`<${BreakRow} key=${e.id} emp=${emp} k=${k} e=${e} editable=${!isLocked(store, k)} />` : editing === e.id
+      ? html`<${EntryForm} key=${e.id} session=${session} initial=${e} others=${sorted.filter(o => o.id !== e.id)} onCancel=${() => setEditing(null)} onSave=${v => { onSave(k, Object.assign({}, e, v)); setEditing(null); }} />`
       : html`<div key=${e.id} className="entry hov" onDoubleClick=${() => editable && setEditing(e.id)}>
           <span className=${'t' + (timed(e) ? '' : ' nt')}>${entTime(e)}</span><span className="d">${dur(entryMins(e))}</span>
-          <span className="desc">${e.desc}${both && outsideMins(e, win) > 0 ? html`<span className="chip blue" style=${{ marginLeft: '6px' }}>outside check-in</span>` : null}</span>
+          <span className="desc">${e.loc ? html`<span className="chip" style=${{ marginRight: '6px' }}>${e.loc === 'client' ? 'Client: ' + (e.client || '') : LOCS[e.loc]}</span>` : null}${e.project ? html`<span className="chip blue" style=${{ marginRight: '6px' }}>${e.project}</span>` : null}${e.desc}${both && outsideMins(e, win) > 0 ? html`<span className="chip blue" style=${{ marginLeft: '6px' }}>outside check-in</span>` : null}</span>
           <span className="acts">${editable ? [html`<button key="ed" className="btn ghost sm" onClick=${() => setEditing(e.id)} aria-label=${'Edit ' + e.desc}>Edit</button>`, html`<button key="del" className="btn ghost sm" onClick=${() => onDelete(k, e.id)} aria-label=${'Delete ' + e.desc}>Delete</button>`] : null}</span>
         </div>`)}
-    ${editable && !editing && html`<${EntryForm} quick others=${sorted} onSave=${v => onSave(k, Object.assign({ id: null }, v))} />`}
+    ${editable && !editing && html`<${EntryForm} quick session=${session} others=${sorted} onSave=${v => onSave(k, Object.assign({ id: null }, v))} />`}
   </div>`;
 }
 function DayLine({ emp, k, list, expanded, onToggle, children }) {
@@ -1596,9 +1993,15 @@ function DayLine({ emp, k, list, expanded, onToggle, children }) {
   let meta;
   if (lv) meta = 'On ' + lv.data.leaveType.toLowerCase() + ' leave';
   else if (store.settings.mode === 'timesheet') meta = isOff(k) ? (holidayOf(k) || 'Weekly off') : 'Shift ' + shiftOf(emp).map(toTime).join('–');
-  else if (a) meta = 'In ' + a.in + ' · Out ' + (a.out ? (a.auto ? 'missed (auto 11:59 PM)' : a.out + ' · At work ' + dur(toMin(a.out) - toMin(a.in))) : '—');
+  else if (a) meta = 'In ' + t12(a.in) + ' · ' + (a.out ? 'Out ' + t12(a.out) + (a.outDays === 1 ? ' (next day)' : a.outDays > 1 ? ' (' + a.outDays + ' days later)' : '') + ' · At work ' + dur(workedMins(a, k)) : a.carried ? 'Still checked in' : 'Checked in');
   else meta = k > TODAY ? 'Upcoming' : k === TODAY ? 'Not checked in yet' : 'No check-in';
-  const fill = exp ? Math.min(100, (logged / exp) * 100) : logged ? 100 : 0;
+  const hlv = halfLeaveOn(store, emp.id, k);
+  if (hlv) meta = halfLabel(hlv) + ' · ' + meta;
+  const wk = workedFor(store, emp, k);
+  const base = wk.mins != null ? wk.mins : (isOff(k) ? 0 : shiftLen(emp));
+  const fill = base ? Math.min(100, (logged / base) * 100) : logged ? 100 : 0;
+  const brkPct = base && wk.brk ? (wk.brk / base) * 100 : 0;
+  const lt = loggedOfText(wk, logged);
   return html`<div className=${'dl' + (expanded ? ' open' : '') + (k === TODAY ? ' tdy' : '')}>
     <button className="dl-a" onClick=${onToggle} aria-expanded=${expanded}>
       <span className="dl-d">${DAY_SHORT[dow(k)]} ${fromKey(k).getDate()}</span>
@@ -1606,27 +2009,143 @@ function DayLine({ emp, k, list, expanded, onToggle, children }) {
       ${st.label && store.settings.mode !== 'timesheet' ? html`<span className=${'mini ' + st.key}>${st.label}</span>` : null}
     </button>
     <div className="dl-b" onClick=${onToggle}>
-      <div className="dl-meta"><span>${meta}</span><span className="dl-log">Logged <b>${dur(logged)}</b>${exp ? ' of ' + dur(exp) : ''}${untimed ? ' (' + dur(untimed) + ' without set times)' : ''}</span>
+      <div className="dl-meta"><span>${meta}</span><span className="dl-log"><b>${lt.main}</b>${lt.note ? html`<span className="muted"> · ${lt.note}</span>` : null}${untimed ? html`<span className="muted"> · ${dur(untimed)} without set times</span>` : null}</span>
         ${ot ? html`<span className="chip amber">+${dur(ot.extra)} OT</span>` : null}
         ${outside > 0 ? html`<span className="chip blue">${dur(outside)} outside check-in</span>` : null}
         <span className="spacer"></span><span className="dl-car" aria-hidden="true">${expanded ? '▾' : '▸'}</span></div>
       <${BarTrack} win=${win} list=${list} />
-      <div className="bt-m" aria-hidden="true"><i className=${exp && logged > exp ? 'over' : ''} style=${{ width: fill + '%' }}></i></div>
     </div>
     ${expanded && kids(children)}
   </div>`;
 }
 function DayLines({ emp, days, entriesFor, view, sel, onToggle, panel }) {
+  const { store } = useApp();
+  let end = 22 * 60;
+  days.forEach(k => { entriesFor(k).filter(timed).forEach(e => { end = Math.max(end, eE(e)); }); const a = attOf(store, emp, k); if (a && a.out) end = Math.max(end, a.outAbs); });
+  AX.end = Math.min(31 * 60, Math.ceil(end / 60) * 60);
   return html`<section className="panel ts-lines" aria-label="Days">
-    <div className="dl dl-axis" aria-hidden="true"><div className="dl-a"></div><div className="dl-b"><${Ticks} /><div className="axis-key"><span><i className="k-w"></i>At work</span><span><i className="k-e"></i>Timed entries</span><span><i className="k-o"></i>Outside check-in</span><span><i className="k-m"></i>Hours logged vs expected</span></div></div></div>
+    <div className="dl dl-axis" aria-hidden="true"><div className="dl-a"></div><div className="dl-b"><${Ticks} /><div className="axis-key"><span><i className="k-w"></i>At work</span><span><i className="k-e"></i>Timed entries</span><span><i className="k-b"></i>Breaks</span><span><i className="k-o"></i>Outside check-in</span><span><i className="k-m"></i>Hours logged vs expected</span></div></div></div>
     ${days.map(k => html`<${DayLine} key=${k} emp=${emp} k=${k} list=${entriesFor(k)} expanded=${view === 'day' || sel === k} onToggle=${() => onToggle(k)}>${panel(k)}<//>`)}
     ${days.length === 0 && html`<${Empty} title="No working days here">Pick another period.<//>`}
   </section>`;
 }
 
-/* ---- employee: my timesheet ---- */
-function MyTimesheet({ emp, initDate }) {
+function UnloggedList({ emp, days, entriesFor, onPick, view }) {
+  const { store } = useApp();
+  const list = days.filter(k => k < TODAY).map(k => ({ k, logged: sumMins(entriesFor(k)), exp: expectedFor(store, emp, k) })).filter(u => u.exp - u.logged >= 15).map(u => Object.assign(u, { gap: u.exp - u.logged }));
+  if (!list.length) return html`<div className="small muted" style=${{ padding: '2px 6px 8px' }}>Nothing missing in this ${view}, after breaks.</div>`;
+  return html`<div style=${{ padding: '0 6px' }}>${list.slice(0, 5).map(u => html`<button key=${u.k} className="ul-row" onClick=${() => onPick(u.k)}>
+      <span>${fmtDate(u.k)}<span className="muted small"> · ${dur(u.logged)} logged</span></span><span style=${{ color: 'var(--amber-ink)' }}>${dur(u.gap)} missing ›</span></button>`)}
+    ${list.length > 5 ? html`<div className="small muted">and ${list.length - 5} more</div>` : null}</div>`;
+}
+function HistoryInline({ week }) {
+  const [open, setOpen] = useState(false);
+  return html`<div style=${{ padding: '0 6px' }}><button className="btn link small" onClick=${() => setOpen(o => !o)}>${open ? 'Hide' : 'Show'} ${week.history.length} event${week.history.length === 1 ? '' : 's'}</button>
+    ${open && html`<ul className="hist">${week.history.slice().reverse().map((h, i) => html`<li key=${i}><span className="muted">${fmtShort(h.at)}</span><span><b style=${{ fontWeight: 500 }}>${h.by}</b>: ${h.text}</span></li>`)}</ul>`}</div>`;
+}
+// Save as draft keeps the week private; Submit sends it for approval (manager, then Payroll)
+function SubmitBar({ emp, ws }) {
   const { store, update, notify } = useApp();
+  const [review, setReview] = useState(null);
+  const w = readWeek(store, emp.id, ws);
+  const mgr = emp.mgr ? EMAP[emp.mgr] : null;
+  const open = ['draft', 'rejected'].includes(w.status);
+  if (!approvalOn(store) || weekDays(ws).every(k => isLocked(store, k))) return null;
+  const gaps = weekDays(ws).filter(k => k <= TODAY).map(k => ({ k, gap: expectedFor(store, emp, k) - sumMins(entriesOn(store, emp.id, k)) })).filter(g => g.gap >= 15);
+  const doSave = () => { const at = toTime(Math.min(1439, nowMin())); update(s => { const x = writeWeek(s, emp.id, ws); x.unsaved = false; x.savedAt = at; }); notify('Saved as draft at ' + t12(at) + '. Not sent for approval.'); };
+  const doSubmit = () => { update(s => submitWeek(s, emp.id, ws, emp.name, w.status === 'rejected' ? 'Resubmitted after changes' : w.baseline ? 'Submitted again after edits' : 'Submitted')); setReview(null); notify('Sent to ' + (mgr ? mgr.name : 'Payroll') + ' for approval'); };
+  return html`<div className="ov-ts-actions one">
+    <span className="small muted ov-autosave">${open ? 'Every change saves automatically. It’s only sent for approval when you submit, or at auto-submit.' : 'Sent for approval. Editing an entry moves it back to draft.'}</span>
+    <button className="btn primary" disabled=${!open} title=${open ? '' : 'Already sent for approval'} onClick=${() => gaps.length ? setReview(gaps) : doSubmit()}>Submit</button>
+    ${review && html`<${Modal} title="Submit for approval?" onClose=${() => setReview(null)} footer=${[html`<button key="r" className="btn" onClick=${() => setReview(null)}>Review entries</button>`, html`<button key="s" className="btn primary" onClick=${doSubmit}>Submit anyway</button>`]}>
+      <div className="small" style=${{ marginBottom: '10px' }}>Some checked-in hours aren’t logged yet. ${mgr ? mgr.name : 'Your manager'} may send the week back.</div>
+      ${review.map(g => html`<div key=${g.k} className="ul-row" style=${{ cursor: 'default' }}><span>${fmtDate(g.k)}</span><span style=${{ color: 'var(--amber-ink)' }}>${dur(g.gap)} not logged</span></div>`)}
+    <//>`}
+  </div>`;
+}
+const TPL_COLS = ['Date', 'Start time', 'End time', 'Hours', 'Location', 'Project code', 'Description'];
+function TemplateModal({ onClose }) {
+  const { store, notify } = useApp();
+  const d0 = THIS_WEEK, pj = store.settings.projectsOn ? store.settings.projects[0].code : '';
+  const rows = [TPL_COLS, [d0, '09:30', '11:00', '', 'Office', pj, 'Sprint planning'], [d0, '11:00', '13:00', '', 'Office', pj, 'Payroll API work'], [addDays(d0, 1), '', '', '2:30', 'Home', pj, 'Code review (hours only)'], [addDays(d0, 1), '22:00', '01:00', '', 'Client: Brightline', pj, 'Release cutover (ends next day)']];
+  const csv = rows.map(r => r.map(c => /[",]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c).join(',')).join('\n');
+  const copy = () => { try { navigator.clipboard.writeText(csv); notify('Template copied'); } catch (e) { notify('Couldn’t copy. Select the text instead.'); } };
+  return html`<${Modal} wide title="Timesheet template" onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${copy}>Copy CSV</button>`, html`<a key="d" className="btn primary" href=${'data:text/csv;charset=utf-8,' + encodeURIComponent(csv)} download="timesheet-template.csv">Download CSV</a>`]}>
+    <div className="small" style=${{ marginBottom: '10px' }}>Fill one row per task, then use <b>Upload timesheet</b>. Use start and end times, or hours only. An end time earlier than the start counts as the next morning. ${store.settings.projectsOn ? 'Project code is required.' : 'Leave Project code empty (projects are off for your company).'}</div>
+    <div className="scroll-x panel"><table><thead><tr>${TPL_COLS.map(c => html`<th key=${c}>${c}</th>`)}</tr></thead>
+      <tbody>${rows.slice(1).map((r, i) => html`<tr key=${i}>${r.map((c, j) => html`<td key=${j} className=${c ? '' : 'muted'}>${c || '—'}</td>`)}</tr>`)}</tbody></table></div>
+    <div className="small muted" style=${{ marginTop: '8px' }}>Dates as YYYY-MM-DD or DD/MM/YYYY. Times as 09:30 or 9:30 AM. Hours as 1:30, 1.5 or 1h 30m.</div>
+  <//>`;
+}
+function parseCsv(text) {
+  return text.replace(/\r/g, '').split('\n').filter(l => l.trim()).map(line => { const out = []; let cur = '', q = false;
+    for (let i = 0; i < line.length; i++) { const c = line[i]; if (q) { if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; } else if (c === '"') q = false; else cur += c; } else if (c === '"') q = true; else if (c === ',') { out.push(cur.trim()); cur = ''; } else cur += c; }
+    out.push(cur.trim()); return out; });
+}
+const parseTime = v => { if (!v) return null; const m = v.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i); if (!m) return undefined; let h = +m[1]; const mm = +m[2]; if (m[3]) { const pm = /pm/i.test(m[3]); if (h === 12) h = pm ? 12 : 0; else if (pm) h += 12; } if (h > 23 || mm > 59) return undefined; return toTime(h * 60 + mm); };
+const parseDate = v => { if (!v) return null; let m = v.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/); if (m) return v.trim(); m = v.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if (m) return m[3] + '-' + pad(+m[2]) + '-' + pad(+m[1]); return undefined; };
+function UploadModal({ emp, onClose }) {
+  const { store, update, notify } = useApp();
+  const [file, setFile] = useState(''); const [res, setRes] = useState(null);
+  const projOn = store.settings.projectsOn, codes = store.settings.projects.map(p => p.code);
+  const alias = { date: 'Date', day: 'Date', start: 'Start time', 'start time': 'Start time', from: 'Start time', end: 'End time', 'end time': 'End time', to: 'End time', hours: 'Hours', duration: 'Hours', project: 'Project code', 'project code': 'Project code', code: 'Project code', description: 'Description', task: 'Description', work: 'Description', notes: 'Description', location: 'Location', 'work location': 'Location', 'working from': 'Location', where: 'Location' };
+  const read = f => { setFile(f.name); const r = new FileReader(); r.onload = () => setRes(analyse(String(r.result))); r.readAsText(f); };
+  const analyse = text => {
+    const rows = parseCsv(text); if (!rows.length) return { error: 'The file is empty.' };
+    const map = rows[0].map(h => alias[h.toLowerCase()] || null);
+    const has = c => map.includes(c);
+    if (!has('Date') || !has('Description') || !(has('Hours') || (has('Start time') && has('End time')))) return { error: 'Missing columns. The file needs Date, Description, and either Hours or Start time + End time. Download the template to get the right columns.', map };
+    const taken = {};
+    const out = rows.slice(1).map((r, i) => {
+      const g = c => { const j = map.indexOf(c); return j >= 0 ? (r[j] || '') : ''; };
+      const row = { n: i + 2, date: g('Date'), start: g('Start time'), end: g('End time'), hours: g('Hours'), project: g('Project code'), desc: g('Description'), loc: g('Location') };
+      const bad = m => Object.assign(row, { ok: false, why: m });
+      const d = parseDate(row.date); if (!d) return bad('Date isn’t readable');
+      if (isLocked(store, d)) return bad('Payroll is processed for that month');
+      if (d > addDays(TODAY, 30)) return bad('Too far in the future');
+      const st = parseTime(row.start), en = parseTime(row.end);
+      if (st === undefined || en === undefined) return bad('Time isn’t readable');
+      const h = parseHours(row.hours);
+      let mins, sNext = false, eNext = false, sAbs = null;
+      if (st && en) { sAbs = toMin(st); let b = toMin(en); if (b <= sAbs) { b += 1440; eNext = true; } mins = b - sAbs; }
+      else if (st && h > 0) { sAbs = toMin(st); mins = h; eNext = sAbs + h > 1440; }
+      else if (!st && !en && h > 0) mins = h;
+      else return bad(st || en ? 'Needs both times, or a start time and hours' : 'Needs hours or start and end times');
+      if (!(mins > 0) || mins > 1440) return bad('Hours must be between 0 and 24');
+      if (projOn && !row.project) return bad('Project code missing');
+      if (projOn && !codes.includes(row.project)) return bad('Unknown project code “' + row.project + '”');
+      if (!row.desc) return bad('Description missing');
+      const lv = (row.loc || '').trim().toLowerCase(); let loc = null, client = null;
+      if (!lv) return bad('Location missing (Office, Home or Client: Name)');
+      if (lv.startsWith('office')) loc = 'office'; else if (lv.startsWith('home') || lv === 'wfh') loc = 'home';
+      else if (lv.startsWith('client')) { loc = 'client'; client = (row.loc.split(/[:(]/)[1] || '').replace(')', '').trim(); if (!client) return bad('Client name missing (use “Client: Name”)'); }
+      else return bad('Location must be Office, Home or Client: Name');
+      if (sAbs != null) { const a1 = sAbs, b1 = sAbs + mins; const existing = entriesOn(store, emp.id, d).filter(timed).concat(taken[d] || []); const clash = existing.find(o => a1 < eE(o) && b1 > eS(o)); if (clash) return bad('Overlaps ' + entTime(clash) + (clash.isBreak ? ' (break)' : '')); }
+      const entry = { start: st || null, end: st ? (en || toTime((sAbs + mins) % 1440)) : null, startNext: sNext, endNext: eNext, mins, desc: row.desc, project: projOn ? row.project : null, loc, client };
+      if (entry.start) (taken[d] = taken[d] || []).push(entry);
+      return Object.assign(row, { ok: true, d, entry });
+    });
+    return { rows: out, map };
+  };
+  const ok = res && res.rows ? res.rows.filter(r => r.ok) : [];
+  const doImport = () => { update(s => { ok.forEach(r => { const w = markEdited(s, emp.id, mondayOf(r.d), emp.name); w.entries[r.d] = (w.entries[r.d] || []).concat([Object.assign({ id: 'e' + (s.seq++) }, r.entry)]); }); }); notify('Imported ' + ok.length + ' entr' + (ok.length === 1 ? 'y' : 'ies') + '. Submit when you’re ready.'); onClose(); };
+  return html`<${Modal} wide title="Upload timesheet" onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="i" className="btn primary" disabled=${!ok.length} onClick=${doImport}>${ok.length ? 'Import ' + ok.length + ' entr' + (ok.length === 1 ? 'y' : 'ies') : 'Import'}</button>`]}>
+    <div className="field"><label htmlFor="upf">CSV file (from the template)</label><input id="upf" className="input" type="file" accept=".csv,text/csv" onChange=${e => e.target.files && e.target.files[0] && read(e.target.files[0])} /></div>
+    ${res && res.error && html`<div className="banner red"><div>${res.error}</div></div>`}
+    ${res && res.map && html`<div className="small muted" style=${{ marginBottom: '8px' }}>Matched columns: ${res.map.map((m, i) => m || '(ignored)').join(' · ')}</div>`}
+    ${res && res.rows && html`<div>
+      <div className="small" style=${{ marginBottom: '8px' }}><b style=${{ fontWeight: 500 }}>${ok.length}</b> ready to import${res.rows.length - ok.length ? ', ' + (res.rows.length - ok.length) + ' with problems (they won’t be imported)' : ''}. Imported entries are added as a draft.</div>
+      <div className="scroll-x panel" style=${{ maxHeight: '320px', overflowY: 'auto' }}><table><thead><tr><th>Row</th><th>Date</th><th>Time</th><th>Hours</th><th>Location</th>${projOn ? html`<th>Project</th>` : null}<th>Description</th><th>Status</th></tr></thead>
+        <tbody>${res.rows.map(r => html`<tr key=${r.n}><td className="muted">${r.n}</td><td>${r.d ? fmtDate(r.d) : r.date}</td><td>${r.ok && r.entry.start ? entTime(r.entry) : r.start ? r.start + '–' + r.end : '—'}</td><td>${r.ok ? dur(r.entry.mins) : r.hours || '—'}</td><td>${r.ok ? (r.entry.loc === 'client' ? 'Client: ' + r.entry.client : LOCS[r.entry.loc]) : r.loc || '—'}</td>${projOn ? html`<td>${r.project || '—'}</td>` : null}<td>${r.desc}</td>
+          <td>${r.ok ? html`<span className="chip green">Ready</span>` : html`<span className="chip red">${r.why}</span>`}</td></tr>`)}</tbody></table></div></div>`}
+    ${!res && html`<div className="small muted">Download the template first if you don’t have it. Your file is checked before anything is added.</div>`}
+  <//>`;
+}
+/* ---- employee: my timesheet ---- */
+function MyTimesheet({ emp, initDate, onGoTab }) {
+  const { store, update, notify } = useApp();
+  const [tpl, setTpl] = useState(false);
+  const [up, setUp] = useState(false);
   const [view, setView] = useState('week');
   const [cursor, setCursor] = useState(initDate || TODAY);
   const [sel, setSel] = useState(initDate || null);
@@ -1643,29 +2162,23 @@ function MyTimesheet({ emp, initDate }) {
   const mgr = emp.mgr ? EMAP[emp.mgr] : null;
   const entriesFor = k => {
     const wk = mondayOf(k);
-    if (draft && draft.ws === wk) return draft.entries[k] || [];
+    const brk = breakEntries(store, emp.id, k);
+    if (draft && draft.ws === wk) return (draft.entries[k] || []).concat(brk);
     const w = readWeek(store, emp.id, wk);
-    if (showProposed && wk === fws && w.change) return w.change.entries[k] || [];
-    return w.entries[k] || [];
+    if (showProposed && wk === fws && w.change) return (w.change.entries[k] || []).concat(brk);
+    return (w.entries[k] || []).concat(brk);
   };
-  const canEdit = k => {
-    if (isLocked(store, k)) return false;
-    if (draft && draft.ws === mondayOf(k)) return true;
-    const w = readWeek(store, emp.id, mondayOf(k));
-    if (!appr) return true;
-    return ['draft', 'submitted', 'rejected'].includes(w.status) && !w.change;
-  };
+  const canEdit = k => !isLocked(store, k);  // the buck stops when payroll is processed
   const save = (k, entry) => {
     if (draft && draft.ws === mondayOf(k)) { setDraft(prev => { const d = clone(prev); const list = d.entries[k] || []; d.entries[k] = entry.id ? list.map(e => e.id === entry.id ? entry : e) : list.concat([Object.assign({}, entry, { id: 'n' + Date.now() })]); return d; }); return; }
     update(s => {
-      const w = writeWeek(s, emp.id, mondayOf(k)); const list = w.entries[k] || [];
+      const w = markEdited(s, emp.id, mondayOf(k), emp.name); const list = w.entries[k] || [];
       w.entries[k] = entry.id ? list.map(e => e.id === entry.id ? entry : e) : list.concat([Object.assign({}, entry, { id: 'e' + (s.seq++) })]);
-      if (approvalOn(s) && w.status === 'submitted') { const last = w.history[w.history.length - 1]; if (!last || last.text !== 'Edited while waiting for approval') hist(w, TODAY, emp.name, 'Edited while waiting for approval'); }
     });
   };
   const del = (k, id) => {
     if (draft && draft.ws === mondayOf(k)) { setDraft(prev => { const d = clone(prev); d.entries[k] = (d.entries[k] || []).filter(e => e.id !== id); return d; }); return; }
-    update(s => { const w = writeWeek(s, emp.id, mondayOf(k)); w.entries[k] = (w.entries[k] || []).filter(e => e.id !== id); });
+    update(s => { const w = markEdited(s, emp.id, mondayOf(k), emp.name); w.entries[k] = (w.entries[k] || []).filter(e => e.id !== id); });
   };
   const p = periodOf(store, emp, view, cursor, entriesFor);
   const step = n => { setSel(null); setCursor(view === 'day' ? addDays(cursor, n) : view === 'week' ? addDays(cursor, 7 * n) : firstOf(addMonths(monthOf(cursor), n))); };
@@ -1673,6 +2186,10 @@ function MyTimesheet({ emp, initDate }) {
   const changeView = v => { setView(v); if (v === 'day') { setCursor(sel || cursor); setSel(null); } };
   const totLogged = p.days.reduce((t, k) => t + sumMins(entriesFor(k)), 0);
   const totExp = p.days.reduce((t, k) => t + expectedFor(store, emp, k), 0);
+  const wks = p.days.map(k => workedFor(store, emp, k));
+  const totWorked = wks.reduce((t, w) => t + (w.mins || 0), 0);
+  const unknownDays = wks.filter(w => w.kind === 'unknown').length;
+  const ofWord = store.settings.mode === 'timesheet' ? 'shift' : 'worked';
   const onOT = (k, o) => setOtModal({ k, o, mins: o.extra });
   const onFix = store.settings.mode === 'both' ? (k, pr) => setFix({ k, prefill: pr }) : null;
 
@@ -1680,29 +2197,47 @@ function MyTimesheet({ emp, initDate }) {
   const editingThis = draft && draft.ws === fws;
   const pendingChanges = editingThis ? diffEntries(fweek.approved || fweek.entries, draft.entries) : [];
   let statusLine, actions = null;
+  const lastSub = fweek.history.slice().reverse().find(h => /submit/i.test(h.text));
+  const autoTxt = 'Auto-submits ' + DAY_LONG[store.settings.submitDay] + ' at ' + t12(store.settings.submitTime || '23:00') + '.';
+  const mgrName = mgr ? mgr.name : 'HR';
   if (!appr) statusLine = 'Approval is off. ' + (mgr ? mgr.name : 'Your manager') + ' can see your timesheet, and you can edit it until payroll is processed.';
   else if (allLocked) statusLine = 'Payroll is processed for this period, so it can’t be changed.';
-  else if (editingThis) { statusLine = 'Editing a copy. The approved week stays until ' + (mgr ? mgr.name : 'HR') + ' approves your change. ' + pendingChanges.reduce((t, d) => t + d.rows.length, 0) + ' change(s) so far.';
-    actions = [html`<button key="s" className="btn sm primary" disabled=${!pendingChanges.length} onClick=${() => setAskReason(true)}>Send change</button>`, html`<button key="d" className="btn sm" onClick=${() => setDraft(null)}>Discard</button>`]; }
-  else if (fweek.change) { statusLine = 'Change waiting for ' + (mgr ? mgr.name : 'HR') + '. Reason: ' + fweek.change.reason;
-    actions = [html`<button key="v" className="btn sm" onClick=${() => setShowProposed(v => !v)}>${showProposed ? 'Show approved' : 'Show my changes'}</button>`, html`<button key="w" className="btn sm ghost" onClick=${() => { update(s => { const w = writeWeek(s, emp.id, fws); w.change = null; hist(w, TODAY, emp.name, 'Withdrew the change request'); }); notify('Change request withdrawn'); }}>Withdraw</button>`]; }
-  else if (fweek.status === 'approved') { statusLine = 'Approved by ' + (mgr ? mgr.name : 'system') + '. You can still request a change.'; actions = html`<button className="btn sm" onClick=${() => setDraft({ ws: fws, entries: clone(fweek.entries) })}>Request a change</button>`; }
-  else if (fweek.status === 'rejected') { statusLine = (mgr ? mgr.name : 'Manager') + ' asked for an update: ' + fweek.comment; actions = html`<button className="btn sm primary" onClick=${() => { update(s => submitWeek(s, emp.id, fws, emp.name, 'Resubmitted after changes')); notify('Resubmitted to ' + (mgr ? mgr.name : 'HR')); }}>Resubmit</button>`; }
-  else if (fweek.status === 'submitted') { const sub = fweek.history.slice().reverse().find(h => /submit/i.test(h.text)); statusLine = 'Sent to ' + (mgr ? mgr.name : 'HR') + (sub ? ' on ' + fmtShort(sub.at) : '') + '. You can keep editing until it’s approved.'; }
-  else { const sd = submitDateOf(store, fws); statusLine = sd >= TODAY ? 'Auto-submits to ' + (mgr ? mgr.name : 'HR') + ' on ' + fmtDate(sd) + '.' : 'Goes out on the next submission run.'; }
+  else if (fweek.status === 'rejected') statusLine = mgrName + ' sent it back: ' + fweek.comment + ' Fix it, then submit again.';
+  else if (fweek.status === 'draft') statusLine = (fweek.baseline ? 'Edited after it was sent. Submit again to get it re-approved. ' : 'Draft. ') + 'Changes save automatically. ' + autoTxt;
+  else if (fweek.status === 'submitted') statusLine = 'With ' + mgrName + (lastSub ? ' since ' + fmtShort(lastSub.at) : '') + '. You can still edit it, but it goes back to draft and needs submitting again.';
+  else if (fweek.status === 'with_payroll') statusLine = 'Approved by ' + mgrName + ', now with Payroll. Editing moves it back to draft.';
+  else statusLine = 'Approved. You can still edit it until payroll is processed; edits need submitting again.';
+  if (appr && !allLocked) actions = html`<${SubmitBar} emp=${emp} ws=${fws} />`;
 
+  // timesheet notices: things that need the employee's attention, across all weeks
+  const notices = [];
+  const openWeek = ws => { setDraft(null); setView('week'); setCursor(ws); setSel(null); };
+  if (appr) Object.keys(store.weeks).filter(x => x.startsWith(emp.id + '|')).sort().forEach(x => { const ws = x.split('|')[1]; const w = store.weeks[x]; if (ws === fws) return;
+    if (w.status === 'rejected') notices.push({ id: 'sb' + ws, tone: 'back', title: 'Week of ' + fmtShort(ws) + ' sent back', text: w.comment, btn: 'Open week', go: () => openWeek(ws) });
+    else if (w.change) notices.push({ id: 'ch' + ws, tone: 'info', title: 'Change waiting · week of ' + fmtShort(ws), text: 'With ' + (mgr ? mgr.name : 'HR') + '. ' + w.change.reason, btn: 'Open week', go: () => openWeek(ws) }); });
+  { const pd = store.settings.mode === 'both' ? openSessionBefore(store, emp, TODAY) : null; if (pd && onGoTab) notices.push({ id: 'open' + pd, tone: 'info', title: 'Still checked in from ' + fmtDate(pd), text: 'Check out of that day before you check in today, then request a correction if needed.', btn: 'Go to attendance', go: () => onGoTab('attendance') }); }
+  { let n = 0, m = 0; for (let i = 1; i <= 35; i++) { const d = addDays(TODAY, -i); if (isLocked(store, d)) continue; const o = otSuggestion(store, emp, d); if (o && !otRequestFor(store, emp.id, d)) { n++; m += o.extra; } }
+    if (n && onGoTab) notices.push({ id: 'ot', tone: 'amber', title: dur(m) + ' of overtime not claimed', text: n + ' day' + (n === 1 ? '' : 's') + ' beyond your standard hours.', btn: 'Review overtime', go: () => onGoTab('overtime') }); }
   return html`<div>
     <div className="ts-top">
       <${Calendar3} emp=${emp} cursor=${cursor} sel=${view === 'day' ? cursor : sel} rangeFn=${p.rangeFn} onPick=${pick}
         onShift=${n => { setCursor(firstOf(addMonths(monthOf(cursor), n))); setSel(null); }} onToday=${() => { setCursor(TODAY); setSel(view === 'day' ? null : TODAY); }} />
-      <div className="ts-side">
-        <section className="panel pad" aria-label="Week status">
-          <div className="row"><h3>Week of ${fmtShort(fws)}</h3><span className="spacer"></span><${WeekChip} w=${fweek} /></div>
-          <div className="small" style=${{ margin: '8px 0', color: 'var(--ink-2)' }}>${statusLine}</div>
-          ${actions && html`<div className="row" style=${{ gap: '6px' }}>${kids(actions)}</div>`}
+      <div className="ts-notices">
+        <section className="panel ts-notices-in" aria-label="Notices">
+          <div className="pad" style=${{ paddingBottom: '8px' }}><div className="row"><h3>Notices</h3><span className="spacer"></span>${notices.length ? html`<span className="chip red">${notices.length} to do</span>` : null}</div></div>
+          <div className="ts-notices-body">
+            <div className="nt-week">
+              <div className="row"><b>Week of ${fmtShort(fws)}</b><span className="spacer"></span><${WeekChip} w=${fweek} /></div>
+              <div className="small" style=${{ margin: '6px 0', color: 'var(--ink-2)' }}>${statusLine}</div>
+              ${actions && html`<div className="row" style=${{ gap: '6px' }}>${kids(actions)}</div>`}
+            </div>
+            ${notices.length > 0 && html`<div className="ov-grp">Needs your action</div>`}
+            ${notices.map(x => html`<div key=${x.id} className=${'ov-note act ' + x.tone}><div><b>${x.title}</b><div className="small">${x.text}</div></div><button className="btn sm" onClick=${x.go}>${x.btn}</button></div>`)}
+            <div className="ov-grp">Unlogged hours</div>
+            <${UnloggedList} emp=${emp} days=${p.days} entriesFor=${entriesFor} view=${view} onPick=${k => { if (view === 'day') setCursor(k); else setSel(k); }} />
+            ${appr && fweek.history.length > 0 && html`<div><div className="ov-grp">History</div><${HistoryInline} key=${fws} week=${fweek} /></div>`}
+          </div>
         </section>
-        <${UnloggedCard} emp=${emp} days=${p.days} entriesFor=${entriesFor} view=${view} onPick=${k => { if (view === 'day') setCursor(k); else setSel(k); }} />
-        ${appr && html`<${HistoryCard} week=${fweek} />`}
       </div>
     </div>
     <div className="viewbar" style=${{ marginTop: '18px' }}>
@@ -1711,7 +2246,9 @@ function MyTimesheet({ emp, initDate }) {
       <span className="range">${p.label}</span>
       <button className="btn sm" aria-label="Next" onClick=${() => step(1)}>›</button>
       <span className="spacer"></span>
-      <span className="small" style=${{ color: 'var(--ink-2)' }}>Logged <b style=${{ fontWeight: 500 }}>${dur(totLogged)}</b> of ${dur(totExp)} expected</span>
+      <span className="small" style=${{ color: 'var(--ink-2)' }}>Logged <b style=${{ fontWeight: 500 }}>${dur(totLogged)}</b> of ${dur(totWorked)} ${ofWord}${unknownDays ? ' (' + unknownDays + ' day' + (unknownDays === 1 ? '' : 's') + ' not known)' : ''}</span>
+      <button className="btn sm" onClick=${() => setTpl(true)}>Download template</button>
+      <button className="btn sm" onClick=${() => setUp(true)}>Upload timesheet</button>
       ${editingThis && html`<span className="chip amber">Editing a change</span>`}
       ${showProposed && fweek.change && !editingThis && html`<span className="chip amber">Showing your proposed changes</span>`}
     </div>
@@ -1724,6 +2261,8 @@ function MyTimesheet({ emp, initDate }) {
         setDraft(null); setAskReason(false); notify('Change sent to ' + (mgr ? mgr.name : 'HR')); }} />`}
     ${otModal && html`<${OvertimeModal} emp=${emp} prefill=${otModal} onClose=${() => setOtModal(null)} />`}
     ${fix && html`<${AttendanceFixModal} emp=${emp} k=${fix.k} prefill=${fix.prefill} onClose=${() => setFix(null)} />`}
+    ${tpl && html`<${TemplateModal} onClose=${() => setTpl(false)} />`}
+    ${up && html`<${UploadModal} emp=${emp} onClose=${() => setUp(false)} />`}
   </div>`;
 }
 
@@ -1740,6 +2279,10 @@ function TimesheetBrowser({ emp, start, startView, override, statusFor }) {
   const step = n => { setSel(null); setCursor(view === 'day' ? addDays(cursor, n) : view === 'week' ? addDays(cursor, 7 * n) : firstOf(addMonths(monthOf(cursor), n))); };
   const totLogged = p.days.reduce((t, k) => t + sumMins(entriesFor(k)), 0);
   const totExp = p.days.reduce((t, k) => t + expectedFor(store, emp, k), 0);
+  const wks = p.days.map(k => workedFor(store, emp, k));
+  const totWorked = wks.reduce((t, w) => t + (w.mins || 0), 0);
+  const unknownDays = wks.filter(w => w.kind === 'unknown').length;
+  const ofWord = store.settings.mode === 'timesheet' ? 'shift' : 'worked';
   return html`<div>
     <div className="ts-top">
       <${Calendar3} emp=${emp} cursor=${cursor} sel=${view === 'day' ? cursor : sel} rangeFn=${p.rangeFn} onPick=${k => { setCursor(k); setSel(view === 'day' ? null : k); }}
@@ -1756,7 +2299,7 @@ function TimesheetBrowser({ emp, start, startView, override, statusFor }) {
       <span className="range">${p.label}</span>
       <button className="btn sm" aria-label="Next" onClick=${() => step(1)}>›</button>
       <span className="spacer"></span>
-      <span className="small" style=${{ color: 'var(--ink-2)' }}>Logged <b style=${{ fontWeight: 500 }}>${dur(totLogged)}</b> of ${dur(totExp)} expected</span>
+      <span className="small" style=${{ color: 'var(--ink-2)' }}>Logged <b style=${{ fontWeight: 500 }}>${dur(totLogged)}</b> of ${dur(totWorked)} ${ofWord}${unknownDays ? ' (' + unknownDays + ' day' + (unknownDays === 1 ? '' : 's') + ' not known)' : ''}</span>
     </div>
     <${DayLines} emp=${emp} days=${p.days} entriesFor=${entriesFor} view=${view} sel=${sel} onToggle=${k => { if (view !== 'day') setSel(sel === k ? null : k); }}
       panel=${k => html`<${EntriesPanel} emp=${emp} k=${k} list=${entriesFor(k)} editable=${false} onSave=${() => {}} onDelete=${() => {}} />`} />
@@ -1781,39 +2324,40 @@ function TimesheetViewer({ emp, start, startView, onClose, onReview }) {
           ${pending && onReview ? html`<button className="btn sm primary" onClick=${() => onReview({ id: emp.id, ws, kind: w.change ? 'change' : 'week' })}>${w.change ? 'Review change' : 'Review and approve'}</button>` : null}</section>`; }} />
   <//>`;
 }
-function WeekReview({ item, mgr, onClose }) {
+function WeekReview({ item, mgr, onClose, level }) {
   const { store, update, notify } = useApp();
   const emp = EMAP[item.id];
   const w = readWeek(store, item.id, item.ws);
-  const isChange = item.kind === 'change' && w.change;
+  const lvl = level || 1;
+  const isChange = !!w.baseline;
   const [tab, setTab] = useState(isChange ? 'changes' : 'sheet');
   const [rejecting, setRejecting] = useState(false);
-  if (!isChange && w.status !== 'submitted') return null;
-  const shown = isChange ? w.change.entries : w.entries;
-  const diffs = isChange ? diffEntries(w.approved || w.entries, w.change.entries) : [];
+  if (w.status !== (lvl === 2 ? 'with_payroll' : 'submitted')) return null;
+  const shown = w.entries;
+  const diffs = isChange ? diffEntries(w.baseline, w.entries) : [];
   const lockedChange = isChange && diffs.some(d => isLocked(store, d.day));
   const approve = () => {
+    const toPayroll = lvl === 1 && store.settings.l2.timesheet !== 'None';
     update(s => { const x = writeWeek(s, item.id, item.ws);
-      if (isChange) { x.entries = clone(x.change.entries); x.approved = clone(x.change.entries); x.change = null; hist(x, TODAY, mgr.name, 'Approved the change'); }
-      else { x.status = 'approved'; x.approved = clone(x.entries); hist(x, TODAY, mgr.name, 'Approved'); } });
-    notify((isChange ? 'Change approved for ' : 'Timesheet approved for ') + emp.name); onClose();
+      if (toPayroll) { x.status = 'with_payroll'; hist(x, TODAY, mgr.name, 'Approved, sent to Payroll'); }
+      else { x.status = 'approved'; x.approved = clone(x.entries); delete x.baseline; hist(x, TODAY, mgr.name, 'Approved'); } });
+    notify('Timesheet approved for ' + emp.name + (toPayroll ? ', sent to Payroll' : '')); onClose();
   };
   const reject = c => {
     update(s => { const x = writeWeek(s, item.id, item.ws);
-      if (isChange) { x.change = null; hist(x, TODAY, mgr.name, 'Rejected the change, approved version kept: ' + c); }
-      else { x.status = 'rejected'; x.comment = c; hist(x, TODAY, mgr.name, 'Sent back: ' + c); } });
-    notify((isChange ? 'Change rejected for ' : 'Timesheet sent back to ') + emp.name); setRejecting(false); onClose();
+      x.status = 'rejected'; x.comment = c; hist(x, TODAY, mgr.name, 'Sent back: ' + c); });
+    notify('Timesheet sent back to ' + emp.name); setRejecting(false); onClose();
   };
   const weekTotal = Object.values(shown).reduce((t, l) => t + sumMins(l), 0);
   const cell = r => html`<span>${timed(r) ? r.start + ' – ' + r.end : 'No set time'}<span className="muted"> · ${dur(entryMins(r))}</span></span>`;
   return html`<${Modal} wide title=${emp.name + ', week of ' + weekRange(item.ws)} onClose=${onClose} footer=${[
-      html`<span key="n" className="muted small" style=${{ marginRight: 'auto' }}>${isChange ? 'Rejecting keeps the approved version.' : 'Your approval is final for timesheets.'}</span>`,
-      html`<button key="r" className="btn" onClick=${() => setRejecting(true)}>${isChange ? 'Reject change' : 'Send back'}</button>`,
-      html`<button key="a" className="btn good" disabled=${lockedChange} onClick=${approve}>${isChange ? 'Approve change' : 'Approve timesheet'}</button>`]}>
+      html`<span key="n" className="muted small" style=${{ marginRight: 'auto' }}>${lvl === 1 && store.settings.l2.timesheet !== 'None' ? 'After you approve, it goes to Payroll.' : 'This approval is final.'}</span>`,
+      html`<button key="r" className="btn" onClick=${() => setRejecting(true)}>Send back</button>`,
+      html`<button key="a" className="btn good" disabled=${lockedChange} onClick=${approve}>Approve timesheet</button>`]}>
     <div className="row" style=${{ marginBottom: '14px' }}>
       ${isChange ? html`<${Seg} label="Review" value=${tab} onChange=${setTab} options=${[['changes', 'What changed'], ['sheet', 'Full timesheet']]} />` : null}
       <span className="spacer"></span><span className="muted small">${dur(weekTotal)} logged this week${isChange ? ' after the change' : ''}</span></div>
-    ${isChange && html`<div className="banner blue"><div><b>${first(emp.name)}'s reason</b><div>${w.change.reason}</div></div></div>`}
+    ${isChange && html`<div className="banner blue"><div><b>Edited after it was approved.</b> “What changed” compares it with the last approved version.</div></div>`}
     ${lockedChange && html`<div className="banner grey">${Icon.lock}<div>Payroll is already processed for part of this change, so it can't be approved. Reject it and ask ${first(emp.name)} to raise it for next month.</div></div>`}
     ${tab === 'changes' && html`<div>${diffs.map(d => html`<div key=${d.day} className="diffday">
         <div className="row"><b style=${{ fontWeight: 500 }}>${fmtDate(d.day)}</b><span className="muted small">${dur(d.before)} → ${dur(d.after)}</span></div>
@@ -1868,8 +2412,9 @@ function MyRequests({ emp, type }) {
   const mine = store.requests.filter(r => r.empId === emp.id && r.type === type);
   const verb = { leave: 'Apply for leave', reimbursement: 'New claim' }[type];
   return html`<div>
+    ${type === 'leave' ? html`<${LeaveBalances} emp=${emp} />` : null}
     <div className="row" style=${{ marginBottom: '14px' }}><span className="muted">${mine.length} request${mine.length === 1 ? '' : 's'}</span><span className="spacer"></span><button className="btn primary" onClick=${() => setOpen(true)}>${verb}</button></div>
-    <div className="panel">${mine.length ? mine.map(r => html`<${ReqRow} key=${r.id} r=${r} />`) : html`<${Empty} title="Nothing here yet">Use ${verb} to raise one.<//>`}</div>
+    <div className="panel">${mine.length ? mine.map(r => html`<${ReqRow} key=${r.id} r=${r} canWithdraw />`) : html`<${Empty} title="Nothing here yet">Use ${verb} to raise one.<//>`}</div>
     ${open && type === 'leave' && html`<${LeaveModal} emp=${emp} onClose=${() => setOpen(false)} />`}
     ${open && type === 'reimbursement' && html`<${ClaimModal} emp=${emp} onClose=${() => setOpen(false)} />`}
   </div>`;
@@ -1877,22 +2422,38 @@ function MyRequests({ emp, type }) {
 function LeaveModal({ emp, onClose }) {
   const { store, update, notify } = useApp();
   const [lt, setLt] = useState('Casual'); const [from, setFrom] = useState(addDays(TODAY, 1)); const [to, setTo] = useState(addDays(TODAY, 1));
+  const [kind, setKind] = useState('full'); const [half, setHalf] = useState('first');
+  const [proof, setProof] = useState('');
   const [reason, setReason] = useState(''); const [err, setErr] = useState('');
+  const end = kind === 'half' ? from : to;
+  let days = 0; if (end >= from) for (let k = from; k <= end; k = addDays(k, 1)) if (!isOff(k)) days++;
+  const needProof = lt === 'Sick' && kind === 'full' && days > 3;
   const go = () => {
-    if (to < from) return setErr('The end date is before the start date.');
-    if (!reason.trim()) return setErr('Add a short reason.');
-    let days = 0; for (let k = from; k <= to; k = addDays(k, 1)) if (!isOff(k)) days++;
+    if (kind === 'full' && to < from) return setErr('The end date is before the start date.');
     if (!days) return setErr('Those dates are all weekly offs or holidays.');
-    update(s => createRequest(s, 'leave', emp.id, { leaveType: lt, from, to, days, reason: reason.trim() }));
+    const clash = store.requests.find(r => r.type === 'leave' && r.empId === emp.id && ['approved', 'pending_l1', 'pending_l2'].includes(r.status) && r.data.from <= end && r.data.to >= from);
+    if (clash) return setErr('You already have leave on these dates (' + reqSummary(clash).split('.')[0] + ').');
+    { const lb = leaveBalances(store, emp); const need = kind === 'half' ? 0.5 : days; if (lb.left(lt) < need) return setErr('You have ' + fd(lb.left(lt)) + ' day' + (lb.left(lt) === 1 ? '' : 's') + ' of ' + lt + ' leave available right now. Apply for fewer days or pick another leave type.'); }
+    if (needProof && !proof) return setErr('Sick leave of more than 3 days needs a medical certificate or proof.');
+    if (!reason.trim()) return setErr('Add a short reason.');
+    update(s => createRequest(s, 'leave', emp.id, { leaveType: lt, from, to: end, days: kind === 'half' ? 0.5 : days, half: kind === 'half' ? half : null, proof: proof || null, reason: reason.trim() }));
     notify('Leave request sent'); onClose();
   };
   return html`<${Modal} title="Apply for leave" onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="o" className="btn primary" onClick=${go}>Send request</button>`]}>
-    <div className="field"><label htmlFor="lt">Leave type</label><select id="lt" className="input" value=${lt} onChange=${e => setLt(e.target.value)}>${['Casual', 'Sick', 'Earned'].map(x => html`<option key=${x}>${x}</option>`)}</select></div>
-    <div className="row" style=${{ flexWrap: 'nowrap' }}>
-      <div className="field" style=${{ flex: 1 }}><label htmlFor="lf">From</label><input id="lf" className="input" type="date" value=${from} onInput=${e => { setFrom(e.target.value); setErr(''); }} /></div>
-      <div className="field" style=${{ flex: 1 }}><label htmlFor="lto">To</label><input id="lto" className="input" type="date" value=${to} onInput=${e => { setTo(e.target.value); setErr(''); }} /></div></div>
+    <div className="field"><label htmlFor="lt">Leave type</label><select id="lt" className="input" value=${lt} onChange=${e => { setLt(e.target.value); setErr(''); }}>${['Annual', 'Casual', 'Sick'].map(x => html`<option key=${x}>${x}</option>`)}</select></div>
+    <div className="field"><label>Duration</label><${Seg} label="Duration" value=${kind} onChange=${v => { setKind(v); setErr(''); }} options=${[['full', 'Full day(s)'], ['half', 'Half day']]} /></div>
+    ${kind === 'half' ? html`<div className="row" style=${{ flexWrap: 'nowrap', alignItems: 'flex-end' }}>
+        <div className="field" style=${{ flex: 1 }}><label htmlFor="lf">Date</label><input id="lf" className="input" type="date" value=${from} onInput=${e => { setFrom(e.target.value); setErr(''); }} /></div>
+        <div className="field" style=${{ flex: 1 }}><label>Which half</label><${Seg} label="Which half" value=${half} onChange=${setHalf} options=${[['first', 'First half'], ['second', 'Second half']]} /></div></div>`
+      : html`<div className="row" style=${{ flexWrap: 'nowrap' }}>
+        <div className="field" style=${{ flex: 1 }}><label htmlFor="lf">From</label><input id="lf" className="input" type="date" value=${from} onInput=${e => { setFrom(e.target.value); setErr(''); }} /></div>
+        <div className="field" style=${{ flex: 1 }}><label htmlFor="lto">To</label><input id="lto" className="input" type="date" value=${to} onInput=${e => { setTo(e.target.value); setErr(''); }} /></div></div>`}
+    <div className="small muted" style=${{ margin: '-4px 0 10px' }}>${kind === 'half' ? 'Half a day. ' + (half === 'first' ? 'You’ll start work at mid-shift.' : 'You’ll finish at mid-shift.') : days ? days + ' working day' + (days === 1 ? '' : 's') + ' (weekly offs and holidays aren’t counted).' : ''}</div>
+    ${lt === 'Sick' && html`<div className="field"><label htmlFor="lp">Medical certificate or proof${needProof ? '' : ' (optional)'}</label>
+      <input id="lp" className="input" type="file" accept="image/*,.pdf" onChange=${e => { setProof(e.target.files && e.target.files[0] ? e.target.files[0].name : ''); setErr(''); }} />
+      <span className="small muted">${needProof ? 'Required for sick leave of more than 3 days.' : 'Required only for more than 3 days.'}${proof ? ' Attached: ' + proof : ''}</span></div>`}
     <div className="field"><label htmlFor="lr">Reason</label><textarea id="lr" className="input" value=${reason} onInput=${e => { setReason(e.target.value); setErr(''); }}></textarea></div>
-    <div className="small muted">${approvalLine(store, emp, 'leave')}</div>${err && html`<div className="err">${err}</div>`}
+    <div className="small muted">${approvalLine(store, emp, 'leave')} Once approved, your attendance and timesheet update automatically.</div>${err && html`<div className="err">${err}</div>`}
   <//>`;
 }
 function ClaimModal({ emp, onClose }) {
@@ -1939,7 +2500,7 @@ function TeamToday({ mgr }) {
         <td><div className="row" style=${{ gap: '8px', flexWrap: 'nowrap' }}><span className="avatar" style=${{ width: '28px', height: '28px', fontSize: '11px' }}>${initials(e.name)}</span><div><b style=${{ fontWeight: 500 }}>${e.name}</b><div className="muted small">${e.title}</div></div></div></td>
         <td className="muted">${SHIFTS[e.dept].join('–')}</td>
         ${att && html`<td><span className=${'mini ' + st.key}>${st.label}</span></td>`}
-        ${att && html`<td>${a && a.in ? a.in + (a.out ? ' – ' + a.out : '') : '–'}</td>`}
+        ${att && html`<td>${a && a.in ? t12(a.in) + (a.out ? ' – ' + t12(a.out) : '') : '–'}</td>`}
         ${att && html`<td>${a && a.in ? dur((a.out ? toMin(a.out) : now) - toMin(a.in)) : '–'}</td>`}
         ${ts && html`<td>${dur(sumMins(entriesOn(store, e.id, TODAY)))}</td>`}
       </tr>`)}</tbody></table></div>
@@ -2028,8 +2589,8 @@ function TeamPage({ mgr }) {
     ${cur === 'today' && html`<${TeamToday} mgr=${mgr} />`}
     ${cur === 'timesheet' && html`<div className="panel">${ts.length ? ts.map(it => { const e = EMAP[it.id]; const w = store.weeks[it.id + '|' + it.ws];
         return html`<div key=${it.id + it.ws} className="req"><div><div className="row" style=${{ gap: '8px' }}><span className="avatar" style=${{ width: '26px', height: '26px', fontSize: '11px' }}>${initials(e.name)}</span><span className="title">${e.name}</span><span className="muted small">Week of ${weekRange(it.ws)}</span></div>
-          <div style=${{ marginTop: '4px', color: 'var(--ink-2)' }}>${it.kind === 'change' ? 'Changed an approved week: ' + w.change.reason : dur(Object.values(w.entries).reduce((t, l) => t + sumMins(l), 0)) + ' logged'}</div></div>
-          <div className="row" style=${{ alignItems: 'flex-start' }}>${it.kind === 'change' ? html`<span className="chip amber">Change request</span>` : html`<span className="chip blue">Submitted</span>`}<button className="btn sm primary" onClick=${() => setReview(it)}>Review</button></div></div>`; })
+          <div style=${{ marginTop: '4px', color: 'var(--ink-2)' }}>${it.kind === 'change' ? 'Edited after it was approved · ' + dur(Object.values(w.entries).reduce((t, l) => t + sumMins(l), 0)) + ' logged' : dur(Object.values(w.entries).reduce((t, l) => t + sumMins(l), 0)) + ' logged'}</div></div>
+          <div className="row" style=${{ alignItems: 'flex-start' }}>${it.kind === 'change' ? html`<span className="chip amber">Edited after approval</span>` : html`<span className="chip blue">Submitted</span>`}<button className="btn sm primary" onClick=${() => setReview(it)}>Review</button></div></div>`; })
       : html`<${Empty} title="You're all caught up">Timesheets your team submits each ${DAY_LONG[store.settings.submitDay]} show up here.<//>`}</div>`}
     ${cur === 'teamts' && html`<${TeamTimesheets} mgr=${mgr} onReview=${setReview} />`}
     ${isReq && html`<div>
@@ -2048,7 +2609,7 @@ function TimeSection({ emp, init }) {
   const cur = TABS.find(t => t.k === tab) ? tab : TABS[0].k;
   return html`<div><${Tabs} tabs=${TABS} value=${cur} onChange=${setTab} />
     ${cur === 'attendance' && html`<${MyAttendance} emp=${emp} initDate=${init && init.tab === 'attendance' ? init.date : null} />`}
-    ${cur === 'timesheet' && html`<${MyTimesheet} key=${emp.id} emp=${emp} initDate=${init && init.tab === 'timesheet' ? init.date : null} />`}
+    ${cur === 'timesheet' && html`<${MyTimesheet} key=${emp.id} emp=${emp} onGoTab=${setTab} initDate=${init && init.tab === 'timesheet' ? init.date : null} />`}
     ${cur === 'overtime' && html`<${MyOvertime} emp=${emp} />`}</div>`;
 }
 /* ---------------- ESS overview ---------------- */
@@ -2088,24 +2649,38 @@ function OvAttendance({ emp, wide, go }) {
   const lv = leaveOn(store, emp.id, TODAY);
   const now = nowMin(); const nowT = toTime(Math.min(1435, r5(now)));
   const worked = a.in ? (a.out ? toMin(a.out) : now) - toMin(a.in) : 0;
-  let headline = 'Not checked in', tone = '';
-  if (lv) { headline = 'On ' + lv.data.leaveType.toLowerCase() + ' leave'; tone = 'blue'; }
-  else if (holidayOf(TODAY)) { headline = holidayOf(TODAY); tone = 'blue'; }
-  else if (isWeekend(TODAY) && !a.in) headline = 'Weekly off';
-  else if (a.out) { headline = 'Checked out'; tone = 'green'; }
-  else if (a.in) { headline = st.late ? 'Checked in late' : 'Checked in on time'; tone = st.late ? 'amber' : 'green'; }
+  const { line: headline, tone } = todayLine(store, emp);
   return html`<section className=${'panel pad ov-card' + (wide ? ' ov-wide' : '')} aria-label="Attendance today">
     <div className="row"><h3>Attendance</h3><span className="spacer"></span><button className="btn link small" onClick=${() => go('time', { tab: 'attendance' })}>Open ›</button></div>
-    <div className="muted small" style=${{ marginTop: '2px' }}>${fmtLong(TODAY)} · Shift ${toTime(ss)}–${toTime(se)}</div>
-    <div className=${'ov-status ' + tone}><span>${headline}</span><b className="ov-timer">${a.in ? dur(Math.max(0, worked)) : '0h'}</b></div>
-    <div className="ov-cells">
-      <div><span>Check in</span><b>${a.in || '—'}</b></div>
-      <div><span>Check out</span><b>${a.out || '—'}</b></div>
-      <div><span>At work</span><b>${a.in ? dur(Math.max(0, worked)) : '—'}</b></div>
-    </div>
+    <div className="muted small" style=${{ marginTop: '2px' }}>${fmtLong(TODAY)} · Shift ${t12(toTime(ss))} – ${t12(toTime(se))}</div>
+    <div className=${'ov-status ' + tone}><span>${headline}</span></div>
+    <${LateNote} emp=${emp} />
+    <${LocationBar} emp=${emp} />
+    <${BreaksToday} emp=${emp} />
     <${PunchButtons} emp=${emp} full />
     <div className="small muted" style=${{ marginTop: '8px' }}>${AUTO_NOTE}</div>
   </section>`;
+}
+// Save keeps the week as a draft (with a timestamp); Submit sends it to the manager now instead of waiting for submission day
+function OvTsActions({ emp, week }) {
+  const { store, update, notify } = useApp();
+  const [review, setReview] = useState(null);
+  const appr = approvalOn(store);
+  const mgr = emp.mgr ? EMAP[emp.mgr] : null;
+  const open = ['draft', 'rejected'].includes(week.status) && !week.change;
+  const days = weekDays(THIS_WEEK).filter(k => k <= TODAY);
+  const gaps = days.map(k => ({ k, gap: expectedFor(store, emp, k) - sumMins(entriesOn(store, emp.id, k)) })).filter(g => g.gap >= 15);
+  const doSave = () => { const at = toTime(Math.min(1439, nowMin())); update(s => { const w = writeWeek(s, emp.id, THIS_WEEK); w.savedAt = at; }); notify('Draft saved at ' + t12(at)); };
+  const doSubmit = () => { update(s => { submitWeek(s, emp.id, THIS_WEEK, emp.name, week.status === 'rejected' ? 'Resubmitted after changes' : 'Submitted early by employee'); }); setReview(null); notify('Timesheet sent to ' + (mgr ? mgr.name : 'HR')); };
+  if (!appr) return null;
+  return html`<div className="ov-ts-actions">
+    <button className="btn" disabled=${!open} onClick=${doSave}>Save</button>
+    <button className="btn primary" disabled=${!open} title=${open ? '' : 'This week has already been sent'} onClick=${() => gaps.length ? setReview(gaps) : doSubmit()}>Submit</button>
+    ${review && html`<${Modal} title="Submit this week?" onClose=${() => setReview(null)} footer=${[html`<button key="r" className="btn" onClick=${() => setReview(null)}>Review entries</button>`, html`<button key="s" className="btn primary" onClick=${doSubmit}>Submit anyway</button>`]}>
+      <div className="small" style=${{ marginBottom: '10px' }}>Some checked-in hours aren’t logged yet. ${mgr ? mgr.name : 'Your manager'} may send the week back.</div>
+      ${review.map(g => html`<div key=${g.k} className="ul-row" style=${{ cursor: 'default' }}><span>${fmtDate(g.k)}</span><span style=${{ color: 'var(--amber-ink)' }}>${dur(g.gap)} not logged</span></div>`)}
+    <//>`}
+  </div>`;
 }
 function OvTimesheet({ emp, wide, go }) {
   const { store, update } = useApp();
@@ -2113,17 +2688,16 @@ function OvTimesheet({ emp, wide, go }) {
   const sorted = list.slice().sort(byStart);
   const week = readWeek(store, emp.id, THIS_WEEK);
   const appr = approvalOn(store);
-  const editable = !isLocked(store, TODAY) && (!appr || (['draft', 'submitted', 'rejected'].includes(week.status) && !week.change));
+  const editable = !isLocked(store, TODAY);
   const logged = sumMins(list), exp = expectedFor(store, emp, TODAY);
   const win = dayWindow(store, emp, TODAY);
   const mgr = emp.mgr ? EMAP[emp.mgr] : null;
-  const save = (k, entry) => update(s => { const w = writeWeek(s, emp.id, mondayOf(k)); w.entries[k] = (w.entries[k] || []).concat([Object.assign({}, entry, { id: 'e' + (s.seq++) })]); });
+  const save = (k, entry) => update(s => { const w = markEdited(s, emp.id, mondayOf(k), emp.name); w.entries[k] = (w.entries[k] || []).concat([Object.assign({}, entry, { id: 'e' + (s.seq++) })]); });
   const weekLine = !appr ? 'Approval is off for timesheets.' : week.status === 'draft' && !week.change ? 'This week auto-submits to ' + (mgr ? mgr.name : 'HR') + ' on ' + fmtDate(submitDateOf(store, THIS_WEEK)) + '.' : 'This week: ' + WEEK_STATUS[weekStatusKey(week)].label.toLowerCase() + '.';
   return html`<section className=${'panel pad ov-card' + (wide ? ' ov-wide' : '')} aria-label="Today's timesheet">
     <div className="row"><h3>Timesheet</h3><span className="spacer"></span><button className="btn link small" onClick=${() => go('time', { tab: 'timesheet', date: TODAY })}>Full timesheet ›</button></div>
     <div className="small" style=${{ margin: '2px 0 8px', color: 'var(--ink-2)' }}>Today: logged <b style=${{ fontWeight: 500, color: 'var(--ink)' }}>${dur(logged)}</b>${exp ? ' of ' + dur(exp) : ''}</div>
     <${BarTrack} win=${win} list=${list} />
-    <div className="bt-m" aria-hidden="true"><i className=${exp && logged > exp ? 'over' : ''} style=${{ width: (exp ? Math.min(100, (logged / exp) * 100) : logged ? 100 : 0) + '%' }}></i></div>
     <div className="ov-entries">
       ${sorted.length ? sorted.slice(-3).map(e => html`<div key=${e.id} className="ov-entry"><span className=${'t' + (timed(e) ? '' : ' nt')}>${entTime(e)}</span><span className="d">${dur(entryMins(e))}</span><span className="desc">${e.desc}</span></div>`)
         : html`<div className="small muted">Nothing logged today yet.</div>`}
@@ -2131,6 +2705,7 @@ function OvTimesheet({ emp, wide, go }) {
     </div>
     ${editable ? html`<${EntryForm} quick compact others=${sorted} onSave=${v => save(TODAY, v)} />` : html`<div className="small muted" style=${{ marginTop: '8px' }}>Today can’t be edited right now. Open the full timesheet for details.</div>`}
     <div className="small muted" style=${{ marginTop: '8px' }}>${weekLine}</div>
+    <${SubmitBar} emp=${emp} ws=${THIS_WEEK} />
   </section>`;
 }
 function OvTable({ emp, go }) {
@@ -2156,8 +2731,8 @@ function OvTable({ emp, go }) {
         const toOt = e => { e.stopPropagation(); go('time', { tab: 'overtime' }); };
         return html`<tr key=${k} className="ov-row" tabIndex="0" onClick=${() => go('time', { tab: mode === 'attendance' ? 'attendance' : 'timesheet', date: k })} onKeyDown=${e => { if (e.key === 'Enter') go('time', { tab: mode === 'attendance' ? 'attendance' : 'timesheet', date: k }); }}>
           <td><b style=${{ fontWeight: 500, color: k === TODAY ? 'var(--red)' : undefined }}>${fmtDate(k)}</b>${k === TODAY ? html`<span className="muted small"> today</span>` : null}</td>
-          ${mode !== 'timesheet' && html`<td className="ov-cell" title="Open in Attendance" onClick=${toAtt}>${lv ? html`<span className="mini leave">Leave</span>` : a ? kids(html`<span>${a.in}</span>${st.late ? html` <span className="mini late">Late</span>` : null}`) : k < TODAY ? html`<span className="mini absent">Absent</span>` : '—'}</td>`}
-          ${mode !== 'timesheet' && html`<td className="ov-cell" title="Open in Attendance" onClick=${toAtt}>${a && a.out ? (a.auto ? html`<span className="mini late">Missed · auto 11:59 PM</span>` : html`<span>${a.out}</span>`) : a ? html`<span className="muted">Still in</span>` : '—'}</td>`}
+          ${mode !== 'timesheet' && html`<td className="ov-cell" title="Open in Attendance" onClick=${toAtt}>${lv ? html`<span className="mini leave">Leave</span>` : a ? kids(html`<span>${t12(a.in)}</span>${st.late ? html` <span className="mini late">Late</span>` : null}`) : k < TODAY ? html`<span className="mini absent">Absent</span>` : '—'}</td>`}
+          ${mode !== 'timesheet' && html`<td className="ov-cell" title="Open in Attendance" onClick=${toAtt}>${a && a.out ? html`<span>${t12(a.out)}${a.outDays === 1 ? html`<span className="mini off" style=${{ marginLeft: '6px' }}>next day</span>` : null}</span>` : a ? html`<span className="muted">${a.carried ? 'Still checked in' : 'Still in'}</span>` : '—'}</td>`}
           ${mode !== 'attendance' && appr && html`<td className="ov-cell" title="Open in Timesheet" onClick=${toTs}>${mondayOf(k) <= THIS_WEEK ? html`<span className=${'chip ' + ws.cls}>${ws.label}</span>` : '—'}</td>`}
           ${mode !== 'attendance' && html`<td className="ov-cell" title="Open in Timesheet" onClick=${toTs}>${logged ? dur(logged) : html`<span className="muted">0h</span>`}</td>`}
           <td className="ov-cell" title="Open Overtime" onClick=${toOt}>${otR ? html`<${ReqStatusChip} r=${otR} />` : ot ? html`<span className="chip amber">${dur(ot.extra)} not claimed</span>` : html`<span className="muted">No</span>`}</td>
@@ -2173,7 +2748,8 @@ function OvNotifications({ emp, isManager, go }) {
   // sent-back weeks
   if (appr) Object.keys(store.weeks).filter(k => k.startsWith(emp.id + '|')).forEach(k => { const w = store.weeks[k]; const ws = k.split('|')[1]; if (w.status === 'rejected') actions.push({ id: 'sb' + ws, tone: 'back', title: 'Timesheet sent back', text: 'Week of ' + fmtShort(ws) + ': ' + w.comment, btn: 'Fix and resubmit', go: ['time', { tab: 'timesheet', date: ws }] }); });
   // auto check-outs without a correction
-  if (store.settings.mode !== 'timesheet') for (let i = 1; i <= 14; i++) { const k = addDays(TODAY, -i); const a = attOf(store, emp, k); if (a && a.auto && !isLocked(store, k) && !store.requests.some(r => r.type === 'attendance' && r.empId === emp.id && r.data.date === k && r.status !== 'rejected')) actions.push({ id: 'ac' + k, tone: 'info', title: 'You didn’t check out on ' + fmtDate(k), text: 'The day closed automatically at 11:59 PM. Update it to when you actually left.', btn: 'Update check-out', go: ['time', { tab: 'attendance', date: k }] }); }
+  if (store.settings.mode !== 'timesheet') leaveBalances(store, emp).ded.filter(d => !d.pending && d.k >= addDays(TODAY, -7) && !isLocked(store, d.k)).slice(-3).forEach(d => actions.push({ id: 'late' + d.k, tone: 'amber', title: 'Late on ' + fmtDate(d.k) + ' · −' + d.days + ' day', text: (d.from === 'Loss of pay' ? 'No leave left, so it’s loss of pay.' : 'Deducted from ' + d.from + ' leave.') + ' If you weren’t late, request a correction.', btn: 'Request correction', go: ['time', { tab: 'attendance', date: d.k }] }));
+  { const pd = store.settings.mode !== 'timesheet' ? openSessionBefore(store, emp, TODAY) : null; if (pd) actions.unshift({ id: 'open' + pd, tone: 'info', title: 'You’re still checked in from ' + fmtDate(pd), text: 'Check out of that day before checking in today. If the time is wrong, request a correction.', btn: 'Go to attendance', go: ['time', { tab: 'attendance' }] }); }
   // unclaimed overtime
   let otDays = 0, otMin = 0; for (let i = 1; i <= 35; i++) { const k = addDays(TODAY, -i); if (isLocked(store, k)) continue; const o = otSuggestion(store, emp, k); if (o && !otRequestFor(store, emp.id, k)) { otDays++; otMin += o.extra; } }
   if (otDays) actions.push({ id: 'ot', tone: 'amber', title: dur(otMin) + ' of overtime not claimed', text: otDays + ' day' + (otDays === 1 ? '' : 's') + ' with hours beyond your standard day.', btn: 'Review overtime', go: ['time', { tab: 'overtime' }] });
@@ -2323,18 +2899,25 @@ function Ess({ emp, isManager, nav, setNav }) {
 /* ---------------- payroll ---------------- */
 function PayrollApprovals() {
   const { store } = useApp();
-  const [team, setTeam] = useState('HR');
+  const [team, setTeam] = useState('Payroll');
   const [showDone, setShowDone] = useState(false);
   const inTeam = r => r.l2 === team && reqVisible(store, r);
   const list = store.requests.filter(r => inTeam(r) && (showDone ? (r.status === 'pending_l2' || r.trail.some(t => t.level === 2)) : r.status === 'pending_l2'));
   const count = t => store.requests.filter(r => r.status === 'pending_l2' && r.l2 === t && reqVisible(store, r)).length;
+  const [rev, setRev] = useState(null);
+  const tsItems = team === 'Payroll' ? payrollTimesheetItems(store) : [];
   const comps = Object.keys(store.settings.l2).filter(k => store.settings.l2[k] === team).map(k => k === 'timesheet' ? 'Timesheets' : TYPE_LABEL[k]).concat(team === 'HR' ? ['Profile updates (no manager step)'] : []);
   return html`<div>
     <div className="row" style=${{ marginBottom: '12px' }}>
-      <${Seg} label="Team" value=${team} onChange=${setTeam} options=${[['HR', 'HR (' + count('HR') + ')'], ['Finance', 'Finance (' + count('Finance') + ')']]} />
+      <${Seg} label="Team" value=${team} onChange=${setTeam} options=${[['Payroll', 'Payroll (' + (count('Payroll') + payrollTimesheetItems(store).length) + ')'], ['HR', 'HR (' + count('HR') + ')'], ['Admin', 'Admin (' + count('Admin') + ')']]} />
       <${Seg} label="Filter" value=${showDone ? 'all' : 'wait'} onChange=${v => setShowDone(v === 'all')} options=${[['wait', 'Waiting'], ['all', 'All']]} />
       <span className="muted small">${team} approves: ${comps.join(', ') || 'nothing (change in settings)'}. Managers approve first.</span>
     </div>
+    ${tsItems.length > 0 && html`<div className="panel" style=${{ marginBottom: '14px' }}><div className="pad" style=${{ paddingBottom: '4px' }}><h3>Timesheets waiting for Payroll</h3></div>${tsItems.map(it => { const e = EMAP[it.id]; const w = store.weeks[it.id + '|' + it.ws];
+      return html`<div key=${it.id + it.ws} className="req"><div><div className="row" style=${{ gap: '8px' }}><span className="title">${e.name}</span><span className="muted small">Week of ${weekRange(it.ws)}</span></div>
+        <div className="small" style=${{ color: 'var(--ink-2)', marginTop: '2px' }}>${dur(Object.values(w.entries).reduce((t, l) => t + sumMins(l), 0))} logged · approved by ${e.mgr ? EMAP[e.mgr].name : 'no manager'}${it.kind === 'change' ? ' · edited after approval' : ''}</div></div>
+        <div className="row" style=${{ alignItems: 'flex-start' }}><button className="btn sm primary" onClick=${() => setRev(it)}>Review</button></div></div>`; })}</div>`}
+    ${rev && html`<${WeekReview} item=${rev} mgr=${{ name: 'Payroll team' }} level=${2} onClose=${() => setRev(null)} />`}
     <div className="panel">${list.map(r => html`<${ReqRow} key=${r.id} r=${r} showEmp level=${2} actor=${team + ' team'} />`)}${list.length === 0 && html`<${Empty} title="Nothing waiting">Requests appear here after the reporting manager approves them.<//>`}</div>
   </div>`;
 }
@@ -2344,7 +2927,7 @@ function TimesheetSummary() {
   const [m, setM] = useState(months[1]);
   if (!approvalOn(store)) return html`<${Empty} title="Timesheet approval is off">Timesheets are recorded but don't need approval, so they don't hold up payroll. Turn approval on in settings.<//>`;
   const wks = weeksIn(store, m);
-  const counts = { approved: 0, submitted: 0, change: 0, rejected: 0, draft: 0 };
+  const counts = { approved: 0, submitted: 0, with_payroll: 0, change: 0, rejected: 0, draft: 0 };
   const behind = []; let ready = 0;
   EMP.forEach(e => { const st = wks.filter(ws => store.weeks[e.id + '|' + ws]).map(ws => ({ ws, s: weekStatusKey(store.weeks[e.id + '|' + ws]) })); st.forEach(x => counts[x.s]++); const open = st.filter(x => x.s !== 'approved'); if (!open.length) ready++; else behind.push({ e, open }); });
   const blockers = payrollBlockers(store, m);
@@ -2364,6 +2947,38 @@ function TimesheetSummary() {
 function NumField({ id, label, value, onChange, unit, step }) {
   return html`<div className="field"><label htmlFor=${id}>${label}</label><div className="row" style=${{ flexWrap: 'nowrap', gap: '6px' }}><input id=${id} className="input" type="number" min="0" step=${step || 1} value=${value} onChange=${e => onChange(Number(e.target.value))} /><span className="muted small">${unit}</span></div></div>`;
 }
+function LeavePolicySettings() {
+  const { store, update } = useApp();
+  const p = lp(store);
+  const setP = fn => update(s => { s.settings.leavePolicy = clone(lp(s)); fn(s.settings.leavePolicy); });
+  return html`<div className="panel pad"><h2 style=${{ marginBottom: '4px' }}>Leave policy</h2><div className="muted small" style=${{ marginBottom: '12px' }}>How leave is credited, reset and pro-rated. Changes apply to everyone straight away.</div>
+    <div className="field"><label>Leave year</label><${Seg} label="Leave year" value=${p.year} onChange=${v => setP(x => { x.year = v; })} options=${[['company', 'Company leave cycle'], ['doj', 'Each employee’s joining date']]} /></div>
+    ${p.year === 'company' ? html`<div className="row" style=${{ marginBottom: '12px' }}><span className="small">Leave year starts on</span><input className="input" type="number" min="1" max="28" aria-label="Start day" style=${{ width: '70px' }} value=${+p.cycleStart.slice(3)} onChange=${e => setP(x => { x.cycleStart = x.cycleStart.slice(0, 2) + '-' + pad(Math.min(28, Math.max(1, +e.target.value || 1))); })} /><select className="input" aria-label="Start month" style=${{ width: 'auto' }} value=${p.cycleStart.slice(0, 2)} onChange=${e => setP(x => { x.cycleStart = e.target.value + '-' + x.cycleStart.slice(3); })}>${MON_LONG.map((m, i) => html`<option key=${m} value=${pad(i + 1)}>${m}</option>`)}</select><span className="small muted">Everyone’s leave resets the day before.</span></div>` : html`<div className="small muted" style=${{ marginBottom: '12px' }}>Each employee’s leave resets on their joining anniversary.</div>`}
+    <div className="row" style=${{ marginBottom: '12px' }}><span className="small">Probation</span><input className="input" type="number" min="0" max="24" aria-label="Probation months" style=${{ width: '70px' }} value=${p.probationMonths} onChange=${e => setP(x => { x.probationMonths = Math.max(0, +e.target.value || 0); })} /><span className="small muted">months (0 = none). During probation every leave type is credited monthly; the rest of the year lands when probation ends.</span></div>
+    <div className="scroll-x"><table><thead><tr><th>Leave type</th><th>Days per year</th><th>Credited</th><th>Carry forward up to</th><th>Encash on exit</th></tr></thead><tbody>
+      ${LT.map(t => { const c = p.types[t]; return html`<tr key=${t}><td>${t}</td>
+        <td><input className="input" type="number" min="0" step="0.5" aria-label=${t + ' days per year'} style=${{ width: '80px' }} value=${c.quota} onChange=${e => setP(x => { x.types[t].quota = Math.max(0, +e.target.value || 0); })} /><div className="small muted">${fd(c.quota / 12)} a month</div></td>
+        <td><select className="input" aria-label=${t + ' credited'} style=${{ width: 'auto' }} value=${c.credit} onChange=${e => setP(x => { x.types[t].credit = e.target.value; })}><option value="upfront">All at the start of the year</option><option value="monthly">Monthly</option></select></td>
+        <td><input className="input" type="number" min="0" aria-label=${t + ' carry forward limit'} style=${{ width: '80px' }} value=${c.carry} onChange=${e => setP(x => { x.types[t].carry = Math.max(0, +e.target.value || 0); })} /> <span className="small muted">days</span></td>
+        <td><input type="checkbox" aria-label=${t + ' encash on exit'} checked=${c.encash} onChange=${e => setP(x => { x.types[t].encash = e.target.checked; })} /></td></tr>`; })}
+    </tbody></table></div>
+    <div className="small muted" style=${{ marginTop: '8px' }}>Pro-rating: a month counts if someone joins on or before the 15th, or leaves on or after the 15th. Credits aren’t rounded (13 days a year = 1.08 a month). Unused leave above the carry-forward limit lapses at reset. Extra leave taken before leaving is recovered in the final settlement.</div>
+  </div>`;
+}
+function ProjectSettings() {
+  const { store, update, notify } = useApp();
+  const st = store.settings;
+  const [code, setCode] = useState(''); const [name, setName] = useState(''); const [err, setErr] = useState('');
+  const add = () => { const c = code.trim().toUpperCase(); if (!c || !name.trim()) return setErr('Add a code and a name.'); if (st.projects.some(p => p.code === c)) return setErr('That code already exists.'); update(s => { s.settings.projects.push({ code: c, name: name.trim() }); }); setCode(''); setName(''); setErr(''); };
+  return html`<div className="panel pad"><div className="row"><div style=${{ flex: 1, minWidth: '240px' }}><h2 style=${{ marginBottom: '4px' }}>Project codes</h2>
+      <div className="muted small">When on, every timesheet entry needs a project code. Employees pick from this list.</div></div>
+      <button className="switch" role="switch" aria-checked=${st.projectsOn} aria-label="Project codes" onClick=${() => { update(s => { s.settings.projectsOn = !s.settings.projectsOn; }); notify('Project codes ' + (st.projectsOn ? 'off' : 'on')); }}></button></div>
+    ${st.projectsOn && html`<div style=${{ marginTop: '12px' }}>
+      <div className="row" style=${{ gap: '6px', marginBottom: '10px' }}>${st.projects.map(p => html`<span key=${p.code} className="chip blue">${p.code} · ${p.name} <button className="btn ghost sm" style=${{ padding: '0 4px' }} aria-label=${'Remove ' + p.code} onClick=${() => update(s => { s.settings.projects = s.settings.projects.filter(x => x.code !== p.code); })}>✕</button></span>`)}</div>
+      <div className="row" style=${{ flexWrap: 'nowrap' }}><input className="input" style=${{ maxWidth: '160px' }} placeholder="Code, e.g. PAY-V2" value=${code} onInput=${e => { setCode(e.target.value); setErr(''); }} /><input className="input" placeholder="Name" value=${name} onInput=${e => { setName(e.target.value); setErr(''); }} /><button className="btn" onClick=${add}>Add</button></div>
+      ${err && html`<div className="err">${err}</div>`}</div>`}
+  </div>`;
+}
 function Settings() {
   const { store, update, notify, reset } = useApp();
   const st = store.settings;
@@ -2381,6 +2996,7 @@ function Settings() {
         <${NumField} id="h" label="Half day if time at work is under" value=${st.halfDayMin / 60} unit="hours" step="0.5" onChange=${v => set('halfDayMin', Math.round(v * 60))} />
         <${NumField} id="b" label="Break included in each shift" value=${st.breakMin} unit="min" onChange=${v => set('breakMin', v)} />
         <${NumField} id="o" label="Suggest overtime from" value=${st.otMin} unit="min extra" onChange=${v => set('otMin', v)} />
+        <${NumField} id="ld" label="Leave deducted per late check-in" value=${st.lateDays != null ? st.lateDays : 0.5} unit="days (0 = off)" step="0.5" onChange=${v => set('lateDays', v)} />
       </div>
       <div className="small muted">A 9h shift includes the break. Overtime is time beyond the shift length, whatever time someone checks in. Weekends and holidays count in full. Anyone who doesn’t check out is checked out automatically at 11:59 PM, and that day never counts as overtime until the real time is updated.</div></div>
     ${st.mode !== 'attendance' && html`<div className="panel pad"><div className="row"><div style=${{ flex: 1, minWidth: '240px' }}><h2 style=${{ marginBottom: '4px' }}>Timesheet approval</h2>
@@ -2388,12 +3004,16 @@ function Settings() {
         <button className="switch" role="switch" aria-checked=${st.tsApproval} aria-label="Timesheet approval" onClick=${() => { set('tsApproval', !st.tsApproval); notify('Timesheet approval ' + (st.tsApproval ? 'off' : 'on')); }}></button></div>
       ${st.tsApproval && html`<div className="row" style=${{ marginTop: '14px' }}><label htmlFor="sd" className="small" style=${{ fontWeight: 500 }}>Submit every</label>
         <select id="sd" className="input" style=${{ width: 'auto' }} value=${st.submitDay} onChange=${e => set('submitDay', Number(e.target.value))}>${[1, 2, 3, 4, 5, 6, 0].map(d => html`<option key=${d} value=${d}>${DAY_LONG[d]}</option>`)}</select>
-        <button className="btn" onClick=${() => { update(runSubmission); notify('Submission run done'); }}>Simulate submission day</button></div>`}</div>`}
+        <span className="small">at</span><input className="input" type="time" aria-label="Auto-submit time" style=${{ width: 'auto' }} value=${st.submitTime || '23:00'} onChange=${e => set('submitTime', e.target.value)} />
+        <button className="btn" onClick=${() => { update(runSubmission); notify('Auto-submit run done'); }}>Run auto-submit now (demo)</button></div>`}
+      ${st.tsApproval && html`<div className="small muted" style=${{ marginTop: '8px' }}>Auto-submit sends every draft timesheet and its attendance for approval at this time. Anything already sent is left alone.</div>`}</div>`}
+    ${st.mode !== 'attendance' && html`<${ProjectSettings} />`}
+    <${LeavePolicySettings} />
     <div className="panel"><div className="pad" style=${{ paddingBottom: '8px' }}><h2 style=${{ marginBottom: '4px' }}>Approvals</h2><div className="muted small">Level 1 is always the reporting manager. The CEO has no manager, so their requests skip to level 2.</div></div>
       <div className="scroll-x"><table><thead><tr><th>Request</th><th>Level 1</th><th>Level 2</th></tr></thead>
         <tbody>${comps.map(([k, l]) => { const off = (k === 'timesheet' && (st.mode === 'attendance' || !st.tsApproval)) || (k === 'attendance' && st.mode === 'timesheet');
           return html`<tr key=${k} style=${{ opacity: off ? 0.5 : 1 }}><td>${l}${off && html`<div className="muted small">Not in use</div>`}</td><td>Reporting manager</td>
-            <td><select className="input" style=${{ width: 'auto' }} aria-label=${'Level 2 for ' + l} value=${st.l2[k]} disabled=${off} onChange=${e => update(s => { s.settings.l2[k] = e.target.value; })}>${['HR', 'Finance', 'None'].map(x => html`<option key=${x} value=${x}>${x === 'None' ? 'None (manager is final)' : x + ' team'}</option>`)}</select></td></tr>`; })}</tbody></table></div></div>
+            <td><select className="input" style=${{ width: 'auto' }} aria-label=${'Level 2 for ' + l} value=${st.l2[k]} disabled=${off} onChange=${e => update(s => { s.settings.l2[k] = e.target.value; })}>${['Payroll', 'HR', 'Admin', 'Finance', 'None'].map(x => html`<option key=${x} value=${x}>${x === 'None' ? 'None (manager is final)' : x}</option>`)}</select></td></tr>`; })}</tbody></table></div></div>
     <div className="panel pad"><h2 style=${{ marginBottom: '4px' }}>Run payroll</h2><div className="muted small" style=${{ marginBottom: '12px' }}>Once payroll is processed for a month, its timesheets and attendance can't be edited.</div>
       <div className="row"><span>Processed up to <b style=${{ fontWeight: 500 }}>${fmtMonth(st.lastProcessed)}</b></span><span className="spacer"></span>
         ${st.lastProcessed < lastMonth ? html`<button className="btn primary" disabled=${blockers.length > 0} onClick=${() => { set('lastProcessed', lastMonth); notify('Payroll processed for ' + fmtMonth(lastMonth)); }}>Process payroll for ${fmtMonth(lastMonth)}</button>`
@@ -2425,6 +3045,9 @@ function DemoControls() {
     ${open && html`<div className="panel demo-pop" role="dialog" aria-label="Demo controls"><h3 style=${{ marginBottom: '10px' }}>Demo controls</h3>
       <div className="field"><label>Tracking mode</label><${Seg} label="Tracking mode" value=${store.settings.mode} onChange=${k => { update(s => { s.settings.mode = k; }); notify(MODE_LABEL[k]); }} options=${[['attendance', 'Attendance'], ['both', 'Both'], ['timesheet', 'Timesheet']]} /></div>
       <div className="row">${approvalOn(store) && html`<button className="btn sm" onClick=${() => { update(runSubmission); notify('Submission run done'); }}>Simulate submission day</button>`}<button className="btn sm" onClick=${() => { update(s => { delete s.attendance[EMPLOYEE_ID + '|' + TODAY]; delete s.attendance[MANAGER_ID + '|' + TODAY]; }); notify('Today’s check-in cleared for both personas'); }}>Reset today’s check-in</button><button className="btn sm" onClick=${reset}>Reset demo data</button></div>
+      <div className="field" style=${{ marginTop: '10px' }}><label>Rohan’s dates (for the leave demo)</label><div className="row" style=${{ flexWrap: 'nowrap', gap: '6px' }}>
+        <label className="efl" style=${{ flex: 1 }}><span>Joined</span><input className="input" type="date" value=${empLife(store, EMPLOYEE_ID).doj} onChange=${e => e.target.value && update(s => { s.empLife = s.empLife || {}; s.empLife[EMPLOYEE_ID] = Object.assign({}, empLife(s, EMPLOYEE_ID), { doj: e.target.value }); })} /></label>
+        <label className="efl" style=${{ flex: 1 }}><span>Leaving</span><input className="input" type="date" value=${empLife(store, EMPLOYEE_ID).exit || ''} onChange=${e => update(s => { s.empLife = s.empLife || {}; s.empLife[EMPLOYEE_ID] = Object.assign({}, empLife(s, EMPLOYEE_ID), { exit: e.target.value || null }); })} /></label></div></div>
       <div className="small muted" style=${{ marginTop: '10px' }}>Changes are saved in this browser, so approvals carry across the three tabs.</div></div>`}
     <button className="demo-btn" aria-expanded=${open} onClick=${() => setOpen(o => !o)}>${open ? 'Close' : 'Demo controls'}</button>
   </div>`;

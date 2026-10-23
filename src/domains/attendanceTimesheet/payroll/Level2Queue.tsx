@@ -8,12 +8,15 @@ import { usePayrollScope } from './usePayrollAts';
 import RequestQueue from '../components/RequestQueue';
 import type { Level2Role, QueueScope, RequestItem } from '../types';
 
-export const ROLE_NAME: Record<Level2Role, 'HR' | 'Finance' | 'Payroll'> = { HR: 'HR', FINANCE: 'Finance', PAYROLL: 'Payroll' };
+export const ROLE_NAME: Record<Level2Role, 'HR' | 'Finance' | 'Payroll' | 'Admin'> = { HR: 'HR', FINANCE: 'Finance', PAYROLL: 'Payroll', ADMIN: 'Admin' };
 
 export const TYPE_LABEL: Record<Level2RequestType, string> = {
     attendance: 'Attendance corrections',
     overtime: 'Overtime',
     profile: 'Profile updates', // PROTOTYPE-SETUP (Overview, Slice 4)
+    // PROTOTYPE-SETUP (Final batch, Slice 1)
+    leave: 'Leave',
+    reimbursement: 'Reimbursements',
 };
 
 type Level2QueueProps = {

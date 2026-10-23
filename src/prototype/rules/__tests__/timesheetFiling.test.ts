@@ -13,7 +13,11 @@ import {
     findGaps,
     findOverlaps,
     gapCount,
+    afterManagerApproval,
+    editedBack,
     isAutoSubmitDay,
+    isAutoSubmitDue,
+    submittedStatus,
     naturalPeriod,
     periodLabel,
     periodsDueForSubmission,
@@ -87,7 +91,7 @@ describe('fields: the entry form (validateEntry)', () => {
         });
     });
     it('Pattern B: the duration only — times are dropped, nothing is invented', () => {
-        expect(validateEntry({ date: D, start: '09:30', end: '11:00', hoursText: '1:15', description: 'x' }, [], DURATION)).toEqual({ date: D, start: null, end: null, mins: 75, description: 'x' });
+        expect(validateEntry({ date: D, start: '09:30', end: '11:00', hoursText: '1:15', description: 'x' }, [], DURATION)).toEqual({ date: D, start: null, end: null, mins: 75, description: 'x', location: 'OFFICE' });
         expect(err(() => validateEntry({ date: D, description: 'x' }, [], DURATION))).toBe(ENTRY_MESSAGES.needDuration);
         expect(err(() => validateEntry({ date: D, hoursText: 'soon', description: 'x' }, [], DURATION))).toBe(ENTRY_MESSAGES.unreadableHours);
     });
@@ -132,7 +136,7 @@ describe('filing periods', () => {
 
 describe('automatic submission schedule', () => {
     const settings = (frequency: 'DAILY' | 'WEEKLY' | 'MONTHLY') => ({
-        timesheetApproval: { enabled: true, submissionWeekday: 'FRIDAY' as const },
+        timesheetApproval: { enabled: true, submissionWeekday: 'FRIDAY' as const, submissionTime: '23:00' },
         timesheetFiling: { ...DEFAULT_FILING, frequency },
     });
     it('runs on the submission weekday / every day / the month’s last day', () => {
@@ -141,23 +145,24 @@ describe('automatic submission schedule', () => {
         expect(isAutoSubmitDay(D, settings('DAILY'))).toBe(true);
         expect(isAutoSubmitDay('2026-10-31', settings('MONTHLY'))).toBe(true);
         expect(isAutoSubmitDay('2026-10-30', settings('MONTHLY'))).toBe(false);
-        expect(isAutoSubmitDay('2026-10-09', { ...settings('WEEKLY'), timesheetApproval: { enabled: false, submissionWeekday: 'FRIDAY' } })).toBe(false);
+        expect(isAutoSubmitDay('2026-10-09', { ...settings('WEEKLY'), timesheetApproval: { enabled: false, submissionWeekday: 'FRIDAY', submissionTime: '23:00' } })).toBe(false);
     });
     it('sends started drafts (daily: drafts already over)', () => {
         const recs = [
-            { weekStart: '2026-10-05', status: 'DRAFT' as const },
-            { weekStart: '2026-10-12', status: 'DRAFT' as const },
-            { weekStart: '2026-09-28', status: 'SUBMITTED' as const },
+            { weekStart: '2026-10-05', status: 'DRAFT' as const, entries: [1] },
+            { weekStart: '2026-10-12', status: 'DRAFT' as const, entries: [1] },
+            { weekStart: '2026-09-28', status: 'SUBMITTED' as const, entries: [1] },
+            { weekStart: '2026-09-21', status: 'DRAFT' as const, entries: [] }, // nothing logged: left alone
         ];
         expect(periodsDueForSubmission(recs, '2026-10-09', 'WEEKLY').map(r => r.weekStart)).toEqual(['2026-10-05']);
-        const days = [{ weekStart: D, periodEnd: D, status: 'DRAFT' as const }, { weekStart: '2026-10-06', periodEnd: '2026-10-06', status: 'DRAFT' as const }];
+        const days = [{ weekStart: D, periodEnd: D, status: 'DRAFT' as const, entries: [1] }, { weekStart: '2026-10-06', periodEnd: '2026-10-06', status: 'DRAFT' as const, entries: [1] }];
         expect(periodsDueForSubmission(days, D, 'DAILY').map(r => r.weekStart)).toEqual(['2026-10-06']);
     });
     it('when a draft goes out', () => {
         expect(autoSubmitDateFor({ start: '2026-10-05', end: '2026-10-11' }, settings('WEEKLY'), D)).toBe('2026-10-09');
         expect(autoSubmitDateFor({ start: D, end: D }, settings('DAILY'), D)).toBe('2026-10-08');
         expect(autoSubmitDateFor({ start: '2026-10-01', end: '2026-10-31' }, settings('MONTHLY'), D)).toBe('2026-10-31');
-        expect(autoSubmitDateFor({ start: '2026-10-05', end: '2026-10-11' }, { ...settings('WEEKLY'), timesheetApproval: { enabled: false, submissionWeekday: 'FRIDAY' } }, D)).toBeNull();
+        expect(autoSubmitDateFor({ start: '2026-10-05', end: '2026-10-11' }, { ...settings('WEEKLY'), timesheetApproval: { enabled: false, submissionWeekday: 'FRIDAY', submissionTime: '23:00' } }, D)).toBeNull();
     });
     it('manual submission: a started draft or a sent-back period', () => {
         const base = { approvalEnabled: true, allDaysLocked: false, today: D };
@@ -283,5 +288,48 @@ describe('the period review and the submission prompt', () => {
         expect(r.issues).toEqual([{ entryId: 'h', date: D, message: ENTRY_MESSAGES.needTimes }]);
         expect(r.gaps).toEqual([]);
         expect(r.skipped).toEqual([{ date: D, reason: 'untimed-entries' }]);
+    });
+});
+
+// PROTOTYPE-SETUP (Final batch, Slice 1): Draft → With manager → With Payroll → Approved; edits after sending.
+describe('the approval path and edits after sending', () => {
+    const e1 = timed('a', '09:00', '10:00');
+    const e2 = timed('b', '10:00', '11:00');
+    it('submitted → with the manager; the CEO (no manager) → straight to Payroll (or approved with no level 2)', () => {
+        expect(submittedStatus(true, 'PAYROLL')).toBe('SUBMITTED');
+        expect(submittedStatus(false, 'PAYROLL')).toBe('WITH_PAYROLL');
+        expect(submittedStatus(false, 'NONE')).toBe('APPROVED');
+    });
+    it('the manager approves → With Payroll (or Approved when there is no level 2)', () => {
+        expect(afterManagerApproval('PAYROLL')).toBe('WITH_PAYROLL');
+        expect(afterManagerApproval('NONE')).toBe('APPROVED');
+    });
+    it('an edit to a sent or approved period → Draft with a baseline', () => {
+        const approved = { status: 'APPROVED' as const, entries: [e1, e2], approvedEntries: [e1] };
+        expect(editedBack(approved)).toMatchObject({ status: 'DRAFT', baselineEntries: [e1], editedAfter: 'APPROVED' });
+        const withManager = { status: 'SUBMITTED' as const, entries: [e1, e2], approvedEntries: null };
+        expect(editedBack(withManager)).toMatchObject({ status: 'DRAFT', baselineEntries: [e1, e2], editedAfter: 'SUBMITTED' });
+        const withPayroll = { status: 'WITH_PAYROLL' as const, entries: [e2], approvedEntries: null, baselineEntries: [e1] };
+        expect(editedBack(withPayroll)).toMatchObject({ status: 'DRAFT', baselineEntries: [e1], editedAfter: 'WITH_PAYROLL' });
+        const draft = { status: 'DRAFT' as const, entries: [e1], approvedEntries: null };
+        expect(editedBack(draft)).toBe(draft);
+        const sentBack = { status: 'SENT_BACK' as const, entries: [e1], approvedEntries: null };
+        expect(editedBack(sentBack)).toBe(sentBack);
+    });
+    it('auto-submit is due on the day once its time has come (Friday 11:00 PM by default)', () => {
+        const s = { timesheetApproval: { enabled: true, submissionWeekday: 'FRIDAY' as const, submissionTime: '23:00' }, timesheetFiling: DEFAULT_FILING };
+        expect(isAutoSubmitDue('2026-10-09', 22 * 60 + 59, s)).toBe(false);
+        expect(isAutoSubmitDue('2026-10-09', 23 * 60, s)).toBe(true);
+        expect(isAutoSubmitDue('2026-10-08', 23 * 60 + 30, s)).toBe(false);
+    });
+});
+
+// PROTOTYPE-SETUP (Final batch, Slice 1): where the work was done.
+describe('entry location', () => {
+    it('defaults to Office; a client site needs the client’s name', () => {
+        expect(validateEntry({ date: D, start: '09:00', end: '10:00', description: 'x' }, [], TIMES)).toMatchObject({ location: 'OFFICE' });
+        expect(validateEntry({ date: D, start: '09:00', end: '10:00', description: 'x', location: 'HOME' }, [], TIMES)).toMatchObject({ location: 'HOME' });
+        expect(err(() => validateEntry({ date: D, start: '09:00', end: '10:00', description: 'x', location: 'CLIENT' }, [], TIMES))).toBe(ENTRY_MESSAGES.client);
+        expect(validateEntry({ date: D, start: '09:00', end: '10:00', description: 'x', location: 'CLIENT', client: ' Brightline ' }, [], TIMES)).toMatchObject({ location: 'CLIENT', client: 'Brightline' });
     });
 });

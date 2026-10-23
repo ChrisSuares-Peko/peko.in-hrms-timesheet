@@ -6,12 +6,13 @@ import { Flex, Tooltip, Typography } from 'antd';
 import type { ApprovalStep, ApprovalTrail } from '../types';
 import { fmtStamp } from './format';
 
-const ROLE: Record<ApprovalStep['role'], string> = { MANAGER: 'Manager', HR: 'HR', FINANCE: 'Finance', PAYROLL: 'Payroll' };
+const ROLE: Record<ApprovalStep['role'], string> = { MANAGER: 'Manager', HR: 'HR', FINANCE: 'Finance', PAYROLL: 'Payroll', ADMIN: 'Admin' };
 const PENDING: Partial<Record<ApprovalTrail['status'], ApprovalStep['role']>> = {
     PENDING_MANAGER: 'MANAGER',
     PENDING_HR: 'HR',
     PENDING_FINANCE: 'FINANCE',
     PENDING_PAYROLL: 'PAYROLL',
+    PENDING_ADMIN: 'ADMIN',
 };
 
 const iconFor = (trail: ApprovalTrail, s: ApprovalStep) => {

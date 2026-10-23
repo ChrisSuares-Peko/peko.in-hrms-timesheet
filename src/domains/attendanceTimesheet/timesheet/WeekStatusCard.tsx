@@ -2,41 +2,29 @@
 // one status line and the right action, as in the prototype.
 // PROTOTYPE-SETUP (Timesheet filing): the card is the filing period's — a day, a week or a month, per the company's
 // frequency — with ‹ › to the previous / next period, a summary (logged time, entries) and the period's warnings
-// (overlaps, gaps over 5 minutes, entries missing details; click to review them). Lines and actions:
-//   Draft ............. "Goes to {manager} automatically on {date}, or submit it now." + Submit
-//   Submitted ......... "Sent to {manager} on {date}. You can keep editing until it's approved."
-//   Sent back ......... "{manager} asked for an update: {comment}" + Resubmit
-//   Approved .......... "Approved by {manager}. You can still request a change." + Request a change
-//   Change pending .... "Change waiting for {manager}. Reason: …" + Show my changes / Withdraw
-//   Editing a change .. "Editing a copy. …" + Send change / Discard
+// (overlaps, gaps over 5 minutes, entries missing details; click to review them).
+// PROTOTYPE-SETUP (Final batch, Slices 1 and 3): every change saves straight away; the one button is Submit. Lines:
+//   Draft ............ "Draft. Changes save automatically. Auto-submits {Friday} at {11:00 PM}."
+//   Edited ........... "Edited after it was sent. Submit again to get it re-approved. Changes save automatically. …"
+//   With manager ..... "With {manager} since {23 Oct}. You can still edit it, but it goes back to draft and needs submitting again."
+//   With Payroll ..... "Approved by {manager}, now with Payroll. Editing moves it back to draft."
+//   Approved ......... "Approved. You can still edit it until payroll is processed; edits need submitting again."
+//   Sent back ........ "{manager} sent it back: {comment} Fix it, then submit again."
 //   Approval off / payroll processed: an explanation, no action.
 import { LeftOutlined, RightOutlined, WarningOutlined } from '@ant-design/icons';
-import { Button, Popconfirm, Skeleton, Tag } from 'antd';
+import { Button, Skeleton, Tag, Tooltip } from 'antd';
 import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
-import { formatDuration } from '@src/prototype/rules/attendance';
+import { displayTime, formatDuration } from '@src/prototype/rules/attendance';
 import { FREQUENCY_LABEL, PeriodReview, gapCount, periodKind } from '@src/prototype/rules/timesheetFiling';
 
+import { WEEK_STATUS } from '../components/format';
 import type { TimesheetWeekView } from '../types';
-
-export type WeekChipKey = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'SENT_BACK' | 'CHANGE';
-
-/** Prototype chip labels (employee view). */
-const CHIP: Record<WeekChipKey, { label: string; color: string }> = {
-    DRAFT: { label: 'Draft', color: 'default' },
-    SUBMITTED: { label: 'Awaiting manager', color: 'blue' },
-    APPROVED: { label: 'Approved', color: 'green' },
-    SENT_BACK: { label: 'Sent back', color: 'red' },
-    CHANGE: { label: 'Change pending', color: 'orange' },
-};
-
-export const weekChipKey = (view: TimesheetWeekView): WeekChipKey =>
-    view.changeRequest?.status === 'PENDING' ? 'CHANGE' : view.week.status;
 
 export const WeekChip = ({ view }: { view: TimesheetWeekView }) => {
     if (!view.approvalEnabled) return <Tag className="!m-0">No approval needed</Tag>;
-    const chip = CHIP[weekChipKey(view)];
+    const chip = WEEK_STATUS[view.week.status];
     return (
         <Tag color={chip.color} className="!m-0">
             {chip.label}
@@ -44,22 +32,50 @@ export const WeekChip = ({ view }: { view: TimesheetWeekView }) => {
     );
 };
 
+/** "Every change saves automatically. …" / "Sent for approval. …" — under the Submit button. */
+export const submitNote = (sent: boolean) =>
+    sent
+        ? 'Sent for approval. Editing an entry moves it back to draft.'
+        : 'Every change saves automatically. It’s only sent for approval when you submit, or at auto-submit.';
+
+/** The status line for the period, per the prototype. */
+export const statusLine = (view: TimesheetWeekView, today: string) => {
+    const { week, filing } = view;
+    const mgr = view.employee.managerName ?? 'HR';
+    if (!view.approvalEnabled) return `Approval is off. ${view.employee.managerName ?? 'Your manager'} can see your timesheet, and you can edit it until payroll is processed.`;
+    if (view.editMode === 'locked') return 'Payroll is processed for this period, so it can’t be changed.';
+    const auto = filing.autoSubmitOn
+        ? ` Auto-submits ${filing.frequency === 'WEEKLY' ? dayjs(filing.autoSubmitOn).format('dddd') : dayjs(filing.autoSubmitOn).format('ddd, D MMM')} at ${displayTime(filing.autoSubmitAt)}.`
+        : '';
+    switch (week.status) {
+        case 'SENT_BACK': {
+            const by = week.sentBackBy === 'PAYROLL' ? 'Payroll' : week.decision?.by.name ?? mgr;
+            return `${by} sent it back: ${week.decision?.comment ?? ''} Fix it, then submit again.`;
+        }
+        case 'SUBMITTED': {
+            const since = week.submittedAt ? ` since ${dayjs(week.submittedAt).format('D MMM')}` : '';
+            return `With ${mgr}${since}. You can still edit it, but it goes back to draft and needs submitting again.`;
+        }
+        case 'WITH_PAYROLL':
+            return `Approved by ${week.managerDecision?.by.name ?? mgr}, now with Payroll. Editing moves it back to draft.`;
+        case 'APPROVED':
+            return 'Approved. You can still edit it until payroll is processed; edits need submitting again.';
+        default:
+            if (filing.period.start > today) return `This period starts on ${dayjs(filing.period.start).format('ddd, D MMM')}. You can log planned work now and submit it once it has started.`;
+            return week.baselineEntries && week.editedAfter
+                ? `Edited after it was sent. Submit again to get it re-approved. Changes save automatically.${auto}`
+                : `Draft. Changes save automatically.${auto}`;
+    }
+};
+
 export interface WeekStatusCardProps {
     view: TimesheetWeekView | null;
     today: string;
     busy?: boolean;
-    /** Editing a change request: number of changes so far (null = not editing). */
-    editingChanges: number | null;
-    showProposed: boolean;
-    /** PROTOTYPE-SETUP (Timesheet filing): the period's checks (null while editing a change or loading). */
+    /** PROTOTYPE-SETUP (Timesheet filing): the period's checks. */
     review?: PeriodReview | null;
     /** Submit a draft, or resubmit a sent-back period (runs the checks first). */
     onSubmit: () => void;
-    onRequestChange: () => void;
-    onToggleProposed: () => void;
-    onWithdraw: () => void;
-    onSendChange: () => void;
-    onDiscard: () => void;
     /** Previous / next filing period. */
     onStepPeriod?: (dir: 1 | -1) => void;
     /** Show the warnings (overlaps, gaps, missing details) with the entries they concern. */
@@ -68,26 +84,9 @@ export interface WeekStatusCardProps {
     bare?: boolean;
 }
 
-const shortDate = (iso: string) => dayjs(iso).format('D MMM');
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-const WeekStatusCard = ({
-    view,
-    today,
-    busy,
-    editingChanges,
-    showProposed,
-    review,
-    onSubmit,
-    onRequestChange,
-    onToggleProposed,
-    onWithdraw,
-    onSendChange,
-    onDiscard,
-    onStepPeriod,
-    onReview,
-    bare = false,
-}: WeekStatusCardProps) => {
+const WeekStatusCard = ({ view, today, busy, review, onSubmit, onStepPeriod, onReview, bare = false }: WeekStatusCardProps) => {
     const shell = bare ? '' : ESS_CARD;
     if (!view) {
         return (
@@ -97,77 +96,10 @@ const WeekStatusCard = ({
         );
     }
     const { week, filing } = view;
-    const mgr = view.employee.managerName ?? 'your manager';
-    const pending = view.changeRequest?.status === 'PENDING' ? view.changeRequest : null;
-    let line: string;
-    let actions: React.ReactNode = null;
-
-    if (!view.approvalEnabled) {
-        line = `Approval is off. ${view.employee.managerName ?? 'Your manager'} can see your timesheet, and you can edit it until payroll is processed.`;
-    } else if (view.editMode === 'locked') {
-        line = 'Payroll is processed for this period, so it can’t be changed.';
-    } else if (editingChanges !== null) {
-        line = `Editing a copy. The approved timesheet stays until ${mgr} approves your change. ${editingChanges} change${editingChanges === 1 ? '' : 's'} so far.`;
-        actions = (
-            <>
-                <Button size="small" type="primary" disabled={!editingChanges} onClick={onSendChange}>
-                    Send change
-                </Button>
-                <Button size="small" onClick={onDiscard}>
-                    Discard
-                </Button>
-            </>
-        );
-    } else if (pending) {
-        line = `Change waiting for ${mgr}. Reason: ${pending.reason}`;
-        actions = (
-            <>
-                <Button size="small" onClick={onToggleProposed}>
-                    {showProposed ? 'Show approved' : 'Show my changes'}
-                </Button>
-                <Popconfirm
-                    title="Withdraw your change request?"
-                    description="The approved timesheet stays as it is."
-                    okText="Withdraw"
-                    onConfirm={onWithdraw}
-                >
-                    <Button size="small" type="text" loading={busy}>
-                        Withdraw
-                    </Button>
-                </Popconfirm>
-            </>
-        );
-    } else if (week.status === 'APPROVED') {
-        line = `Approved by ${week.decision?.by.name ?? mgr}. You can still request a change.`;
-        actions = (
-            <Button size="small" onClick={onRequestChange}>
-                Request a change
-            </Button>
-        );
-    } else if (week.status === 'SENT_BACK') {
-        line = `${week.decision?.by.name ?? mgr} asked for an update: ${week.decision?.comment ?? ''}`;
-        actions = (
-            <Button size="small" type="primary" loading={busy} disabled={!view.canSubmit || busy} onClick={onSubmit}>
-                Resubmit
-            </Button>
-        );
-    } else if (week.status === 'SUBMITTED') {
-        line = `Sent to ${mgr}${week.submittedAt ? ` on ${shortDate(week.submittedAt)}` : ''}. You can keep editing until it’s approved.`;
-    } else if (filing.period.start > today) {
-        line = `This period starts on ${dayjs(filing.period.start).format('ddd, D MMM')}. You can log planned work now and submit it once it has started.`;
-    } else {
-        line = filing.autoSubmitOn
-            ? `Goes to ${mgr} automatically on ${dayjs(filing.autoSubmitOn).format('ddd, D MMM')}, or submit it now.`
-            : `Submit it to ${mgr} when it’s complete.`;
-        actions = (
-            <Button size="small" type="primary" loading={busy} disabled={!view.canSubmit || busy} onClick={onSubmit} data-submit-period>
-                Submit
-            </Button>
-        );
-    }
-
+    const open = week.status === 'DRAFT' || week.status === 'SENT_BACK';
+    const showSubmit = view.approvalEnabled && view.editMode !== 'locked' && filing.period.start <= today;
     const entries = week.entries.length;
-    const checks = review && week.status !== 'APPROVED' && editingChanges === null ? review : null;
+    const checks = review && open ? review : null;
     const warnings = checks
         ? [
               checks.issues.length > 0 && `${plural(new Set(checks.issues.map(i => i.entryId)).size, 'entry', 'entries')} missing details`,
@@ -209,8 +141,21 @@ const WeekStatusCard = ({
                     <span className="whitespace-nowrap font-medium">Review</span>
                 </button>
             )}
-            <p className="my-2 break-words text-[13px] text-gray-600">{line}</p>
-            {actions && <div className="flex flex-wrap gap-1.5">{actions}</div>}
+            <p className="my-2 break-words text-[13px] text-gray-600" data-status-line>
+                {statusLine(view, today)}
+            </p>
+            {showSubmit && (
+                <div className="flex flex-col items-start gap-1.5">
+                    <Tooltip title={open ? undefined : 'Already sent for approval'}>
+                        <Button size="small" type="primary" loading={busy} disabled={!open || !view.canSubmit || busy} onClick={onSubmit} data-submit-period>
+                            Submit
+                        </Button>
+                    </Tooltip>
+                    <span className="text-[11px] leading-4 text-gray-500" data-submit-note>
+                        {submitNote(!open)}
+                    </span>
+                </div>
+            )}
         </section>
     );
 };

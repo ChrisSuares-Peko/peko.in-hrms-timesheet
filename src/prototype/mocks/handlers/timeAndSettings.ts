@@ -51,10 +51,10 @@ import type { AnnouncementApiItem } from '@domains/employee/api/announcements';
 import type { AttendanceApiRecord, AttendanceMetrics } from '@domains/employee/api/attendance';
 import type { AvailableLeave, HolidayDoc, LeaveDoc, ReimbursementRecord } from '@domains/employee/types';
 // PROTOTYPE-SETUP: ESS Service 1 — live Attendance & Timesheet store.
-import { RuleError } from '@src/prototype/rules/attendance';
+import { RuleError, startTrail } from '@src/prototype/rules/attendance';
 
 import { COMPANY } from '../data/company';
-import { EMPLOYEES, ESS_EMPLOYEE, MockEmployee, PAYROLL_TOTALS, findEmployee } from '../data/employees';
+import { EMPLOYEES, ESS_EMPLOYEE, MockEmployee, PAYROLL_TOTALS, findEmployee, managerOf } from '../data/employees';
 import {
     ACTIVE_YEARS_EMPTY,
     COMPLIANCE_SETTINGS,
@@ -128,6 +128,7 @@ import {
     liveMonthRecordsOf,
     liveTodaySummary,
 } from '../store/atsLegacy';
+import { StoredClaim, atsReimbursements, legacyClaimStatus } from '../store/atsRequests';
 import { getSettings } from '../store/atsStore';
 import { updateSettings } from '../store/atsTeam';
 
@@ -670,16 +671,22 @@ const toEmployeeReimbursement = (r: MockReimbursement): reimbursementListingResp
     employee: String(r.employee.id),
 });
 
-const toEssReimbursement = (r: MockReimbursement): ReimbursementRecord => ({
-    id: r.id,
-    expenseDate: r.expenseDate,
-    totalPay: r.totalPay,
-    expenseDetails: r.expenseDetails,
-    transferMethod: r.transferMethod,
-    status: r.status,
-    paymentStatus: r.paymentStatus,
-    supportingDocs: r.supportingDocs,
+/** PROTOTYPE-SETUP (Final batch, Slice 1): a live claim in the shape the ESS screens read. */
+const liveClaimRecord = (c: StoredClaim): ReimbursementRecord => ({
+    id: c.id,
+    expenseDate: c.expenseDate,
+    totalPay: c.totalPay,
+    expenseDetails: c.expenseDetails,
+    transferMethod: c.transferMethod,
+    status: legacyClaimStatus(c),
+    paymentStatus: legacyClaimStatus(c) === 'rejected' ? 'REJECTED' : c.paymentStatus,
+    supportingDocs: c.supportingDocs,
 });
+
+const managerRefOf = (e: MockEmployee) => {
+    const m = managerOf(e);
+    return m ? { id: m.id, name: m.fullName } : null;
+};
 
 const reimbursementMatches = (r: MockReimbursement, search: unknown) => {
     const term = text(search);
@@ -1387,37 +1394,50 @@ const essRoutes: MockRoute[] = [
         const doc = leave ? toEssLeave(leave) : echoLeaveDoc(essEmployee(), {}, params.leaveId ?? '');
         return { ...doc, status: 'cancelledByEmployee' } satisfies LeaveDoc;
     }),
+    // PROTOTYPE-SETUP (Final batch, Slice 1): claims are live, with an approval trail — the manager, then Admin
+    // (settings level 2 for reimbursements). The Payroll → Approvals "Admin" queue decides them.
     route('GET', `${P}/reimbursement-requests`, ({ mode, query }) => {
         const from = toLocalIsoDate(query.from);
         const to = toLocalIsoDate(query.to);
-        const list = reimbursementsOf(essEmployee()).filter(
-            r =>
-                (!query.status || r.status === query.status) &&
-                (!from || r.expenseDate >= from) &&
-                (!to || r.expenseDate <= to)
-        );
-        return byMode<{ records: ReimbursementRecord[]; total: number }>(mode, {
-            dummy: { records: pageOf(list, query.page, query.limit).map(toEssReimbursement), total: list.length },
-            empty: { records: [], total: 0 },
-        });
+        const me = essEmployee();
+        const list = atsReimbursements
+            .get(mode)
+            .filter(c => c.employeeId === me.id)
+            .filter(
+                c =>
+                    (!query.status || legacyClaimStatus(c) === query.status) &&
+                    (!from || c.expenseDate >= from) &&
+                    (!to || c.expenseDate <= to)
+            );
+        return { records: pageOf(list, query.page, query.limit).map(liveClaimRecord), total: list.length };
     }),
-    route('POST', `${P}/reimbursement-requests`, ({ body }): ReimbursementRecord => ({
-        id: `rb-new-${Date.now()}`,
-        expenseDate: toLocalIsoDate(body?.expenseDate) ?? todayIso(),
-        totalPay: Number(body?.amount ?? 0),
-        expenseDetails: body?.expenseDetails,
-        transferMethod: 'With Salary',
-        status: 'requestedByEmployee',
-        paymentStatus: 'UNPAID',
-    })),
-    route('PATCH', `${P}/reimbursement-requests/:reimbursementId/cancel`, ({ params }): ReimbursementRecord => {
-        const existing = findReimbursement(params.reimbursementId);
-        return {
-            ...(existing
-                ? toEssReimbursement(existing)
-                : { id: params.reimbursementId ?? '', expenseDate: todayIso(), totalPay: 0 }),
-            status: 'cancelledByEmployee',
+    route('POST', `${P}/reimbursement-requests`, ({ mode, body }): ReimbursementRecord => {
+        const me = essEmployee();
+        const at = new Date().toISOString();
+        const claim: StoredClaim = {
+            id: `rb-new-${Date.now()}`,
+            employeeId: me.id,
+            expenseDate: toLocalIsoDate(body?.expenseDate) ?? todayIso(),
+            category: (['Travel', 'Internet', 'Meals', 'Fuel', 'Equipment'] as const).find(c => c === body?.category) ?? 'Travel',
+            expenseDetails: String(body?.expenseDetails ?? ''),
+            totalPay: Number(body?.amount ?? 0),
+            transferMethod: 'With Salary',
+            paymentStatus: 'UNPAID',
+            supportingDocs: '',
+            createdAt: at,
+            updatedAt: at,
+            trail: startTrail('reimbursement', managerRefOf(me), getSettings(mode)),
         };
+        atsReimbursements.update(mode, list => [claim, ...list]);
+        return liveClaimRecord(claim);
+    }),
+    route('PATCH', `${P}/reimbursement-requests/:reimbursementId/cancel`, ({ mode, params }): ReimbursementRecord => {
+        const claim = atsReimbursements.get(mode).find(c => c.id === params.reimbursementId && c.employeeId === essEmployee().id);
+        if (!claim) throw fail(404, 'Claim not found.');
+        if (!claim.trail.status.startsWith('PENDING')) throw fail(409, 'Only a pending claim can be cancelled.');
+        const next = { ...claim, trail: { ...claim.trail, status: 'CANCELLED' as const }, withdrawn: true, updatedAt: new Date().toISOString() };
+        atsReimbursements.update(mode, list => list.map(c => (c.id === claim.id ? next : c)));
+        return liveClaimRecord(next);
     }),
 ];
 

@@ -1,27 +1,19 @@
 // PROTOTYPE-SETUP: ESS Service 1, Slice 6 — the manager's review drawer for one direct report's week. Shared by
 // "Timesheet approvals" and the member timesheet page ("Review and approve"). A submitted week can be approved
-// (optional comment) or sent back (comment required); a pending change request shows "What changed" and can be
-// approved or rejected (comment required). A change request touching a payroll-processed day can't be approved.
+// (optional comment) or sent back (comment required). PROTOTYPE-SETUP (Final batch, Slice 1): no change requests —
+// a period edited after it was sent comes back as a submission.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { CheckOutlined, LockOutlined, RollbackOutlined } from '@ant-design/icons';
-import { Alert, Button, Drawer, Flex, Grid, Input, Skeleton, Tag, Tooltip, Typography, message } from 'antd';
+import { CheckOutlined, RollbackOutlined } from '@ant-design/icons';
+import { Alert, Button, Drawer, Flex, Grid, Input, Skeleton, Typography, message } from 'antd';
 
-import {
-    approveChangeRequest,
-    approveWeek,
-    getMemberMonth,
-    getMemberWeek,
-    rejectChangeRequest,
-    sendBackWeek,
-} from '../api';
+import { approveWeek, getMemberMonth, getMemberWeek, sendBackWeek } from '../api';
+import { PersonCell } from './teamShared';
 import { fmtStamp, formatDuration } from '../components/format';
 import { WeekStatusTag } from '../components/StatusTags';
 import { useAtsScope } from '../hooks/useAtsScope';
-import ManagerChangeDiff from '../timesheet/manager/ManagerChangeDiff';
 import ManagerTimesheetViewer from '../timesheet/manager/ManagerTimesheetViewer';
 import type { TimesheetWeekView } from '../types';
-import { PersonCell } from './teamShared';
 
 export interface ReviewTarget {
     employeeId: number;
@@ -36,13 +28,7 @@ interface TimesheetReviewDrawerProps {
     onDecided?: () => void;
 }
 
-type Action = 'approve-week' | 'send-back' | 'approve-change' | 'reject-change';
-
-const CR_STATUS: Record<'PENDING' | 'APPROVED' | 'REJECTED', { label: string; color: string }> = {
-    PENDING: { label: 'Waiting for you', color: 'processing' },
-    APPROVED: { label: 'Approved', color: 'success' },
-    REJECTED: { label: 'Rejected', color: 'error' },
-};
+type Action = 'approve-week' | 'send-back';
 
 const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDrawerProps) => {
     const scope = useAtsScope();
@@ -78,19 +64,13 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
         [scope, target?.employeeId]
     );
 
-    const cr = view?.changeRequest ?? null;
     const weekWaiting = view?.week.status === 'SUBMITTED';
-    const crWaiting = cr?.status === 'PENDING';
 
     const run = async (action: Action) => {
         if (!view) return;
         const note = comment.trim();
-        if ((action === 'send-back' || action === 'reject-change') && !note) {
-            setCommentError(
-                action === 'send-back'
-                    ? 'Add a comment so they know what to fix.'
-                    : 'Add a comment explaining why.'
-            );
+        if (action === 'send-back' && !note) {
+            setCommentError('Add a short note so the employee knows what to fix.');
             return;
         }
         setBusy(action);
@@ -99,15 +79,11 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
         let res: unknown = false;
         if (action === 'approve-week') res = await approveWeek(scope, employeeId, ws, note || undefined);
         if (action === 'send-back') res = await sendBackWeek(scope, employeeId, ws, note);
-        if (action === 'approve-change' && cr) res = await approveChangeRequest(scope, cr.id, note || undefined);
-        if (action === 'reject-change' && cr) res = await rejectChangeRequest(scope, cr.id, note);
         setBusy(null);
         if (res === false) return;
         const done: Record<Action, string> = {
             'approve-week': 'Timesheet approved',
             'send-back': 'Timesheet sent back',
-            'approve-change': 'Change approved',
-            'reject-change': 'Change rejected',
         };
         message.success(done[action]);
         setComment('');
@@ -123,7 +99,7 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
         return { status: view.week.status, decision: d };
     }, [view, weekWaiting]);
 
-    const canDecide = weekWaiting || crWaiting;
+    const canDecide = weekWaiting;
 
     const footer = canDecide && view && (
         <Flex vertical gap={8}>
@@ -136,11 +112,7 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
                     setComment(e.target.value);
                     if (e.target.value.trim()) setCommentError(null);
                 }}
-                placeholder={
-                    weekWaiting
-                        ? 'Comment — optional to approve, required to send back'
-                        : 'Comment — optional to approve, required to reject'
-                }
+                placeholder="Comment — optional to approve, required to send back"
             />
             {commentError && (
                 <Typography.Text type="danger" className="text-sm">
@@ -151,39 +123,14 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
                 <Typography.Text type="secondary" className="text-xs">
                     Decisions are final.
                 </Typography.Text>
-                {weekWaiting ? (
-                    <Flex gap={8}>
-                        <Button icon={<RollbackOutlined />} loading={busy === 'send-back'} disabled={Boolean(busy)} onClick={() => run('send-back')}>
-                            Send back
-                        </Button>
-                        <Button
-                            type="primary"
-                            icon={<CheckOutlined />}
-                            loading={busy === 'approve-week'}
-                            disabled={Boolean(busy)}
-                            onClick={() => run('approve-week')}
-                        >
-                            Approve
-                        </Button>
-                    </Flex>
-                ) : (
-                    <Flex gap={8}>
-                        <Button danger loading={busy === 'reject-change'} disabled={Boolean(busy)} onClick={() => run('reject-change')}>
-                            Reject
-                        </Button>
-                        <Tooltip title={cr?.blockedReason}>
-                            <Button
-                                type="primary"
-                                icon={<CheckOutlined />}
-                                loading={busy === 'approve-change'}
-                                disabled={Boolean(busy) || Boolean(cr?.blockedReason)}
-                                onClick={() => run('approve-change')}
-                            >
-                                Approve change
-                            </Button>
-                        </Tooltip>
-                    </Flex>
-                )}
+                <Flex gap={8}>
+                    <Button icon={<RollbackOutlined />} loading={busy === 'send-back'} disabled={Boolean(busy)} onClick={() => run('send-back')}>
+                        Send back
+                    </Button>
+                    <Button type="primary" icon={<CheckOutlined />} loading={busy === 'approve-week'} disabled={Boolean(busy)} onClick={() => run('approve-week')}>
+                        Approve
+                    </Button>
+                </Flex>
             </Flex>
         </Flex>
     );
@@ -204,7 +151,7 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
                             <Typography.Text type="secondary" className="text-sm">
                                 Logged {formatDuration(totals.loggedMinutes)} of {formatDuration(totals.expectedMinutes)}
                             </Typography.Text>
-                            <WeekStatusTag status={view.week.status} changePending={crWaiting} />
+                            <WeekStatusTag status={view.week.status} />
                         </Flex>
                     </Flex>
                 </Flex>
@@ -231,49 +178,6 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
                     />
                 )}
 
-                {cr && (crWaiting || cr.decision) && (
-                    <div className="rounded-2xl border border-solid border-[#FEDF89] bg-[#FFFCF5] p-4">
-                        <Flex justify="space-between" align="center" wrap="wrap" gap={8} className="mb-2">
-                            <Typography.Text strong>Change requested</Typography.Text>
-                            <Flex gap={6} align="center">
-                                <Typography.Text type="secondary" className="text-xs">
-                                    {fmtStamp(cr.requestedAt)}
-                                </Typography.Text>
-                                <Tag color={CR_STATUS[cr.status].color} className="!m-0">
-                                    {CR_STATUS[cr.status].label}
-                                </Tag>
-                            </Flex>
-                        </Flex>
-                        <Typography.Paragraph className="!mb-3">
-                            <span className="font-medium">Reason: </span>
-                            {cr.reason}
-                        </Typography.Paragraph>
-                        {cr.blockedReason && crWaiting && (
-                            <Alert
-                                type="warning"
-                                showIcon
-                                icon={<LockOutlined />}
-                                className="!mb-3"
-                                message="This change can't be approved"
-                                description={cr.blockedReason}
-                            />
-                        )}
-                        {cr.decision && (
-                            <Typography.Paragraph type="secondary" className="!mb-3 text-sm">
-                                {cr.status === 'APPROVED' ? 'Approved' : 'Rejected'} by {cr.decision.by.name} ·{' '}
-                                {fmtStamp(cr.decision.at)}
-                                {cr.decision.comment ? ` — “${cr.decision.comment}”` : ''}
-                            </Typography.Paragraph>
-                        )}
-                        <Typography.Text strong className="block mb-2">
-                            What changed
-                        </Typography.Text>
-                        <div className="overflow-x-auto">
-                            <ManagerChangeDiff base={cr.baseEntries} proposed={cr.proposedEntries} />
-                        </div>
-                    </div>
-                )}
-
                 <ManagerTimesheetViewer
                     loadWeek={loadWeek}
                     loadMonth={loadMonth}
@@ -289,7 +193,7 @@ const TimesheetReviewDrawer = ({ target, onClose, onDecided }: TimesheetReviewDr
             open={Boolean(target)}
             onClose={onClose}
             width={screens.md ? 960 : '100%'}
-            title={crWaiting && !weekWaiting ? 'Review change request' : 'Review timesheet'}
+            title="Review timesheet"
             destroyOnHidden
             footer={footer || undefined}
             styles={{ body: { paddingTop: 16 } }}

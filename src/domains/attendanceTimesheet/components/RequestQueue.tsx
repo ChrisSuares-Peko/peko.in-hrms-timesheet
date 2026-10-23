@@ -26,13 +26,16 @@ export interface RequestQueueProps {
     onChanged?: () => void;
     defaultScope?: QueueScope;
     /** Who is deciding, for copy like "Waiting for you" (default 'Manager'). */
-    actingAs?: 'Manager' | 'HR' | 'Finance' | 'Payroll';
+    actingAs?: 'Manager' | 'HR' | 'Finance' | 'Payroll' | 'Admin';
 }
 
 const TYPE_COPY: Record<Level2RequestType, { plural: string; single: string }> = {
     attendance: { plural: 'attendance corrections', single: 'attendance correction' },
     overtime: { plural: 'overtime requests', single: 'overtime request' },
     profile: { plural: 'profile updates', single: 'profile update' },
+    // PROTOTYPE-SETUP (Final batch, Slice 1)
+    leave: { plural: 'leave requests', single: 'leave request' },
+    reimbursement: { plural: 'reimbursement claims', single: 'reimbursement claim' },
 };
 
 /** PROTOTYPE-SETUP (Overview, Slice 4): a profile update, field by field (old → new), with the new photo. */

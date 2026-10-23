@@ -13,7 +13,6 @@ import { MockContext, MockRoute, route } from '../router';
 import {
     addEntry,
     attendanceMonthOf,
-    cancelChangeRequest,
     cancelCorrection,
     cancelOvertime,
     checkIn,
@@ -30,18 +29,17 @@ import {
     editEntry,
     overtimeViewOf,
     overviewOf,
-    requestChange,
     submitWeek,
     timesheetMonthOf,
     timesheetNoticesOf,
     timesheetPeriodsOf,
 } from '../store/atsEss';
 import { homeOf } from '../store/atsHome';
+import { createLeaveRequest, leaveViewOf, setEmployeeLife, withdrawLeaveRequest } from '../store/atsLeave';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../store/atsProfile';
 import { currentMonth, getSettings, overtimeContext, resetTodayCheckIn, today, weekView } from '../store/atsStore';
 import {
     RequestType,
-    approveChangeRequest,
     approveWeek,
     assertManages,
     autoRunSubmissionDay,
@@ -51,7 +49,6 @@ import {
     payrollMonthStatus,
     payrollMonths,
     processPayrollMonth,
-    rejectChangeRequest,
     runSubmissionDay,
     sendBackWeek,
     teamApprovalCounts,
@@ -59,6 +56,10 @@ import {
     teamRequests,
     teamToday,
     teamWeekGrid,
+    payrollApproveWeek,
+    payrollSendBackWeek,
+    payrollTimesheetQueue,
+    payrollWeekView,
     timesheetQueue,
     timesheetStatusView,
     updateSettings,
@@ -83,11 +84,13 @@ const monthParam = (q: MockContext['query']) => (MONTH.test(String(q.month ?? ''
 const dateParam = (q: MockContext['query']) => (DATE.test(String(q.date ?? '')) ? String(q.date) : today());
 const scopeParam = (q: MockContext['query']): QueueScope => (q.scope === 'all' ? 'all' : 'waiting');
 const roleParam = (q: MockContext['query']): Level2Role => {
-    if (q.role === 'HR' || q.role === 'FINANCE' || q.role === 'PAYROLL') return q.role;
-    throw fail(400, 'role must be HR, FINANCE or PAYROLL');
+    if (q.role === 'HR' || q.role === 'FINANCE' || q.role === 'PAYROLL' || q.role === 'ADMIN') return q.role;
+    throw fail(400, 'role must be HR, FINANCE, PAYROLL or ADMIN');
 };
+/** PROTOTYPE-SETUP (Final batch, Slice 1): leave and reimbursements go through the manager too. */
 const typeParam = (p: MockContext['params']): RequestType => {
-    if (p.requestType === 'attendance' || p.requestType === 'overtime') return p.requestType;
+    const t = p.requestType;
+    if (t === 'attendance' || t === 'overtime' || t === 'leave' || t === 'reimbursement') return t;
     throw fail(404, 'Unknown request type');
 };
 /** PROTOTYPE-SETUP (Overview, Slice 1): level 2 also handles profile updates (HR only). */
@@ -119,7 +122,10 @@ export const atsRoutes: MockRoute[] = [
     // ---- settings & demo ----------------------------------------------------------------------------------
     route('GET', `${A}/settings`, ctx => run(ctx.mode, () => getSettings(ctx.mode))),
     route('PUT', `${A}/settings`, ctx => run(ctx.mode, () => updateSettings(ctx.mode, ctx.body))),
+    // PROTOTYPE-SETUP (Final batch, Slice 1): "Run auto-submit now".
     route('POST', `${A}/demo/simulate-submission-day`, ctx => run(ctx.mode, () => runSubmissionDay(ctx.mode))),
+    route('POST', `${A}/demo/run-auto-submit`, ctx => run(ctx.mode, () => runSubmissionDay(ctx.mode))),
+    route('PUT', `${A}/demo/employee-life`, ess((ctx, me) => setEmployeeLife(ctx.mode, me, ctx.body))),
     route('POST', `${A}/demo/reset-today-check-in`, ctx => run(ctx.mode, () => resetTodayCheckIn(ctx.mode))),
 
     // ---- ESS: overview, check-in / out, attendance ------------------------------------------------------
@@ -156,8 +162,11 @@ export const atsRoutes: MockRoute[] = [
     route('PUT', `${A}/timesheet/entries/:entryId`, ess((ctx, me) => editEntry(ctx.mode, me, ctx.params.entryId!, ctx.body))),
     route('DELETE', `${A}/timesheet/entries/:entryId`, ess((ctx, me) => deleteEntry(ctx.mode, me, ctx.params.entryId!))),
     route('POST', `${A}/timesheet/weeks/:weekStart/submit`, ess((ctx, me) => submitWeek(ctx.mode, me, ctx.params.weekStart!, ctx.body))),
-    route('POST', `${A}/timesheet/weeks/:weekStart/change-request`, ess((ctx, me) => requestChange(ctx.mode, me, ctx.params.weekStart!, ctx.body))),
-    route('POST', `${A}/timesheet/weeks/:weekStart/change-request/cancel`, ess((ctx, me) => cancelChangeRequest(ctx.mode, me, ctx.params.weekStart!))),
+
+    // ---- ESS: leave (PROTOTYPE-SETUP: Final batch, Slice 1) ----------------------------------------------
+    route('GET', `${A}/leave`, ess((ctx, me) => leaveViewOf(ctx.mode, me))),
+    route('POST', `${A}/leave/requests`, ess((ctx, me) => createLeaveRequest(ctx.mode, me, ctx.body))),
+    route('POST', `${A}/leave/requests/:id/withdraw`, ess((ctx, me) => withdrawLeaveRequest(ctx.mode, me, ctx.params.id!))),
 
     // ---- ESS: overtime ------------------------------------------------------------------------------------
     route('GET', `${A}/overtime`, ess((ctx, me) => overtimeViewOf(ctx.mode, me, monthParam(ctx.query)))),
@@ -176,8 +185,6 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/team/approvals/timesheets`, ess((ctx, me) => timesheetQueue(ctx.mode, me, scopeParam(ctx.query)))),
     route('POST', `${A}/team/approvals/timesheets/:employeeId/:weekStart/approve`, ess((ctx, me) => approveWeek(ctx.mode, me, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
     route('POST', `${A}/team/approvals/timesheets/:employeeId/:weekStart/send-back`, ess((ctx, me) => sendBackWeek(ctx.mode, me, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
-    route('POST', `${A}/team/approvals/change-requests/:id/approve`, ess((ctx, me) => approveChangeRequest(ctx.mode, me, ctx.params.id!, ctx.body?.comment))),
-    route('POST', `${A}/team/approvals/change-requests/:id/reject`, ess((ctx, me) => rejectChangeRequest(ctx.mode, me, ctx.params.id!, ctx.body?.comment))),
     route('GET', `${A}/team/approvals/requests/:requestType`, ess((ctx, me) => teamRequests(ctx.mode, me, typeParam(ctx.params), scopeParam(ctx.query)))),
     route('POST', `${A}/team/approvals/requests/:requestType/:id/approve`, ess((ctx, me) => decideRequest(ctx.mode, typeParam(ctx.params), ctx.params.id!, { role: 'MANAGER', manager: me }, 'APPROVED', ctx.body?.comment))),
     route('POST', `${A}/team/approvals/requests/:requestType/:id/reject`, ess((ctx, me) => decideRequest(ctx.mode, typeParam(ctx.params), ctx.params.id!, { role: 'MANAGER', manager: me }, 'REJECTED', ctx.body?.comment))),
@@ -188,6 +195,11 @@ export const atsRoutes: MockRoute[] = [
     route('POST', `${A}/payroll/approvals/:requestType/:id/approve`, ctx => run(ctx.mode, () => decideRequest(ctx.mode, level2TypeParam(ctx.params), ctx.params.id!, { role: roleParam(ctx.query) }, 'APPROVED', ctx.body?.comment))),
     route('POST', `${A}/payroll/approvals/:requestType/:id/reject`, ctx => run(ctx.mode, () => decideRequest(ctx.mode, level2TypeParam(ctx.params), ctx.params.id!, { role: roleParam(ctx.query) }, 'REJECTED', ctx.body?.comment))),
     route('GET', `${A}/payroll/timesheet-status`, ctx => run(ctx.mode, () => timesheetStatusOrDefault(ctx))),
+    // PROTOTYPE-SETUP (Final batch, Slice 1): timesheets at level 2 — Payroll's final approval.
+    route('GET', `${A}/payroll/timesheets`, ctx => run(ctx.mode, () => payrollTimesheetQueue(ctx.mode, scopeParam(ctx.query)))),
+    route('GET', `${A}/payroll/timesheets/:employeeId/week`, ctx => run(ctx.mode, () => payrollWeekView(ctx.mode, ctx.params.employeeId!, dateParam(ctx.query)))),
+    route('POST', `${A}/payroll/timesheets/:employeeId/:weekStart/approve`, ctx => run(ctx.mode, () => payrollApproveWeek(ctx.mode, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
+    route('POST', `${A}/payroll/timesheets/:employeeId/:weekStart/send-back`, ctx => run(ctx.mode, () => payrollSendBackWeek(ctx.mode, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
     route('GET', `${A}/payroll/months`, ctx => run(ctx.mode, () => payrollMonths(ctx.mode))),
     route('GET', `${A}/payroll/months/:month`, ctx => run(ctx.mode, () => payrollMonthStatus(ctx.mode, monthOrFail(ctx.params.month)))),
     route('POST', `${A}/payroll/months/:month/process`, ctx => run(ctx.mode, () => processPayrollMonth(ctx.mode, monthOrFail(ctx.params.month)))),

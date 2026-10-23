@@ -33,9 +33,8 @@ export const HISTORY_LABEL: Record<HistoryAction, string> = {
     AUTO_SUBMITTED: 'Sent to the manager automatically',
     APPROVED: 'Approved the week',
     SENT_BACK: 'Sent the week back',
-    CHANGE_REQUESTED: 'Requested a change',
-    CHANGE_APPROVED: 'Approved the change',
-    CHANGE_REJECTED: 'Rejected the change',
+    // PROTOTYPE-SETUP (Final batch, Slice 1): an edit pulled a sent or approved timesheet back to draft.
+    EDITED_AFTER_SENDING: 'Edited after it was sent',
 };
 
 export const HISTORY_COLOR: Record<HistoryAction, string> = {
@@ -46,7 +45,5 @@ export const HISTORY_COLOR: Record<HistoryAction, string> = {
     AUTO_SUBMITTED: 'blue',
     APPROVED: 'green',
     SENT_BACK: 'red',
-    CHANGE_REQUESTED: 'orange',
-    CHANGE_APPROVED: 'green',
-    CHANGE_REJECTED: 'red',
+    EDITED_AFTER_SENDING: 'orange',
 };

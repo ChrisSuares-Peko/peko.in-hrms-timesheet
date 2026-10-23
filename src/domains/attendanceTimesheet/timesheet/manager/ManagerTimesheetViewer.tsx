@@ -5,7 +5,6 @@
 // (ManagerTimesheetFrame, ManagerDayView, ManagerWeekView, ManagerMonthView…) so both look identical; no editing here.
 import type { ReactNode } from 'react';
 
-import ManagerChangeRequestPanel from './ManagerChangeRequestPanel';
 import ManagerTimesheetFrame from './ManagerTimesheetFrame';
 import { useManagerTimesheetNav } from './useManagerTimesheetNav';
 import type { TimesheetMonthView, TimesheetWeekView } from '../../types';
@@ -32,7 +31,6 @@ const ManagerTimesheetViewer = ({ loadWeek, loadMonth, initialDate, weekActions,
             nav={nav}
             perspective="manager"
             weekActions={view && weekActions ? weekActions(view) : undefined}
-            notices={view?.changeRequest ? <ManagerChangeRequestPanel cr={view.changeRequest} perspective="manager" /> : null}
         />
     );
 };

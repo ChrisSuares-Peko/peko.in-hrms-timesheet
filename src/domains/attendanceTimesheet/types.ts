@@ -18,11 +18,17 @@ export type Weekday = 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY'
  */
 export type ApprovalType = 'attendance' | 'overtime' | 'timesheet' | 'leave' | 'reimbursement' | 'profile';
 
-/** Request types whose level 2 HR configures (profile updates always go to HR). */
-export type Level2ConfigurableType = Exclude<ApprovalType, 'timesheet' | 'profile'>;
+/**
+ * Request types whose level 2 HR configures (profile updates always go to HR). PROTOTYPE-SETUP (Final batch, Slice 1):
+ * timesheets too — the manager, then Payroll by default.
+ */
+export type Level2ConfigurableType = Exclude<ApprovalType, 'profile'>;
 
-/** PROTOTYPE-SETUP (HR rules, Slice 1): 'PAYROLL' = the Payroll queue (default for attendance and overtime). */
-export type Level2Approver = 'HR' | 'FINANCE' | 'PAYROLL' | 'NONE';
+/**
+ * PROTOTYPE-SETUP (HR rules, Slice 1): 'PAYROLL' = the Payroll queue (default for attendance, overtime and — Final
+ * batch — timesheets). PROTOTYPE-SETUP (Final batch, Slice 1): 'ADMIN' = the Admin queue (default for reimbursements).
+ */
+export type Level2Approver = 'HR' | 'FINANCE' | 'PAYROLL' | 'ADMIN' | 'NONE';
 
 /**
  * PROTOTYPE-SETUP (Timesheet filing): how often employees file a timesheet. Daily = one day, weekly = Monday–Sunday,
@@ -67,11 +73,17 @@ export interface AtsSettings {
         enabled: boolean;
         /** Weekly filing: every open week goes to the reporting manager on this day. */
         submissionWeekday: Weekday;
+        /** PROTOTYPE-SETUP (Final batch, Slice 1): and at this time ("23:00" = 11:00 PM). */
+        submissionTime: string;
     };
+    /** PROTOTYPE-SETUP (Final batch, Slice 1): leave deducted per late check-in, in days (0 = off). */
+    lateDeductionDays: number;
+    /** PROTOTYPE-SETUP (Final batch, Slice 1): how leave is credited, reset and pro-rated. */
+    leavePolicy: LeavePolicy;
     /** PROTOTYPE-SETUP (Timesheet filing): filing frequency and the task-entry fields. */
     timesheetFiling: TimesheetFilingSettings;
-    /** Level 2 per request type (level 1 is always the reporting manager). Timesheets: manager only. */
-    level2: Record<Level2ConfigurableType, Level2Approver> & { timesheet: 'NONE' };
+    /** Level 2 per request type (level 1 is always the reporting manager). */
+    level2: Record<Level2ConfigurableType, Level2Approver>;
     updatedAt: string;
 }
 
@@ -149,6 +161,8 @@ export interface AttendanceDay {
     /** A break is running right now. */
     onBreak: boolean;
     lateMinutes: number;
+    /** PROTOTYPE-SETUP (Final batch, Slice 1): approved half-day leave on this day. */
+    halfLeave?: LeaveHalf | null;
     /** Extra time per the overtime rule for the current mode (0 if none). */
     overtimeMinutes: number;
     /** Holiday name, leave type, "Weekly off", … */
@@ -193,11 +207,12 @@ export type ApprovalStatus =
     | 'PENDING_HR'
     | 'PENDING_FINANCE'
     | 'PENDING_PAYROLL'
+    | 'PENDING_ADMIN'
     | 'APPROVED'
     | 'REJECTED'
     | 'CANCELLED';
 
-export type ApproverRole = 'MANAGER' | 'HR' | 'FINANCE' | 'PAYROLL';
+export type ApproverRole = 'MANAGER' | 'HR' | 'FINANCE' | 'PAYROLL' | 'ADMIN';
 
 export interface ApprovalStep {
     level: 1 | 2;
@@ -319,8 +334,15 @@ export interface OvertimeView {
 
 // ---- timesheets -------------------------------------------------------------------------------------------
 
-/** SENT_BACK = returned by the manager with a comment. With approval off, weeks stay DRAFT (just recorded). */
-export type TimesheetStatus = 'DRAFT' | 'SUBMITTED' | 'APPROVED' | 'SENT_BACK';
+/**
+ * SENT_BACK = returned with a comment. With approval off, periods stay DRAFT (just recorded).
+ * PROTOTYPE-SETUP (Final batch, Slice 1): Draft → With manager (SUBMITTED) → With Payroll (WITH_PAYROLL) → Approved;
+ * sent back possible at either level. The CEO (no manager) goes straight to Payroll.
+ */
+export type TimesheetStatus = 'DRAFT' | 'SUBMITTED' | 'WITH_PAYROLL' | 'APPROVED' | 'SENT_BACK';
+
+/** PROTOTYPE-SETUP (Final batch, Slice 1): where an entry was worked from (timesheet entries and the attendance day). */
+export type WorkLocation = 'OFFICE' | 'HOME' | 'CLIENT';
 
 /**
  * PROTOTYPE-SETUP (ESS Service 1, V2): a timed entry has start and end, and `mins` = end − start. An hours-only
@@ -339,6 +361,10 @@ export interface TimesheetEntry {
     description: string;
     /** PROTOTYPE-SETUP (Timesheet filing): the project code, when the company asks for one. */
     projectCode?: string;
+    /** PROTOTYPE-SETUP (Final batch, Slice 1): where it was worked from (Both / Timesheet-only modes); default Office. */
+    location?: WorkLocation;
+    /** Required when the location is CLIENT. */
+    client?: string;
 }
 
 /**
@@ -357,6 +383,9 @@ export interface TimesheetEntryInput {
     description: string;
     /** PROTOTYPE-SETUP (Timesheet filing): required when the company turns project codes on. */
     projectCode?: string | null;
+    /** PROTOTYPE-SETUP (Final batch, Slice 1): where it was worked from; default Office. */
+    location?: WorkLocation | null;
+    client?: string | null;
 }
 
 export type ActorRole = 'EMPLOYEE' | 'MANAGER' | 'HR' | 'FINANCE' | 'SYSTEM';
@@ -381,9 +410,8 @@ export type HistoryAction =
     | 'AUTO_SUBMITTED'
     | 'APPROVED'
     | 'SENT_BACK'
-    | 'CHANGE_REQUESTED'
-    | 'CHANGE_APPROVED'
-    | 'CHANGE_REJECTED';
+    /** PROTOTYPE-SETUP (Final batch, Slice 1): an edit pulled a sent or approved period back to Draft. */
+    | 'EDITED_AFTER_SENDING';
 
 export interface HistoryEvent {
     at: string;
@@ -407,33 +435,37 @@ export interface TimesheetWeek {
     periodEnd?: string;
     status: TimesheetStatus;
     entries: TimesheetEntry[];
-    /** Last approved version — what a rejected change request keeps. */
+    /** Last approved version. */
     approvedEntries: TimesheetEntry[] | null;
     submittedAt?: string;
     autoSubmitted?: boolean;
     decision?: Decision;
-    pendingChangeRequestId?: string;
     history: HistoryEvent[];
+    /**
+     * PROTOTYPE-SETUP (Final batch, Slice 1): entries stay editable until payroll is processed. An edit to a period
+     * that's with the manager, with Payroll or approved moves it back to Draft; the baseline is what reviewers compare
+     * with ("What changed") — the last approved version, or the version as submitted. Cleared on final approval.
+     */
+    baselineEntries?: TimesheetEntry[] | null;
+    /** The status the period had when it was first edited after sending. */
+    editedAfter?: 'SUBMITTED' | 'WITH_PAYROLL' | 'APPROVED';
+    /** The manager's approval, while it's with Payroll (or after). */
+    managerDecision?: Decision;
+    /** Which level sent it back. */
+    sentBackBy?: 'MANAGER' | 'PAYROLL';
+    /** The period's attendance, as submitted with it (both / attendance modes). */
+    attendance?: SubmittedAttendanceDay[];
 }
 
-export interface ChangeRequest {
-    id: string;
-    weekId: string;
-    employeeId: number;
-    reason: string;
-    baseEntries: TimesheetEntry[];
-    proposedEntries: TimesheetEntry[];
-    status: 'PENDING' | 'APPROVED' | 'REJECTED';
-    requestedAt: string;
-    decision?: Decision;
-    /** Set when it touches a payroll-locked day: it can't be approved. */
-    blockedReason?: string;
-}
-
-export interface ChangeRequestInput {
-    reason: string;
-    /** The full proposed set of entries for the week (ids kept for existing entries). */
-    entries: (TimesheetEntryInput & { id?: string })[];
+/** PROTOTYPE-SETUP (Final batch, Slice 1): a day's attendance, sent with the timesheet. */
+export interface SubmittedAttendanceDay {
+    date: string;
+    status: DayStatus;
+    checkIn: string | null;
+    checkOut: string | null;
+    outDays: number;
+    minutesAtWork: number;
+    breakMinutes: number;
 }
 
 /** A day's timesheet window. */
@@ -498,15 +530,16 @@ export interface TimesheetDay {
 }
 
 /** How the week can be edited right now. */
-export type TimesheetEditMode = 'direct' | 'change-request' | 'locked' | 'read-only';
+/** PROTOTYPE-SETUP (Final batch, Slice 1): no more change requests — entries are edited directly until payroll. */
+export type TimesheetEditMode = 'direct' | 'locked' | 'read-only';
 
 export interface TimesheetWeekView {
     employee: PersonRef & { dateOfJoin: string; managerName: string | null };
     week: TimesheetWeek;
     days: TimesheetDay[];
-    /** The pending (or most recent) change request for this week. */
-    changeRequest: ChangeRequest | null;
     approvalEnabled: boolean;
+    /** PROTOTYPE-SETUP (Final batch, Slice 1): who approves after the manager ('PAYROLL' by default, or 'NONE'). */
+    level2: Level2Approver;
     submissionWeekday: Weekday;
     mode: AtsMode;
     editMode: TimesheetEditMode;
@@ -525,6 +558,8 @@ export interface PeriodFiling {
     period: { start: string; end: string; label: string };
     /** A draft's automatic submission date (null when approval is off or it isn't a draft). */
     autoSubmitOn: string | null;
+    /** PROTOTYPE-SETUP (Final batch, Slice 1): and its time ("23:00"). */
+    autoSubmitAt: string;
 }
 
 /** A filing period in a list (month views, payroll status, team grids). */
@@ -543,7 +578,8 @@ export interface PeriodSummary {
  * still checked in, and unclaimed overtime.
  */
 export interface TimesheetNotices {
-    weeks: { weekStart: string; periodEnd: string; kind: 'sent-back' | 'change-pending'; text: string }[];
+    /** PROTOTYPE-SETUP (Final batch, Slice 1): 'edited' = edited after it was sent; it needs submitting again. */
+    weeks: { weekStart: string; periodEnd: string; kind: 'sent-back' | 'edited'; text: string }[];
     openFrom?: { date: string; checkIn: string };
     overtime?: { days: number; minutes: number };
 }
@@ -651,8 +687,8 @@ export interface TeamMonthSummary {
 export type QueueScope = 'waiting' | 'all';
 
 export interface TimesheetApprovalItem {
-    kind: 'TIMESHEET' | 'CHANGE_REQUEST';
-    /** Week id, or change request id. */
+    kind: 'TIMESHEET';
+    /** The period's id. */
     id: string;
     weekId: string;
     weekStart: string;
@@ -660,13 +696,16 @@ export interface TimesheetApprovalItem {
     periodEnd: string;
     employee: PersonRef;
     at: string;
-    status: TimesheetStatus | ChangeRequest['status'];
+    status: TimesheetStatus;
     loggedMinutes: number;
     expectedMinutes: number;
     reason?: string;
+    /** PROTOTYPE-SETUP (Final batch, Slice 1): edited after it was sent / approved — "What changed" vs the baseline. */
+    editedAfter?: TimesheetWeek['editedAfter'];
+    /** "1 added · 2 edited" against the baseline. */
     diffSummary?: string;
-    /** Change request touching a payroll-locked day. */
-    blockedReason?: string;
+    /** Who approved it at level 1 (the Payroll queue). */
+    approvedBy?: string;
     waitingForYou: boolean;
 }
 
@@ -801,9 +840,11 @@ export interface EssHomeView {
 
 export interface ApprovalCounts {
     timesheets: number;
-    changeRequests: number;
     attendance: number;
     overtime: number;
+    /** PROTOTYPE-SETUP (Final batch, Slice 1): leave and reimbursements also go to the manager first. */
+    leave: number;
+    reimbursement: number;
 }
 
 export interface DecisionInput {
@@ -812,8 +853,11 @@ export interface DecisionInput {
 
 // ---- Payroll ----------------------------------------------------------------------------------------------
 
-/** PROTOTYPE-SETUP (HR rules, Slice 4): 'PAYROLL' handles level-2 attendance corrections and overtime. */
-export type Level2Role = 'HR' | 'FINANCE' | 'PAYROLL';
+/**
+ * PROTOTYPE-SETUP (HR rules, Slice 4): 'PAYROLL' handles level-2 attendance corrections and overtime (Final batch:
+ * and timesheets). PROTOTYPE-SETUP (Final batch, Slice 1): 'ADMIN' handles reimbursements.
+ */
+export type Level2Role = 'HR' | 'FINANCE' | 'PAYROLL' | 'ADMIN';
 
 export interface PayrollBlocker {
     employee: PersonRef;
@@ -855,4 +899,132 @@ export interface TimesheetStatusView {
 export interface SubmissionRunResult {
     submissionWeekday: Weekday;
     submitted: { employeeId: number; name: string; weekStart: string; periodEnd: string; autoApproved?: boolean }[];
+}
+
+// ---- leave (PROTOTYPE-SETUP: Final batch, Slice 1) ---------------------------------------------------------
+// Leave types, the company's leave policy, requests with their approval trail (manager → HR), and the per-type ledger.
+// Rules: src/prototype/rules/leavePolicy.ts. Contract: docs/api/leave-policy.md.
+
+export type LeaveType = 'ANNUAL' | 'CASUAL' | 'SICK';
+
+export interface LeaveTypePolicy {
+    daysPerYear: number;
+    /** UPFRONT = all at the start of the year; MONTHLY = daysPerYear ÷ 12 each month (not rounded). */
+    credit: 'UPFRONT' | 'MONTHLY';
+    /** Days carried into the next year; anything above lapses at reset. */
+    carryForward: number;
+    /** Unused leave is paid out on exit. */
+    encashOnExit: boolean;
+}
+
+export interface LeavePolicy {
+    /** COMPANY = one leave year for everyone starting on `cycleStart`; JOINING = each employee's joining anniversary. */
+    year: 'COMPANY' | 'JOINING';
+    /** "MM-DD" (day 1–28). */
+    cycleStart: string;
+    /** 0 = none. During probation every type is credited monthly; the rest lands when it ends. */
+    probationMonths: number;
+    types: Record<LeaveType, LeaveTypePolicy>;
+}
+
+export type LeaveHalf = 'FIRST' | 'SECOND';
+
+export interface LeaveRequest {
+    id: string;
+    employeeId: number;
+    type: LeaveType;
+    start: string;
+    end: string;
+    /** A half day (start = end), or null for full days. */
+    half: LeaveHalf | null;
+    /** Working days (0.5 for a half day). */
+    days: number;
+    reason: string;
+    /** Sick leave of more than 3 days needs proof. */
+    proof?: { name: string };
+    trail: ApprovalTrail;
+    /** Withdrawn by the employee while pending. */
+    withdrawn?: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface LeaveRequestInput {
+    type: LeaveType;
+    start: string;
+    end?: string;
+    half?: LeaveHalf | null;
+    reason: string;
+    proof?: { name: string } | null;
+}
+
+export type LedgerKind =
+    | 'CARRIED'
+    | 'LAPSED'
+    | 'MONTHLY'
+    | 'PROBATION_MONTHLY'
+    | 'PROBATION_REST'
+    | 'PRORATED_JOIN'
+    | 'PRORATED_EXIT'
+    | 'YEARLY'
+    | 'TAKEN'
+    | 'LATE'
+    | 'LATE_REVERSED';
+
+export interface LedgerEntry {
+    date: string;
+    kind: LedgerKind;
+    /** + credit, − debit; null for an information row (lapsed). */
+    amount: number | null;
+    text: string;
+}
+
+export interface LeaveBalance {
+    type: LeaveType;
+    label: string;
+    available: number;
+    /** Credited so far this year, carried forward included. */
+    creditedSoFar: number;
+    /** This year's pro-rated entitlement plus what was carried forward. */
+    totalThisYear: number;
+    carried: number;
+    taken: number;
+    /** Late check-in deductions still standing (reversals netted). */
+    late: number;
+    next: { date: string; amount: number } | null;
+    /** Newest first. */
+    ledger: LedgerEntry[];
+}
+
+export interface LateDeduction {
+    date: string;
+    lateMinutes: number;
+    days: number;
+    /** Where it was taken from, in order (Annual first, then Casual, then loss of pay). */
+    from: { type: LeaveType | 'LOP'; days: number }[];
+    state: 'deducted' | 'pending' | 'reversed';
+    /** When the correction that reversed it was approved. */
+    reversedOn?: string;
+}
+
+export interface LeaveSettlement {
+    type: LeaveType;
+    /** Unused days paid out (encashable types). */
+    encash: number;
+    /** Days taken beyond what was earned, recovered as loss of pay. */
+    recover: number;
+}
+
+export interface LeaveView {
+    year: { start: string; end: string; basis: LeavePolicy['year'] };
+    dateOfJoin: string;
+    probationUntil: string | null;
+    exit: { date: string; settlement: LeaveSettlement[] } | null;
+    balances: LeaveBalance[];
+    lateDeductions: LateDeduction[];
+    /** Late-deduction days that ran past every balance. */
+    lossOfPayDays: number;
+    lateDeductionDays: number;
+    requests: (LeaveRequest & { statusLabel: string })[];
+    managerName: string | null;
 }

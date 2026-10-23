@@ -6,8 +6,6 @@ import type { AttendanceDay, PersonalDetails, TimesheetEntry } from '@src/domain
 import {
     DEFAULT_SETTINGS,
     RuleError,
-    canSubmitWeek,
-    changeRequestBlockedReason,
     decide,
     deriveDay,
     diffEntries,
@@ -29,7 +27,6 @@ import {
     hasCheckIn,
     hasTimesheets,
     hasTracking,
-    isSubmissionDay,
     outsideCheckInFlag,
     overtimeMinutes,
     PROFILE_MESSAGES,
@@ -50,7 +47,6 @@ import {
     validateOvertimeInput,
     weekStartOf,
     weekdayOf,
-    weeksDueForSubmission,
     weeksOverlappingMonth,
 } from '../attendance';
 
@@ -299,36 +295,18 @@ describe('breaks', () => {
     });
 });
 
-describe('weeks, change requests and locks', () => {
+describe('periods and locks', () => {
+    // PROTOTYPE-SETUP (Final batch, Slice 1): no change requests — every status edits directly until payroll.
     it('edit modes', () => {
-        expect(editModeFor({ approvalEnabled: true, status: 'APPROVED', allDaysLocked: false })).toBe('change-request');
-        expect(editModeFor({ approvalEnabled: true, status: 'SUBMITTED', allDaysLocked: false })).toBe('direct');
+        expect(editModeFor({ approvalEnabled: true, status: 'APPROVED', allDaysLocked: false })).toBe('direct');
+        expect(editModeFor({ approvalEnabled: true, status: 'WITH_PAYROLL', allDaysLocked: false })).toBe('direct');
         expect(editModeFor({ approvalEnabled: false, status: 'DRAFT', allDaysLocked: false })).toBe('direct');
         expect(editModeFor({ approvalEnabled: true, status: 'SENT_BACK', allDaysLocked: true })).toBe('locked');
     });
-    it('the employee only resubmits sent-back weeks (drafts go out on submission day), only with approval on', () => {
-        expect(canSubmitWeek({ approvalEnabled: true, status: 'SENT_BACK', allDaysLocked: false })).toBe(true);
-        expect(canSubmitWeek({ approvalEnabled: true, status: 'DRAFT', allDaysLocked: false })).toBe(false);
-        expect(canSubmitWeek({ approvalEnabled: true, status: 'SUBMITTED', allDaysLocked: false })).toBe(false);
-        expect(canSubmitWeek({ approvalEnabled: false, status: 'DRAFT', allDaysLocked: false })).toBe(false);
-    });
-    it('submission day sends every open week up to this one', () => {
-        expect(isSubmissionDay('2026-10-09', S)).toBe(true);
-        expect(isSubmissionDay(TODAY, S)).toBe(false);
-        const weeks = [
-            { weekStart: '2026-09-28', status: 'DRAFT' as const },
-            { weekStart: '2026-10-05', status: 'DRAFT' as const },
-            { weekStart: '2026-10-12', status: 'DRAFT' as const },
-            { weekStart: '2026-09-21', status: 'SENT_BACK' as const },
-        ];
-        expect(weeksDueForSubmission(weeks, '2026-10-09').map(w => w.weekStart)).toEqual(['2026-09-28', '2026-10-05']);
-    });
-    it('describes the change and blocks one touching a processed month', () => {
+    it('describes a change against the baseline', () => {
         const base = [entry('a', '2026-09-30', '09:30', '18:30'), entry('b', '2026-10-01', '09:30', '18:30')];
         const proposed = [entry('a', '2026-09-30', '09:30', '17:30'), entry('c', '2026-10-02', '10:00', '11:00')];
         expect(diffSummary(diffEntries(base, proposed))).toBe('1 added · 1 edited · 1 removed');
-        expect(changeRequestBlockedReason({ baseEntries: base, proposedEntries: proposed }, ['2026-09'])).toMatch(/September 2026/);
-        expect(changeRequestBlockedReason({ baseEntries: base, proposedEntries: proposed }, [])).toBeNull();
     });
     it('payroll is blocked until every overlapping week is approved', () => {
         const employees = [{ id: 1, dateOfJoin: '2024-01-01' }, { id: 2, dateOfJoin: '2026-12-01' }];
@@ -370,16 +348,19 @@ describe('approval chain', () => {
         expect(decide(t, 'MANAGER', 'REJECTED', 'No', 'now').status).toBe('REJECTED');
         expect(decide(decide(t, 'MANAGER', 'APPROVED', undefined, 'now'), 'PAYROLL', 'APPROVED', undefined, 'now').status).toBe('APPROVED');
     });
-    it('the wrong role cannot decide; leave and reimbursement routing is unchanged', () => {
+    // PROTOTYPE-SETUP (Final batch, Slice 1): leave → HR; reimbursements → Admin; timesheets → Payroll.
+    it('the wrong role cannot decide; leave → HR, reimbursements → Admin', () => {
         expect(() => decide(startTrail('overtime', manager, S), 'PAYROLL', 'APPROVED', undefined, 'now')).toThrow(RuleError);
         expect(() => decide(decide(startTrail('overtime', manager, S), 'MANAGER', 'APPROVED', undefined, 'now'), 'FINANCE', 'APPROVED', undefined, 'now')).toThrow(RuleError);
         expect(startTrail('leave', manager, S).steps[1].role).toBe('HR');
-        expect(startTrail('reimbursement', manager, S).steps[1].role).toBe('FINANCE');
+        expect(startTrail('reimbursement', manager, S).steps[1].role).toBe('ADMIN');
+        expect(startTrail('reimbursement', manager, S).status).toBe('PENDING_MANAGER');
+        expect(decide(startTrail('reimbursement', manager, S), 'MANAGER', 'APPROVED', undefined, 'now').status).toBe('PENDING_ADMIN');
     });
-    it('the CEO skips straight to level 2; timesheets have no level 2', () => {
+    it('the CEO skips straight to level 2; timesheets go to Payroll at level 2', () => {
         expect(startTrail('overtime', null, S).status).toBe('PENDING_PAYROLL');
-        expect(startTrail('timesheet', null, S).status).toBe('APPROVED');
-        expect(startTrail('timesheet', manager, S).steps).toHaveLength(1);
+        expect(startTrail('timesheet', null, S).status).toBe('PENDING_PAYROLL');
+        expect(startTrail('timesheet', manager, S).steps.map(x => x.role)).toEqual(['MANAGER', 'PAYROLL']);
     });
 });
 

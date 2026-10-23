@@ -11,7 +11,6 @@ import type {
     AtsTab,
     AttendanceBreak,
     AttendanceDay,
-    ChangeRequest,
     DayStatus,
     DayWindow,
     OutsideCheckInFlag,
@@ -22,6 +21,9 @@ import type {
     ProfileChange,
     TimesheetEditMode,
     TimesheetEntry,
+    LeaveHalf,
+    LeavePolicy,
+    WorkLocation,
     TimesheetFields,
     TimesheetFilingSettings,
     TimesheetStatus,
@@ -177,6 +179,25 @@ export const DEFAULT_FILING: TimesheetFilingSettings = {
     projectCodes: ['PAY-101', 'INV-220', 'NTF-310', 'ENG-OPS', 'SAL-120', 'OPS-210', 'FIN-300', 'HR-110', 'LDR-001'],
 };
 
+// PROTOTYPE-SETUP (Final batch, Slice 1): the leave policy defaults (rules: ./leavePolicy.ts).
+/**
+ * Annual 12 a year credited monthly, carry forward up to 30, encashed on exit; Casual 8 and Sick 6 credited upfront,
+ * no carry forward, not encashed. Company leave cycle from 1 April; 6 months' probation.
+ */
+export const DEFAULT_LEAVE_POLICY: LeavePolicy = {
+    year: 'COMPANY',
+    cycleStart: '04-01',
+    probationMonths: 6,
+    types: {
+        ANNUAL: { daysPerYear: 12, credit: 'MONTHLY', carryForward: 30, encashOnExit: true },
+        CASUAL: { daysPerYear: 8, credit: 'UPFRONT', carryForward: 0, encashOnExit: false },
+        SICK: { daysPerYear: 6, credit: 'UPFRONT', carryForward: 0, encashOnExit: false },
+    },
+};
+
+/** Late check-ins deduct this many days by default (0 = off). */
+export const DEFAULT_LATE_DEDUCTION_DAYS = 0.5;
+
 export const DEFAULT_SETTINGS: AtsSettings = {
     mode: 'both',
     shift: { start: '09:30', end: '18:30' },
@@ -185,9 +206,13 @@ export const DEFAULT_SETTINGS: AtsSettings = {
     halfDayThresholdMinutes: 4 * 60,
     overtimeMinimumMinutes: 30,
     weeklyOff: ['SATURDAY', 'SUNDAY'],
-    timesheetApproval: { enabled: true, submissionWeekday: 'FRIDAY' },
+    // PROTOTYPE-SETUP (Final batch, Slice 1): auto-submit every Friday at 11:00 PM.
+    timesheetApproval: { enabled: true, submissionWeekday: 'FRIDAY', submissionTime: '23:00' },
+    lateDeductionDays: DEFAULT_LATE_DEDUCTION_DAYS,
+    leavePolicy: DEFAULT_LEAVE_POLICY,
     // PROTOTYPE-SETUP (HR rules, Slice 1): attendance corrections and overtime go to the Payroll queue at level 2.
-    level2: { attendance: 'PAYROLL', overtime: 'PAYROLL', timesheet: 'NONE', leave: 'HR', reimbursement: 'FINANCE' },
+    // PROTOTYPE-SETUP (Final batch, Slice 1): timesheets go manager → Payroll; reimbursements manager → Admin.
+    level2: { attendance: 'PAYROLL', overtime: 'PAYROLL', timesheet: 'PAYROLL', leave: 'HR', reimbursement: 'ADMIN' },
     timesheetFiling: DEFAULT_FILING,
     updatedAt: '',
 };
@@ -316,12 +341,21 @@ export interface DayInput {
     holidayName?: string;
     /** Full-day approved leave, e.g. "Casual Leave". */
     leaveName?: string;
+    /** PROTOTYPE-SETUP (Final batch, Slice 1): approved half-day leave (first or second half). */
+    halfLeave?: LeaveHalf | null;
 }
 
 export type DerivedDay = Pick<
     AttendanceDay,
-    'status' | 'checkIn' | 'checkOut' | 'outDays' | 'open' | 'carried' | 'minutesAtWork' | 'lateMinutes' | 'label' | 'breaks' | 'breakMinutes' | 'onBreak'
+    'status' | 'checkIn' | 'checkOut' | 'outDays' | 'open' | 'carried' | 'minutesAtWork' | 'lateMinutes' | 'label' | 'breaks' | 'breakMinutes' | 'onBreak' | 'halfLeave'
 > & { isOffDay: boolean };
+
+/** PROTOTYPE-SETUP (Final batch, Slice 1): "Half-day leave (first half)" */
+export const halfLeaveText = (half: LeaveHalf) => `Half-day leave (${half === 'FIRST' ? 'first' : 'second'} half)`;
+
+/** The middle of the shift, in minutes: where a half-day leave splits the day. */
+export const midShiftMinutes = (shift: { start: string; end: string }) =>
+    toMinutes(shift.start) + Math.round((toMinutes(shift.end) - toMinutes(shift.start)) / 2);
 
 /**
  * Day status:
@@ -351,6 +385,21 @@ export const deriveDay = (input: DayInput): DerivedDay => {
 
     if (input.leaveName && !input.checkIn) {
         return { ...base, status: 'on-leave', minutesAtWork: 0, lateMinutes: 0, label: input.leaveName };
+    }
+    // PROTOTYPE-SETUP (Final batch, Slice 1): half-day leave — the other half is a working half: the late mark moves
+    // to mid-shift for first-half leave, there's no "half day" status, and no check-in on a past day is "Absent
+    // (other half)".
+    const half = !off && input.halfLeave ? input.halfLeave : null;
+    if (half) {
+        const label = halfLeaveText(half);
+        if (!input.checkIn) {
+            if (date < today) return { ...base, status: 'absent', minutesAtWork: 0, lateMinutes: 0, label: `${label} · Absent (other half)`, halfLeave: half };
+            return { ...base, status: date === today ? 'not-checked-in' : 'upcoming', minutesAtWork: 0, lateMinutes: 0, label, halfLeave: half };
+        }
+        const startAt = half === 'FIRST' ? midShiftMinutes(settings.shift) : toMinutes(settings.shift.start);
+        const lateBy = toMinutes(input.checkIn) - startAt;
+        const lateMinutes = lateBy > settings.graceMinutes ? lateBy : 0;
+        return { ...base, status: lateMinutes ? 'late' : 'present', minutesAtWork: atWork, lateMinutes, label, halfLeave: half };
     }
     if (off) {
         const label = off === 'holiday' ? input.holidayName : 'Weekly off';
@@ -569,6 +618,27 @@ export const normaliseProjectCode = (v: string | null | undefined) => (v ?? '').
 /** Up to 20 letters, numbers, dots, dashes or slashes, starting with a letter or number. */
 export const PROJECT_CODE_RE = /^[A-Z0-9][A-Z0-9._/-]{0,19}$/;
 
+// ---- where the work was done (PROTOTYPE-SETUP: Final batch, Slice 1) --------------------------------------
+
+export const LOCATION_LABEL: Record<WorkLocation, string> = { OFFICE: 'Office', HOME: 'Home', CLIENT: 'Client site' };
+
+/** "Office", "Home", "Client: Brightline" (the entry row chip). */
+export const locationChip = (location: WorkLocation | undefined, client?: string) =>
+    location === 'CLIENT' ? `Client: ${client ?? ''}`.trim() : LOCATION_LABEL[location ?? 'OFFICE'];
+
+/** "Client site (Brightline)" (the attendance trail). */
+export const locationText = (location: WorkLocation, client?: string) =>
+    location === 'CLIENT' && client ? `Client site (${client})` : LOCATION_LABEL[location];
+
+/** An entry's location (default Office); a client site needs the client's name (up to 60 characters). */
+const whereOf = (input: { location?: WorkLocation | null; client?: string | null }): { location: WorkLocation; client?: string } => {
+    const location: WorkLocation = input.location === 'HOME' || input.location === 'CLIENT' ? input.location : 'OFFICE';
+    if (location !== 'CLIENT') return { location };
+    const client = (input.client ?? '').trim().slice(0, 60);
+    if (!client) throw new RuleError(ENTRY_MESSAGES.client, 400);
+    return { location, client };
+};
+
 /**
  * Validation messages — the prototype's wording (docs/prototypes/attendance-timesheet.html), plus `missing`
  * (nothing entered at all). PROTOTYPE-SETUP (HR rules, Slice 1): an end earlier than the start is the next morning
@@ -590,7 +660,9 @@ export const ENTRY_MESSAGES = {
     // PROTOTYPE-SETUP (Timesheet filing): per the company's fields.
     needTimes: 'Enter a start and end time.',
     needDuration: 'Enter how long you worked, e.g. 1:30 or 1h 30m.',
-    projectCode: 'Add a project code.',
+    projectCode: 'Pick a project code.',
+    // PROTOTYPE-SETUP (Final batch, Slice 1): where the work was done.
+    client: 'Add the client’s name for a client-site entry.',
     projectCodeFormat: 'Use a project code of up to 20 letters, numbers, dots, dashes or slashes.',
 } as const;
 
@@ -624,6 +696,8 @@ export const validateEntry = (
         hoursText?: string;
         description: string;
         projectCode?: string | null;
+        location?: WorkLocation | null;
+        client?: string | null;
         id?: string;
     },
     others: TimesheetEntry[],
@@ -666,7 +740,7 @@ export const validateEntry = (
     if (fields?.projectCode && !code) throw new RuleError(ENTRY_MESSAGES.projectCode, 400);
     if (fields?.projectCode && !PROJECT_CODE_RE.test(code)) throw new RuleError(ENTRY_MESSAGES.projectCodeFormat, 400);
     // Project codes off: a code already on the entry is kept (not shown, not required).
-    const projectCode = code && PROJECT_CODE_RE.test(code) ? { projectCode: code } : {};
+    const projectCode = { ...(code && PROJECT_CODE_RE.test(code) ? { projectCode: code } : {}), ...whereOf(input) };
 
     const sameDay = others.filter(o => o.date === input.date && o.id !== input.id);
     if (sameDay.reduce((sum, o) => sum + entryMins(o), 0) + minutes > MAX_DAY_MINUTES) {
@@ -702,7 +776,7 @@ export const validateEntry = (
 export const expectedMinutes = (input: {
     mode: AtsMode;
     settings: Pick<AtsSettings, 'shift' | 'breakMinutes'>;
-    day: Pick<AttendanceDay, 'date' | 'status' | 'checkIn' | 'checkOut' | 'carried' | 'minutesAtWork'>;
+    day: Pick<AttendanceDay, 'date' | 'status' | 'checkIn' | 'checkOut' | 'carried' | 'minutesAtWork'> & Partial<Pick<AttendanceDay, 'halfLeave'>>;
     today: string;
     dateOfJoin?: string;
 }) => {
@@ -710,7 +784,11 @@ export const expectedMinutes = (input: {
     if (!hasTimesheets(mode)) return 0;
     if (input.dateOfJoin && day.date < input.dateOfJoin) return 0;
     if (day.status === 'on-leave') return 0;
-    if (mode === 'timesheet') return ['holiday', 'weekly-off', 'worked-off-day'].includes(day.status) ? 0 : shiftMinutes(settings);
+    if (mode === 'timesheet') {
+        if (['holiday', 'weekly-off', 'worked-off-day'].includes(day.status)) return 0;
+        // PROTOTYPE-SETUP (Final batch, Slice 1): half-day leave → half the shift.
+        return day.halfLeave ? Math.round(shiftMinutes(settings) / 2) : shiftMinutes(settings);
+    }
     if (!day.checkIn || day.carried) return 0;
     return day.minutesAtWork;
 };
@@ -881,24 +959,12 @@ export const isLocked = (date: string, processedMonths: string[]) => processedMo
 export const lockReasonFor = (date: string) =>
     `Payroll for ${monthLabel(monthOf(date))} has been processed — this day is read-only.`;
 
-/** A change request touching a locked day can't be approved. Returns why, or null. */
-export const changeRequestBlockedReason = (
-    cr: Pick<ChangeRequest, 'baseEntries' | 'proposedEntries'>,
-    processedMonths: string[]
-) => {
-    const locked = datesTouched(diffEntries(cr.baseEntries, cr.proposedEntries)).filter(d =>
-        isLocked(d, processedMonths)
-    );
-    if (!locked.length) return null;
-    return `It changes ${locked.length === 1 ? 'a day' : 'days'} in ${[...new Set(locked.map(d => monthLabel(monthOf(d))))].join(' and ')}, whose payroll has already been processed.`;
-};
-
 // ---- timesheet lifecycle --------------------------------------------------------------------------------
 
 /**
- * With approval off, weeks are just recorded and editable until payroll is processed. With approval on:
- * Draft / Submitted / Sent back edit directly (a submitted week just updates); an Approved week is edited
- * through a change request. A week whose days are all locked is locked.
+ * PROTOTYPE-SETUP (Final batch, Slice 1): entries are edited directly in every status until payroll is processed for
+ * the month (an edit to a sent or approved period moves it back to Draft — see editedBack). A period whose days are
+ * all locked is locked.
  */
 export const editModeFor = (input: {
     approvalEnabled: boolean;
@@ -908,25 +974,8 @@ export const editModeFor = (input: {
 }): TimesheetEditMode => {
     if (input.readOnly) return 'read-only';
     if (input.allDaysLocked) return 'locked';
-    if (!input.approvalEnabled) return 'direct';
-    return input.status === 'APPROVED' ? 'change-request' : 'direct';
+    return 'direct';
 };
-
-/**
- * PROTOTYPE-SETUP (V2): timesheets go out on the submission day only (weeksDueForSubmission). The employee's one
- * manual action is resubmitting a week the manager sent back.
- */
-export const canSubmitWeek = (input: { approvalEnabled: boolean; status: TimesheetStatus; allDaysLocked: boolean }) =>
-    input.approvalEnabled && !input.allDaysLocked && input.status === 'SENT_BACK';
-
-export const isSubmissionDay = (today: string, s: Pick<AtsSettings, 'timesheetApproval'>) =>
-    s.timesheetApproval.enabled && weekdayOf(today) === s.timesheetApproval.submissionWeekday;
-
-/** On the submission weekday every open week (Draft) up to and including this week goes to the manager. */
-export const weeksDueForSubmission = <W extends { weekStart: string; status: TimesheetStatus }>(
-    weeks: W[],
-    today: string
-) => weeks.filter(w => w.status === 'DRAFT' && w.weekStart <= weekStartOf(today));
 
 /** The CEO has no manager: their timesheets are auto-approved. */
 export const timesheetAutoApproved = (managerId: number | null | undefined) => !managerId;
@@ -979,7 +1028,7 @@ export const startTrail = (
         const hrOnly: ApprovalTrail['steps'] = [{ level: 2, role: 'HR' }];
         return { type, status: nextStatus(hrOnly), steps: hrOnly };
     }
-    const l2 = type === 'timesheet' ? 'NONE' : settings.level2[type];
+    const l2 = settings.level2[type];
     const steps: ApprovalTrail['steps'] = [
         manager
             ? { level: 1, role: 'MANAGER', approverId: manager.id, approverName: manager.name }
@@ -996,6 +1045,7 @@ export function nextStatus(steps: ApprovalTrail['steps']): ApprovalStatus {
     if (!pending) return 'APPROVED';
     if (pending.role === 'MANAGER') return 'PENDING_MANAGER';
     if (pending.role === 'PAYROLL') return 'PENDING_PAYROLL';
+    if (pending.role === 'ADMIN') return 'PENDING_ADMIN';
     return pending.role === 'HR' ? 'PENDING_HR' : 'PENDING_FINANCE';
 }
 
@@ -1005,6 +1055,7 @@ export const awaiting = (trail: ApprovalTrail): ApproverRole | null => {
     if (trail.status === 'PENDING_HR') return 'HR';
     if (trail.status === 'PENDING_FINANCE') return 'FINANCE';
     if (trail.status === 'PENDING_PAYROLL') return 'PAYROLL';
+    if (trail.status === 'PENDING_ADMIN') return 'ADMIN';
     return null;
 };
 
@@ -1053,6 +1104,8 @@ export const trailLabel = (trail: ApprovalTrail) => {
             return 'With HR';
         case 'PENDING_FINANCE':
             return 'With Finance';
+        case 'PENDING_ADMIN':
+            return 'With Admin';
         case 'PENDING_PAYROLL':
             return 'With Payroll';
         case 'APPROVED':

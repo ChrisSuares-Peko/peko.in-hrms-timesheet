@@ -3,7 +3,7 @@
 // drawer (shared with the member timesheet page).
 import { useCallback, useEffect, useState } from 'react';
 
-import { LockOutlined, RightOutlined } from '@ant-design/icons';
+import { RightOutlined } from '@ant-design/icons';
 import { Button, Empty, Flex, Segmented, Skeleton, Tag, Typography } from 'antd';
 
 import { getTimesheetQueue } from '../api';
@@ -16,10 +16,11 @@ import type { QueueScope, TimesheetApprovalItem } from '../types';
 
 const ItemCard = ({ item, onOpen }: { item: TimesheetApprovalItem; onOpen: () => void }) => {
     const status = approvalItemStatus(item);
-    const isChange = item.kind === 'CHANGE_REQUEST';
+    // PROTOTYPE-SETUP (Final batch, Slice 1): no change requests — a period edited after it was approved is flagged.
+    const edited = Boolean(item.editedAfter);
     const short = item.loggedMinutes < item.expectedMinutes;
     let verb = 'Decided';
-    if (item.waitingForYou) verb = isChange ? 'Requested' : 'Submitted';
+    if (item.waitingForYou) verb = 'Submitted';
     const when = item.at ? `${verb} ${fmtStamp(item.at)}` : '';
     return (
         <button
@@ -33,13 +34,13 @@ const ItemCard = ({ item, onOpen }: { item: TimesheetApprovalItem; onOpen: () =>
                 <Flex vertical gap={8} className="min-w-0 flex-1 basis-[240px]">
                     <PersonCell person={item.employee} />
                     <Flex gap={6} align="center" wrap="wrap">
-                        <Tag color={isChange ? 'gold' : 'blue'} className="!m-0">
-                            {isChange ? 'Change request' : 'Timesheet submitted'}
+                        <Tag color={edited ? 'gold' : 'blue'} className="!m-0">
+                            {edited ? 'Edited after approval' : 'Submitted'}
                         </Tag>
                         <Typography.Text strong>{fmtPeriod(item.weekStart, item.periodEnd)}</Typography.Text>
                     </Flex>
                     <Typography.Text type="secondary" className="text-sm">
-                        {isChange ? 'Proposed: logged ' : 'Logged '}
+                        {edited ? 'Edited after it was approved · logged ' : 'Logged '}
                         <span className={short ? 'text-[#B54708] font-medium' : 'text-[#171717] font-medium'}>
                             {formatDuration(item.loggedMinutes)}
                         </span>{' '}
@@ -48,14 +49,9 @@ const ItemCard = ({ item, onOpen }: { item: TimesheetApprovalItem; onOpen: () =>
                     {item.diffSummary && <Typography.Text className="text-sm">{item.diffSummary}</Typography.Text>}
                     {item.reason && (
                         <Typography.Paragraph type="secondary" className="!mb-0 text-sm" ellipsis={{ rows: 2 }}>
-                            <span className="font-medium text-[#475467]">{isChange ? 'Reason: ' : 'Your comment: '}</span>
+                            <span className="font-medium text-[#475467]">Comment: </span>
                             {item.reason}
                         </Typography.Paragraph>
-                    )}
-                    {item.blockedReason && (
-                        <Typography.Text className="text-sm text-[#B54708]">
-                            <LockOutlined /> Can&apos;t be approved — {item.blockedReason}
-                        </Typography.Text>
                     )}
                 </Flex>
                 <Flex vertical align="flex-end" gap={8} className="ml-auto">

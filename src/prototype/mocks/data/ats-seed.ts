@@ -23,7 +23,6 @@ import type {
     ActorRef,
     AttendanceCorrection,
     AttendanceRecord,
-    ChangeRequest,
     HistoryEvent,
     OvertimeRequest,
     TimesheetEntry,
@@ -318,7 +317,6 @@ const draftWeek = (e: MockEmployee, weekStart: string, entries: TimesheetEntry[]
 export interface AtsSeed {
     attendance: Record<string, AttendanceRecord>;
     weeks: Record<string, TimesheetWeek>;
-    changeRequests: ChangeRequest[];
     corrections: AttendanceCorrection[];
     overtime: OvertimeRequest[];
 }
@@ -390,58 +388,33 @@ const snehaScenarios = (s: ReturnType<typeof atsScenario>, seed: AtsSeed) => {
         ],
     };
 
-    // Approved week with a pending change request: last block on crDay shortened, a client call added.
+    // PROTOTYPE-SETUP (Final batch, Slice 1): an approved week edited afterwards (a client call added out of the last
+    // block of a day) and submitted again — it's back with the manager, who sees "What changed" against the approved
+    // version.
     const cw = weeks[weekId(sneha.id, s.crWeek)];
     const dayBlocks = cw.entries.filter(x => x.date === s.crDay);
     const last = dayBlocks[dayBlocks.length - 1];
     if (last) {
         const callStart = fromMinutes(toMinutes(last.end ?? '18:30') - 60);
-        const proposed = sortEntries([
+        const edited = sortEntries([
             ...cw.entries.map(x => (x.id === last.id ? { ...x, end: callStart, mins: toMinutes(callStart) - toMinutes(x.start ?? callStart) } : x)),
             timedEntry(`te-${sneha.id}-${s.crDay}-cr`, s.crDay, callStart, last.end ?? '18:30', 'Client call – Zenith Bank integration'),
         ]);
-        const requestedAt = isoDateTime(addDays(s.crWeek, 7), '09:40:00');
-        seed.changeRequests.push({
-            id: 'cr-001',
-            weekId: cw.id,
-            employeeId: sneha.id,
-            reason: 'Forgot to log the Zenith Bank client call — it came out of the last block of the day.',
-            baseEntries: cw.entries,
-            proposedEntries: proposed,
-            status: 'PENDING',
-            requestedAt,
-        });
+        const editedAt = isoDateTime(addDays(s.crWeek, 7), '09:30:00');
+        const resubmittedAt = isoDateTime(addDays(s.crWeek, 7), '09:40:00');
         weeks[cw.id] = {
             ...cw,
-            pendingChangeRequestId: 'cr-001',
-            history: [...cw.history, history(requestedAt, actorOf(sneha, 'EMPLOYEE'), 'CHANGE_REQUESTED', 'Client call added')],
-        };
-    }
-
-    // A rejected change request in the past.
-    const rw = weeks[weekId(sneha.id, s.rejectedCrWeek)];
-    if (rw?.entries.length) {
-        const first = rw.entries[0];
-        const at = isoDateTime(addDays(s.rejectedCrWeek, 8), '06:00:00');
-        const decidedAt = isoDateTime(addDays(s.rejectedCrWeek, 9), '05:30:00');
-        const rejectComment = 'These hours are already billed to the client — keep the original split.';
-        seed.changeRequests.push({
-            id: 'cr-000',
-            weekId: rw.id,
-            employeeId: sneha.id,
-            reason: 'Re-label the first block as design review.',
-            baseEntries: rw.entries,
-            proposedEntries: rw.entries.map(x => (x.id === first.id ? { ...x, description: 'Design review – notifications v2' } : x)),
-            status: 'REJECTED',
-            requestedAt: at,
-            decision: { by: actorOf(arjun, 'MANAGER'), at: decidedAt, comment: rejectComment },
-        });
-        weeks[rw.id] = {
-            ...rw,
+            status: 'SUBMITTED',
+            entries: edited,
+            baselineEntries: cw.approvedEntries ?? cw.entries,
+            editedAfter: 'APPROVED',
+            submittedAt: resubmittedAt,
+            autoSubmitted: false,
+            decision: undefined,
             history: [
-                ...rw.history,
-                history(at, actorOf(sneha, 'EMPLOYEE'), 'CHANGE_REQUESTED', 'Description change'),
-                history(decidedAt, actorOf(arjun, 'MANAGER'), 'CHANGE_REJECTED', rejectComment),
+                ...cw.history,
+                history(editedAt, actorOf(sneha, 'EMPLOYEE'), 'EDITED_AFTER_SENDING', 'Edited after it was approved. Needs submitting again.'),
+                history(resubmittedAt, actorOf(sneha, 'EMPLOYEE'), 'SUBMITTED', 'Submitted again after edits.'),
             ],
         };
     }
@@ -481,26 +454,29 @@ const snehaScenarios = (s: ReturnType<typeof atsScenario>, seed: AtsSeed) => {
 
 const teamScenarios = (s: ReturnType<typeof atsScenario>, seed: AtsSeed) => {
     const { weeks } = seed;
-    // Rahul: a pending change request on crWeek (description edit).
+    // Rahul: crWeek edited after approval (a description fixed), resubmitted, approved by Arjun — now with Payroll.
     const rahul = emp('ACME-003');
     const rw = weeks[weekId(rahul.id, s.crWeek)];
     const target = rw?.entries.find(x => x.date >= s.crDay);
-    if (rw && target) {
-        const requestedAt = isoDateTime(addDays(s.crWeek, 7), '11:05:00');
-        seed.changeRequests.push({
-            id: 'cr-002',
-            weekId: rw.id,
-            employeeId: rahul.id,
-            reason: 'Wrong project on this block — it was the refund API, not code review.',
-            baseEntries: rw.entries,
-            proposedEntries: rw.entries.map(x => (x.id === target.id ? { ...x, description: 'Payments service – refund API changes' } : x)),
-            status: 'PENDING',
-            requestedAt,
-        });
+    const mgr = managerOf(rahul);
+    if (rw && target && mgr) {
+        const resubmittedAt = isoDateTime(addDays(s.crWeek, 7), '11:05:00');
+        const approvedAt = isoDateTime(addDays(s.crWeek, 7), '15:20:00');
+        const decision = { by: actorOf(mgr, 'MANAGER'), at: approvedAt };
         weeks[rw.id] = {
             ...rw,
-            pendingChangeRequestId: 'cr-002',
-            history: [...rw.history, history(requestedAt, actorOf(rahul, 'EMPLOYEE'), 'CHANGE_REQUESTED', 'Description change')],
+            status: 'WITH_PAYROLL',
+            entries: rw.entries.map(x => (x.id === target.id ? { ...x, description: 'Payments service – refund API changes' } : x)),
+            baselineEntries: rw.approvedEntries ?? rw.entries,
+            editedAfter: 'APPROVED',
+            submittedAt: resubmittedAt,
+            managerDecision: decision,
+            decision,
+            history: [
+                ...rw.history,
+                history(resubmittedAt, actorOf(rahul, 'EMPLOYEE'), 'SUBMITTED', 'Submitted again after edits.'),
+                history(approvedAt, actorOf(mgr, 'MANAGER'), 'APPROVED', 'Approved, sent to Payroll'),
+            ],
         };
     }
     // Vikram: time logged after his check-out (his correction to 8:10 PM is pending).
@@ -631,7 +607,6 @@ export const buildAtsSeed = (): AtsSeed => {
     const seed: AtsSeed = {
         attendance,
         weeks: buildWeeks(s, attendance),
-        changeRequests: [],
         corrections: seedCorrections(s, attendance),
         overtime: seedOvertime(s),
     };

@@ -43,7 +43,6 @@ const MyTeamCard = () => {
 
     const approvals: { label: string; value: number; tab: MyTeamTab }[] = [
         { label: 'Timesheets', value: counts?.timesheets ?? 0, tab: 'timesheet-approvals' as MyTeamTab },
-        { label: 'Change requests', value: counts?.changeRequests ?? 0, tab: 'timesheet-approvals' as MyTeamTab },
         { label: 'Attendance', value: counts?.attendance ?? 0, tab: 'attendance-approvals' as MyTeamTab },
         { label: 'Overtime', value: counts?.overtime ?? 0, tab: 'overtime-approvals' as MyTeamTab },
     ].filter(a => tabs.includes(a.tab));

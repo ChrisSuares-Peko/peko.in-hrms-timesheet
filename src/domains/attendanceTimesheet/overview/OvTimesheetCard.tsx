@@ -35,7 +35,6 @@ export const weekChip = (week: TimesheetWeekView): { text: string; color?: strin
     const noun = PERIOD_NOUN[periodKind(period.start, period.end, frequency)];
     const name = noun.charAt(0).toUpperCase() + noun.slice(1);
     if (!week.approvalEnabled) return { text: `${name}: recorded (no approval)` };
-    if (week.changeRequest?.status === 'PENDING') return { text: `${name}: Change pending`, className: '!bg-[#E4F6EC] !text-[#067647]' };
     const { status } = week.week;
     if (status === 'DRAFT') {
         const on = week.filing.autoSubmitOn;

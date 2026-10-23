@@ -31,6 +31,7 @@ import { periodEndOf, periodLabel } from '@src/prototype/rules/timesheetFiling';
 
 import { overtimeViewOf } from './atsEss';
 import { profileRequestsOf } from './atsProfile';
+import { atsReimbursements, leaveRequestsOf } from './atsRequests';
 import {
     activeOvertimeOn,
     attendanceDay,
@@ -38,10 +39,9 @@ import {
     currentMonth,
     getSettings,
     loggedOn,
-    managerRef,
     openSessionBefore,
     overtimeOfEmployee,
-    pendingChangeRequest,
+    editedAfterSending,
     timesheetDay,
     periodsBetween,
     today,
@@ -49,8 +49,6 @@ import {
 } from './atsStore';
 import { MockEmployee } from '../data/employees';
 import { holidaysForYear } from '../data/time-calendar';
-import { leavesOf } from '../data/time-leaves';
-import { reimbursementsOf } from '../data/time-requests';
 import type { DataMode } from '../envelope';
 
 const MAX_REQUESTS = 6;
@@ -102,7 +100,7 @@ const recentDaysOf = (mode: DataMode, e: MockEmployee): OverviewDay[] => {
             },
             timesheet: {
                 weekStatus: week.status,
-                changePending: Boolean(pendingChangeRequest(mode, week)),
+                changePending: editedAfterSending(week),
                 loggedMinutes: logged,
                 // PROTOTYPE-SETUP (Overview v4, Slice 4): the same expected-hours rule as the Timesheet tab.
                 expectedMinutes: timesheetDay(mode, e, date, week.entries).expectedMinutes,
@@ -163,7 +161,7 @@ const actionsOf = (mode: DataMode, e: MockEmployee): OverviewAction[] => {
 
 // ---- your requests ------------------------------------------------------------------------------------------
 
-const ROLE_NAME = { HR: 'HR team', FINANCE: 'Finance team', PAYROLL: 'Payroll' } as const;
+const ROLE_NAME = { HR: 'HR team', FINANCE: 'Finance team', PAYROLL: 'Payroll', ADMIN: 'Admin' } as const;
 
 /** "Waiting with Arjun Mehta" / "Waiting with HR team" / "Approved by …" / "Rejected by …: reason" */
 export const trailStatusText = (trail: ApprovalTrail) => {
@@ -188,44 +186,39 @@ const stateOf = (trail: ApprovalTrail): OverviewRequest['state'] | null => {
 };
 
 const requestsOf = (mode: DataMode, e: MockEmployee): OverviewRequest[] => {
-    const manager = managerRef(e)?.name ?? 'your manager';
     const items: OverviewRequest[] = [];
-    if (mode !== 'empty') {
-        leavesOf(e)
-            .filter(l => l.status !== 'cancelledByEmployee')
-            .forEach(l => {
-                let statusText = `Waiting with ${manager}`;
-                if (l.status === 'approved') statusText = `Approved by ${manager}`;
-                if (l.status === 'rejected') statusText = `Rejected by ${manager}${l.reviewNote ? `: ${l.reviewNote}` : ''}`;
-                items.push({
-                    type: 'leave',
-                    id: l.id,
-                    title: 'Leave',
-                    detail: l.start === l.end ? dm(l.start) : `${dm(l.start)}–${dm(l.end)}`,
-                    statusText,
-                    state: l.status === 'applied' ? 'pending' : (l.status as 'approved' | 'rejected'),
-                    at: l.updatedAt,
-                    link: { page: 'leaves' },
-                });
+    // PROTOTYPE-SETUP (Final batch, Slice 1): leave and reimbursements are live requests with an approval trail.
+    leaveRequestsOf(mode, e.id).forEach(l => {
+        const state = stateOf(l.trail);
+        if (!state || l.withdrawn) return;
+        items.push({
+            type: 'leave',
+            id: l.id,
+            title: 'Leave',
+            detail: l.start === l.end ? dm(l.start) : `${dm(l.start)}–${dm(l.end)}`,
+            statusText: trailStatusText(l.trail),
+            state,
+            at: l.updatedAt,
+            link: { page: 'leaves' },
+        });
+    });
+    atsReimbursements
+        .get(mode)
+        .filter(c => c.employeeId === e.id)
+        .forEach(c => {
+            const state = stateOf(c.trail);
+            if (!state || c.withdrawn) return;
+            items.push({
+                type: 'reimbursement',
+                id: c.id,
+                title: 'Reimbursement',
+                detail: `₹${c.totalPay.toLocaleString('en-IN')}`,
+                statusText: trailStatusText(c.trail),
+                state,
+                at: c.updatedAt,
+                link: { page: 'reimbursements' },
             });
-        reimbursementsOf(e)
-            .filter(r => r.status !== 'cancelledByEmployee')
-            .forEach(r => {
-                let statusText = `Waiting with ${manager}`;
-                if (r.status === 'approved') statusText = `Approved by ${manager}`;
-                if (r.status === 'rejected') statusText = `Rejected by ${manager}`;
-                items.push({
-                    type: 'reimbursement',
-                    id: r.id,
-                    title: 'Reimbursement',
-                    detail: `₹${r.totalPay.toLocaleString('en-IN')}`,
-                    statusText,
-                    state: r.status === 'requestedByEmployee' ? 'pending' : (r.status as 'approved' | 'rejected'),
-                    at: r.updatedAt,
-                    link: { page: 'reimbursements' },
-                });
-            });
-    }
+        });
     // PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' mode keeps leave, reimbursement and profile requests only.
     const tracked = hasTracking(getSettings(mode).mode);
     (tracked ? overtimeOfEmployee(mode, e) : []).forEach(o => {

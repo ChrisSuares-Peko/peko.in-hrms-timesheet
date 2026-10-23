@@ -53,6 +53,8 @@ interface FormValues {
     weeklyOff: Weekday[];
     approvalEnabled: boolean;
     submissionWeekday: Weekday;
+    /** PROTOTYPE-SETUP (Final batch, Slice 1): auto-submit time, "23:00". */
+    submissionTime: string;
     level2: Record<Level2Key, Level2Approver>;
     frequency: FilingFrequency;
     fieldStart: boolean;
@@ -107,14 +109,15 @@ const MODES: { value: AtsMode; label: string; tabs: string; overtime: string }[]
     },
 ];
 
+// PROTOTYPE-SETUP (Final batch, Slice 1): every request type can go to Payroll, HR, Admin or Finance at level 2 (defaults:
+// attendance, overtime and timesheets → Payroll; leave → HR; reimbursements → Admin).
 const LEVEL2_OPTIONS: { value: Level2Approver; label: string }[] = [
+    { value: 'PAYROLL', label: 'Payroll' },
     { value: 'HR', label: 'HR' },
+    { value: 'ADMIN', label: 'Admin' },
     { value: 'FINANCE', label: 'Finance' },
-    { value: 'NONE', label: 'None' },
+    { value: 'NONE', label: 'None (manager is final)' },
 ];
-// PROTOTYPE-SETUP (HR rules, Slice 1/4): attendance corrections and overtime can go to Payroll (the default);
-// leave and reimbursements keep HR / Finance.
-const PAYROLL_LEVEL2_OPTIONS: { value: Level2Approver; label: string }[] = [{ value: 'PAYROLL', label: 'Payroll' }, ...LEVEL2_OPTIONS];
 
 interface MatrixRow {
     key: ApprovalType;
@@ -149,11 +152,13 @@ const toForm = (s: AtsSettings): FormValues => ({
     weeklyOff: s.weeklyOff,
     approvalEnabled: s.timesheetApproval.enabled,
     submissionWeekday: s.timesheetApproval.submissionWeekday,
+    submissionTime: s.timesheetApproval.submissionTime,
     level2: {
         attendance: s.level2.attendance,
         overtime: s.level2.overtime,
         leave: s.level2.leave,
         reimbursement: s.level2.reimbursement,
+        timesheet: s.level2.timesheet,
     },
     frequency: (s.timesheetFiling ?? DEFAULT_FILING).frequency,
     fieldStart: (s.timesheetFiling ?? DEFAULT_FILING).fields.startTime,
@@ -171,8 +176,8 @@ const fromForm = (v: FormValues): Partial<AtsSettings> => ({
     halfDayThresholdMinutes: Math.round(v.halfDayHours * 60),
     overtimeMinimumMinutes: v.overtimeMinimumMinutes,
     weeklyOff: WEEKDAYS.filter(d => v.weeklyOff.includes(d)),
-    timesheetApproval: { enabled: v.approvalEnabled, submissionWeekday: v.submissionWeekday },
-    level2: { ...v.level2, timesheet: 'NONE' },
+    timesheetApproval: { enabled: v.approvalEnabled, submissionWeekday: v.submissionWeekday, submissionTime: v.submissionTime || '23:00' },
+    level2: { ...v.level2 },
     timesheetFiling: {
         frequency: v.frequency,
         fields: { startTime: v.fieldStart, endTime: v.fieldEnd, duration: v.fieldDuration, projectCode: v.fieldProjectCode },
@@ -307,15 +312,11 @@ const AtsSettingsTab = () => {
             key: 'level2',
             width: 220,
             render: (_, row) =>
-                row.key === 'timesheet' ? (
-                    <Text type="secondary">None — manager only</Text>
+                row.key === 'profile' ? (
+                    <Text type="secondary">HR</Text>
                 ) : (
                     <Form.Item name={['level2', row.key]} noStyle>
-                        <Select
-                            options={row.key === 'attendance' || row.key === 'overtime' ? PAYROLL_LEVEL2_OPTIONS : LEVEL2_OPTIONS}
-                            className="w-full min-w-[140px]"
-                            aria-label={`Level 2 approver for ${row.label}`}
-                        />
+                        <Select options={LEVEL2_OPTIONS} className="w-full min-w-[140px]" aria-label={`Level 2 approver for ${row.label}`} />
                     </Form.Item>
                 ),
         },

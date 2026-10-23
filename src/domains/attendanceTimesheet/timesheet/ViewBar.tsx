@@ -1,8 +1,11 @@
 // PROTOTYPE-SETUP: ESS Service 1 (V2) — the Timesheet tab's view bar (prototype "viewbar"): Day / Week / Month,
-// period arrows, the period label and "Logged X of Y worked" (Timesheet-only: "of Y shift") for the period, plus a
-// chip while editing a change or showing the proposed changes.
+// period arrows, the period label and "Logged X of Y worked" (Timesheet-only: "of Y shift") for the period.
+// PROTOTYPE-SETUP (Final batch, Slice 1): no change-request chips (edits save straight away); `actions` holds the
+// template / upload buttons.
+import type { ReactNode } from 'react';
+
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
-import { Button, Segmented, Tag } from 'antd';
+import { Button, Segmented } from 'antd';
 
 import { formatDuration } from '@src/prototype/rules/attendance';
 
@@ -15,13 +18,13 @@ export interface ViewBarProps {
     expected: number;
     /** PROTOTYPE-SETUP (HR rules, Slice 3): "worked" (check-in to check-out) or "shift" (Timesheet-only mode). */
     ofWord?: 'worked' | 'shift';
-    editingChange: boolean;
-    showingProposed: boolean;
+    /** Buttons at the end of the bar (Download template, Upload timesheet). */
+    actions?: ReactNode;
     onMode: (m: TimesheetViewMode) => void;
     onStep: (dir: 1 | -1) => void;
 }
 
-const ViewBar = ({ mode, label, logged, expected, ofWord = 'worked', editingChange, showingProposed, onMode, onStep }: ViewBarProps) => (
+const ViewBar = ({ mode, label, logged, expected, ofWord = 'worked', actions, onMode, onStep }: ViewBarProps) => (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
         <Segmented
             aria-label="View"
@@ -43,16 +46,7 @@ const ViewBar = ({ mode, label, logged, expected, ofWord = 'worked', editingChan
         <span className="basis-full text-[13px] text-gray-600 sm:basis-auto">
             Logged <b className="font-medium text-gray-900">{formatDuration(logged)}</b> of {formatDuration(expected)} {ofWord}
         </span>
-        {editingChange && (
-            <Tag color="orange" className="!m-0">
-                Editing a change
-            </Tag>
-        )}
-        {showingProposed && !editingChange && (
-            <Tag color="orange" className="!m-0">
-                Showing your proposed changes
-            </Tag>
-        )}
+        {actions && <span className="flex flex-wrap gap-1.5">{actions}</span>}
     </div>
 );
 

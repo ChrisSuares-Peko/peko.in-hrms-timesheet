@@ -67,7 +67,7 @@ const MyTeamPage = () => {
 
     const badge: Partial<Record<MyTeamTab, number>> = counts
         ? {
-              'timesheet-approvals': counts.timesheets + counts.changeRequests,
+              'timesheet-approvals': counts.timesheets,
               'attendance-approvals': counts.attendance,
               'overtime-approvals': counts.overtime,
           }

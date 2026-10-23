@@ -7,8 +7,6 @@ import type {
     AttendanceBreak,
     AttendanceMonthView,
     AttendanceTotals,
-    ChangeRequest,
-    ChangeRequestInput,
     CorrectionInput,
     HistoryEvent,
     OvertimeInput,
@@ -21,19 +19,16 @@ import type {
     TimesheetNotices,
     TimesheetWeek,
     TimesheetWeekView,
+    SubmittedAttendanceDay,
 } from '@src/domains/attendanceTimesheet/types';
 import {
     RuleError,
     addDays,
     cancelTrail,
-    changeRequestBlockedReason,
     BREAK_MESSAGES,
     breaksAsEntries,
     checkOutMinutes,
-    datesTouched,
     daysBetween,
-    diffEntries,
-    diffSummary,
     displayTime,
     displayTimeOn,
     entryMins,
@@ -53,7 +48,6 @@ import {
     shouldSuggestOvertime,
     startTrail,
     tabsFor,
-    timesheetAutoApproved,
     titleFor,
     toMinutes,
     trailLabel,
@@ -62,8 +56,11 @@ import {
     validateOvertimeInput,
 } from '@src/prototype/rules/attendance';
 import {
+    EDITED_AFTER_TEXT,
     SubmissionAcknowledgement,
     canSubmitPeriod,
+    editedBack,
+    submittedStatus,
     gapCount,
     periodEndOf,
     periodKind,
@@ -74,7 +71,6 @@ import {
 
 import {
     activeOvertimeOn,
-    atsChangeRequests,
     atsCorrections,
     atsOvertime,
     attendanceDay,
@@ -91,7 +87,6 @@ import {
     openSessionBefore,
     overtimeContext,
     overtimeOfEmployee,
-    pendingChangeRequest,
     periodDates,
     periodsBetween,
     recordOf,
@@ -103,6 +98,7 @@ import {
     weekView,
     weeksSummary,
     breaksOn,
+    editedAfterSending,
     entriesOn,
     storedPeriodsOf,
 } from './atsStore';
@@ -423,26 +419,33 @@ const assertDayEditable = (mode: DataMode, e: MockEmployee, date: string) => {
     if (isDayLocked(mode, date)) throw new RuleError(lockReasonFor(date));
 };
 
-const assertWeekDirect = (mode: DataMode, week: TimesheetWeek) => {
-    if (getSettings(mode).timesheetApproval.enabled && week.status === 'APPROVED') {
-        throw new RuleError('This period is approved — use "Request a change" to edit it.');
-    }
-};
-
 /** PROTOTYPE-SETUP (HR rules, Slice 3): entries can't overlap recorded breaks either. */
 const withBreaks = (mode: DataMode, e: MockEmployee, date: string | undefined, entries: TimesheetEntry[]) =>
     date ? [...entries, ...breaksAsEntries(date, breaksOn(mode, e, date), date === today() ? nowMinutes() : undefined)] : entries;
 
 const fieldsOf = (mode: DataMode) => getSettings(mode).timesheetFiling.fields;
 
+/**
+ * PROTOTYPE-SETUP (Final batch, Slice 1): every entry change saves straight away, in any status, until payroll is
+ * processed for the month. A change to a period that's with the manager, with Payroll or approved moves it back to
+ * Draft with a baseline (what reviewers compare with) — it has to be submitted again.
+ */
+const saveEdited = (mode: DataMode, e: MockEmployee, week: TimesheetWeek, entries: TimesheetEntry[], change: HistoryEvent) => {
+    const back = editedBack(week);
+    const history = [...week.history, change];
+    if (back !== week) {
+        history.push(event(e, 'EDITED_AFTER_SENDING', `Edited after it was ${EDITED_AFTER_TEXT[back.editedAfter!]}. Needs submitting again.`));
+    }
+    saveWeek(mode, { ...back, entries: sortEntries(entries), history });
+};
+
 export const addEntry = (mode: DataMode, e: MockEmployee, input: TimesheetEntryInput) => {
     assertTimesheets(mode);
     const week = weekOf(mode, e, input?.date ?? '');
     const clean = validateEntry(input, withBreaks(mode, e, input?.date, week.entries), fieldsOf(mode));
     assertDayEditable(mode, e, clean.date);
-    assertWeekDirect(mode, week);
     const entry: TimesheetEntry = { id: uid('te'), ...clean };
-    saveWeek(mode, { ...week, entries: sortEntries([...week.entries, entry]), history: [...week.history, event(e, 'ENTRY_ADDED', `${entryLabel(entry)} · ${entry.description}`)] });
+    saveEdited(mode, e, week, [...week.entries, entry], event(e, 'ENTRY_ADDED', `${entryLabel(entry)} · ${entry.description}`));
     return weekView(mode, e, week.weekStart);
 };
 
@@ -458,17 +461,12 @@ export const editEntry = (mode: DataMode, e: MockEmployee, entryId: string, inpu
     const week = weekWithEntry(mode, e, entryId);
     const before = week.entries.find(x => x.id === entryId)!;
     assertDayEditable(mode, e, before.date);
-    assertWeekDirect(mode, week);
     const date = input?.date ?? '';
     if (date < week.weekStart || date > periodEndOf(week)) throw new RuleError('Keep the entry within the same filing period.', 400);
     const clean = validateEntry({ ...input, id: entryId }, withBreaks(mode, e, date, week.entries), fieldsOf(mode));
     assertDayEditable(mode, e, clean.date);
     const after = { id: entryId, ...clean };
-    saveWeek(mode, {
-        ...week,
-        entries: sortEntries(week.entries.map(x => (x.id === entryId ? after : x))),
-        history: [...week.history, event(e, 'ENTRY_EDITED', `${entryLabel(after)} · ${after.description}`)],
-    });
+    saveEdited(mode, e, week, week.entries.map(x => (x.id === entryId ? after : x)), event(e, 'ENTRY_EDITED', `${entryLabel(after)} · ${after.description}`));
     return weekView(mode, e, week.weekStart);
 };
 
@@ -477,12 +475,7 @@ export const deleteEntry = (mode: DataMode, e: MockEmployee, entryId: string) =>
     const week = weekWithEntry(mode, e, entryId);
     const entry = week.entries.find(x => x.id === entryId)!;
     assertDayEditable(mode, e, entry.date);
-    assertWeekDirect(mode, week);
-    saveWeek(mode, {
-        ...week,
-        entries: week.entries.filter(x => x.id !== entryId),
-        history: [...week.history, event(e, 'ENTRY_DELETED', `${entryLabel(entry)} · ${entry.description}`)],
-    });
+    saveEdited(mode, e, week, week.entries.filter(x => x.id !== entryId), event(e, 'ENTRY_DELETED', `${entryLabel(entry)} · ${entry.description}`));
     return weekView(mode, e, week.weekStart);
 };
 
@@ -490,39 +483,66 @@ export const deleteEntry = (mode: DataMode, e: MockEmployee, entryId: string) =>
 export const reviewOf = (view: TimesheetWeekView) =>
     reviewPeriod({ days: view.days, fields: view.filing.fields, mode: view.mode, today: today() });
 
+/** PROTOTYPE-SETUP (Final batch, Slice 1): the period's attendance, sent with the timesheet (days up to today). */
+export const attendanceSnapshot = (mode: DataMode, e: MockEmployee, week: TimesheetWeek): SubmittedAttendanceDay[] | undefined => {
+    if (!hasCheckIn(getSettings(mode).mode)) return undefined;
+    return periodDates(week)
+        .filter(d => d <= today() && d >= e.dateOfJoin)
+        .map(d => attendanceDay(mode, e, d))
+        .map(d => ({ date: d.date, status: d.status, checkIn: d.checkIn, checkOut: d.checkOut, outDays: d.outDays, minutesAtWork: d.minutesAtWork, breakMinutes: d.breakMinutes }));
+};
+
 /**
- * Submitting (and auto-approving for someone without a manager, i.e. the CEO). `note` = the review summary: what an
- * automatic submission didn't stop for, or what the employee acknowledged.
+ * Submitting a period, with its attendance. PROTOTYPE-SETUP (Final batch, Slice 1): it goes to the manager; with no
+ * manager (the CEO) straight to Payroll, or approved when the company has no level 2 for timesheets. `note` = the
+ * review summary: what an automatic submission didn't stop for, or what the employee acknowledged.
  */
-export const submitWeekRecord = (week: TimesheetWeek, e: MockEmployee, auto: boolean, note?: string): TimesheetWeek => {
+export const submitWeekRecord = (
+    mode: DataMode,
+    week: TimesheetWeek,
+    e: MockEmployee,
+    auto: boolean,
+    note?: string
+): TimesheetWeek => {
     const at = nowIso();
+    const settings = getSettings(mode);
+    const level2 = settings.level2.timesheet;
+    const status = submittedStatus(Boolean(managerRef(e)), level2);
+    let again = week.editedAfter ? 'Submitted again after edits' : 'Submitted';
+    if (week.status === 'SENT_BACK') again = 'Resubmitted after changes';
+    const skipped = managerRef(e) ? '' : ' No reporting manager, so it skipped level 1.';
+    const t = settings.timesheetApproval;
     const submitted: TimesheetWeek = {
         ...week,
-        status: 'SUBMITTED',
+        status,
         submittedAt: at,
         autoSubmitted: auto,
+        attendance: attendanceSnapshot(mode, e, week),
+        ...(status === 'APPROVED'
+            ? { approvedEntries: week.entries, baselineEntries: null, editedAfter: undefined, decision: { by: SYSTEM_ACTOR, at, comment: 'Auto-approved — no reporting manager.' } }
+            : { decision: undefined, sentBackBy: undefined }),
         history: [
             ...week.history,
             auto
-                ? { at, actor: SYSTEM_ACTOR, action: 'AUTO_SUBMITTED', detail: `Sent to the manager automatically${note ? ` · not reviewed: ${note}` : ''}` }
-                : event(e, 'SUBMITTED', note ? `Submitted with ${note}` : undefined),
+                ? {
+                      at,
+                      actor: SYSTEM_ACTOR,
+                      action: 'AUTO_SUBMITTED',
+                      detail: `Auto-submitted ${weekdayName(t.submissionWeekday)} at ${displayTime(t.submissionTime)}${note ? ` · not reviewed: ${note}` : ''}.${skipped}`,
+                  }
+                : event(e, 'SUBMITTED', `${again}${note ? ` with ${note}` : ''}.${skipped}`),
         ],
     };
-    if (!timesheetAutoApproved(managerRef(e)?.id)) return submitted;
-    return {
-        ...submitted,
-        status: 'APPROVED',
-        approvedEntries: submitted.entries,
-        decision: { by: SYSTEM_ACTOR, at, comment: 'Auto-approved — no reporting manager.' },
-        history: [...submitted.history, { at, actor: SYSTEM_ACTOR, action: 'APPROVED', detail: 'Auto-approved — no reporting manager' }],
-    };
+    return submitted;
 };
+
+const weekdayName = (w: string) => w.charAt(0) + w.slice(1).toLowerCase();
 
 /**
  * PROTOTYPE-SETUP (Timesheet filing): the employee submits a draft period (once it has started) or resubmits a
  * sent-back one. Entries missing a required field stop it (the screen shows them first); overlaps and gaps don't —
  * the screen warns and the employee acknowledges, and what they acknowledged goes in the history. A period that is
- * already submitted can't be submitted again (a repeated click gets an error, not a second submission).
+ * already sent can't be submitted again (a repeated click gets an error, not a second submission).
  */
 export const submitWeek = (mode: DataMode, e: MockEmployee, periodStart: string, body?: { acknowledged?: SubmissionAcknowledgement }) => {
     assertTimesheets(mode);
@@ -534,7 +554,8 @@ export const submitWeek = (mode: DataMode, e: MockEmployee, periodStart: string,
     if (!canSubmitPeriod({ approvalEnabled: true, status: week.status, allDaysLocked: view.days.every(d => d.locked), start: week.weekStart, today: today() })) {
         const why: Record<string, string> = {
             SUBMITTED: `This timesheet is already with ${view.employee.managerName ?? 'your manager'}.`,
-            APPROVED: 'This timesheet is approved — use "Request a change" to edit it.',
+            WITH_PAYROLL: 'This timesheet is already with Payroll.',
+            APPROVED: 'This timesheet is already approved. Edit an entry if something needs to change.',
         };
         throw new RuleError(why[week.status] ?? 'This timesheet can no longer be submitted.');
     }
@@ -545,7 +566,7 @@ export const submitWeek = (mode: DataMode, e: MockEmployee, periodStart: string,
     }
     const ack = body?.acknowledged ?? {};
     const acknowledged = reviewSummary({ ...review, overlaps: ack.overlaps ? review.overlaps : [], gaps: ack.gaps ? review.gaps : [] });
-    saveWeek(mode, submitWeekRecord(week, e, false, acknowledged || undefined));
+    saveWeek(mode, submitWeekRecord(mode, week, e, false, acknowledged || undefined));
     return weekView(mode, e, week.weekStart);
 };
 
@@ -553,63 +574,6 @@ export const submitWeek = (mode: DataMode, e: MockEmployee, periodStart: string,
 export const autoSubmitNote = (mode: DataMode, e: MockEmployee, week: TimesheetWeek) => {
     const review = reviewOf(weekView(mode, e, week.weekStart));
     return review.overlaps.length || gapCount(review) || review.issues.length ? reviewSummary(review) : undefined;
-};
-
-// ---- change requests --------------------------------------------------------------------------------
-
-export const requestChange = (mode: DataMode, e: MockEmployee, periodStart: string, input: ChangeRequestInput) => {
-    assertTimesheets(mode);
-    const settings = getSettings(mode);
-    const week = weekOf(mode, e, periodStart);
-    if (!settings.timesheetApproval.enabled || week.status !== 'APPROVED') {
-        throw new RuleError('Only an approved period needs a change request — edit this period directly.');
-    }
-    const reason = input?.reason?.trim();
-    if (!reason) throw new RuleError('Add a reason for the change.', 400);
-    const base = week.approvedEntries ?? week.entries;
-    const dates = new Set(periodDates(week));
-    const { fields } = settings.timesheetFiling;
-    const proposed = (input.entries ?? []).reduce<TimesheetEntry[]>((acc, x) => {
-        // The company's fields apply to added and edited entries; untouched ones stay as they were approved.
-        const others = [...acc, ...withBreaks(mode, e, x.date, [])];
-        const asIs = validateEntry({ ...x, id: x.id }, others);
-        const before = x.id ? base.find(b => b.id === x.id) : undefined;
-        const untouched = before && !diffEntries([before], [{ ...asIs, id: before.id }]).edited.length;
-        const clean = untouched ? asIs : validateEntry({ ...x, id: x.id }, others, fields);
-        if (!dates.has(clean.date)) throw new RuleError('Every entry must be in this period.', 400);
-        if (clean.date < e.dateOfJoin) throw new RuleError('That day is before your joining date.', 400);
-        const id = x.id && base.some(b => b.id === x.id) ? x.id : uid('te');
-        return [...acc, { id, ...clean }];
-    }, []);
-    const diff = diffEntries(base, proposed);
-    if (!datesTouched(diff).length) throw new RuleError('Nothing has changed yet.', 400);
-    const blocked = changeRequestBlockedReason({ baseEntries: base, proposedEntries: proposed }, [...new Set(datesTouched(diff).filter(d => isDayLocked(mode, d)).map(d => d.slice(0, 7)))]);
-    if (blocked) throw new RuleError(blocked);
-    const existing = pendingChangeRequest(mode, week);
-    const at = nowIso();
-    const cr: ChangeRequest = existing
-        ? { ...existing, reason, proposedEntries: sortEntries(proposed), requestedAt: at }
-        : { id: uid('cr'), weekId: week.id, employeeId: e.id, reason, baseEntries: base, proposedEntries: sortEntries(proposed), status: 'PENDING', requestedAt: at };
-    const autoApprove = timesheetAutoApproved(managerRef(e)?.id);
-    const finalCr: ChangeRequest = autoApprove ? { ...cr, status: 'APPROVED', decision: { by: SYSTEM_ACTOR, at, comment: 'Auto-approved — no reporting manager.' } } : cr;
-    atsChangeRequests.update(mode, list => [finalCr, ...list.filter(c => c.id !== cr.id)]);
-    const history = [...week.history, event(e, 'CHANGE_REQUESTED', `${diffSummary(diff)} — ${reason}`)];
-    saveWeek(
-        mode,
-        autoApprove
-            ? { ...week, entries: finalCr.proposedEntries, approvedEntries: finalCr.proposedEntries, pendingChangeRequestId: undefined, history: [...history, { at, actor: SYSTEM_ACTOR, action: 'CHANGE_APPROVED' }] }
-            : { ...week, pendingChangeRequestId: cr.id, history }
-    );
-    return weekView(mode, e, week.weekStart);
-};
-
-export const cancelChangeRequest = (mode: DataMode, e: MockEmployee, periodStart: string) => {
-    const week = weekOf(mode, e, periodStart);
-    const cr = pendingChangeRequest(mode, week);
-    if (!cr) throw new RuleError('There is no pending change request for this period.');
-    atsChangeRequests.update(mode, list => list.filter(c => c.id !== cr.id));
-    saveWeek(mode, { ...week, pendingChangeRequestId: undefined });
-    return weekView(mode, e, week.weekStart);
 };
 
 // ---- timesheet notices (PROTOTYPE-SETUP: HR rules, Slice 3) ------------------------------------------
@@ -628,8 +592,10 @@ export const timesheetNoticesOf = (mode: DataMode, e: MockEmployee): TimesheetNo
             ? periodsBetween(mode, e, from, t).flatMap((w): TimesheetNotices['weeks'] => {
                   const periodEnd = periodEndOf(w);
                   if (w.status === 'SENT_BACK') return [{ weekStart: w.weekStart, periodEnd, kind: 'sent-back' as const, text: w.decision?.comment ?? 'Your manager asked for an update.' }];
-                  const cr = pendingChangeRequest(mode, w);
-                  return cr ? [{ weekStart: w.weekStart, periodEnd, kind: 'change-pending' as const, text: `With ${manager}. ${cr.reason}` }] : [];
+                  // PROTOTYPE-SETUP (Final batch, Slice 1): edited after it was sent — it needs submitting again.
+                  return w.status === 'DRAFT' && editedAfterSending(w)
+                      ? [{ weekStart: w.weekStart, periodEnd, kind: 'edited' as const, text: `Edited after it was sent. Submit it again so ${manager} can re-approve it.` }]
+                      : [];
               })
             : [];
     const open = settings.mode === 'both' ? openSessionBefore(mode, e, t) : undefined;

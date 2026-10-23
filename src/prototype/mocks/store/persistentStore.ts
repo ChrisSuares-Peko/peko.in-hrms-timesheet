@@ -14,7 +14,9 @@ const PREFIX = 'prototype:';
 // v4 (V2): entries gained `mins` and may be hours-only — older saved data reseeds.
 // PROTOTYPE-SETUP (HR rules, Slice 1): v5 — open sessions, outDays, breaks, next-day entries, Payroll level 2.
 // PROTOTYPE-SETUP (Timesheet filing): v6 — filing settings (frequency, fields) and project codes on entries.
-const VERSION = 'v6';
+// PROTOTYPE-SETUP (Final batch, Slice 1): v7 — period statuses With Payroll / baselines, locations, leave policy,
+// live leave requests and reimbursements.
+const VERSION = 'v7';
 
 /** The day the demo data is built for — the real current date. */
 export const demoDay = () => toIsoDate(new Date());

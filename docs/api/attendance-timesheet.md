@@ -28,9 +28,11 @@ Defaults:
 - Shift `09:30–18:30` (the shift includes the break), `breakMinutes: 60`.
 - `graceMinutes: 10`, `halfDayThresholdMinutes: 240`, `overtimeMinimumMinutes: 30`.
 - Weekly off: SAT and SUN.
-- `timesheetApproval: { enabled: true, submissionWeekday: 'FRIDAY' }` (the weekday is used for weekly filing).
+- `timesheetApproval: { enabled: true, submissionWeekday: 'FRIDAY', submissionTime: '23:00' }` — auto-submit every Friday at 11:00 PM (the weekday is used for weekly filing).
+- `lateDeductionDays: 0.5` — leave deducted per late check-in (0 = off). See docs/api/leave-policy.md.
+- `leavePolicy` — leave year, probation and per-type credits. See docs/api/leave-policy.md.
 - `timesheetFiling: { frequency: 'WEEKLY', fields: { startTime: true, endTime: true, duration: true, projectCode: false }, projectCodes: [...] }` — see **Timesheet filing** below. PUT refuses an impossible field combination with 400 (start and end time go together; start + end, or duration, must be on). Changing `frequency` regroups draft timesheets into the new periods; submitted, approved and sent-back ones keep their dates.
-- `level2`: attendance PAYROLL, overtime PAYROLL, timesheet NONE (fixed for now), leave HR, reimbursement FINANCE. Options per type: HR, FINANCE, PAYROLL, NONE.
+- `level2`: attendance PAYROLL, overtime PAYROLL, timesheet PAYROLL, leave HR, reimbursement ADMIN. Options per type: PAYROLL, HR, ADMIN, FINANCE, NONE (manager is final).
 
 The legacy endpoints `hr-settings/grace-period` and `hr-settings/work-schedule` read and write the same `graceMinutes` and `shift`.
 
@@ -74,8 +76,9 @@ On weekly offs and holidays, all time worked counts as overtime.
 | PUT | `timesheet/entries/{entryId}` | `TimesheetEntryInput` (same week) | `TimesheetWeekView` |
 | DELETE | `timesheet/entries/{entryId}` | — | `TimesheetWeekView` |
 | POST | `timesheet/weeks/{weekStart}/submit` | `{ acknowledged?: { overlaps?: boolean; gaps?: boolean } }` — submits a started DRAFT period or resubmits a SENT_BACK one (`weekStart` = the period's first day) | `TimesheetWeekView` |
-| POST | `timesheet/weeks/{weekStart}/change-request` | `ChangeRequestInput` (full proposed period + reason) | `TimesheetWeekView` |
-| POST | `timesheet/weeks/{weekStart}/change-request/cancel` | — | `TimesheetWeekView` |
+| GET | `leave` | — | `LeaveView` — see docs/api/leave-policy.md |
+| POST | `leave/requests` | `LeaveRequestInput` | `LeaveView` |
+| POST | `leave/requests/{id}/withdraw` | — | `LeaveView` |
 | GET | `overtime` | `?month=` (stats month; default current) | `OvertimeView` |
 | GET | `overtime/context` | `?date=` | `OvertimeContext` |
 | POST | `overtime` | `OvertimeInput` | `OvertimeRequest` |
@@ -109,7 +112,7 @@ On weekly offs and holidays, all time worked counts as overtime.
 - **Next-day times** (HR rules): `startNext` / `endNext` put a time after midnight. Minutes from the day's start = time + 24h when the flag is set; overlap, outside-check-in and totals all use these. "10:00 PM – 2:00 AM (next day)".
 - **Hours-only entry:** `start` and `end` are `null`, and `mins` is what the employee entered. Use it when they don't track exact times.
 
-`TimesheetEntryInput` (add, edit, change request) is `{ date, start?, end?, startNext?, endNext?, mins?, description, projectCode? }`. The server normalises it against the company's fields (`settings.timesheetFiling.fields`):
+`TimesheetEntryInput` (add, edit) is `{ date, start?, end?, startNext?, endNext?, mins?, description, projectCode?, location?, client? }`. PROTOTYPE-SETUP (Final batch): `location` is `OFFICE` (default), `HOME` or `CLIENT`; a client site needs `client` ("Add the client’s name for a client-site entry."). The server normalises it against the company's fields (`settings.timesheetFiling.fields`):
 
 | Fields | Sent | Saved as |
 |---|---|---|
@@ -176,16 +179,13 @@ Each case has a unit test in `src/prototype/rules/__tests__/attendance.test.ts` 
   - Its `action` is always `request-correction` (next-day times included: a late entry suggests a next-day check-out). Nothing is flagged while the day is still checked in.
   - This time never counts as overtime.
   - On a past day with entries but no check-in, the flag prompts a correction. `suggested` comes from the timed entries, or is `null` when there are only hours-only entries.
-- Period statuses: `DRAFT → SUBMITTED → APPROVED | SENT_BACK` (sent back with a required comment).
+- Period statuses (PROTOTYPE-SETUP: Final batch): `DRAFT → SUBMITTED` (with manager) `→ WITH_PAYROLL → APPROVED`, and `SENT_BACK` at either level (with a required comment; `sentBackBy` says which). Timesheet level 2 is `settings.level2.timesheet` (Payroll by default; NONE = the manager's approval is final).
 - Manual submission (Timesheet filing): the employee submits a DRAFT period once it has started, or resubmits a SENT_BACK one. A future period returns 409 "You can't submit a period that hasn't started."; a submitted one 409 "This timesheet is already with {manager}." (so a repeated click never submits twice). Entries missing a required field return 400 "{n} entries need more details before you submit: {message}". Draft periods also go out automatically (see below).
-- Editing a SUBMITTED period updates it in place.
-- An APPROVED week returns `editMode: 'change-request'`. The employee sends the whole proposed week with a required reason.
-  - The manager approves the change request, or rejects it and the approved version stays.
-  - The manager's decision is final.
-  - A new change request replaces a pending one.
+- Every entry change saves straight away (there's no Save or draft button). A period goes for approval only on Submit, or at auto-submit.
+- Entries stay editable until payroll is processed for the month, even after final approval (`editMode` is always `direct` until then). An edit to a period that's SUBMITTED, WITH_PAYROLL or APPROVED moves it back to DRAFT and keeps a baseline (`baselineEntries` — the last approved version, or the version as submitted; `editedAfter` = the status it had) so reviewers see "What changed". It has to be submitted again. The baseline is cleared on final approval. The old change-request flow is gone.
 - With approval off, weeks stay DRAFT, are just recorded, and are editable until payroll is processed.
-- On an automatic submission day, every due DRAFT period goes to the manager (see **Timesheet filing**). Sent-back periods wait for the employee.
-- The CEO has no manager, so the CEO's weeks and change requests are auto-approved.
+- At the auto-submit day and time, every due DRAFT period **with entries** goes for approval with its attendance (`attendance`, the days' check-in / check-out). Anything already sent is left alone; sent-back periods wait for the employee.
+- The CEO has no manager, so the CEO's timesheets skip level 1 and go straight to Payroll (approved when the company has no level 2).
 
 **Timesheet filing** (PROTOTYPE-SETUP: Timesheet filing — rules in `src/prototype/rules/timesheetFiling.ts`, tests in `rules/__tests__/timesheetFiling.test.ts`)
 
@@ -247,19 +247,20 @@ No gap check for future days, days without working hours, duration-only filing, 
 | GET | `team/approvals/timesheets` | `?scope=waiting\|all` | `TimesheetApprovalItem[]` |
 | POST | `team/approvals/timesheets/{employeeId}/{weekStart}/approve` | `{ comment? }` | `TimesheetApprovalItem` |
 | POST | `team/approvals/timesheets/{employeeId}/{weekStart}/send-back` | `{ comment }` (required) | `TimesheetApprovalItem` |
-| POST | `team/approvals/change-requests/{id}/approve` | `{ comment? }` | `TimesheetApprovalItem` |
-| POST | `team/approvals/change-requests/{id}/reject` | `{ comment }` (required) | `TimesheetApprovalItem` |
 | GET | `team/approvals/requests/{attendance\|overtime}` | `?scope=waiting\|all` | `RequestItem[]` |
 | POST | `team/approvals/requests/{type}/{id}/approve` / `reject` | `{ comment? }` (required to reject) | `RequestItem` |
 
-For the "What changed" view, the week view's `changeRequest` carries `baseEntries` and `proposedEntries`. A change request that touches a processed month can't be approved: it has `blockedReason`, and approving it returns 409.
+The manager's approval sends a timesheet on to Payroll (`WITH_PAYROLL`); with no level 2 it's approved. A queue item edited after it was sent carries `editedAfter` and `diffSummary` ("1 added · 2 edited"); "What changed" compares `week.entries` with `week.baselineEntries`. `team/approvals/requests/{type}` also takes `leave` and `reimbursement`.
 
 ## Payroll (as the corporate user)
 
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
-| GET | `payroll/approvals/counts` | `?role=PAYROLL\|HR\|FINANCE` | `{ attendance, overtime, profile }` waiting for that role |
-| GET | `payroll/approvals/{attendance\|overtime\|profile}` | `?role=&scope=waiting\|all` | `RequestItem[]` (requests whose chain includes that role; profile items carry `profile.changes`) |
+| GET | `payroll/approvals/counts` | `?role=PAYROLL\|HR\|ADMIN\|FINANCE` | `{ attendance, overtime, profile, leave, reimbursement, timesheets }` waiting for that role |
+| GET | `payroll/approvals/{attendance\|overtime\|profile\|leave\|reimbursement}` | `?role=&scope=waiting\|all` | `RequestItem[]` (requests whose chain includes that role; profile items carry `profile.changes`) |
+| GET | `payroll/timesheets` | `?scope=waiting\|all` | `TimesheetApprovalItem[]` — "Timesheets waiting for Payroll" (`approvedBy`, `editedAfter`) |
+| GET | `payroll/timesheets/{employeeId}/week` | `?date=` | `TimesheetWeekView` (read-only) |
+| POST | `payroll/timesheets/{employeeId}/{weekStart}/approve` / `send-back` | `{ comment? }` (required to send back) | `TimesheetApprovalItem` |
 | POST | `payroll/approvals/{type}/{id}/approve` / `reject` | `?role=`, `{ comment? }` | `RequestItem` |
 | GET | `payroll/timesheet-status` | `?month=` (default: earliest unprocessed) | `TimesheetStatusView` (status only, never entries) |
 | GET | `payroll/months` | — | `PayrollMonthStatus[]` (two months ago, last month, this month) |
@@ -268,27 +269,28 @@ For the "What changed" view, the week view's `changeRequest` carries `baseEntrie
 
 **Approval chain:**
 - Level 1 is the reporting manager.
-- Level 2 comes from settings: attendance corrections and overtime go to the single **Payroll** queue (`PENDING_PAYROLL`), leave to HR, reimbursements to Finance; timesheets have no level 2 for now.
+- Level 2 comes from settings: attendance corrections, overtime and timesheets go to the single **Payroll** queue (`PENDING_PAYROLL` / `WITH_PAYROLL`), leave to HR, reimbursements to **Admin** (`PENDING_ADMIN`).
 - Rejecting at any level needs a comment and is final.
 - The CEO skips level 1 and goes straight to level 2.
 - **Profile updates** have no manager step: HR is the only step ("HR team"). The request holds only the changed fields as `{ from, to }` (photo included, as a data URL). The profile changes only when HR approves. One pending update per employee (a second returns 409); the employee can withdraw it.
 - Profile validation (`validatePersonalDetails`): mobile needs at least 10 digits; personal email must look like an email; emergency contact needs a name and a 10-digit number; a photo is at most 1 MB.
 - HR and Finance only ever see timesheet statuses, never entries.
 
-**Payroll blockers:** with approval on, a month can't be processed until every filing period that overlaps it is APPROVED. A period with a pending change request still counts as approved. Each blocker lists the employee, the manager, the period (`weekStart`, `periodEnd`) and its status.
+**Payroll blockers:** with approval on, a month can't be processed until every filing period that overlaps it is APPROVED — Draft, With manager, With Payroll and Sent back all block it. Each blocker lists the employee, the manager, the period (`weekStart`, `periodEnd`) and its status.
 
 ## Demo only
 
 | Method | Path | Returns |
 |---|---|---|
-| POST | `demo/simulate-submission-day` | `SubmissionRunResult`. Runs the submission-day rule now. |
+| POST | `demo/simulate-submission-day` / `demo/run-auto-submit` | `SubmissionRunResult`. "Run auto-submit now": submits every due Draft period with entries, with its attendance. |
+| PUT | `demo/employee-life` | `{ dateOfJoin?, exitDate? }` → `LeaveView`. The persona's joining and leaving dates, for the leave demo. |
 | POST | `demo/reset-today-check-in` | `{ cleared }`. Clears today's check-in and check-out for both ESS personas (Sneha and Arjun). |
 
 Demo data is relative to today. Sneha Iyer (ACME-004, reports to Arjun Mehta) has:
 - A sent-back week in last month, which blocks last month's payroll.
 - A late day in that week with a pending correction.
 - A day in that week with time logged after her check-out, and an hours-only entry ("Writing release notes", 1h).
-- An approved week with a pending change request.
+- An approved week edited afterwards (a client call added) and submitted again — back with the manager, who sees "What changed". (Rahul's same week is with Payroll, also edited after approval.)
 - A day this week (or last week) with unclaimed overtime.
 - Still checked in from the last working day (no automatic check-out), and not checked in today — check-in is blocked until she checks out of it.
 - An overnight day two weeks back: 9:00 AM → 5:00 AM (next day), with entries until 5:00 AM (next day) — 20h at work, 11h overtime suggested.

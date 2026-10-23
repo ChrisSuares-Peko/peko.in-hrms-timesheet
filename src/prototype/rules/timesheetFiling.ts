@@ -132,15 +132,65 @@ export const isAutoSubmitDay = (today: string, s: FilingSchedule) => {
     return weekdayOf(today) === s.timesheetApproval.submissionWeekday;
 };
 
+/** "23:00" → 1380 */
+const minutesOf = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+
+/**
+ * PROTOTYPE-SETUP (Final batch, Slice 1): the automatic submission runs on the auto-submit day once its time has come
+ * (HR sets a weekday and a time; default Friday 11:00 PM).
+ */
+export const isAutoSubmitDue = (today: string, nowMinutes: number, s: FilingSchedule) =>
+    isAutoSubmitDay(today, s) && nowMinutes >= minutesOf(s.timesheetApproval.submissionTime || '23:00');
+
 /**
  * On an auto-submit day, the drafts that go: every draft that has started (weekly and monthly — this period
- * included, as before), or that has ended (daily — today is still being worked).
+ * included, as before), or that has ended (daily — today is still being worked). PROTOTYPE-SETUP (Final batch,
+ * Slice 1): only drafts with entries; anything already sent is left alone.
  */
-export const periodsDueForSubmission = <W extends { weekStart: string; periodEnd?: string; status: TimesheetStatus }>(
+export const periodsDueForSubmission = <W extends { weekStart: string; periodEnd?: string; status: TimesheetStatus; entries: unknown[] }>(
     records: W[],
     today: string,
     frequency: FilingFrequency
-) => records.filter(w => w.status === 'DRAFT' && (frequency === 'DAILY' ? periodEndOf(w) < today : w.weekStart <= today));
+) =>
+    records.filter(
+        w => w.status === 'DRAFT' && w.entries.length > 0 && (frequency === 'DAILY' ? periodEndOf(w) < today : w.weekStart <= today)
+    );
+
+// ---- the approval path (PROTOTYPE-SETUP: Final batch, Slice 1) ---------------------------------------------
+
+/** Statuses a period is "sent" in: an edit moves it back to Draft. */
+export const SENT_STATUSES = ['SUBMITTED', 'WITH_PAYROLL', 'APPROVED'] as const;
+
+/**
+ * Where a submission goes: to the manager, or — with no manager (the CEO) — straight to level 2 (Payroll), or
+ * approved when there's no level 2 either.
+ */
+export const submittedStatus = (hasManager: boolean, level2: string): TimesheetStatus => {
+    if (hasManager) return 'SUBMITTED';
+    return level2 === 'NONE' ? 'APPROVED' : 'WITH_PAYROLL';
+};
+
+/** After the manager approves: on to level 2 (Payroll), or approved when there's none. */
+export const afterManagerApproval = (level2: string): TimesheetStatus => (level2 === 'NONE' ? 'APPROVED' : 'WITH_PAYROLL');
+
+/**
+ * An edit to a period: a sent or approved one goes back to Draft and keeps a baseline — the last approved version,
+ * or the version as submitted — so reviewers can see what changed. A draft or sent-back period just changes (an
+ * earlier baseline is kept).
+ */
+export const editedBack = <W extends { status: TimesheetStatus; entries: TimesheetEntry[]; approvedEntries: TimesheetEntry[] | null; baselineEntries?: TimesheetEntry[] | null; editedAfter?: 'SUBMITTED' | 'WITH_PAYROLL' | 'APPROVED' }>(
+    w: W
+): W => {
+    if (!(SENT_STATUSES as readonly string[]).includes(w.status)) return w;
+    const baseline = w.baselineEntries ?? (w.status === 'APPROVED' ? w.approvedEntries ?? w.entries : w.entries);
+    return { ...w, status: 'DRAFT', baselineEntries: baseline, editedAfter: w.status as 'SUBMITTED' | 'WITH_PAYROLL' | 'APPROVED' };
+};
+
+export const EDITED_AFTER_TEXT: Record<'SUBMITTED' | 'WITH_PAYROLL' | 'APPROVED', string> = {
+    SUBMITTED: 'with manager',
+    WITH_PAYROLL: 'with payroll',
+    APPROVED: 'approved',
+};
 
 /** When a draft period goes out automatically (on or after today), or null with approval off. */
 export const autoSubmitDateFor = (period: PeriodRange, s: FilingSchedule, today: string): string | null => {

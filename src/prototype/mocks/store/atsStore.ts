@@ -6,7 +6,6 @@ import type {
     AttendanceCorrection,
     AttendanceDay,
     AttendanceRecord,
-    ChangeRequest,
     OvertimeContext,
     OvertimeRequest,
     PeriodSummary,
@@ -31,6 +30,7 @@ import {
     entryMins,
     hasCheckIn,
     hasTimesheets,
+    isWeeklyOff,
     sortEntries,
     lockReasonFor,
     toMinutes,
@@ -43,6 +43,7 @@ import {
     requestState,
     trailLabel,
 } from '@src/prototype/rules/attendance';
+import { LEAVE_LABEL } from '@src/prototype/rules/leavePolicy';
 import {
     autoSubmitDateFor,
     canSubmitPeriod,
@@ -53,12 +54,13 @@ import {
     periodLabel,
 } from '@src/prototype/rules/timesheetFiling';
 
+
+import { approvedLeaveOn } from './atsRequests';
 import { createCollection } from './persistentStore';
 import { buildAtsSeed, recordKey, weekId } from '../data/ats-seed';
 import { isoDateTime, monthsAgo, toIsoDate } from '../data/dates';
 import { EMPLOYEES, ESS_EMPLOYEE, ESS_MANAGER, MockEmployee, findEmployee, managerOf } from '../data/employees';
 import { holidayOn, todayIso } from '../data/time-calendar';
-import { LEAVES } from '../data/time-leaves';
 import type { DataMode } from '../envelope';
 
 // ---- collections --------------------------------------------------------------------------------------
@@ -76,9 +78,6 @@ export const atsWeeks = createCollection<Record<string, TimesheetWeek>>('ats-wee
     mode === 'empty' ? {} : buildAtsSeed().weeks
 );
 
-export const atsChangeRequests = createCollection<ChangeRequest[]>('ats-change-requests', mode =>
-    mode === 'empty' ? [] : buildAtsSeed().changeRequests
-);
 
 export const atsCorrections = createCollection<AttendanceCorrection[]>('ats-corrections', mode =>
     mode === 'empty' ? [] : buildAtsSeed().corrections
@@ -105,10 +104,20 @@ export const today = () => todayIso();
 export const currentMonth = () => monthOf(toIsoDate(new Date()));
 export const lastMonth = () => monthOf(monthsAgo(1, 1));
 
-/** PROTOTYPE-SETUP (Timesheet filing): settings saved before filing settings existed get the defaults. */
+/**
+ * PROTOTYPE-SETUP (Timesheet filing; Final batch, Slice 1): settings saved before a field existed get its default.
+ */
 export const getSettings = (mode: DataMode): AtsSettings => {
     const s = atsSettings.get(mode);
-    return s.timesheetFiling ? s : { ...s, timesheetFiling: DEFAULT_FILING };
+    return {
+        ...DEFAULT_SETTINGS,
+        ...s,
+        timesheetFiling: s.timesheetFiling ?? DEFAULT_FILING,
+        timesheetApproval: { ...DEFAULT_SETTINGS.timesheetApproval, ...s.timesheetApproval },
+        level2: { ...DEFAULT_SETTINGS.level2, ...s.level2 },
+        leavePolicy: s.leavePolicy ?? DEFAULT_SETTINGS.leavePolicy,
+        lateDeductionDays: s.lateDeductionDays ?? DEFAULT_SETTINGS.lateDeductionDays,
+    };
 };
 
 /** Employees in this data set (none in Empty mode; the ESS personas still work on their own data). */
@@ -154,11 +163,19 @@ export const firstUnprocessedMonth = (mode: DataMode) =>
 
 // ---- leave & holidays ---------------------------------------------------------------------------------
 
-/** Full-day approved leave on the date (half-day leave is a working half-day). */
-export const leaveNameOn = (mode: DataMode, e: MockEmployee, date: string) =>
-    (mode === 'empty' ? [] : LEAVES).find(
-        l => l.employee.id === e.id && l.status === 'approved' && l.halfDaySelection === null && l.days.includes(date)
-    )?.type.name;
+/**
+ * Full-day approved leave on the date (half-day leave is a working half-day). PROTOTYPE-SETUP (Final batch, Slice 1):
+ * read from the live leave requests, so approving leave updates attendance and the timesheet straight away.
+ */
+export const leaveNameOn = (mode: DataMode, e: MockEmployee, date: string) => {
+    // Weekly offs and holidays inside a leave stay what they are (they aren't counted as leave days).
+    if (isWeeklyOff(date, getSettings(mode)) || publicHolidayOn(date)) return undefined;
+    const l = approvedLeaveOn(mode, e.id, date);
+    return l && !l.half ? `${LEAVE_LABEL[l.type]} leave` : undefined;
+};
+
+/** PROTOTYPE-SETUP (Final batch, Slice 1): approved half-day leave on the date (first or second half). */
+export const halfLeaveOn = (mode: DataMode, e: MockEmployee, date: string) => approvedLeaveOn(mode, e.id, date)?.half ?? null;
 
 export const publicHolidayOn = (date: string) => {
     const h = holidayOn(date);
@@ -282,19 +299,11 @@ export const breakRowsOn = (mode: DataMode, e: MockEmployee, date: string): Time
 export const loggedOn = (mode: DataMode, e: MockEmployee, date: string) =>
     entriesOn(mode, e, date).reduce((s, x) => s + entryMins(x), 0) + breakRowsOn(mode, e, date).reduce((s, b) => s + b.minutes, 0);
 
-export const pendingChangeRequest = (mode: DataMode, week: TimesheetWeek) =>
-    week.pendingChangeRequestId
-        ? atsChangeRequests.get(mode).find(c => c.id === week.pendingChangeRequestId && c.status === 'PENDING') ?? null
-        : null;
-
-/** The pending change request, or the most recent decided one. */
-export const latestChangeRequest = (mode: DataMode, week: TimesheetWeek) =>
-    pendingChangeRequest(mode, week) ??
-    atsChangeRequests
-        .get(mode)
-        .filter(c => c.weekId === week.id)
-        .sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))[0] ??
-    null;
+/**
+ * PROTOTYPE-SETUP (Final batch, Slice 1): no change requests any more. A period edited after it was sent is a Draft
+ * with a baseline; lists flag it ("changePending" = edited after it was sent, until it's approved again).
+ */
+export const editedAfterSending = (week: TimesheetWeek) => Boolean(week.editedAfter && week.baselineEntries);
 
 export const weekStatusOf = (mode: DataMode, e: MockEmployee, weekStart: string): TimesheetStatus =>
     weekOf(mode, e, weekStart).status;
@@ -356,6 +365,7 @@ export const attendanceDay = (mode: DataMode, e: MockEmployee, date: string): At
         settings,
         holidayName: publicHolidayOn(date),
         leaveName: leaveNameOn(mode, e, date),
+        halfLeave: halfLeaveOn(mode, e, date),
     });
     const logged = loggedOn(mode, e, date);
     let { status, label } = d;
@@ -380,6 +390,7 @@ export const attendanceDay = (mode: DataMode, e: MockEmployee, date: string): At
         breakMinutes: d.breakMinutes,
         onBreak: d.onBreak,
         lateMinutes: d.lateMinutes,
+        ...(d.halfLeave ? { halfLeave: d.halfLeave } : {}),
         // PROTOTYPE-SETUP (HR rules, Slice 1): overtime counts to the check-in day, once checked out.
         overtimeMinutes:
             date < t || (date === t && d.checkOut)
@@ -451,7 +462,7 @@ export const weekView = (
         employee: { ...personRef(e), dateOfJoin: e.dateOfJoin, managerName: manager?.fullName ?? null },
         week,
         days,
-        changeRequest: latestChangeRequest(mode, week),
+        level2: settings.level2.timesheet,
         approvalEnabled,
         submissionWeekday: settings.timesheetApproval.submissionWeekday,
         mode: settings.mode,
@@ -472,6 +483,7 @@ export const weekView = (
             projectCodes: settings.timesheetFiling.projectCodes,
             period: { start, end, label: periodLabel(start, end) },
             autoSubmitOn: tracked && week.status === 'DRAFT' ? autoSubmitDateFor({ start, end }, settings, t) : null,
+            autoSubmitAt: settings.timesheetApproval.submissionTime,
         },
     };
 };
@@ -526,6 +538,6 @@ export const weeksSummary = (mode: DataMode, e: MockEmployee, month: string): Pe
         weekStart: w.weekStart,
         periodEnd: periodEndOf(w),
         status: w.status,
-        changePending: Boolean(pendingChangeRequest(mode, w)),
+        changePending: editedAfterSending(w),
     }));
 };

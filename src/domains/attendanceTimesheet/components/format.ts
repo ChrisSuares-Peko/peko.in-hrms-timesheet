@@ -44,10 +44,14 @@ export const DAY_STATUS_COLOR: Record<DayStatus, string> = {
     upcoming: 'default',
 };
 
-/** Week status label + antd Tag colour. */
+/**
+ * Period status label + antd Tag colour. PROTOTYPE-SETUP (Final batch, Slice 1): Draft → With manager → With Payroll →
+ * Approved; Sent back.
+ */
 export const WEEK_STATUS: Record<TimesheetStatus, { label: string; color: string }> = {
     DRAFT: { label: 'Draft', color: 'default' },
-    SUBMITTED: { label: 'Submitted', color: 'processing' },
+    SUBMITTED: { label: 'With manager', color: 'processing' },
+    WITH_PAYROLL: { label: 'With Payroll', color: 'processing' },
     APPROVED: { label: 'Approved', color: 'success' },
     SENT_BACK: { label: 'Sent back', color: 'error' },
 };
