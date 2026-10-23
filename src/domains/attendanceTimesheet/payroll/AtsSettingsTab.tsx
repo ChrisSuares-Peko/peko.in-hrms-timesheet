@@ -1,7 +1,9 @@
 // PROTOTYPE-SETUP: ESS Service 1 — Payroll → HR Settings → "Attendance & Timesheet". The single place for the
-// full set of ATS settings: mode, standard day, day rules, weekly offs, timesheet filing (PROTOTYPE-SETUP: Timesheet
-// filing — frequency, task-entry fields, suggested project codes), timesheet approval and the approval matrix. Saved with PUT settings (updateAtsSettings). ESS Settings still edits grace period and the default
-// shift through the legacy hr-settings endpoints, which read and write the same values.
+// full set of ATS settings. PROTOTYPE-SETUP (Final batch, Slice 7), in this order: Tracking mode · Working day rules
+// (standard day, day rules, weekly off) · Timesheet filing (frequency, task-entry fields, approval, auto-submit day and
+// time) · Project codes · Leave policy · Approvals (Payroll / HR / Admin / Finance / None) · Run payroll. Saved with
+// PUT settings (updateAtsSettings). ESS Settings still edits grace period and the default shift through the legacy
+// hr-settings endpoints, which read and write the same values.
 import { useEffect, useState } from 'react';
 
 import {
@@ -10,6 +12,7 @@ import {
     Card,
     Checkbox,
     Col,
+    Divider,
     Flex,
     Form,
     Input,
@@ -29,11 +32,12 @@ import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 
 import { useAppDispatch } from '@src/hooks/store';
-import { DEFAULT_FILING, PROJECT_CODE_RE, WEEKDAYS, filingFieldsError, formatDuration } from '@src/prototype/rules/attendance';
+import { DEFAULT_FILING, PROJECT_CODE_RE, WEEKDAYS, displayTime, filingFieldsError, formatDuration } from '@src/prototype/rules/attendance';
 import { LEAVE_LABEL, LEAVE_TYPES, fmtDays } from '@src/prototype/rules/leavePolicy';
 import { showToast } from '@src/slices/apiSlice';
 
-import { updateAtsSettings } from '../api';
+import { runAutoSubmitNow, updateAtsSettings } from '../api';
+import PayrollMonthPanel from './PayrollMonthPanel';
 import { usePayrollScope, useAtsSettings } from './usePayrollAts';
 import { fmtStamp } from '../components/format';
 import type { ApprovalType, AtsMode, AtsSettings, FilingFrequency, Level2Approver, Level2ConfigurableType, Weekday, LeavePolicy } from '../types';
@@ -421,6 +425,8 @@ const AtsSettingsTab = () => {
     const shiftEnd = Form.useWatch('shiftEnd', form);
     const breakMinutes = Form.useWatch('breakMinutes', form);
     const submissionWeekday = Form.useWatch('submissionWeekday', form);
+    const submissionTime: string | undefined = Form.useWatch('submissionTime', form);
+    const [running, setRunning] = useState(false);
     const frequency: FilingFrequency | undefined = Form.useWatch('frequency', form);
     const fieldStart = Form.useWatch('fieldStart', form);
     const fieldEnd = Form.useWatch('fieldEnd', form);
@@ -454,9 +460,18 @@ const AtsSettingsTab = () => {
         projectCode: Boolean(fieldProjectCode),
     });
     const freq = frequency ?? (settings.timesheetFiling ?? DEFAULT_FILING).frequency;
-    let approvalLine = `Every open week goes to the reporting manager on ${dayName(submissionWeekday ?? settings.timesheetApproval.submissionWeekday)}.`;
-    if (freq === 'DAILY') approvalLine = 'Every day’s timesheet goes to the reporting manager automatically the next day.';
-    if (freq === 'MONTHLY') approvalLine = 'Every month’s timesheet goes to the reporting manager automatically on its last day.';
+    const at = displayTime(submissionTime || settings.timesheetApproval.submissionTime);
+    let approvalLine = `Every draft week with entries is sent to the reporting manager on ${dayName(submissionWeekday ?? settings.timesheetApproval.submissionWeekday)} at ${at}.`;
+    if (freq === 'DAILY') approvalLine = `Every day’s draft timesheet is sent to the reporting manager at ${at}.`;
+    if (freq === 'MONTHLY') approvalLine = `Every month’s draft timesheet is sent to the reporting manager on its last day at ${at}.`;
+
+    /** PROTOTYPE-SETUP (Final batch, Slice 7): the demo's auto-submit, with the saved settings. */
+    const runAutoSubmit = async () => {
+        setRunning(true);
+        const res = await runAutoSubmitNow(scope);
+        setRunning(false);
+        if (res) dispatch(showToast({ variant: 'success', description: 'Auto-submit run done' }));
+    };
 
     const save = async () => {
         // PROTOTYPE-SETUP (Timesheet filing): an impossible field combination can't be saved (the card explains why).
@@ -529,7 +544,9 @@ const AtsSettingsTab = () => {
                     </Text>
                 </Flex>
 
-                <Card title="Mode" size="small">
+                {/* PROTOTYPE-SETUP (Final batch, Slice 7): the settings in groups, in this order — Tracking mode, Working day
+                    rules, Timesheet filing, Project codes, Leave policy, Approvals, Run payroll. No behaviour change. */}
+                <Card title="Tracking mode" size="small">
                     <Form.Item name="mode" className="!mb-0">
                         <ModeCards />
                     </Form.Item>
@@ -546,7 +563,13 @@ const AtsSettingsTab = () => {
                     />
                 ) : (
                     <>
-                <Card title="Standard day" size="small">
+                <Card title="Working day rules" size="small" data-working-day-rules>
+                    <Text type="secondary" className="mb-3 block text-xs">
+                        Used for late marks, half days and overtime suggestions.
+                    </Text>
+                    <Text strong className="mb-2 block text-sm">
+                        Standard day
+                    </Text>
                     <Row gutter={[16, 0]}>
                         <Col xs={12} md={6}>
                             <Form.Item
@@ -603,9 +626,10 @@ const AtsSettingsTab = () => {
                         There’s no automatic check-out. A day stays open until the employee checks out, and they
                         can’t check in on a new day until then.
                     </Text>
-                </Card>
-
-                <Card title="Day rules" size="small">
+                    <Divider className="!my-4" />
+                    <Text strong className="mb-2 block text-sm">
+                        Day rules
+                    </Text>
                     <Row gutter={[16, 0]}>
                         <Col xs={24} sm={8}>
                             <Form.Item
@@ -655,9 +679,10 @@ const AtsSettingsTab = () => {
                             only mode.
                         </Text>
                     )}
-                </Card>
-
-                <Card title="Weekly off" size="small">
+                    <Divider className="!my-4" />
+                    <Text strong className="mb-2 block text-sm">
+                        Weekly off
+                    </Text>
                     <Form.Item
                         name="weeklyOff"
                         className="!mb-1"
@@ -713,6 +738,49 @@ const AtsSettingsTab = () => {
                                         : ''}
                                 </Text>
                             )}
+                            <Divider className="!my-1" />
+                            <Flex align="start" gap={12}>
+                                <Form.Item name="approvalEnabled" valuePropName="checked" noStyle>
+                                    <Switch aria-label="Timesheet approval" />
+                                </Form.Item>
+                                <Flex vertical gap={2} className="min-w-0">
+                                    <Text strong>{approvalEnabled ? 'Approval is on' : 'Approval is off'}</Text>
+                                    <Text type="secondary" className="text-xs">
+                                        {approvalEnabled
+                                            ? `${approvalLine} Employees can also submit once a period has started. Payroll for a month can't be processed until every timesheet in it is approved.`
+                                            : "Timesheets are just recorded. Employees can edit them until payroll is processed, and payroll isn't blocked."}
+                                    </Text>
+                                </Flex>
+                            </Flex>
+                            {approvalEnabled && (
+                                <Flex vertical gap={8} data-auto-submit>
+                                    <Flex align="center" gap={8} wrap="wrap">
+                                        <Text className="text-sm">{freq === 'WEEKLY' ? 'Submit every' : 'Submit at'}</Text>
+                                        {freq === 'WEEKLY' && (
+                                            <>
+                                                <Form.Item name="submissionWeekday" noStyle>
+                                                    <Select options={WEEKDAY_OPTIONS} className="!w-[140px]" aria-label="Auto-submit day" />
+                                                </Form.Item>
+                                                <Text className="text-sm">at</Text>
+                                            </>
+                                        )}
+                                        <Form.Item
+                                            name="submissionTime"
+                                            noStyle
+                                            getValueProps={(v?: string) => ({ value: v ? dayjs(v, HHMM) : undefined })}
+                                            normalize={(d?: Dayjs | null) => (d ? d.format(HHMM) : '23:00')}
+                                        >
+                                            <TimePicker format="h:mm A" use12Hours minuteStep={15} allowClear={false} className="!w-[130px]" aria-label="Auto-submit time" />
+                                        </Form.Item>
+                                        <Button onClick={runAutoSubmit} loading={running}>
+                                            Run auto-submit now (demo)
+                                        </Button>
+                                    </Flex>
+                                    <Text type="secondary" className="text-xs">
+                                        Auto-submit sends every draft timesheet and its attendance for approval at this time. Anything already sent is left alone.
+                                    </Text>
+                                </Flex>
+                            )}
                         </Flex>
                     )}
                 </Card>
@@ -745,48 +813,18 @@ const AtsSettingsTab = () => {
                     )}
                 </Card>
 
-                <LeavePolicyCard />
-
-                <Card title="Timesheet approval" size="small">
-                    {timesheetsOff ? (
-                        <Text type="secondary">
-                            Timesheets are turned off in Attendance only mode.
-                        </Text>
-                    ) : (
-                        <Flex vertical gap={12}>
-                            <Flex align="start" gap={12}>
-                                <Form.Item name="approvalEnabled" valuePropName="checked" noStyle>
-                                    <Switch aria-label="Timesheet approval" />
-                                </Form.Item>
-                                <Flex vertical gap={2} className="min-w-0">
-                                    <Text strong>
-                                        {approvalEnabled ? 'Approval is on' : 'Approval is off'}
-                                    </Text>
-                                    <Text type="secondary" className="text-xs">
-                                        {approvalEnabled
-                                            ? `${approvalLine} Employees can also submit once a period has started. Payroll for a month can't be processed until every timesheet in it is approved.`
-                                            : "Timesheets are just recorded. Employees can edit them until payroll is processed, and payroll isn't blocked."}
-                                    </Text>
-                                </Flex>
-                            </Flex>
-                            {approvalEnabled && freq === 'WEEKLY' && (
-                                <Form.Item
-                                    name="submissionWeekday"
-                                    label="Submission day"
-                                    className="!mb-0 max-w-xs"
-                                >
-                                    <Select options={WEEKDAY_OPTIONS} />
-                                </Form.Item>
-                            )}
-                        </Flex>
-                    )}
-                </Card>
 
                     </>
                 )}
 
-                <Card title="Approval matrix" size="small">
+                {/* Leave works in every mode, so its policy is always shown. */}
+                <LeavePolicyCard />
+
+                <Card title="Approvals" size="small">
                     <Flex vertical gap={8}>
+                        <Text type="secondary" className="text-xs">
+                            Level 1 is always the reporting manager. The CEO has no manager, so their requests skip to level 2.
+                        </Text>
                         <div className="w-full overflow-x-auto">
                             <Table<MatrixRow>
                                 rowKey="key"
@@ -798,8 +836,8 @@ const AtsSettingsTab = () => {
                             />
                         </div>
                         <Text type="secondary" className="text-xs">
-                            Rejecting at any level needs a comment and is final. The CEO has no
-                            manager: requests skip to level 2; CEO timesheets are auto-approved.
+                            Rejecting (or sending a timesheet back) at any level needs a comment. With &quot;None&quot;, the
+                            manager&apos;s approval is final.
                         </Text>
                     </Flex>
                 </Card>
@@ -813,6 +851,10 @@ const AtsSettingsTab = () => {
                     </Button>
                 </Flex>
             </Flex>
+            {/* PROTOTYPE-SETUP (Final batch, Slice 7): Run payroll — the same panel as Process Salary. */}
+            <div className="mt-4" data-run-payroll>
+                <PayrollMonthPanel />
+            </div>
         </Form>
     );
 };
