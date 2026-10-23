@@ -1,7 +1,7 @@
 // PROTOTYPE-SETUP (HR rules, Slice 3): the Timesheet tab's Notices panel (35% next to the calendar; the same height,
 // scrolling inside — timesheet.css). From the prototype:
 //   Filing period        (PROTOTYPE-SETUP: Timesheet filing) the focused period's label, ‹ ›, summary and warnings,
-//                        status Tag, its status line and its action (Resubmit / Request a change /
+//                        status Tag, its status line and its action (Submit /
 //                        Show my changes · Withdraw / Send change · Discard) — WeekStatusCard, bare
 //   Needs your action    across ALL weeks (not the focused one), with a red "N to do" in the header: another
 //                        sent-back week / a week with a change waiting → "Open week"; still checked in from an earlier

@@ -26,6 +26,9 @@ const TAB_LABEL: Record<MyTeamTab, string> = {
     'timesheet-approvals': 'Timesheet approvals',
     'attendance-approvals': 'Attendance approvals',
     'overtime-approvals': 'Overtime approvals',
+    // PROTOTYPE-SETUP (Final batch): manager → HR (leave), manager → Admin (reimbursements).
+    'leave-approvals': 'Leave approvals',
+    'reimbursement-approvals': 'Reimbursement approvals',
 };
 
 const TeamRequestQueue = ({ type, onChanged }: { type: AtsRequestType; onChanged: () => void }) => {
@@ -70,6 +73,8 @@ const MyTeamPage = () => {
               'timesheet-approvals': counts.timesheets,
               'attendance-approvals': counts.attendance,
               'overtime-approvals': counts.overtime,
+              'leave-approvals': counts.leave,
+              'reimbursement-approvals': counts.reimbursement,
           }
         : {};
 
@@ -78,6 +83,8 @@ const MyTeamPage = () => {
         if (tab === 'timesheets') return <TeamTimesheets />;
         if (tab === 'timesheet-approvals') return <TimesheetApprovals onChanged={refreshCounts} />;
         if (tab === 'attendance-approvals') return <TeamRequestQueue type="attendance" onChanged={refreshCounts} />;
+        if (tab === 'leave-approvals') return <TeamRequestQueue type="leave" onChanged={refreshCounts} />;
+        if (tab === 'reimbursement-approvals') return <TeamRequestQueue type="reimbursement" onChanged={refreshCounts} />;
         return <TeamRequestQueue type="overtime" onChanged={refreshCounts} />;
     };
 

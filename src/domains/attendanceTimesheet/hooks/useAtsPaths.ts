@@ -11,7 +11,8 @@ import { ESS_TABS, essTabFor } from '@src/prototype/persona/essPersonas';
 
 import type { AtsTab } from '../types';
 
-export type MyTeamTab = 'today' | 'timesheets' | 'timesheet-approvals' | 'attendance-approvals' | 'overtime-approvals';
+// PROTOTYPE-SETUP (Final batch, VERIFY): leave and reimbursements also reach the manager first.
+export type MyTeamTab = 'today' | 'timesheets' | 'timesheet-approvals' | 'attendance-approvals' | 'overtime-approvals' | 'leave-approvals' | 'reimbursement-approvals';
 
 export const atsPathsFor = (base: string) => ({
     home: base,

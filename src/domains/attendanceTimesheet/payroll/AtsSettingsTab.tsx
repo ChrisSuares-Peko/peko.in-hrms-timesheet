@@ -669,7 +669,7 @@ const AtsSettingsTab = () => {
                                 extra="Days (0 = off). Annual leave first, then Casual, then loss of pay. An approved correction reverses it."
                                 rules={[{ required: true, message: 'Enter the days (0 = off)' }]}
                             >
-                                <InputNumber min={0} max={2} step={0.5} className="w-full" disabled={mode === 'timesheet'} addonAfter="days" />
+                                <InputNumber min={0} max={2} step={0.5} className="w-full" disabled={mode === 'timesheet'} />
                             </Form.Item>
                         </Col>
                     </Row>

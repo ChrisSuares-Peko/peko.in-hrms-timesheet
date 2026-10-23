@@ -9,9 +9,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CheckOutlined, RollbackOutlined } from '@ant-design/icons';
-import { Alert, Button, Drawer, Flex, Grid, Input, Modal, Skeleton, Tabs, Tag, Typography, message } from 'antd';
+import { Alert, Button, Drawer, Flex, Grid, Input, Modal, Skeleton, Tabs, Tag, Typography } from 'antd';
 
+import { useAppDispatch } from '@src/hooks/store';
 import { EDITED_AFTER_TEXT } from '@src/prototype/rules/timesheetFiling';
+import { showToast } from '@src/slices/apiSlice';
 
 import {
     approveWeek,
@@ -50,6 +52,7 @@ const LEVEL2_NAME: Record<Exclude<Level2Approver, 'NONE'>, string> = { PAYROLL: 
 
 const TimesheetReviewDrawer = ({ target, reviewer = 'MANAGER', onClose, onDecided }: TimesheetReviewDrawerProps) => {
     const scope = useAtsScope();
+    const dispatch = useAppDispatch();
     const screens = Grid.useBreakpoint();
     const [view, setView] = useState<TimesheetWeekView | null>(null);
     const [loading, setLoading] = useState(false);
@@ -98,7 +101,7 @@ const TimesheetReviewDrawer = ({ target, reviewer = 'MANAGER', onClose, onDecide
         const res = payroll ? await payrollApproveWeek(scope, employeeId, weekStart) : await approveWeek(scope, employeeId, weekStart);
         setBusy(null);
         if (res === false) return;
-        message.success(`Timesheet approved for ${view.employee.name}${next ? `, sent to ${next}` : ''}`);
+        dispatch(showToast({ variant: 'success', description: `Timesheet approved for ${view.employee.name}${next ? `, sent to ${next}` : ''}` }));
         await load();
         setReloadKey(k => k + 1);
         onDecided?.();
@@ -116,7 +119,7 @@ const TimesheetReviewDrawer = ({ target, reviewer = 'MANAGER', onClose, onDecide
         const res = payroll ? await payrollSendBackWeek(scope, employeeId, weekStart, note) : await sendBackWeek(scope, employeeId, weekStart, note);
         setBusy(null);
         if (res === false) return;
-        message.success(`Timesheet sent back to ${view.employee.name}`);
+        dispatch(showToast({ variant: 'success', description: `Timesheet sent back to ${view.employee.name}` }));
         setAsking(false);
         setComment('');
         await load();

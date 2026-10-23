@@ -347,27 +347,9 @@ export const validateLeaveRequest = (
     return { type: input.type, start, end, half, days, reason, ...(input.proof?.name ? { proof: { name: input.proof.name } } : {}) };
 };
 
-// ---- leave on the attendance day -------------------------------------------------------------------------------
-
-/**
- * A half-day leave moves the working day: first half off → the day (and the late mark) starts at mid-shift;
- * second half off → it ends at mid-shift. Returns the shift's start / end for that day ("HH:mm").
- */
-export const shiftWithHalfLeave = (shift: { start: string; end: string }, half: LeaveHalf | null) => {
-    if (!half) return shift;
-    const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
-    const mid = toMin(shift.start) + Math.round((toMin(shift.end) - toMin(shift.start)) / 2);
-    const hhmm = `${pad(Math.floor(mid / 60))}:${pad(mid % 60)}`;
-    return half === 'FIRST' ? { start: hhmm, end: shift.end } : { start: shift.start, end: hhmm };
-};
-
-/** "Half-day leave (first half)" */
-export const halfLeaveLabel = (half: LeaveHalf) => `Half-day leave (${half === 'FIRST' ? 'first' : 'second'} half)`;
-
 // ---- late check-in deductions: wording (PROTOTYPE-SETUP: Final batch, Slice 5) ------------------------------
 
 type DeductionLike = Pick<LateDeduction, 'days' | 'from' | 'state'>;
-
 
 const onlyLossOfPay = (d: DeductionLike) => d.from.every(f => f.type === 'LOP');
 /** The leave type it came from first (Annual, then Casual). */

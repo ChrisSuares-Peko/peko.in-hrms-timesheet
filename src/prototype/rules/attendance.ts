@@ -1003,14 +1003,11 @@ export const editModeFor = (input: {
     return 'direct';
 };
 
-/** The CEO has no manager: their timesheets are auto-approved. */
-export const timesheetAutoApproved = (managerId: number | null | undefined) => !managerId;
-
 // ---- payroll blockers ---------------------------------------------------------------------------------------
 
 /**
  * With approval on, payroll for a month can't be processed until every week overlapping it is Approved
- * (an approved week with a pending change still counts as approved). Returns the blocking weeks.
+ * (Draft, With manager, With Payroll and Sent back all block it). Returns the blocking weeks.
  */
 export const payrollBlockers = <E extends { id: number; dateOfJoin: string }>(input: {
     month: string;

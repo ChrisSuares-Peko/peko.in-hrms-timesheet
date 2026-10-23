@@ -43,8 +43,6 @@ export interface EntriesPanelProps {
     overtime: number;
     /** An overtime request already raised for this day. */
     overtimeRequest?: (OvertimeRequest & { statusLabel: string }) | null;
-    /** Hide the attendance / overtime actions (e.g. while editing a change request). */
-    actionsDisabled?: boolean;
     onSave: (day: TimesheetDay, value: EntryFormValue, id?: string) => Promise<boolean> | boolean;
     onDelete: (day: TimesheetDay, id: string) => void;
     onRequestOvertime: (day: TimesheetDay, minutes: number) => void;
@@ -234,7 +232,6 @@ const EntriesPanel = ({
     busy,
     overtime,
     overtimeRequest,
-    actionsDisabled,
     onSave,
     onDelete,
     onRequestOvertime,
@@ -280,7 +277,7 @@ const EntriesPanel = ({
                             {outsideChipText(day, outside)}
                         </Tag>
                     )}
-                    {outside > 0 && flag && !day.locked && !actionsDisabled &&
+                    {outside > 0 && flag && !day.locked &&
                         (flag.pendingCorrection ? (
                             <Tag color="processing" className="!m-0">
                                 Correction: {flag.pendingCorrection.statusLabel}
@@ -295,7 +292,7 @@ const EntriesPanel = ({
                             {formatDuration(overtime)} overtime
                         </Tag>
                     )}
-                    {overtime > 0 && !overtimeRequest && !day.locked && !actionsDisabled && (
+                    {overtime > 0 && !overtimeRequest && !day.locked && (
                         <Button size="small" onClick={() => onRequestOvertime(day, overtime)}>
                             Request overtime
                         </Button>
@@ -311,7 +308,7 @@ const EntriesPanel = ({
             {rows.length === 0 && !editable && <div className="py-1 text-xs text-gray-500">No time logged.</div>}
             {rows.map(r => {
                 if (r.kind === 'break') {
-                    return <BreakLine key={`break-${r.b.index}`} day={day} brk={r.b} editable={!day.locked && !actionsDisabled} onSave={onBreakDescription} />;
+                    return <BreakLine key={`break-${r.b.index}`} day={day} brk={r.b} editable={!day.locked} onSave={onBreakDescription} />;
                 }
                 const { e } = r;
                 return editing === e.id ? (

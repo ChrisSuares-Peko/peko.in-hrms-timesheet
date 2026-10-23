@@ -1,6 +1,6 @@
 // PROTOTYPE-SETUP: ESS Service 1, Slice 6 — read-only view of a direct report's timesheet
 // (`<base>/my-team/members/:employeeId?date=YYYY-MM-DD&review=1`). The viewer shows a "Review and approve"
-// shortcut on a submitted week or one with a pending change request; it opens the same review drawer as
+// shortcut on a submitted week (or one edited after it was sent); it opens the same review drawer as
 // "Timesheet approvals" (opened automatically with ?review=1). A small attendance summary for the month sits on top.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 

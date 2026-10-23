@@ -4,9 +4,12 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 
 import { CheckOutlined, CloseOutlined, LockOutlined } from '@ant-design/icons';
-import { Alert, Avatar, Button, Empty, Flex, Input, Modal, Segmented, Skeleton, Tag, Tooltip, Typography, message } from 'antd';
+import { Alert, Avatar, Button, Empty, Flex, Input, Modal, Segmented, Skeleton, Tag, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+
+import { useAppDispatch } from '@src/hooks/store';
+import { showToast } from '@src/slices/apiSlice';
 
 import type { Level2RequestType } from '../api';
 import type { OvertimeContext, QueueScope, RequestItem } from '../types';
@@ -138,6 +141,7 @@ interface PendingDecision {
 }
 
 const RequestQueue = ({ type, load, decide, onChanged, defaultScope = 'waiting', actingAs = 'Manager' }: RequestQueueProps) => {
+    const dispatch = useAppDispatch();
     const [scope, setScope] = useState<QueueScope>(defaultScope);
     const [items, setItems] = useState<RequestItem[] | null>(null);
     const [loading, setLoading] = useState(true);
@@ -174,7 +178,7 @@ const RequestQueue = ({ type, load, decide, onChanged, defaultScope = 'waiting',
         const res = await decide(pending.item, pending.decision, note || undefined);
         setBusy(false);
         if (res === false) return;
-        message.success(pending.decision === 'approve' ? 'Request approved' : 'Request rejected');
+        dispatch(showToast({ variant: 'success', description: pending.decision === 'approve' ? 'Request approved' : 'Request rejected' }));
         setPending(null);
         await refresh();
         onChanged?.();

@@ -104,7 +104,7 @@ const SubmitReviewModal = ({ kind, review, entries, busy, managerName, periodWor
                 </span>
             }
             onCancel={onClose}
-            destroyOnClose
+            destroyOnHidden
             footer={
                 <div className="flex flex-wrap justify-end gap-2">
                     <Button onClick={() => first && onReview(first.date, rows.filter(r => r.date === first.date).flatMap(r => r.ids))} type={copy.go ? 'default' : 'primary'}>

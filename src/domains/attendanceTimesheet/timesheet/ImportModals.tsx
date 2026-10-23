@@ -72,7 +72,7 @@ export const TemplateModal = ({
             title="Timesheet template"
             width={760}
             onCancel={onClose}
-            destroyOnClose
+            destroyOnHidden
             footer={
                 <div className="flex flex-wrap justify-end gap-2">
                     <Button onClick={copy}>Copy CSV</Button>
@@ -85,7 +85,7 @@ export const TemplateModal = ({
             <p className="mb-3 mt-1 text-sm text-[#616161]">
                 {templateIntro(fields, projectsOn)}
             </p>
-            <Table size="small" pagination={false} rowKey={(_, i) => String(i)} columns={columns} dataSource={rows.slice(1)} scroll={{ x: 'max-content' }} data-template-preview />
+            <Table size="small" pagination={false} rowKey={r => r.join('|')} columns={columns} dataSource={rows.slice(1)} scroll={{ x: 'max-content' }} data-template-preview />
             <Text type="secondary" className="mt-2 block text-xs">
                 {TEMPLATE_TEXT.formats}
             </Text>
@@ -176,7 +176,7 @@ export const UploadModal = ({
             title="Upload timesheet"
             width={880}
             onCancel={close}
-            destroyOnClose
+            destroyOnHidden
             footer={
                 <div className="flex flex-wrap justify-end gap-2">
                     <Button onClick={close}>Cancel</Button>

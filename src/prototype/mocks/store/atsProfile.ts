@@ -67,9 +67,12 @@ export const atsProfileRequests = createCollection<ProfileUpdateRequest[]>('ats-
     mode === 'empty' ? [] : seedRequests()
 );
 
+/** Empty mode: a new account — nothing filled in yet (PROTOTYPE-SETUP: Final batch, Slice 8). */
+const EMPTY_PERSONAL: PersonalDetails = { mobile: '', personalEmail: '', address: '', emergencyName: '', emergencyRelation: '', emergencyPhone: '', photo: null };
+
 /** What everyone sees: the seed plus approved updates. */
 export const personalOf = (mode: DataMode, e: MockEmployee): PersonalDetails => ({
-    ...seededPersonal(e),
+    ...(mode === 'empty' ? EMPTY_PERSONAL : seededPersonal(e)),
     ...(atsProfiles.get(mode)[String(e.id)] ?? {}),
 });
 

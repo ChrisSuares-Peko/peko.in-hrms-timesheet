@@ -8,7 +8,7 @@ import type { ApprovalTrail, LeaveRequest, LeaveType } from '@src/domains/attend
 import { DEFAULT_SETTINGS, decide, startTrail } from '@src/prototype/rules/attendance';
 
 import { createCollection } from './persistentStore';
-import { MockEmployee, findEmployee, managerOf } from '../data/employees';
+import { MockEmployee, managerOf } from '../data/employees';
 import { LEAVES, MockLeave } from '../data/time-leaves';
 import { MockReimbursement, REIMBURSEMENTS } from '../data/time-requests';
 import type { DataMode } from '../envelope';
@@ -124,8 +124,6 @@ export const legacyClaimStatus = (c: StoredClaim): MockReimbursement['status'] =
     if (c.trail.status === 'REJECTED') return 'rejected';
     return 'requestedByEmployee';
 };
-
-export const claimEmployee = (c: StoredClaim) => findEmployee(c.employeeId);
 
 // ---- joining / leaving dates (the leave demo) -------------------------------------------------------------
 

@@ -61,7 +61,7 @@ import {
     recordId,
     upcomingActivityList,
 } from '../data/employees-records';
-import { ModeData, byMode, raw } from '../envelope';
+import { DataMode, ModeData, byMode, raw } from '../envelope';
 import { essRequester } from '../requester';
 import { MockContext, MockRoute, route } from '../router';
 
@@ -837,15 +837,23 @@ const documentRequests = ({ mode, query }: MockContext): DocumentRequestsListRes
 
 // ---- ESS (employee self-service) — answered as the requesting persona (see ../requester.ts) --------------
 
-const essProfile = (): { employee: EssEmployeeProfile } => {
+/**
+ * PROTOTYPE-SETUP (Final batch, Slice 8): Empty mode is a new account — the person's work details only (HR set those
+ * up); no personal details, bank details or documents yet.
+ */
+const essProfile = ({ mode }: { mode: DataMode }): { employee: EssEmployeeProfile } => {
     const me = essRequester();
     const p = profileOf(me);
+    const empty = mode === 'empty';
+    const personal = empty
+        ? (Object.fromEntries(Object.keys(p.personalInformation).map(k => [k, k === 'fullName' ? me.fullName : ''])) as typeof p.personalInformation)
+        : p.personalInformation;
     return {
         employee: {
             id: p.id,
-            isCompleted: true,
+            isCompleted: !empty,
             profileImage: '',
-            personalInformation: p.personalInformation,
+            personalInformation: personal,
             employeeInformation: {
                 employeeId: me.employeeId,
                 designation: me.designation,
@@ -862,15 +870,17 @@ const essProfile = (): { employee: EssEmployeeProfile } => {
                 timeSchedule: TIME_SCHEDULE,
             },
             corporateUser: { companyName: COMPANY.name },
-            bankDetails: {
-                bankName: me.bank.bankName,
-                accountNumber: me.bank.accountNumber,
-                ifscCode: me.bank.ifsc,
-                upiId: `${me.mobileNo}@hdfcbank`,
-            },
+            bankDetails: empty
+                ? { bankName: '', accountNumber: '', ifscCode: '', upiId: '' }
+                : {
+                      bankName: me.bank.bankName,
+                      accountNumber: me.bank.accountNumber,
+                      ifscCode: me.bank.ifsc,
+                      upiId: `${me.mobileNo}@hdfcbank`,
+                  },
             profileUpdateRequestPending: false,
             bankUpdateRequestPending: false,
-            employeeDocuments: documentsOf(me),
+            employeeDocuments: empty ? [] : documentsOf(me),
         },
     };
 };

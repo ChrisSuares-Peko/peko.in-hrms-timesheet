@@ -21,11 +21,13 @@ const { Text } = Typography;
 type Row = TimesheetStatusView['notApproved'][number];
 
 const WEEK_COUNTS: { key: keyof TimesheetStatusView['weekCounts']; label: string; color: string }[] = [
+    // PROTOTYPE-SETUP (Final batch, Slice 8): the current statuses; CHANGE_PENDING = drafts edited after they were sent.
     { key: 'APPROVED', label: 'Approved', color: '#16a34a' },
-    { key: 'SUBMITTED', label: 'Submitted', color: '#2563eb' },
+    { key: 'WITH_PAYROLL', label: 'With Payroll', color: '#2563eb' },
+    { key: 'SUBMITTED', label: 'With manager', color: '#2563eb' },
     { key: 'SENT_BACK', label: 'Sent back', color: '#dc2626' },
     { key: 'DRAFT', label: 'Draft', color: '#6b7280' },
-    { key: 'CHANGE_PENDING', label: 'Change pending', color: '#d97706' },
+    { key: 'CHANGE_PENDING', label: 'Edited after sending', color: '#d97706' },
 ];
 
 const columns: ColumnsType<Row> = [
@@ -246,8 +248,8 @@ const TimesheetStatusPage = () => {
                                 ))}
                             </Flex>
                             <Text type="secondary" className="text-xs">
-                                Weeks that overlap the month are counted. A week with a pending
-                                change request still counts as approved.
+                                Weeks that overlap the month are counted. Payroll can be processed once every one is
+                                approved; a week edited after it was sent needs approving again.
                             </Text>
                         </Flex>
                     </Card>

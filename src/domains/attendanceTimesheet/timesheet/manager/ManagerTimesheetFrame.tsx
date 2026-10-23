@@ -34,7 +34,7 @@ export interface TimesheetFrameProps {
     weekActions?: ReactNode;
     /** Line under the week totals (overrides the default approval copy). */
     weekNote?: ReactNode;
-    /** Extra notices under the week bar (change request, draft bar…). */
+    /** Extra notices under the week bar. */
     notices?: ReactNode;
 }
 

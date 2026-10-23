@@ -215,6 +215,7 @@ const reportingManagerOf = (employeeId: string, isDepartmentManager: boolean, de
 };
 
 // PROTOTYPE-SETUP (Overview, Slice 1): placeholder grades — CEO L8, managers L6, senior L4, mid L3, junior L2.
+// TODO(PROTOTYPE-SETUP, Final batch): "L4"-style placeholders — Peko's real grade format is still to come.
 const GRADE: Record<Seniority, string> = { Manager: 'L6', Senior: 'L4', Mid: 'L3', Junior: 'L2' };
 const gradeOf = (n: number, seniority: Seniority) => (code(n) === CEO_CODE ? 'L8' : GRADE[seniority]);
 

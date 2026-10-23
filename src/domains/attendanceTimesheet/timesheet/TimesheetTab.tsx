@@ -56,7 +56,7 @@ import ViewBar from './ViewBar';
 import WeekStatusCard from './WeekStatusCard';
 
 export interface TimesheetTabProps {
-    /** Called after anything changes (entries, submit, change request, correction) so the section can refresh counts. */
+    /** Called after anything changes (entries, upload, submit, correction) so the section can refresh counts. */
     onChanged?: () => void;
     /** PROTOTYPE-SETUP (Overview, Slice 2): open on this day (Week view, the day's panel open). */
     initialDate?: string;

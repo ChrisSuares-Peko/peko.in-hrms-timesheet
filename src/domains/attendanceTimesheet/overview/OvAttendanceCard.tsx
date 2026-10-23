@@ -132,6 +132,8 @@ export const AttendancePunch = ({
         return (
             <>
                 <EssStatusBlock tone={strip.tone} title={strip.text} sub={sub} />
+                {/* PROTOTYPE-SETUP (Final batch): "Working from" can be picked before today's check-in. */}
+                {overview.mode === 'attendance' && <LocationBar overview={overview} onOverview={onOverview} />}
                 <Alert
                     type="warning"
                     showIcon

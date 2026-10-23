@@ -7,14 +7,15 @@
 //                    month's payroll until she resubmits and Arjun approves.
 //     lateDay        Wed of that week: late check-in with a pending attendance correction.
 //     afterCheckOut  Thu of that week: checked out 17:45, time logged until 19:30 → "logged outside check-in hours".
-//   crWeek           the week before this one: Approved, with a pending change request (client call added).
+//   crWeek           the week before this one: approved, then edited (a client call added) and submitted again —
+//                    back with the manager, who sees "What changed" (Rahul's same week is with Payroll).
 //   overtimeDay      first working day this week (else last week) without a request: out 20:05 → suggested overtime.
 //   openDay          the working day before today: still checked in (no automatic check-out), so today's
 //                    check-in is blocked until she checks out of it (HR rules, Slice 1). Not checked in today.
 //   overnightDay     Thursday two weeks back: 9:00 AM → 5:00 AM the next day (outDays 1), with entries until
 //                    5:00 AM (next day) — 20h at work, 11h overtime on the check-in day.
 //   plannedDay       next working day: a planned timesheet entry (later this week, or next week on a Friday).
-//   + an approved leave in the next fortnight (data/time-leaves.ts) and a rejected change request in the past.
+//   + an approved leave in the next fortnight (data/time-leaves.ts).
 // Everyone: a 1:00–2:00 PM "Lunch" break on every worked day that spans it (breaks count as logged time).
 // ESS - Manager (Arjun) team today: Rahul late, Karthik not checked in, Ananya on leave.
 // Payroll: every week of last month is Approved except Sneha's sent-back week; a correction and an overtime

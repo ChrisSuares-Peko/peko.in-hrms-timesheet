@@ -70,7 +70,6 @@ const BalanceCard = ({ b }: { b: LeaveBalance }) => {
             {open && (
                 <ul className="m-0 mt-1 list-none p-0" data-ledger>
                     {b.ledger.map((x, i) => (
-                        // eslint-disable-next-line react/no-array-index-key
                         <li key={`${x.date}-${x.kind}-${i}`} className="flex items-baseline justify-between gap-3 border-0 border-t border-solid border-gray-100 py-1.5 text-xs">
                             <span className={x.amount === null ? 'text-gray-500' : 'text-gray-800'}>
                                 {dayjs(x.date).format('D MMM')} · {x.text}

@@ -69,7 +69,10 @@ export const leaveViewOf = (mode: DataMode, e: MockEmployee): LeaveView => {
         dateOfJoin: life.dateOfJoin,
         exitDate: life.exitDate,
         opening: openingBalancesOf(e),
-        taken: requests.filter(l => l.trail.status === 'APPROVED').map(l => ({ type: l.type, start: l.start, end: l.end, half: l.half, days: l.days })),
+        // Leave before the joining date doesn't count (the demo can move the joining date past seeded leave).
+        taken: requests
+            .filter(l => l.trail.status === 'APPROVED' && l.end >= life.dateOfJoin)
+            .map(l => ({ type: l.type, start: l.start, end: l.end, half: l.half, days: l.days })),
         late: lateEventsOf(mode, e, year.start > life.dateOfJoin ? year.start : life.dateOfJoin),
         lateDays: settings.lateDeductionDays,
     });

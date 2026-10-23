@@ -15,6 +15,6 @@ duration-only entries, manual submit, overlap and gap warnings).
 | Slice 4 — Reviews and the Payroll queue | 63c7a6c | done |
 | Slice 5 — Late check-in deductions (UI) | 55d700f | done |
 | Slice 6 — Leave page and leave policy settings | 8c3a01a | done |
-| Slice 7 — Payroll settings tidy-up | (this commit) | done |
-| Slice 8 — Consistency and clean-up | — | in progress |
-| VERIFY 1–11, single push | — | to do |
+| Slice 7 — Payroll settings tidy-up | 03089fc | done |
+| Slice 8 — Consistency and clean-up | (final commit, see git log) | done |
+| VERIFY 1–11 (1440 / 1024 / 375), single push | — | done |

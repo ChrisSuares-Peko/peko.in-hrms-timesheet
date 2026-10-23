@@ -111,7 +111,7 @@ export const useTimesheetNav = ({ loadRange, initialDate, frequency }: UseTimesh
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [from, to, focusDate, nonce]);
 
-    /** Replace one period (after an edit / submit / change request). */
+    /** Replace one period (after an edit or a submit). */
     const setWeek = useCallback((v: TimesheetWeekView) => setWeeks(prev => ({ ...prev, [v.week.weekStart]: v })), []);
 
     const step = useCallback(

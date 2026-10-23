@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { LeavePolicy } from '@src/domains/attendanceTimesheet/types';
 
+import { halfLeaveText, midShiftMinutes } from '../attendance';
 import {
     DEFAULT_LEAVE_POLICY,
     LEAVE_MESSAGES,
@@ -11,10 +12,8 @@ import {
     countedMonths,
     entitlementOf,
     fmtDays,
-    halfLeaveLabel,
     leaveDays,
     leaveYearOf,
-    shiftWithHalfLeave,
     validateLeaveRequest,
     lateDayDetail,
     lateLedgerText,
@@ -208,10 +207,9 @@ describe('leave requests', () => {
 });
 
 describe('half-day leave on the attendance day', () => {
-    it('first half off: the day starts at mid-shift; second half: it ends there', () => {
-        expect(shiftWithHalfLeave({ start: '09:30', end: '18:30' }, 'FIRST')).toEqual({ start: '14:00', end: '18:30' });
-        expect(shiftWithHalfLeave({ start: '09:30', end: '18:30' }, 'SECOND')).toEqual({ start: '09:30', end: '14:00' });
-        expect(halfLeaveLabel('SECOND')).toBe('Half-day leave (second half)');
+    it('the day splits at mid-shift; the label names the half', () => {
+        expect(midShiftMinutes({ start: '09:30', end: '18:30' })).toBe(14 * 60);
+        expect(halfLeaveText('SECOND')).toBe('Half-day leave (second half)');
     });
 });
 

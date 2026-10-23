@@ -49,6 +49,8 @@ export const ALL_TEAM_TABS: MyTeamTab[] = [
     'timesheet-approvals',
     'attendance-approvals',
     'overtime-approvals',
+    'leave-approvals',
+    'reimbursement-approvals',
 ];
 
 export const visibleTeamTabs = ({ mode, approvalOn }: Pick<TeamSettings, 'mode' | 'approvalOn'>) =>
@@ -57,6 +59,8 @@ export const visibleTeamTabs = ({ mode, approvalOn }: Pick<TeamSettings, 'mode' 
         if (tab === 'timesheets') return hasTimesheets(mode);
         if (tab === 'timesheet-approvals') return approvalOn && hasTimesheets(mode);
         if (tab === 'attendance-approvals') return hasCheckIn(mode);
+        // PROTOTYPE-SETUP (Final batch): leave and reimbursements don't depend on tracking.
+        if (tab === 'leave-approvals' || tab === 'reimbursement-approvals') return true;
         return hasTracking(mode); // Team today, Overtime approvals
     });
 

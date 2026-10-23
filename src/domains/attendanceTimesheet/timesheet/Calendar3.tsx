@@ -24,7 +24,8 @@ const CELL: Record<Exclude<CalState, ''>, string> = {
     back: 'bg-[#FFD9A8] text-[#7A3E00] font-medium',
 };
 
-const STATE_TIP: Partial<Record<CalState, string>> = { ok: ', approved', sub: ', submitted', back: ', update requested' };
+// PROTOTYPE-SETUP (Final batch, Slice 8): with the manager or with Payroll = sent for approval; an edited period is a draft.
+const STATE_TIP: Partial<Record<CalState, string>> = { ok: ', approved', sub: ', sent for approval', back: ', sent back' };
 
 export interface Calendar3Props {
     /** Middle month (YYYY-MM). */
@@ -80,7 +81,7 @@ const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnable
         // Periods that haven't started yet aren't coloured (a running period is, all its days).
         if (!w || w.weekStart > today) return '';
         if (w.status === 'SENT_BACK') return 'back';
-        if (w.changePending || w.status === 'SUBMITTED') return 'sub';
+        if (w.status === 'SUBMITTED' || w.status === 'WITH_PAYROLL') return 'sub';
         if (w.status === 'APPROVED') return 'ok';
         return '';
     };
@@ -143,7 +144,7 @@ const Legend = ({ approvalEnabled }: { approvalEnabled: boolean }) => (
             <>
                 <span className="inline-flex items-center gap-1.5">
                     <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#E4F6EC] shadow-[inset_0_0_0_1px_#6FCF97]" />
-                    Submitted
+                    Sent for approval
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                     <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#6FCF97]" />
@@ -151,7 +152,7 @@ const Legend = ({ approvalEnabled }: { approvalEnabled: boolean }) => (
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                     <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#FFD9A8]" />
-                    Update requested
+                    Sent back
                 </span>
             </>
         )}

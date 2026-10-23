@@ -1,6 +1,6 @@
 // PROTOTYPE-SETUP: ESS Service 1 (V2) — loads the months the three-month calendar shows (previous, current,
 // next around the cursor). Each month is fetched once and kept; `reloadKey` refetches them all (after an entry,
-// submit or change request, so the week colours update).
+// or submit, so the week colours update).
 import { useEffect, useRef, useState } from 'react';
 
 import { addMonths } from '@src/prototype/rules/attendance';
