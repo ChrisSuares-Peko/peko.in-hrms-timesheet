@@ -841,7 +841,8 @@ export interface OverviewDay {
 
 export interface OverviewAction {
     /** PROTOTYPE-SETUP (Final batch, Slice 5): 'late' — a late check-in deduction in the last 7 days. */
-    kind: 'sent-back' | 'still-checked-in' | 'overtime' | 'late';
+    /** PROTOTYPE-SETUP (My team, Slice 2): 'update' — an approver asked the employee to update a request. */
+    kind: 'sent-back' | 'still-checked-in' | 'overtime' | 'late' | 'update';
     title: string;
     text: string;
     button: string;

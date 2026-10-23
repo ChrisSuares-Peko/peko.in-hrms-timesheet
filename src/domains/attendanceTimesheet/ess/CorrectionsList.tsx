@@ -6,13 +6,19 @@
 // filter sits in the card header (AttendanceTab). The empty state is centred in the column, with a link.
 // PROTOTYPE-SETUP (HR rules, Slices 1–2): every attendance change is a correction (no self-service updates); times
 // are 12-hour and a next-day check-out reads "(next day)".
+// PROTOTYPE-SETUP (My team, Slice 2): an approver asked for an update — "Update requested" (amber), their comment,
+// and "Update and resubmit" (it goes to the manager first again).
 import { useState } from 'react';
 
 import { FileTextOutlined } from '@ant-design/icons';
 import { Button, Popconfirm, Skeleton, Tag, Typography } from 'antd';
 
-import { cancelCorrection, CorrectionWithStatus } from '../api';
+import { useAppDispatch } from '@src/hooks/store';
+import { showToast } from '@src/slices/apiSlice';
+
+import { cancelCorrection, CorrectionWithStatus, resubmitCorrection } from '../api';
 import { displayTime, displayTimeOn, fmtDate } from '../components/format';
+import ResubmitModal, { ResubmitValues, UpdateRequestedNote } from '../components/ResubmitModal';
 import { useAtsScope } from '../hooks/useAtsScope';
 import type { CorrectionTimes } from '../types';
 
@@ -43,8 +49,13 @@ const STATUS: Record<string, { label: string; color: string }> = {
     PENDING_PAYROLL: { label: 'Pending', color: 'processing' },
     APPROVED: { label: 'Approved', color: 'success' },
     REJECTED: { label: 'Rejected', color: 'error' },
+    PENDING_ADMIN: { label: 'Pending', color: 'processing' },
     CANCELLED: { label: 'Cancelled', color: 'default' },
+    UPDATE_REQUESTED: { label: 'Update requested', color: 'warning' },
 };
+
+/** Waiting for someone — the approver, or (asked for an update) the employee. */
+const needsAction = (c: CorrectionWithStatus) => isPending(c) || c.trail.status === 'UPDATE_REQUESTED';
 
 /** The one grey line under a request. */
 const statusLine = (c: CorrectionWithStatus) => {
@@ -57,6 +68,7 @@ const statusLine = (c: CorrectionWithStatus) => {
     if (status === 'PENDING_HR') return 'Waiting with HR team';
     if (status === 'PENDING_FINANCE') return 'Waiting with Finance team';
     if (status === 'REJECTED') return steps.find(s => s.decision === 'REJECTED')?.comment ?? c.statusLabel;
+    if (status === 'UPDATE_REQUESTED') return 'Waiting for you to update it';
     return c.statusLabel;
 };
 
@@ -72,10 +84,12 @@ interface CorrectionsListProps {
 
 const CorrectionsList = ({ items, filter = 'all', onUpdated, onOpenDay, onRequest }: CorrectionsListProps) => {
     const scope = useAtsScope();
+    const dispatch = useAppDispatch();
     const [cancelling, setCancelling] = useState<string | null>(null);
+    const [resubmitting, setResubmitting] = useState<CorrectionWithStatus | null>(null);
 
     if (!items) return <Skeleton active paragraph={{ rows: 3 }} />;
-    const list = items.filter(c => filter === 'all' || isPending(c)).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.date.localeCompare(a.date));
+    const list = items.filter(c => filter === 'all' || needsAction(c)).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.date.localeCompare(a.date));
 
     if (!list.length) {
         return (
@@ -125,7 +139,7 @@ const CorrectionsList = ({ items, filter = 'all', onUpdated, onOpenDay, onReques
                             <Text className="min-w-0 flex-1 truncate text-xs text-[#9e9e9e]" title={statusLine(c)}>
                                 {statusLine(c)}
                             </Text>
-                            {isPending(c) && (
+                            {needsAction(c) && (
                                 <Popconfirm title="Cancel this correction request?" okText="Cancel request" cancelText="Keep" onConfirm={() => cancel(c.id)}>
                                     <Button size="small" type="link" danger className="!h-auto shrink-0 !p-0 text-xs" loading={cancelling === c.id}>
                                         Cancel
@@ -133,9 +147,34 @@ const CorrectionsList = ({ items, filter = 'all', onUpdated, onOpenDay, onReques
                                 </Popconfirm>
                             )}
                         </div>
+                        {c.trail.status === 'UPDATE_REQUESTED' && c.trail.updateRequest && (
+                            <UpdateRequestedNote ask={c.trail.updateRequest} onResubmit={() => setResubmitting(c)} />
+                        )}
                     </li>
                 );
             })}
+            <ResubmitModal
+                open={Boolean(resubmitting)}
+                title="Update your attendance correction"
+                ask={resubmitting?.trail.updateRequest ?? null}
+                managerName={resubmitting?.trail.steps[0]?.skipped ? null : resubmitting?.trail.steps[0]?.approverName ?? null}
+                initial={
+                    resubmitting
+                        ? { kind: 'attendance', checkIn: resubmitting.requested.checkIn, checkOut: resubmitting.requested.checkOut, outDays: resubmitting.requested.outDays, reason: resubmitting.reason }
+                        : null
+                }
+                today={new Date().toISOString().slice(0, 10)}
+                onClose={() => setResubmitting(null)}
+                onSubmit={async (v: ResubmitValues) => {
+                    if (v.kind !== 'attendance' || !resubmitting) return false;
+                    const res = await resubmitCorrection(scope, resubmitting.id, { checkIn: v.checkIn, checkOut: v.checkOut, outDays: v.outDays, reason: v.reason });
+                    if (!res) return false;
+                    onUpdated(res);
+                    const to = resubmitting.trail.steps[0]?.skipped ? 'level 2' : resubmitting.trail.steps[0]?.approverName ?? 'your manager';
+                    dispatch(showToast({ variant: 'success', description: `Resubmitted to ${to}` }));
+                    return true;
+                }}
+            />
         </ul>
     );
 };

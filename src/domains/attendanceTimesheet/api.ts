@@ -17,6 +17,7 @@ import type {
     CorrectionInput,
     EssHomeView,
     LeaveRequestInput,
+    LeaveHalf,
     LeaveView,
     Level2Role,
     MyProfileView,
@@ -117,6 +118,9 @@ export const createCorrection = (s: AtsScope, body: CorrectionInput) =>
     call<AttendanceCorrection>(s, 'post', 'corrections', { body });
 export const cancelCorrection = (s: AtsScope, id: string) =>
     call<CorrectionWithStatus[]>(s, 'post', `corrections/${id}/cancel`);
+/** PROTOTYPE-SETUP (My team, Slice 2): update a request that was sent back and send it again (to the manager first). */
+export const resubmitCorrection = (s: AtsScope, id: string, body: { checkIn: string | null; checkOut: string | null; outDays: number; reason: string }) =>
+    call<CorrectionWithStatus[]>(s, 'post', `corrections/${id}/resubmit`, { body });
 // PROTOTYPE-SETUP (HR rules, Slice 1): no automatic check-out — check out of an earlier day still open; breaks.
 export const checkOutPrevious = (s: AtsScope) => call<AtsOverview>(s, 'post', 'check-out/previous');
 /** PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — "Working from". */
@@ -163,6 +167,8 @@ export const getOvertimeContext = (s: AtsScope, date: string) =>
 export const createOvertime = (s: AtsScope, body: OvertimeInput) =>
     call<OvertimeRequest>(s, 'post', 'overtime', { body });
 export const cancelOvertime = (s: AtsScope, id: string) => call<OvertimeView>(s, 'post', `overtime/${id}/cancel`);
+export const resubmitOvertime = (s: AtsScope, id: string, body: { date: string; minutes: number; description: string }) =>
+    call<OvertimeView>(s, 'post', `overtime/${id}/resubmit`, { body });
 
 // ---- ESS - Manager: my team ---------------------------------------------------------------------------
 
@@ -224,6 +230,8 @@ export const processPayrollMonth = (s: AtsScope, month: string) =>
 export const getLeaveView = (s: AtsScope) => call<LeaveView>(s, 'get', 'leave');
 export const applyForLeave = (s: AtsScope, body: LeaveRequestInput) => call<LeaveView>(s, 'post', 'leave/requests', { body });
 export const withdrawLeave = (s: AtsScope, id: string) => call<LeaveView>(s, 'post', `leave/requests/${id}/withdraw`);
+export const resubmitLeave = (s: AtsScope, id: string, body: { start: string; end: string; half: LeaveHalf | null; reason: string }) =>
+    call<LeaveView>(s, 'post', `leave/requests/${id}/resubmit`, { body });
 
 // ---- timesheets at Payroll (PROTOTYPE-SETUP: Final batch, Slice 1) ---------------------------------------------
 

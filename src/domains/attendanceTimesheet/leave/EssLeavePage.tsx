@@ -21,9 +21,10 @@ import { useAppDispatch } from '@src/hooks/store';
 import { LEAVE_LABEL, dayWord, fmtDays } from '@src/prototype/rules/leavePolicy';
 import { showToast } from '@src/slices/apiSlice';
 
-import { getLeaveView, setEmployeeLife, withdrawLeave } from '../api';
+import { getLeaveView, resubmitLeave, setEmployeeLife, withdrawLeave } from '../api';
 import ApplyLeaveModal from './ApplyLeaveModal';
 import { LateDeductionsPanel, LossOfPayCard } from './LateDeductions';
+import ResubmitModal, { ResubmitValues, UpdateRequestedNote } from '../components/ResubmitModal';
 import { useAtsScope } from '../hooks/useAtsScope';
 import type { LeaveBalance, LeaveView } from '../types';
 
@@ -87,6 +88,7 @@ const STATUS_COLOR = (l: LeaveView['requests'][number]) => {
     if (l.withdrawn || l.trail.status === 'CANCELLED') return 'default';
     if (l.trail.status === 'APPROVED') return 'success';
     if (l.trail.status === 'REJECTED') return 'error';
+    if (l.trail.status === 'UPDATE_REQUESTED') return 'warning';
     return 'processing';
 };
 
@@ -140,6 +142,8 @@ const EssLeavePage = () => {
     const [view, setView] = useState<LeaveView | null>(null);
     const [failed, setFailed] = useState(false);
     const [applying, setApplying] = useState(false);
+    // PROTOTYPE-SETUP (My team, Slice 2): a request an approver asked to update.
+    const [resubmitting, setResubmitting] = useState<LeaveView['requests'][number] | null>(null);
     const today = dayjs().format('YYYY-MM-DD');
 
     const load = useCallback(async () => {
@@ -219,10 +223,15 @@ const EssLeavePage = () => {
                             <Tag color={STATUS_COLOR(l)} className="!m-0">
                                 {l.withdrawn ? 'Leave withdrawn' : l.statusLabel}
                             </Tag>
-                            {l.trail.status.startsWith('PENDING') && !l.withdrawn && (
+                            {(l.trail.status.startsWith('PENDING') || l.trail.status === 'UPDATE_REQUESTED') && !l.withdrawn && (
                                 <Popconfirm title="Withdraw this request?" okText="Withdraw" onConfirm={() => withdraw(l.id)}>
                                     <Button size="small">Withdraw</Button>
                                 </Popconfirm>
+                            )}
+                            {l.trail.status === 'UPDATE_REQUESTED' && l.trail.updateRequest && !l.withdrawn && (
+                                <div className="basis-full">
+                                    <UpdateRequestedNote ask={l.trail.updateRequest} onResubmit={() => setResubmitting(l)} />
+                                </div>
                             )}
                         </li>
                     ))}
@@ -238,6 +247,23 @@ const EssLeavePage = () => {
 
             <DemoDates key={`${view.dateOfJoin}-${view.exit?.date ?? ''}`} view={view} name={name} onView={setView} />
 
+            <ResubmitModal
+                open={Boolean(resubmitting)}
+                title={`Update your ${resubmitting ? LEAVE_LABEL[resubmitting.type].toLowerCase() : ''} leave request`}
+                ask={resubmitting?.trail.updateRequest ?? null}
+                managerName={view.managerName}
+                initial={resubmitting ? { kind: 'leave', start: resubmitting.start, end: resubmitting.end, half: resubmitting.half, reason: resubmitting.reason } : null}
+                today={today}
+                onClose={() => setResubmitting(null)}
+                onSubmit={async (v: ResubmitValues) => {
+                    if (v.kind !== 'leave' || !resubmitting) return false;
+                    const res = await resubmitLeave(scope, resubmitting.id, { start: v.start, end: v.half ? v.start : v.end, half: v.half, reason: v.reason });
+                    if (!res) return false;
+                    setView(res);
+                    dispatch(showToast({ description: `Resubmitted to ${view.managerName ?? 'level 2'}`, variant: 'success' }));
+                    return true;
+                }}
+            />
             <ApplyLeaveModal
                 open={applying}
                 view={view}

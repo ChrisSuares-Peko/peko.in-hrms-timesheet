@@ -675,6 +675,7 @@ const toEmployeeReimbursement = (r: MockReimbursement): reimbursementListingResp
 const liveClaimRecord = (c: StoredClaim): ReimbursementRecord => ({
     id: c.id,
     category: c.category,
+    managerName: c.trail.steps[0]?.skipped ? null : c.trail.steps[0]?.approverName ?? null,
     // PROTOTYPE-SETUP (My team, Slice 1): who asked for an update, and why.
     ...(c.trail.status === 'UPDATE_REQUESTED' && c.trail.updateRequest
         ? { updateRequest: { by: c.trail.updateRequest.by, comment: c.trail.updateRequest.comment } }

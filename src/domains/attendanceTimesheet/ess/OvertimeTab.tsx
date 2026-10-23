@@ -15,13 +15,14 @@ import { Alert, Button, Empty, Popconfirm, Skeleton, Tag, Typography } from 'ant
 import { useAppDispatch } from '@src/hooks/store';
 import { showToast } from '@src/slices/apiSlice';
 
-import { cancelOvertime, getOvertime } from '../api';
+import { cancelOvertime, getOvertime, resubmitOvertime } from '../api';
 import { displayTime, displayTimeOn, fmtDate, fmtDay, fmtStamp, formatDuration } from '../components/format';
 import OvertimeRequestModal from '../components/OvertimeRequestModal';
+import ResubmitModal, { ResubmitValues, UpdateRequestedNote } from '../components/ResubmitModal';
 import { RequestStatusTag } from '../components/StatusTags';
 import TrailSteps from '../components/TrailSteps';
 import { useAtsScope } from '../hooks/useAtsScope';
-import type { OvertimeKind, OvertimeView } from '../types';
+import type { OvertimeKind, OvertimeRequest, OvertimeView } from '../types';
 import { isPending } from './CorrectionsList';
 import { basisNote } from './overtimeText';
 import { Panel, StatTile } from './ui';
@@ -86,6 +87,8 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
     const [failed, setFailed] = useState(false);
     const [modal, setModal] = useState<ModalState | null>(null);
     const [cancelling, setCancelling] = useState<string | null>(null);
+    // PROTOTYPE-SETUP (My team, Slice 2): a request an approver asked to update.
+    const [resubmitting, setResubmitting] = useState<OvertimeRequest | null>(null);
 
     const load = useCallback(async () => {
         setFailed(false);
@@ -270,13 +273,16 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                                     </Text>
                                 )}
                                 <DayContext r={r} />
+                                {r.trail.status === 'UPDATE_REQUESTED' && r.trail.updateRequest && (
+                                    <UpdateRequestedNote ask={r.trail.updateRequest} onResubmit={() => setResubmitting(r)} />
+                                )}
                                 <div className="flex items-center justify-between gap-2 flex-wrap">
                                     <TrailSteps trail={r.trail} />
                                     <div className="flex items-center gap-2">
                                         <Text className="text-[11px] text-titleText">
                                             Sent {fmtStamp(r.createdAt)}
                                         </Text>
-                                        {isPending(r) && (
+                                        {(isPending(r) || r.trail.status === 'UPDATE_REQUESTED') && (
                                             <Popconfirm
                                                 title="Cancel this overtime request?"
                                                 okText="Cancel request"
@@ -307,6 +313,25 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                 )}
             </Panel>
 
+            <ResubmitModal
+                open={Boolean(resubmitting)}
+                title="Update your overtime request"
+                ask={resubmitting?.trail.updateRequest ?? null}
+                managerName={resubmitting?.trail.steps[0]?.skipped ? null : resubmitting?.trail.steps[0]?.approverName ?? null}
+                initial={resubmitting ? { kind: 'overtime', date: resubmitting.date, minutes: resubmitting.minutes, description: resubmitting.description } : null}
+                today={new Date().toISOString().slice(0, 10)}
+                onClose={() => setResubmitting(null)}
+                onSubmit={async (v: ResubmitValues) => {
+                    if (v.kind !== 'overtime' || !resubmitting) return false;
+                    const res = await resubmitOvertime(scope, resubmitting.id, { date: v.date, minutes: v.minutes, description: v.description });
+                    if (!res) return false;
+                    setView(res);
+                    const to = resubmitting.trail.steps[0]?.skipped ? 'level 2' : resubmitting.trail.steps[0]?.approverName ?? 'your manager';
+                    dispatch(showToast({ variant: 'success', description: `Resubmitted to ${to}` }));
+                    onChanged?.();
+                    return true;
+                }}
+            />
             <OvertimeRequestModal
                 open={Boolean(modal)}
                 kind={modal?.kind ?? 'worked'}

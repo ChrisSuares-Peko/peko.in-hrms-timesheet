@@ -176,6 +176,18 @@ const EssProfileEditor = () => {
                 }
             />
         );
+    } else if (view.updateRequested?.trail.updateRequest) {
+        // PROTOTYPE-SETUP (My team, Slice 2): HR asked for an update — change the fields and send them again.
+        const ask = view.updateRequested.trail.updateRequest;
+        banner = (
+            <Alert
+                type="warning"
+                showIcon
+                data-update-requested
+                message={`${ask.by} asked for an update`}
+                description={`${ask.comment} Change the details below and send them to HR again.`}
+            />
+        );
     } else if (lastDecided?.trail.status === 'APPROVED') {
         banner = <Alert type="info" showIcon message={`HR approved your last update on ${dayjs(lastDecided.updatedAt).format('D MMM')}.`} />;
     } else if (lastDecided?.trail.status === 'REJECTED') {

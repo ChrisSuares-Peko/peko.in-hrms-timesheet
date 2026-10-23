@@ -38,6 +38,9 @@ export interface ReimbursementUiRow {
     status: UiReimbursementStatus;
     receiptUrl?: string;
     canCancel: boolean;
+    /** PROTOTYPE-SETUP (My team, Slice 2): an approver asked for an update. */
+    updateRequest?: { by: string; comment: string };
+    record: ReimbursementRecord;
 }
 
 export const toReimbursementRow = (record: ReimbursementRecord): ReimbursementUiRow => {
@@ -53,6 +56,8 @@ export const toReimbursementRow = (record: ReimbursementRecord): ReimbursementUi
         // Only a still-pending, self-submitted claim can be cancelled — matches
         // the backend's guard exactly. HR-created reimbursements have no
         // `status` field at all and must never show a Cancel option.
-        canCancel: record.status === 'requestedByEmployee',
+        canCancel: record.status === 'requestedByEmployee' || record.status === 'updateRequested',
+        ...(record.updateRequest ? { updateRequest: record.updateRequest } : {}),
+        record,
     };
 };

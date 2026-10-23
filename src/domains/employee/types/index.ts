@@ -148,6 +148,8 @@ export interface ReimbursementRecord {
     supportingDocs?: string;
     /** PROTOTYPE-SETUP (My team, Slice 1): who asked for an update, and what to change (status updateRequested). */
     updateRequest?: { by: string; comment: string };
+    /** Level 1 for this employee (null: none — it goes straight to level 2). */
+    managerName?: string | null;
     /** The claim's category (prototype data). */
     category?: string;
 }

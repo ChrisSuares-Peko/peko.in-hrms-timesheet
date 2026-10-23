@@ -9,6 +9,7 @@ import {
     cancelReimbursementApi,
     getMyReimbursements,
     requestReimbursementApi,
+    resubmitReimbursementApi,
 } from '../api/reimbursements';
 import { ReimbursementRecord } from '../types';
 
@@ -72,8 +73,29 @@ export const useReimbursements = () => {
         [role, id, fetchReimbursements, dispatch]
     );
 
+    // PROTOTYPE-SETUP (My team, Slice 2): update and resubmit a claim an approver asked to update.
+    const resubmitReimbursement = useCallback(
+        async (reimbursementId: string, body: { amount: number; date: string; description: string }) => {
+            try {
+                await resubmitReimbursementApi({ userType: role, userId: id }, reimbursementId, body);
+                await fetchReimbursements();
+                return true;
+            } catch (err: any) {
+                dispatch(
+                    showToast({
+                        description: err?.response?.data?.message || 'Something went wrong.',
+                        variant: 'error',
+                    })
+                );
+                return false;
+            }
+        },
+        [role, id, fetchReimbursements, dispatch]
+    );
+
     return {
         records,
+        resubmitReimbursement,
         total,
         limit: PAGE_SIZE,
         fetchReimbursements,

@@ -600,7 +600,10 @@ describe('overview home', () => {
     it("lists this week's and last week's working days up to today, newest first", () => {
         const h = homeOf(M, sneha);
         expect(h.recentDays.length).toBeGreaterThan(0);
-        expect(h.recentDays[0].date).toBe(s.today);
+        // Weekly offs drop out unless worked, so on a weekend the newest row is the last working day.
+        let newest = s.today;
+        while (!isWorkingDay(newest)) newest = addDays(newest, -1);
+        expect(h.recentDays[0].date).toBe(newest);
         expect(h.recentDays.every(d => d.date >= addDays(weekStartOf(s.today), -7) && d.date <= s.today)).toBe(true);
         expect(h.recentDays.map(d => d.date)).toEqual([...h.recentDays.map(d => d.date)].sort().reverse());
         const open = h.recentDays.find(d => d.date === s.openDay)!;
@@ -1144,5 +1147,17 @@ describe('my team: ask for update', () => {
         const ceo = findEmployee('ACME-021')!;
         const top = createLeaveRequest(M, ceo, { type: 'CASUAL', start: day, reason: 'Personal' }).requests.find(r => r.start === day)!;
         expect(top.trail.status).toBe('PENDING_HR');
+    });
+});
+
+// PROTOTYPE-SETUP (My team, Slice 2): the employee sees what to update, first in "Needs your action".
+describe('my team: the employee side of ask for update', () => {
+    it('an update requested is the first Overview action, with the comment and Open to the right page', () => {
+        const c = atsReimbursements.get(M).find(x => x.employeeId === sneha.id && x.trail.status === 'PENDING_MANAGER')!;
+        decideRequest(M, 'reimbursement', c.id, { role: 'MANAGER', manager: arjun }, 'UPDATE_REQUESTED', 'Attach the bill');
+        const a = homeOf(M, sneha).actions[0];
+        expect(a).toMatchObject({ kind: 'update', title: 'Update requested: reimbursement claim', text: `${arjun.fullName}: Attach the bill`, button: 'Open', link: { page: 'reimbursements' } });
+        resubmitClaim(M, sneha.id, c.id, {}, sneha.fullName);
+        expect(homeOf(M, sneha).actions.some(x => x.kind === 'update')).toBe(false);
     });
 });

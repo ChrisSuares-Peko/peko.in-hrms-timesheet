@@ -53,6 +53,19 @@ export const requestReimbursementApi = async (
     return resp.data;
 };
 
+/** PROTOTYPE-SETUP (My team, Slice 2): update a claim that was sent back and send it again (to the manager first). */
+export const resubmitReimbursementApi = async (
+    scope: OnboardingScope,
+    reimbursementId: string,
+    body: { amount: number; date: string; description: string }
+): Promise<ReimbursementRecord> => {
+    const resp: SuccessGenericResponse<ReimbursementRecord> = await ApiClient.post(
+        `${base(scope)}/reimbursement-requests/${reimbursementId}/resubmit`,
+        body
+    );
+    return resp.data;
+};
+
 export const cancelReimbursementApi = async (
     scope: OnboardingScope,
     reimbursementId: string

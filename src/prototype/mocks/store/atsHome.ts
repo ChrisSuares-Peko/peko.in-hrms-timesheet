@@ -175,7 +175,29 @@ const actionsOf = (mode: DataMode, e: MockEmployee): OverviewAction[] => {
             tone: 'amber',
         });
     }
+    // PROTOTYPE-SETUP (My team, Slice 2): requests an approver asked to update — first, with the comment and "Open".
+    allRequestsOf(mode, e)
+        .filter(r => r.state === 'update_requested')
+        .reverse()
+        .forEach(r =>
+            actions.unshift({
+                kind: 'update',
+                title: `Update requested: ${UPDATE_TITLE[r.type]}`,
+                text: r.statusText.replace(/^Update requested by /, ''),
+                button: 'Open',
+                link: r.link,
+                tone: 'back',
+            })
+        );
     return actions;
+};
+
+const UPDATE_TITLE: Record<OverviewRequest['type'], string> = {
+    leave: 'leave request',
+    overtime: 'overtime request',
+    reimbursement: 'reimbursement claim',
+    attendance: 'attendance correction',
+    profile: 'profile update',
 };
 
 // ---- your requests ------------------------------------------------------------------------------------------
@@ -206,7 +228,8 @@ const stateOf = (trail: ApprovalTrail): OverviewRequest['state'] | null => {
     return s === 'cancelled' ? null : s;
 };
 
-const requestsOf = (mode: DataMode, e: MockEmployee): OverviewRequest[] => {
+/** Every request the employee can see (newest first, not cut to the Overview's few). */
+const allRequestsOf = (mode: DataMode, e: MockEmployee): OverviewRequest[] => {
     const items: OverviewRequest[] = [];
     // PROTOTYPE-SETUP (Final batch, Slice 1): leave and reimbursements are live requests with an approval trail.
     leaveRequestsOf(mode, e.id).forEach(l => {
@@ -284,8 +307,10 @@ const requestsOf = (mode: DataMode, e: MockEmployee): OverviewRequest[] => {
             link: { page: 'profile' },
         });
     });
-    return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, MAX_REQUESTS);
+    return items.sort((a, b) => b.at.localeCompare(a.at));
 };
+
+const requestsOf = (mode: DataMode, e: MockEmployee): OverviewRequest[] => allRequestsOf(mode, e).slice(0, MAX_REQUESTS);
 
 // ---- announcements & shortcuts ------------------------------------------------------------------------------
 

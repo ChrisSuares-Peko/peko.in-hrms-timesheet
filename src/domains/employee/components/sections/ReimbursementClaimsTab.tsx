@@ -3,8 +3,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Image, Modal, Pagination, Popconfirm, Select, Tag, Typography } from 'antd';
 import { ColumnsType } from 'antd/lib/table';
+import dayjs from 'dayjs';
 
 import GenericTable from '@components/atomic/GenericTable';
+import ResubmitModal, { ResubmitValues } from '@src/domains/attendanceTimesheet/components/ResubmitModal';
+import { useAppDispatch } from '@src/hooks/store';
+import { showToast } from '@src/slices/apiSlice';
 
 import SubmitClaimModal from './SubmitClaimModal';
 import calenderIcon from '../../assets/icons/calender.svg';
@@ -44,6 +48,8 @@ const statusOptions = [
     { value: 'requestedByEmployee', label: 'Pending' },
     { value: 'approved', label: 'Approved' },
     { value: 'rejected', label: 'Rejected' },
+    // PROTOTYPE-SETUP (My team, Slice 2)
+    { value: 'updateRequested', label: 'Update requested' },
 ];
 
 const StatCard: React.FC<{
@@ -72,8 +78,11 @@ const StatCard: React.FC<{
 );
 
 const ReimbursementClaimsTab: React.FC = () => {
-    const { records, total, limit, fetchReimbursements, submitReimbursement, cancelReimbursement } =
+    const { records, total, limit, fetchReimbursements, submitReimbursement, cancelReimbursement, resubmitReimbursement } =
         useReimbursements();
+    const dispatch = useAppDispatch();
+    // PROTOTYPE-SETUP (My team, Slice 2): a claim an approver asked to update.
+    const [resubmitting, setResubmitting] = useState<ReimbursementUiRow | null>(null);
 
     const [statusFilter, setStatusFilter] = useState('All');
     const [page, setPage] = useState(1);
@@ -135,7 +144,19 @@ const ReimbursementClaimsTab: React.FC = () => {
             dataIndex: 'status',
             key: 'status',
             width: 140,
-            render: (status: UiReimbursementStatus) => {
+            render: (status: UiReimbursementStatus, row: ReimbursementUiRow) => {
+                if (row.updateRequest) {
+                    return (
+                        <div className="flex max-w-[260px] flex-col items-start gap-1">
+                            <Tag color="warning" bordered={false} className="rounded-full px-3">
+                                {status}
+                            </Tag>
+                            <Text className="text-xs text-[#93370D]">
+                                {row.updateRequest.by}: {row.updateRequest.comment}
+                            </Text>
+                        </div>
+                    );
+                }
                 const custom = customStatusStyle[status];
                 if (custom) {
                     return (
@@ -161,13 +182,20 @@ const ReimbursementClaimsTab: React.FC = () => {
             width: 110,
             align: 'right',
             render: (_: unknown, row: ReimbursementUiRow) => (
-                <Button
-                    className="h-9 rounded-lg font-normal text-[12px]"
-                    style={{ borderColor: '#CBD5E1', color: '#475569', padding: '0 18px' }}
-                    onClick={() => setViewRow(row)}
-                >
-                    View
-                </Button>
+                <div className="flex flex-wrap justify-end gap-2">
+                    {row.updateRequest && (
+                        <Button type="primary" className="h-9 rounded-lg text-[12px]" onClick={() => setResubmitting(row)} data-resubmit>
+                            Update and resubmit
+                        </Button>
+                    )}
+                    <Button
+                        className="h-9 rounded-lg font-normal text-[12px]"
+                        style={{ borderColor: '#CBD5E1', color: '#475569', padding: '0 18px' }}
+                        onClick={() => setViewRow(row)}
+                    >
+                        View
+                    </Button>
+                </div>
             ),
         },
     ];
@@ -366,6 +394,25 @@ const ReimbursementClaimsTab: React.FC = () => {
                     </div>
                 )}
             </Modal>
+            <ResubmitModal
+                open={Boolean(resubmitting)}
+                title="Update your reimbursement claim"
+                ask={resubmitting?.updateRequest ?? null}
+                managerName={resubmitting?.record.managerName ?? null}
+                initial={
+                    resubmitting
+                        ? { kind: 'reimbursement', amount: resubmitting.record.totalPay, date: resubmitting.record.expenseDate.slice(0, 10), description: resubmitting.record.expenseDetails ?? '' }
+                        : null
+                }
+                today={dayjs().format('YYYY-MM-DD')}
+                onClose={() => setResubmitting(null)}
+                onSubmit={async (v: ResubmitValues) => {
+                    if (v.kind !== 'reimbursement' || !resubmitting) return false;
+                    const ok = await resubmitReimbursement(resubmitting.record.id, { amount: v.amount, date: v.date, description: v.description });
+                    if (ok) dispatch(showToast({ variant: 'success', description: `Resubmitted to ${resubmitting.record.managerName ?? 'level 2'}` }));
+                    return ok;
+                }}
+            />
         </div>
     );
 };
