@@ -86,7 +86,22 @@ export const leaveViewOf = (mode: DataMode, e: MockEmployee): LeaveView => {
             .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
             .map(l => ({ ...l, statusLabel: l.withdrawn ? 'Withdrawn' : trailLabel(l.trail) })),
         managerName: managerRef(e)?.name ?? null,
+        employeeName: e.fullName,
+        approvalPath: approvalPathOf(managerRef(e)?.name ?? null, settings.level2.leave),
+        calendar: {
+            weeklyOff: settings.weeklyOff,
+            holidays: Array.from({ length: 456 }, (_, i) => addDays(t, i - 90)).filter(d => Boolean(publicHolidayOn(d))),
+        },
     };
+};
+
+const LEVEL2_TEAM = { HR: 'HR team', ADMIN: 'Admin', FINANCE: 'Finance team', PAYROLL: 'Payroll' } as const;
+
+/** "Arjun Mehta (manager), then HR team" / "HR team" (no manager) / "Arjun Mehta (manager)" (no level 2). */
+const approvalPathOf = (manager: string | null, level2: keyof typeof LEVEL2_TEAM | 'NONE') => {
+    const second = level2 === 'NONE' ? null : LEVEL2_TEAM[level2];
+    if (!manager) return second ?? 'Approved automatically';
+    return second ? `${manager} (manager), then ${second}` : `${manager} (manager)`;
 };
 
 /** Available per type for a new request: the balance minus requests still pending. */

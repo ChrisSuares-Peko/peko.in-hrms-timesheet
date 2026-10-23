@@ -994,3 +994,31 @@ describe('timesheets at level 2', () => {
         expect(() => payrollMonthView(M, 999999, item.weekStart.slice(0, 7))).toThrow('Employee not found.');
     });
 });
+
+// PROTOTYPE-SETUP (Final batch, Slice 6): the Leave page's extras and the policy settings.
+describe('final batch: leave page and policy settings', () => {
+    it('the view names who approves, and carries the calendar for counting working days', () => {
+        const v = leaveViewOf(M, sneha);
+        expect(v.employeeName).toBe('Sneha Iyer');
+        expect(v.approvalPath).toBe('Arjun Mehta (manager), then HR team');
+        expect(v.calendar.weeklyOff).toEqual(getSettings(M).weeklyOff);
+        expect(v.calendar.holidays.every(d => /^\d{4}-\d{2}-\d{2}$/.test(d))).toBe(true);
+        expect(leaveViewOf(M, findEmployee('ACME-021')!).approvalPath).toBe('HR team');
+        updateSettings(M, { level2: { ...getSettings(M).level2, leave: 'NONE' } });
+        expect(leaveViewOf(M, sneha).approvalPath).toBe('Arjun Mehta (manager)');
+    });
+
+    it('a policy change applies straight away (joining-date year, Casual monthly)', () => {
+        const before = leaveViewOf(M, sneha);
+        const policy = getSettings(M).leavePolicy;
+        updateSettings(M, { leavePolicy: { ...policy, year: 'JOINING', types: { ...policy.types, CASUAL: { ...policy.types.CASUAL, credit: 'MONTHLY' } } } });
+        const after = leaveViewOf(M, sneha);
+        expect(after.year.basis).toBe('JOINING');
+        expect(after.year.start.slice(5)).toBe(sneha.dateOfJoin.slice(5));
+        expect(after.balances.find(b => b.type === 'CASUAL')!.ledger.some(x => x.kind === 'MONTHLY')).toBe(true);
+        expect(before.year.basis).toBe('COMPANY');
+        // invalid values are ignored
+        updateSettings(M, { leavePolicy: { ...policy, cycleStart: '02-30', probationMonths: 99 } });
+        expect(getSettings(M).leavePolicy).toMatchObject({ cycleStart: policy.cycleStart, probationMonths: policy.probationMonths });
+    });
+});

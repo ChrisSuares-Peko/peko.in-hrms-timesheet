@@ -14,7 +14,7 @@ const EssLayout = lazy(() => import('@src/domains/dashboard/Ess/pages/EssLayout'
 // Home mounts the employee Dashboard directly: EmployeeHome's onboarding gate would send an empty-mode
 // persona to the onboarding wizard, which is not one of the tab's pages.
 const EmployeeDashboard = lazy(() => import('@src/domains/employee/pages/Dashboard'));
-const Leaves = lazy(() => import('@src/domains/employee/pages/Leaves'));
+const EssLeavePage = lazy(() => import('@src/domains/attendanceTimesheet/leave/EssLeavePage'));
 const Payslips = lazy(() => import('@src/domains/employee/pages/Payslips'));
 const Reimbursements = lazy(() => import('@src/domains/employee/pages/Reimbursements'));
 const Documents = lazy(() => import('@src/domains/employee/pages/Documents'));
@@ -39,7 +39,8 @@ const essTabRoutes = (base: string) => [
             { element: <MyTeamPage />, path: 'my-team' },
             { element: <MemberTimesheetPage />, path: 'my-team/members/:employeeId' },
             { element: <MyTeamPage />, path: 'my-team/:tab' },
-            { element: <Leaves />, path: 'leaves' },
+            // PROTOTYPE-SETUP (Final batch, Slice 6): the ESS Leave page on the live leave store.
+            { element: <EssLeavePage />, path: 'leaves' },
             { element: <Payslips />, path: 'payslips' },
             { element: <Reimbursements />, path: 'reimbursements' },
             { element: <Documents />, path: 'documents' },

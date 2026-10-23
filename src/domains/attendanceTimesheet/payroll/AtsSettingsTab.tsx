@@ -30,12 +30,13 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 
 import { useAppDispatch } from '@src/hooks/store';
 import { DEFAULT_FILING, PROJECT_CODE_RE, WEEKDAYS, filingFieldsError, formatDuration } from '@src/prototype/rules/attendance';
+import { LEAVE_LABEL, LEAVE_TYPES, fmtDays } from '@src/prototype/rules/leavePolicy';
 import { showToast } from '@src/slices/apiSlice';
 
 import { updateAtsSettings } from '../api';
 import { usePayrollScope, useAtsSettings } from './usePayrollAts';
 import { fmtStamp } from '../components/format';
-import type { ApprovalType, AtsMode, AtsSettings, FilingFrequency, Level2Approver, Level2ConfigurableType, Weekday } from '../types';
+import type { ApprovalType, AtsMode, AtsSettings, FilingFrequency, Level2Approver, Level2ConfigurableType, Weekday, LeavePolicy } from '../types';
 
 dayjs.extend(customParseFormat);
 
@@ -65,6 +66,8 @@ interface FormValues {
     fieldDuration: boolean;
     fieldProjectCode: boolean;
     projectCodes: string[];
+    /** PROTOTYPE-SETUP (Final batch, Slice 6): the leave policy ("MM-DD" split into day and month). */
+    leavePolicy: { year: LeavePolicy['year']; cycleDay: number; cycleMonth: number; probationMonths: number; types: LeavePolicy['types'] };
 }
 
 const FREQUENCY_OPTIONS: { value: FilingFrequency; label: string }[] = [
@@ -170,6 +173,13 @@ const toForm = (s: AtsSettings): FormValues => ({
     fieldDuration: (s.timesheetFiling ?? DEFAULT_FILING).fields.duration,
     fieldProjectCode: (s.timesheetFiling ?? DEFAULT_FILING).fields.projectCode,
     projectCodes: (s.timesheetFiling ?? DEFAULT_FILING).projectCodes,
+    leavePolicy: {
+        year: s.leavePolicy.year,
+        cycleMonth: Number(s.leavePolicy.cycleStart.slice(0, 2)),
+        cycleDay: Number(s.leavePolicy.cycleStart.slice(3, 5)),
+        probationMonths: s.leavePolicy.probationMonths,
+        types: s.leavePolicy.types,
+    },
 });
 
 const fromForm = (v: FormValues): Partial<AtsSettings> => ({
@@ -188,7 +198,136 @@ const fromForm = (v: FormValues): Partial<AtsSettings> => ({
         fields: { startTime: v.fieldStart, endTime: v.fieldEnd, duration: v.fieldDuration, projectCode: v.fieldProjectCode },
         projectCodes: v.projectCodes.map(c => c.trim().toUpperCase()).filter(Boolean),
     },
+    leavePolicy: {
+        year: v.leavePolicy.year,
+        cycleStart: `${String(v.leavePolicy.cycleMonth).padStart(2, '0')}-${String(v.leavePolicy.cycleDay).padStart(2, '0')}`,
+        probationMonths: v.leavePolicy.probationMonths ?? 0,
+        types: v.leavePolicy.types,
+    },
 });
+
+const MONTH_OPTIONS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((label, i) => ({
+    value: i + 1,
+    label,
+}));
+
+/**
+ * PROTOTYPE-SETUP (Final batch, Slice 6): "Leave policy" — the leave year (company cycle or each employee's joining
+ * date), probation, and per type: days a year, how they're credited, the carry-forward limit and encashment on exit.
+ * Rules: src/prototype/rules/leavePolicy.ts.
+ */
+const LeavePolicyCard = () => {
+    const form = Form.useFormInstance<FormValues>();
+    const year = Form.useWatch(['leavePolicy', 'year'], form);
+    const types = Form.useWatch(['leavePolicy', 'types'], form) as LeavePolicy['types'] | undefined;
+    return (
+        <Card title="Leave policy" size="small" data-leave-policy>
+            <Text type="secondary" className="mb-3 block text-xs">
+                How leave is credited, reset and pro-rated. Changes apply to everyone straight away.
+            </Text>
+            <Form.Item name={['leavePolicy', 'year']} label="Leave year" className="!mb-2">
+                <Radio.Group
+                    options={[
+                        { value: 'COMPANY', label: 'Company leave cycle' },
+                        { value: 'JOINING', label: 'Each employee’s joining date' },
+                    ]}
+                />
+            </Form.Item>
+            {year === 'COMPANY' ? (
+                <Flex align="center" gap={8} wrap="wrap" className="mb-3">
+                    <Text className="text-sm">Leave year starts on</Text>
+                    <Form.Item name={['leavePolicy', 'cycleDay']} noStyle>
+                        <InputNumber min={1} max={28} className="!w-[72px]" aria-label="Leave year start day" />
+                    </Form.Item>
+                    <Form.Item name={['leavePolicy', 'cycleMonth']} noStyle>
+                        <Select options={MONTH_OPTIONS} className="!w-[140px]" aria-label="Leave year start month" />
+                    </Form.Item>
+                    <Text type="secondary" className="text-xs">
+                        Everyone’s leave resets the day before.
+                    </Text>
+                </Flex>
+            ) : (
+                <Text type="secondary" className="mb-3 block text-xs">
+                    Each employee’s leave resets on their joining anniversary.
+                </Text>
+            )}
+            <Flex align="center" gap={8} wrap="wrap" className="mb-3">
+                <Text className="text-sm">Probation</Text>
+                <Form.Item name={['leavePolicy', 'probationMonths']} noStyle>
+                    <InputNumber min={0} max={24} className="!w-[72px]" aria-label="Probation months" />
+                </Form.Item>
+                <Text type="secondary" className="text-xs">
+                    months (0 = none). During probation every leave type is credited monthly; the rest of the year lands when probation ends.
+                </Text>
+            </Flex>
+            <div className="overflow-x-auto">
+                <table className="w-full min-w-[560px] border-collapse text-sm" data-leave-types>
+                    <thead>
+                        <tr className="text-left text-xs text-gray-500">
+                            <th className="py-1 pr-3 font-normal">Leave type</th>
+                            <th className="py-1 pr-3 font-normal">Days per year</th>
+                            <th className="py-1 pr-3 font-normal">Credited</th>
+                            <th className="py-1 pr-3 font-normal">Carry forward up to</th>
+                            <th className="py-1 font-normal">Encash on exit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {LEAVE_TYPES.map(t => (
+                            <tr key={t} className="border-0 border-t border-solid border-gray-100">
+                                <td className="py-2 pr-3">{LEAVE_LABEL[t]}</td>
+                                <td className="py-2 pr-3">
+                                    <Flex align="center" gap={6}>
+                                        <Form.Item name={['leavePolicy', 'types', t, 'daysPerYear']} noStyle>
+                                            <InputNumber min={0} max={60} className="!w-[72px]" aria-label={`${LEAVE_LABEL[t]} days per year`} />
+                                        </Form.Item>
+                                        {types?.[t]?.credit === 'MONTHLY' && (
+                                            <Text type="secondary" className="whitespace-nowrap text-xs">
+                                                {fmtDays((types[t].daysPerYear ?? 0) / 12)} a month
+                                            </Text>
+                                        )}
+                                    </Flex>
+                                </td>
+                                <td className="py-2 pr-3">
+                                    <Form.Item name={['leavePolicy', 'types', t, 'credit']} noStyle>
+                                        <Select
+                                            className="!w-[210px]"
+                                            aria-label={`${LEAVE_LABEL[t]} credited`}
+                                            options={[
+                                                { value: 'UPFRONT', label: 'All at the start of the year' },
+                                                { value: 'MONTHLY', label: 'Monthly' },
+                                            ]}
+                                        />
+                                    </Form.Item>
+                                </td>
+                                <td className="py-2 pr-3">
+                                    <Flex align="center" gap={6}>
+                                        <Form.Item name={['leavePolicy', 'types', t, 'carryForward']} noStyle>
+                                            <InputNumber min={0} max={120} className="!w-[72px]" aria-label={`${LEAVE_LABEL[t]} carry forward`} />
+                                        </Form.Item>
+                                        <Text type="secondary" className="text-xs">
+                                            days
+                                        </Text>
+                                    </Flex>
+                                </td>
+                                <td className="py-2">
+                                    <Form.Item name={['leavePolicy', 'types', t, 'encashOnExit']} valuePropName="checked" noStyle>
+                                        <Checkbox aria-label={`${LEAVE_LABEL[t]} encash on exit`} />
+                                    </Form.Item>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+            <Text type="secondary" className="mt-2 block text-xs">
+                Pro-rating: a month counts if someone joins on or before the 15th, or leaves on or after the 15th. Credits aren’t rounded (13 days a year =
+                1.08 a month). Unused leave above the carry-forward limit lapses at reset. Extra leave taken before leaving is recovered in the final
+                settlement.
+            </Text>
+        </Card>
+    );
+};
+
 
 const ModeCards = ({
     value,
@@ -605,6 +744,8 @@ const AtsSettingsTab = () => {
                         </Flex>
                     )}
                 </Card>
+
+                <LeavePolicyCard />
 
                 <Card title="Timesheet approval" size="small">
                     {timesheetsOff ? (

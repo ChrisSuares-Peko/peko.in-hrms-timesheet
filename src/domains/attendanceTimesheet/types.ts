@@ -1043,4 +1043,10 @@ export interface LeaveView {
     lateDeductionDays: number;
     requests: (LeaveRequest & { statusLabel: string })[];
     managerName: string | null;
+    /** PROTOTYPE-SETUP (Final batch, Slice 6): whose leave it is. */
+    employeeName: string;
+    /** PROTOTYPE-SETUP (Final batch, Slice 6): "Arjun Mehta (manager), then HR team" — who approves a new request. */
+    approvalPath: string;
+    /** Weekly offs and public holidays (90 days back to a year ahead), so the apply form can count working days. */
+    calendar: { weeklyOff: Weekday[]; holidays: string[] };
 }

@@ -13,8 +13,8 @@ duration-only entries, manual submit, overlap and gap warnings).
 | Slice 2 — Timesheet entry form, location, project codes | c69ba11 | done |
 | Slice 3 — Timesheet template, upload, submit | 43e2c3c | done |
 | Slice 4 — Reviews and the Payroll queue | 63c7a6c | done |
-| Slice 5 — Late check-in deductions (UI) | (this commit) | done |
-| Slice 6 — Leave page and leave policy settings | — | in progress |
-| Slice 7 — Payroll settings tidy-up | — | to do |
+| Slice 5 — Late check-in deductions (UI) | 55d700f | done |
+| Slice 6 — Leave page and leave policy settings | (this commit) | done |
+| Slice 7 — Payroll settings tidy-up | — | in progress |
 | Slice 8 — Consistency and clean-up | — | to do |
 | VERIFY 1–11, single push | — | to do |

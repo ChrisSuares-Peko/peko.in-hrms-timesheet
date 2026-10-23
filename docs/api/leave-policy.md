@@ -83,6 +83,23 @@ When the employee has an exit date, `exit.settlement` lists the following for ea
 | POST | `leave/requests/{id}/withdraw` | — | `LeaveView` (pending requests only) |
 | PUT | `demo/employee-life` | `{ dateOfJoin?, exitDate? }` | `LeaveView`. This is a demo control: it overrides the persona's joining and leaving dates, and changes the leave maths only. |
 
+`LeaveView` also carries the following (Slice 6):
+- `employeeName`.
+- `approvalPath`, for example "Arjun Mehta (manager), then HR team".
+- `calendar: { weeklyOff, holidays }`. The apply form uses it to count working days, checking with `validateLeaveRequest` as the server does.
+
+The ESS Leave page is at src/domains/attendanceTimesheet/leave/EssLeavePage.tsx (route `ess-employee/leaves` and `ess-manager/leaves`). It has:
+- the header with the leave year;
+- the probation and exit banners;
+- the balance cards, each with a ledger you can expand;
+- the Loss of pay card;
+- the requests, with Withdraw on pending ones;
+- the late deductions;
+- the public holidays;
+- the demo dates.
+
+Payroll → Settings → Attendance & Timesheet has a "Leave policy" panel.
+
 ### Checks when applying, in order
 
 | Check | Message |
