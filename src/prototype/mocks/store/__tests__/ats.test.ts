@@ -21,6 +21,8 @@ import {
     overtimeViewOf,
     endBreak,
     importTimesheet,
+    resubmitCorrection,
+    resubmitOvertime,
     lateDeductionsByDate,
     overviewOf,
     previewImport,
@@ -33,12 +35,13 @@ import {
     updateTodayBreaks,
 } from '../atsEss';
 import { homeOf } from '../atsHome';
-import { createLeaveRequest, leaveViewOf, setEmployeeLife, withdrawLeaveRequest } from '../atsLeave';
+import { createLeaveRequest, leaveViewOf, resubmitLeaveRequest, setEmployeeLife, withdrawLeaveRequest } from '../atsLeave';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../atsProfile';
-import { atsLeaveRequests } from '../atsRequests';
+import { atsLeaveRequests, atsReimbursements, resubmitClaim } from '../atsRequests';
 import { atsAttendance, attendanceDay, correctionsOf, currentMonth, getSettings, lastMonth, recordOf, resetTodayCheckIn, weekView } from '../atsStore';
 import {
     approveWeek,
+    bulkApprove,
     autoRunSubmissionDay,
     payrollApproveWeek,
     payrollSendBackWeek,
@@ -1020,5 +1023,126 @@ describe('final batch: leave page and policy settings', () => {
         // invalid values are ignored
         updateSettings(M, { leavePolicy: { ...policy, cycleStart: '02-30', probationMonths: 99 } });
         expect(getSettings(M).leavePolicy).toMatchObject({ cycleStart: policy.cycleStart, probationMonths: policy.probationMonths });
+    });
+});
+
+// PROTOTYPE-SETUP (My team, Slice 1): Ask for update at either level, resubmission, level-2 visibility, bulk approve.
+describe('my team: ask for update', () => {
+    const far = (n: number) => {
+        let d = s.today;
+        for (let k = 0; k < n; ) {
+            d = addDays(d, 1);
+            if (isWorkingDay(d)) k += 1;
+        }
+        return d;
+    };
+    const hrSees = (id: string) => level2Requests(M, 'HR', 'leave', 'all').some(r => r.id === id);
+
+    it('leave: manager asks → employee resubmits → manager; Payroll/HR never see it before level 1 approves', () => {
+        const day = far(25);
+        const v = createLeaveRequest(M, sneha, { type: 'CASUAL', start: day, reason: 'Family' });
+        const {id} = (v.requests.find(r => r.start === day)!);
+        expect(teamRequests(M, arjun, 'leave', 'waiting').some(r => r.id === id)).toBe(true);
+        expect(hrSees(id)).toBe(false);
+        expect(() => decideRequest(M, 'leave', id, { role: 'MANAGER', manager: arjun }, 'UPDATE_REQUESTED', '')).toThrow(/Add a short note/);
+        const asked = decideRequest(M, 'leave', id, { role: 'MANAGER', manager: arjun }, 'UPDATE_REQUESTED', 'Take the Monday instead');
+        expect(asked.trail).toMatchObject({ status: 'UPDATE_REQUESTED', updateRequest: { level: 1, by: arjun.fullName, comment: 'Take the Monday instead' } });
+        expect(teamRequests(M, arjun, 'leave', 'waiting').some(r => r.id === id)).toBe(false);
+        const re = resubmitLeaveRequest(M, sneha, id, { start: far(26), end: far(26), reason: 'Family (moved)' }).requests.find(r => r.id === id)!;
+        expect(re.trail.status).toBe('PENDING_MANAGER');
+        expect(re.trail.history?.at(-1)).toMatchObject({ action: 'Updated and resubmitted', by: sneha.fullName });
+        expect(teamRequests(M, arjun, 'leave', 'waiting').some(r => r.id === id)).toBe(true);
+        expect(hrSees(id)).toBe(false);
+        // level 1 approves → HR sees it; HR asks for an update → straight to the employee, then the manager again
+        decideRequest(M, 'leave', id, { role: 'MANAGER', manager: arjun }, 'APPROVED');
+        expect(hrSees(id)).toBe(true);
+        const hr = decideRequest(M, 'leave', id, { role: 'HR' }, 'UPDATE_REQUESTED', 'Add the event invite');
+        expect(hr.trail).toMatchObject({ status: 'UPDATE_REQUESTED', updateRequest: { level: 2, by: 'HR team' } });
+        expect(teamRequests(M, arjun, 'leave', 'waiting').some(r => r.id === id)).toBe(false);
+        const again = resubmitLeaveRequest(M, sneha, id, { reason: 'Family (invite attached)' }).requests.find(r => r.id === id)!;
+        expect(again.trail.status).toBe('PENDING_MANAGER');
+        expect(hrSees(id)).toBe(false);
+    });
+
+    it('attendance, overtime and reimbursements: asked at level 1 → resubmitted → back with the manager', () => {
+        const c = correctionsOf(M, sneha).find(x => x.trail.status === 'PENDING_MANAGER')!;
+        decideRequest(M, 'attendance', c.id, { role: 'MANAGER', manager: arjun }, 'UPDATE_REQUESTED', 'Check the check-out');
+        const rc = resubmitCorrection(M, sneha, c.id, { checkIn: c.requested.checkIn, checkOut: c.requested.checkOut, outDays: c.requested.outDays, reason: 'Checked — it is right' } as never);
+        expect(rc.find(x => x.id === c.id)?.trail.status ?? correctionsOf(M, sneha).find(x => x.id === c.id)!.trail.status).toBe('PENDING_MANAGER');
+
+        const o = overtimeViewOf(M, sneha, currentMonth()).requests.find(x => x.trail.status === 'PENDING_MANAGER')
+            ?? overtimeViewOf(M, sneha, lastMonth()).requests.find(x => x.trail.status === 'PENDING_MANAGER')!;
+        decideRequest(M, 'overtime', o.id, { role: 'MANAGER', manager: arjun }, 'UPDATE_REQUESTED', 'Split it over two days');
+        resubmitOvertime(M, sneha, o.id, { minutes: o.minutes - 30 });
+        expect(teamRequests(M, arjun, 'overtime', 'waiting').find(x => x.id === o.id)?.trail.status).toBe('PENDING_MANAGER');
+
+        const claim = atsReimbursements.get(M).find(x => x.employeeId === sneha.id && x.trail.status === 'PENDING_MANAGER')!;
+        decideRequest(M, 'reimbursement', claim.id, { role: 'MANAGER', manager: arjun }, 'UPDATE_REQUESTED', 'Attach the bill');
+        expect(() => resubmitClaim(M, sneha.id, claim.id, { amount: 0 }, sneha.fullName)).toThrow('Enter the amount.');
+        expect(resubmitClaim(M, sneha.id, claim.id, { amount: 1200 }, sneha.fullName)).toMatchObject({ totalPay: 1200, trail: { status: 'PENDING_MANAGER' } });
+    });
+
+    it('timesheets: Payroll asks for an update → the employee → resubmitted to the manager (Payroll no longer sees it)', () => {
+        const item = payrollTimesheetQueue(M, 'waiting')[0];
+        payrollSendBackWeek(M, String(item.employee.id), item.weekStart, 'Fix Friday');
+        const e = findEmployee(item.employee.id)!;
+        expect(weekView(M, e, item.weekStart).week).toMatchObject({ status: 'SENT_BACK', sentBackBy: 'PAYROLL' });
+        submitWeek(M, e, item.weekStart, { acknowledged: { overlaps: true, gaps: true, unlogged: true } });
+        expect(weekView(M, e, item.weekStart).week.status).toBe('SUBMITTED');
+        expect(payrollTimesheetQueue(M, 'all').some(i => i.employee.id === e.id && i.weekStart === item.weekStart)).toBe(false);
+    });
+
+    it('bulk approve: mixed types each move on to level 2, as a single approval would', () => {
+        const ts = timesheetQueue(M, arjun, 'waiting');
+        const leave = teamRequests(M, arjun, 'leave', 'waiting');
+        const ot = teamRequests(M, arjun, 'overtime', 'waiting');
+        expect(ts.length + leave.length + ot.length).toBeGreaterThan(1);
+        const res = bulkApprove(M, arjun, {
+            items: [
+                ...ts.map(t => ({ kind: 'timesheet' as const, employeeId: t.employee.id, weekStart: t.weekStart })),
+                ...leave.map(r => ({ kind: 'leave' as const, id: r.id })),
+                ...ot.filter(r => !r.blockedReason).map(r => ({ kind: 'overtime' as const, id: r.id })),
+            ],
+        });
+        expect(res.failed).toEqual([]);
+        expect(timesheetQueue(M, arjun, 'waiting')).toHaveLength(0);
+        expect(teamRequests(M, arjun, 'leave', 'waiting')).toHaveLength(0);
+        leave.forEach(r => expect(level2Requests(M, 'HR', 'leave', 'waiting').some(x => x.id === r.id)).toBe(true));
+        ts.forEach(t => expect(payrollTimesheetQueue(M, 'waiting').some(x => x.employee.id === t.employee.id && x.weekStart === t.weekStart)).toBe(true));
+        expect(() => bulkApprove(M, arjun, { items: [] })).toThrow('Pick at least one item to approve.');
+    });
+
+    it('a manager on leave: items wait for them (no delegation)', () => {
+        atsLeaveRequests.update(M, list => [
+            {
+                id: 'lv-mgr-today',
+                employeeId: arjun.id,
+                type: 'ANNUAL',
+                start: s.today,
+                end: s.today,
+                half: null,
+                days: 1,
+                reason: 'Away',
+                trail: { type: 'leave', status: 'APPROVED', steps: [] },
+                createdAt: `${s.today}T00:00:00Z`,
+                updatedAt: `${s.today}T00:00:00Z`,
+            },
+            ...list,
+        ]);
+        const waiting = teamRequests(M, arjun, 'leave', 'waiting');
+        const day = far(30);
+        const {id} = (createLeaveRequest(M, sneha, { type: 'CASUAL', start: day, reason: 'Trip' }).requests.find(r => r.start === day)!);
+        expect(teamRequests(M, arjun, 'leave', 'waiting').map(r => r.id)).toEqual(expect.arrayContaining([...waiting.map(r => r.id), id]));
+        expect(hrSees(id)).toBe(false);
+    });
+
+    it("a manager's own requests go to their manager; the CEO's go straight to level 2", () => {
+        const day = far(28);
+        const own = createLeaveRequest(M, arjun, { type: 'CASUAL', start: day, reason: 'Personal' }).requests.find(r => r.start === day)!;
+        expect(own.trail.status).toBe('PENDING_MANAGER');
+        expect(own.trail.steps[0].approverName).toBe(findEmployee('ACME-021')!.fullName);
+        const ceo = findEmployee('ACME-021')!;
+        const top = createLeaveRequest(M, ceo, { type: 'CASUAL', start: day, reason: 'Personal' }).requests.find(r => r.start === day)!;
+        expect(top.trail.status).toBe('PENDING_HR');
     });
 });

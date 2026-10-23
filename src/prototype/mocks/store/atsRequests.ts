@@ -5,10 +5,12 @@
 // ESS leave policy has three types (Annual, Casual, Sick). This module only depends on the rules and the seeds, so
 // the attendance store can read approved leave from it.
 import type { ApprovalTrail, LeaveRequest, LeaveType } from '@src/domains/attendanceTimesheet/types';
-import { DEFAULT_SETTINGS, decide, startTrail } from '@src/prototype/rules/attendance';
+import { DEFAULT_SETTINGS, RuleError, decide, resubmitTrail, startTrail } from '@src/prototype/rules/attendance';
+
 
 import { createCollection } from './persistentStore';
 import { MockEmployee, managerOf } from '../data/employees';
+import { todayIso } from '../data/time-calendar';
 import { LEAVES, MockLeave } from '../data/time-leaves';
 import { MockReimbursement, REIMBURSEMENTS } from '../data/time-requests';
 import type { DataMode } from '../envelope';
@@ -94,7 +96,7 @@ export type StoredClaim = Omit<MockReimbursement, 'employee' | 'status'> & {
 };
 
 const seedClaim = (r: MockReimbursement): StoredClaim => {
-    const state = ({ requestedByEmployee: 'pending', approved: 'approved', rejected: 'rejected', cancelledByEmployee: 'cancelled' } as const)[r.status];
+    const state = ({ requestedByEmployee: 'pending', updateRequested: 'pending', approved: 'approved', rejected: 'rejected', cancelledByEmployee: 'cancelled' } as const)[r.status];
     // The status lives in the trail now.
     return {
         id: r.id,
@@ -117,9 +119,30 @@ export const atsReimbursements = createCollection<StoredClaim[]>('ats-reimbursem
     mode === 'empty' ? [] : REIMBURSEMENTS.map(seedClaim)
 );
 
+/**
+ * PROTOTYPE-SETUP (My team, Slice 1): update a claim that was sent back (amount, date, description) and send it again;
+ * it starts again at the manager.
+ */
+export const resubmitClaim = (mode: DataMode, employeeId: number, id: string, input: { amount?: number; date?: string; description?: string } | undefined, by: string) => {
+    const c = atsReimbursements.get(mode).find(x => x.id === id && x.employeeId === employeeId);
+    if (!c) throw new RuleError('Claim not found.', 404);
+    const amount = Math.round(Number(input?.amount ?? c.totalPay));
+    const date = input?.date ?? c.expenseDate;
+    const description = (input?.description ?? c.expenseDetails).trim();
+    if (!(amount > 0)) throw new RuleError('Enter the amount.', 400);
+    if (!/^\d{4}-\d{2}-\d{2}/.test(date) || date.slice(0, 10) > todayIso()) throw new RuleError('Pick the date you spent it (today or earlier).', 400);
+    if (!description) throw new RuleError('Say what it was for.', 400);
+    const at = new Date().toISOString();
+    const trail = resubmitTrail(c.trail, at, by);
+    const next = { ...c, totalPay: amount, expenseDate: date, expenseDetails: description, trail, updatedAt: at };
+    atsReimbursements.update(mode, list => list.map(x => (x.id === id ? next : x)));
+    return next;
+};
+
 /** The claim in the shape the reimbursement screens read (status in step with the trail). */
 export const legacyClaimStatus = (c: StoredClaim): MockReimbursement['status'] => {
     if (c.withdrawn || c.trail.status === 'CANCELLED') return 'cancelledByEmployee';
+    if (c.trail.status === 'UPDATE_REQUESTED') return 'updateRequested';
     if (c.trail.status === 'APPROVED') return 'approved';
     if (c.trail.status === 'REJECTED') return 'rejected';
     return 'requestedByEmployee';

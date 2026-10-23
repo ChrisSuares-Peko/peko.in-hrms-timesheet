@@ -3,6 +3,7 @@
 // the results, so the same rule applies everywhere. Unit tests: ./__tests__/attendance.test.ts.
 import type {
     ApprovalStatus,
+    ApprovalStep,
     ApprovalTrail,
     ApprovalType,
     ApproverRole,
@@ -20,6 +21,7 @@ import type {
     PersonalField,
     ProfileChange,
     TimesheetEditMode,
+    TrailEvent,
     TimesheetEntry,
     LeaveHalf,
     LeavePolicy,
@@ -1063,6 +1065,8 @@ export const startTrail = (
 
 /** The first undecided, non-skipped step decides the status. */
 export function nextStatus(steps: ApprovalTrail['steps']): ApprovalStatus {
+    // PROTOTYPE-SETUP (My team, Slice 1): an update was asked for — it's back with the employee.
+    if (steps.some(s => s.decision === 'UPDATE_REQUESTED')) return 'UPDATE_REQUESTED';
     if (steps.some(s => s.decision === 'REJECTED')) return 'REJECTED';
     const pending = steps.find(s => !s.decision && !s.skipped);
     if (!pending) return 'APPROVED';
@@ -1082,30 +1086,83 @@ export const awaiting = (trail: ApprovalTrail): ApproverRole | null => {
     return null;
 };
 
-/** Decide at the pending level. Rejecting needs a comment. */
+export const UPDATE_MESSAGES = {
+    comment: 'Add a short note so the employee knows what to update.',
+    notAsked: 'Nothing was asked to be updated on this request — refresh the page.',
+} as const;
+
+const ROLE_TEAM: Record<ApproverRole, string> = { MANAGER: 'Your manager', HR: 'HR team', FINANCE: 'Finance team', PAYROLL: 'Payroll', ADMIN: 'Admin' };
+
+/**
+ * Decide at the pending level. Rejecting needs a comment. PROTOTYPE-SETUP (My team, Slice 1): "Ask for update"
+ * (UPDATE_REQUESTED) needs one too, and always goes straight back to the employee — whichever level asked.
+ * `by` names the approver in the request's history (default: the manager's name, or the team).
+ */
 export const decide = (
     trail: ApprovalTrail,
     actingAs: ApproverRole,
-    decision: 'APPROVED' | 'REJECTED',
+    decision: 'APPROVED' | 'REJECTED' | 'UPDATE_REQUESTED',
     comment: string | undefined,
-    at: string
+    at: string,
+    by?: string
 ): ApprovalTrail => {
     if (awaiting(trail) !== actingAs) {
         throw new RuleError('This request is no longer waiting for your decision — refresh the list.');
     }
     const note = comment?.trim();
     if (decision === 'REJECTED' && !note) throw new RuleError('Add a comment explaining why.', 400);
-    let applied = false;
+    if (decision === 'UPDATE_REQUESTED' && !note) throw new RuleError(UPDATE_MESSAGES.comment, 400);
+    let applied: ApprovalStep | null = null;
     const steps = trail.steps.map(s => {
         if (applied || s.decision || s.skipped) return s;
-        applied = true;
-        return { ...s, decision, at, ...(note ? { comment: note } : {}) };
+        applied = { ...s, decision, at, ...(note ? { comment: note } : {}) };
+        return applied;
     });
-    return { ...trail, status: nextStatus(steps), steps };
+    const step = applied as ApprovalStep | null;
+    const who = by ?? step?.approverName ?? ROLE_TEAM[actingAs];
+    const next: ApprovalTrail = { ...trail, status: nextStatus(steps), steps };
+    if (decision === 'UPDATE_REQUESTED' && step) next.updateRequest = { level: step.level, role: step.role, by: who, comment: note!, at };
+    return next;
+};
+
+/**
+ * PROTOTYPE-SETUP (My team, Slice 1): the employee updated the request and sent it again. This round's decisions move
+ * to the history with "Updated and resubmitted", and it starts again at level 1 (the manager) — or level 2 when
+ * there's no manager.
+ */
+export const resubmitTrail = (trail: ApprovalTrail, at: string, by: string): ApprovalTrail => {
+    if (trail.status !== 'UPDATE_REQUESTED') throw new RuleError(UPDATE_MESSAGES.notAsked);
+    const decided: TrailEvent[] = trail.steps
+        .filter(s => s.decision)
+        .map(s => ({
+            level: s.level,
+            role: s.role,
+            by: s.role === 'MANAGER' ? s.approverName ?? 'Manager' : ROLE_TEAM[s.role],
+            action: ({ APPROVED: 'Approved', REJECTED: 'Rejected', UPDATE_REQUESTED: 'Update requested' } as const)[s.decision!],
+            ...(s.comment ? { comment: s.comment } : {}),
+            at: s.at ?? at,
+        }));
+    const steps = trail.steps.map(({ decision: _d, comment: _c, at: _a, ...s }) => s);
+    const next: ApprovalTrail = {
+        ...trail,
+        status: nextStatus(steps),
+        steps,
+        history: [...(trail.history ?? []), ...decided, { level: 0, by, action: 'Updated and resubmitted', at }],
+    };
+    delete next.updateRequest;
+    return next;
+};
+
+/** PROTOTYPE-SETUP (My team, Slice 1): level 2 sees a request only once level 1 has approved it (or was skipped). */
+export const reachedLevel2 = (trail: ApprovalTrail) => {
+    const first = trail.steps[0];
+    if (!first || first.level === 2) return true; // HR-only (profile updates)
+    return Boolean(first.skipped || first.decision === 'APPROVED');
 };
 
 export const cancelTrail = (trail: ApprovalTrail): ApprovalTrail => {
-    if (!awaiting(trail)) throw new RuleError('Only pending requests can be cancelled.');
+    // PROTOTYPE-SETUP (My team, Slice 1): one sent back for an update can be withdrawn too.
+    if (!awaiting(trail) && trail.status !== 'UPDATE_REQUESTED') throw new RuleError('Only pending requests can be cancelled.');
     return { ...trail, status: 'CANCELLED' };
 };
 
@@ -1113,6 +1170,7 @@ export const requestState = (trail: ApprovalTrail) => {
     if (trail.status === 'APPROVED') return 'approved' as const;
     if (trail.status === 'REJECTED') return 'rejected' as const;
     if (trail.status === 'CANCELLED') return 'cancelled' as const;
+    if (trail.status === 'UPDATE_REQUESTED') return 'update_requested' as const;
     return 'pending' as const;
 };
 
@@ -1135,6 +1193,8 @@ export const trailLabel = (trail: ApprovalTrail) => {
             return 'Approved';
         case 'CANCELLED':
             return 'Cancelled';
+        case 'UPDATE_REQUESTED':
+            return 'Update requested';
         default:
             return 'Rejected';
     }

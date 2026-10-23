@@ -2,7 +2,7 @@
 // and ledger per type, late check-in deductions, the probation and exit-settlement notes, requests (apply, withdraw)
 // — plus the leave demo (joining and leaving dates). Rules: src/prototype/rules/leavePolicy.ts.
 import type { LeaveRequest, LeaveRequestInput, LeaveType, LeaveView } from '@src/domains/attendanceTimesheet/types';
-import { RuleError, addDays, cancelTrail, hasCheckIn, isWeeklyOff, startTrail, trailLabel } from '@src/prototype/rules/attendance';
+import { RuleError, addDays, cancelTrail, resubmitTrail, hasCheckIn, isWeeklyOff, startTrail, trailLabel } from '@src/prototype/rules/attendance';
 import { LEAVE_LABEL, LEAVE_TYPES, LateEvent, computeLeave, dayMonth, leaveYearOf, validateLeaveRequest } from '@src/prototype/rules/leavePolicy';
 
 import { atsEmployeeLife, atsLeaveRequests, leaveRequestsOf, lifeOf, openingBalancesOf } from './atsRequests';
@@ -119,7 +119,7 @@ const availableForRequest = (mode: DataMode, e: MockEmployee): Record<LeaveType,
 /** Apply for leave: checked (dates, overlap, balance, proof, reason), then to the manager, then HR. */
 export const createLeaveRequest = (mode: DataMode, e: MockEmployee, input: LeaveRequestInput | undefined) => {
     const existing = leaveRequestsOf(mode, e.id)
-        .filter(isLive)
+        .filter(l => isLive(l) || l.trail.status === 'UPDATE_REQUESTED')
         .map(l => ({ start: l.start, end: l.end, half: l.half, summary: summaryOf(l) }));
     const clean = validateLeaveRequest(input ?? {}, { isWorkingDay: isWorkingDayFor(mode), existing, available: availableForRequest(mode, e) });
     const at = nowIso();
@@ -128,11 +128,29 @@ export const createLeaveRequest = (mode: DataMode, e: MockEmployee, input: Leave
     return leaveViewOf(mode, e);
 };
 
-/** Withdraw a pending request. */
+/**
+ * PROTOTYPE-SETUP (My team, Slice 1): update a leave request that was sent back (dates — a half day keeps one date —
+ * and the reason) and send it again: the same checks as a new one, then it starts again at the manager.
+ */
+export const resubmitLeaveRequest = (mode: DataMode, e: MockEmployee, id: string, input: Partial<LeaveRequestInput> | undefined) => {
+    const l = leaveRequestsOf(mode, e.id).find(x => x.id === id);
+    if (!l) throw new RuleError('Leave request not found.', 404);
+    const existing = leaveRequestsOf(mode, e.id)
+        .filter(x => x.id !== id && (isLive(x) || x.trail.status === 'UPDATE_REQUESTED'))
+        .map(x => ({ start: x.start, end: x.end, half: x.half, summary: summaryOf(x) }));
+    const merged = { type: l.type, start: l.start, end: l.end, half: l.half, reason: l.reason, proof: l.proof ?? null, ...(input ?? {}) };
+    const clean = validateLeaveRequest(merged, { isWorkingDay: isWorkingDayFor(mode), existing, available: availableForRequest(mode, e) });
+    const at = nowIso();
+    const trail = resubmitTrail(l.trail, at, e.fullName);
+    atsLeaveRequests.update(mode, list => list.map(x => (x.id === id ? { ...x, ...clean, trail, updatedAt: at } : x)));
+    return leaveViewOf(mode, e);
+};
+
+/** Withdraw a pending request (or one sent back for an update). */
 export const withdrawLeaveRequest = (mode: DataMode, e: MockEmployee, id: string) => {
     const l = leaveRequestsOf(mode, e.id).find(x => x.id === id);
     if (!l) throw new RuleError('Leave request not found.', 404);
-    if (!l.trail.status.startsWith('PENDING')) throw new RuleError('Only a pending request can be withdrawn.');
+    if (!l.trail.status.startsWith('PENDING') && l.trail.status !== 'UPDATE_REQUESTED') throw new RuleError('Only a pending request can be withdrawn.');
     const at = nowIso();
     atsLeaveRequests.update(mode, list => list.map(x => (x.id === id ? { ...x, trail: cancelTrail(x.trail), withdrawn: true, updatedAt: at } : x)));
     return leaveViewOf(mode, e);

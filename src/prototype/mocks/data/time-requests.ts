@@ -8,7 +8,7 @@ import { managerEmailOf } from './time-leaves';
 
 // ---- reimbursements --------------------------------------------------------------------------------------
 
-export type ReimbursementStatus = 'requestedByEmployee' | 'approved' | 'rejected' | 'cancelledByEmployee';
+export type ReimbursementStatus = 'requestedByEmployee' | 'approved' | 'rejected' | 'cancelledByEmployee' | 'updateRequested';
 export type ReimbursementPaymentStatus = 'UNPAID' | 'APPROVED' | 'PAID' | 'REJECTED';
 
 export interface MockReimbursement {

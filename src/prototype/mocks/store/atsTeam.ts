@@ -53,6 +53,7 @@ import {
     trailLabel,
     weekDates,
     weekStartOf,
+    reachedLevel2,
 } from '@src/prototype/rules/attendance';
 import { LEAVE_LABEL, LEAVE_TYPES } from '@src/prototype/rules/leavePolicy';
 import { afterManagerApproval, isAutoSubmitDue, periodEndOf, periodsDueForSubmission } from '@src/prototype/rules/timesheetFiling';
@@ -262,7 +263,7 @@ export const sendBackWeek = (mode: DataMode, manager: MockEmployee, employeeId: 
         status: 'SENT_BACK',
         sentBackBy: 'MANAGER',
         decision: { by: actorOf(manager, 'MANAGER'), at, comment: note },
-        history: [...week.history, { at, actor: actorOf(manager, 'MANAGER'), action: 'SENT_BACK', detail: `Sent back: ${note}` }],
+        history: [...week.history, { at, actor: actorOf(manager, 'MANAGER'), action: 'SENT_BACK', detail: `Update requested: ${note}` }],
     });
     return weekItem(mode, e, weekOf(mode, e, week.weekStart));
 };
@@ -327,7 +328,7 @@ export const payrollSendBackWeek = (mode: DataMode, employeeId: string, weekStar
         status: 'SENT_BACK',
         sentBackBy: 'PAYROLL',
         decision: { by: PAYROLL_ACTOR, at, comment: note },
-        history: [...week.history, { at, actor: PAYROLL_ACTOR, action: 'SENT_BACK', detail: `Sent back: ${note}` }],
+        history: [...week.history, { at, actor: PAYROLL_ACTOR, action: 'SENT_BACK', detail: `Update requested: ${note}` }],
     });
     return weekItem(mode, e, weekOf(mode, e, week.weekStart), 'PAYROLL');
 };
@@ -476,10 +477,13 @@ export const teamApprovalCounts = (mode: DataMode, manager: MockEmployee): Appro
     };
 };
 
-/** Level 2 (HR / Finance): requests whose chain includes that role. */
+/**
+ * Level 2 (HR / Finance / Payroll / Admin): requests whose chain includes that role. PROTOTYPE-SETUP (My team, Slice 1):
+ * only once level 1 has approved them (or was skipped) — Payroll never sees an item still with the manager.
+ */
 export const level2Requests = (mode: DataMode, role: Level2Role, type: RequestType, scope: QueueScope) =>
     allRequests(mode, type, role)
-        .filter(r => r.trail.steps.some(s => s.role === role) && r.trail.status !== 'CANCELLED')
+        .filter(r => r.trail.steps.some(s => s.role === role) && r.trail.status !== 'CANCELLED' && reachedLevel2(r.trail))
         .filter(r => scope === 'all' || r.waitingForYou)
         .sort(byWaitingThenNewest);
 
@@ -493,13 +497,21 @@ export const level2Counts = (mode: DataMode, role: Level2Role) => ({
     timesheets: getSettings(mode).level2.timesheet === role ? payrollTimesheetQueue(mode, 'waiting').length : 0,
 });
 
-/** Approve / reject at the level the request is waiting for. A fully approved correction updates attendance. */
+/** Who decided, for the request's history: the manager by name, level 2 by team. */
+const actorName = (actor: { role: 'MANAGER'; manager: MockEmployee } | { role: Level2Role }) =>
+    actor.role === 'MANAGER' ? actor.manager.fullName : ({ HR: 'HR team', FINANCE: 'Finance team', PAYROLL: 'Payroll', ADMIN: 'Admin' } as const)[actor.role];
+
+/**
+ * Approve / reject at the level the request is waiting for. A fully approved correction updates attendance.
+ * PROTOTYPE-SETUP (My team, Slice 1): or ask for an update (UPDATE_REQUESTED, a comment required) — at either level it
+ * goes straight back to the employee; when they resubmit it starts again at the manager.
+ */
 export const decideRequest = (
     mode: DataMode,
     type: RequestType,
     id: string,
     actor: { role: 'MANAGER'; manager: MockEmployee } | { role: Level2Role },
-    decision: 'APPROVED' | 'REJECTED',
+    decision: 'APPROVED' | 'REJECTED' | 'UPDATE_REQUESTED',
     comment?: string
 ): RequestItem => {
     const at = nowIso();
@@ -509,7 +521,7 @@ export const decideRequest = (
         const l = atsLeaveRequests.get(mode).find(x => x.id === id);
         if (!l) throw new RuleError('Request not found.', 404);
         if (actor.role === 'MANAGER') assertManages(actor.manager, findEmployee(l.employeeId));
-        const trail = decide(l.trail, actor.role, decision, comment, at);
+        const trail = decide(l.trail, actor.role, decision, comment, at, actorName(actor));
         atsLeaveRequests.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
         return leaveItem({ ...l, trail }, actor.role)!;
     }
@@ -518,7 +530,7 @@ export const decideRequest = (
         const c = atsReimbursements.get(mode).find(x => x.id === id);
         if (!c) throw new RuleError('Request not found.', 404);
         if (actor.role === 'MANAGER') assertManages(actor.manager, findEmployee(c.employeeId));
-        const trail = decide(c.trail, actor.role, decision, comment, at);
+        const trail = decide(c.trail, actor.role, decision, comment, at, actorName(actor));
         atsReimbursements.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
         return claimItem({ ...c, trail }, actor.role)!;
     }
@@ -526,7 +538,7 @@ export const decideRequest = (
         // PROTOTYPE-SETUP (Overview, Slice 1): HR decides; the profile changes only when HR approves.
         const p = atsProfileRequests.get(mode).find(x => x.id === id);
         if (!p) throw new RuleError('Request not found.', 404);
-        const trail = decide(p.trail, actor.role, decision, comment, at);
+        const trail = decide(p.trail, actor.role, decision, comment, at, actorName(actor));
         atsProfileRequests.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
         if (trail.status === 'APPROVED') applyApprovedProfile(mode, p);
         return profileItem({ ...p, trail }, actor.role)!;
@@ -536,7 +548,7 @@ export const decideRequest = (
         if (!c) throw new RuleError('Request not found.', 404);
         if (actor.role === 'MANAGER') assertManages(actor.manager, findEmployee(c.employeeId));
         if (decision === 'APPROVED' && isDayLocked(mode, c.date)) throw new RuleError(`Can't approve: ${lockReasonFor(c.date)}`);
-        const trail = decide(c.trail, actor.role, decision, comment, at);
+        const trail = decide(c.trail, actor.role, decision, comment, at, actorName(actor));
         atsCorrections.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
         if (trail.status === 'APPROVED') {
             // Breaks are kept; the times (and the check-out day) come from the request.
@@ -557,9 +569,37 @@ export const decideRequest = (
     if (!o) throw new RuleError('Request not found.', 404);
     if (actor.role === 'MANAGER') assertManages(actor.manager, findEmployee(o.employeeId));
     if (decision === 'APPROVED' && isDayLocked(mode, o.date)) throw new RuleError(`Can't approve: ${lockReasonFor(o.date)}`);
-    const trail = decide(o.trail, actor.role, decision, comment, at);
+    const trail = decide(o.trail, actor.role, decision, comment, at, actorName(actor));
     atsOvertime.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
     return overtimeItem(mode, { ...o, trail }, actor.role)!;
+};
+
+// ---- bulk approve (PROTOTYPE-SETUP: My team, Slice 1) ----------------------------------------------------
+
+export type BulkItem = { kind: 'timesheet'; employeeId: number | string; weekStart: string } | { kind: RequestType; id: string };
+
+/**
+ * The manager approves several level-1 items at once (timesheets and requests). Each moves on exactly as a single
+ * approval would (to level 2, or approved when there's none). One that can't be approved any more is skipped and
+ * reported.
+ */
+export const bulkApprove = (mode: DataMode, manager: MockEmployee, body: { items?: BulkItem[] } | undefined) => {
+    const items = Array.isArray(body?.items) ? body!.items : [];
+    if (!items.length) throw new RuleError('Pick at least one item to approve.', 400);
+    const failed: { item: BulkItem; reason: string }[] = [];
+    let approved = 0;
+    items.forEach(item => {
+        try {
+            if (item.kind === 'timesheet') approveWeek(mode, manager, String(item.employeeId), item.weekStart);
+            else if (item.kind === 'profile') throw new RuleError('Profile updates go straight to HR.');
+            else decideRequest(mode, item.kind, item.id, { role: 'MANAGER', manager }, 'APPROVED');
+            approved += 1;
+        } catch (e) {
+            if (!(e instanceof RuleError)) throw e;
+            failed.push({ item, reason: e.message });
+        }
+    });
+    return { approved, failed };
 };
 
 // ---- payroll months & timesheet status ------------------------------------------------------------------

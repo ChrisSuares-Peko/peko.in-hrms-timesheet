@@ -32,6 +32,8 @@ const TRAIL_COLOR: Record<ApprovalTrail['status'], string> = {
     APPROVED: 'success',
     REJECTED: 'error',
     CANCELLED: 'default',
+    // PROTOTYPE-SETUP (My team, Slice 1): back with the employee.
+    UPDATE_REQUESTED: 'warning',
 };
 
 /** `label` is the server's statusLabel, e.g. "With manager (Arjun Mehta)". */

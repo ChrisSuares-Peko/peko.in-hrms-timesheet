@@ -165,7 +165,7 @@ export const approvalItemStatus = (
     if (item.waitingForYou) return { label: 'Waiting for you', color: 'processing' };
     const map: Record<string, { label: string; color: string }> = {
         APPROVED: { label: 'Approved', color: 'success' },
-        SENT_BACK: { label: 'Sent back', color: 'error' },
+        SENT_BACK: { label: 'Update requested', color: 'error' },
         REJECTED: { label: 'Rejected', color: 'error' },
         SUBMITTED: { label: 'Submitted', color: 'processing' },
         PENDING: { label: 'Pending', color: 'processing' },

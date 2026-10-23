@@ -1,6 +1,6 @@
 // PROTOTYPE-SETUP: ESS Service 1 (V2) — the Timesheet tab's three-month calendar (previous, current, next around
 // the period being viewed). Day colours: weekend / holiday grey; week submitted or change pending very light
-// green; week approved green; sent back ("update requested") orange; leave = small blue dot; today = red outline;
+// green; week approved green; update requested orange; leave = small blue dot; today = red outline;
 // days in the current view = red underline; selected day = dark ring. The approval colours (and their legend)
 // are hidden when timesheet approval is off. On mobile only the middle month shows.
 // PROTOTYPE-SETUP (HR rules, Slice 3): compact — ~24px cells, tighter gaps and a smaller legend (65% of the width).
@@ -25,7 +25,7 @@ const CELL: Record<Exclude<CalState, ''>, string> = {
 };
 
 // PROTOTYPE-SETUP (Final batch, Slice 8): with the manager or with Payroll = sent for approval; an edited period is a draft.
-const STATE_TIP: Partial<Record<CalState, string>> = { ok: ', approved', sub: ', sent for approval', back: ', sent back' };
+const STATE_TIP: Partial<Record<CalState, string>> = { ok: ', approved', sub: ', sent for approval', back: ', update requested' };
 
 export interface Calendar3Props {
     /** Middle month (YYYY-MM). */
@@ -152,7 +152,7 @@ const Legend = ({ approvalEnabled }: { approvalEnabled: boolean }) => (
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                     <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#FFD9A8]" />
-                    Sent back
+                    Update requested
                 </span>
             </>
         )}

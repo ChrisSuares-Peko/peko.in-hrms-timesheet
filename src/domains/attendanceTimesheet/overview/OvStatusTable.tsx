@@ -23,7 +23,7 @@ import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
 import { displayTime, formatDuration } from '../components/format';
 import type { AtsMode, AtsTab, OverviewDay } from '../types';
 
-const OT_COLOR = { pending: 'processing', approved: 'success', rejected: 'error' } as const;
+const OT_COLOR = { pending: 'processing', approved: 'success', rejected: 'error', update_requested: 'warning' } as const;
 
 const Chip = ({ color, children }: { color: string; children: ReactNode }) => (
     <Tag color={color} bordered={false} className="!m-0 inline-block whitespace-normal px-2 align-middle text-xs leading-4">

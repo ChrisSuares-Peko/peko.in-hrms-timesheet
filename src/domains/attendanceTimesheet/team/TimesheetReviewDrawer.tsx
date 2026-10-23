@@ -5,7 +5,7 @@
 //   edited ........ "Edited after approval" label, a banner, and tabs "What changed" (added green, removed red and
 //                   struck, edited old → new, per day) | "Full timesheet"
 //   footer ........ "After you approve, it goes to Payroll." (the company's level 2) or "This approval is final."
-//                   "Send back" (a short note is required) · "Approve timesheet"
+//                   "Ask for update" (a short note is required; it goes straight to the employee) · "Approve timesheet"
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CheckOutlined, RollbackOutlined } from '@ant-design/icons';
@@ -44,7 +44,7 @@ interface TimesheetReviewDrawerProps {
     /** PROTOTYPE-SETUP (Final batch, Slice 4): who is reviewing — the manager (default) or Payroll (level 2). */
     reviewer?: 'MANAGER' | 'PAYROLL';
     onClose: () => void;
-    /** After an approve / send back. */
+    /** After an approve / ask for update. */
     onDecided?: () => void;
 }
 
@@ -119,7 +119,7 @@ const TimesheetReviewDrawer = ({ target, reviewer = 'MANAGER', onClose, onDecide
         const res = payroll ? await payrollSendBackWeek(scope, employeeId, weekStart, note) : await sendBackWeek(scope, employeeId, weekStart, note);
         setBusy(null);
         if (res === false) return;
-        dispatch(showToast({ variant: 'success', description: `Timesheet sent back to ${view.employee.name}` }));
+        dispatch(showToast({ variant: 'success', description: `Asked ${view.employee.name} to update it` }));
         setAsking(false);
         setComment('');
         await load();
@@ -134,7 +134,7 @@ const TimesheetReviewDrawer = ({ target, reviewer = 'MANAGER', onClose, onDecide
         if (!w.decision || (w.status !== 'APPROVED' && w.status !== 'SENT_BACK')) return null;
         return {
             type: w.status === 'APPROVED' ? ('success' as const) : ('warning' as const),
-            text: `${w.status === 'APPROVED' ? 'Approved' : 'Sent back'} by ${w.decision.by.name} · ${fmtStamp(w.decision.at)}`,
+            text: `${w.status === 'APPROVED' ? 'Approved' : 'Update requested'} by ${w.decision.by.name} · ${fmtStamp(w.decision.at)}`,
             comment: w.decision.comment,
         };
     }, [view, waiting]);
@@ -146,7 +146,7 @@ const TimesheetReviewDrawer = ({ target, reviewer = 'MANAGER', onClose, onDecide
             </Typography.Text>
             <Flex gap={8}>
                 <Button icon={<RollbackOutlined />} disabled={Boolean(busy)} onClick={() => setAsking(true)}>
-                    Send back
+                    Ask for update
                 </Button>
                 <Button type="primary" icon={<CheckOutlined />} loading={busy === 'approve'} disabled={Boolean(busy)} onClick={approve}>
                     Approve timesheet
@@ -235,8 +235,8 @@ const TimesheetReviewDrawer = ({ target, reviewer = 'MANAGER', onClose, onDecide
             {target && renderBody()}
             <Modal
                 open={asking}
-                title="Send timesheet back"
-                okText="Send back"
+                title={`Ask ${first} to update this`}
+                okText="Send to employee"
                 okButtonProps={{ loading: busy === 'send-back' }}
                 onOk={sendBack}
                 onCancel={() => {
@@ -245,11 +245,10 @@ const TimesheetReviewDrawer = ({ target, reviewer = 'MANAGER', onClose, onDecide
                 }}
                 destroyOnHidden
             >
-                <label htmlFor="send-back-note" className="mb-1 block text-sm text-gray-700">
-                    What should {first} fix?
-                </label>
+                <p className="mb-1 text-sm text-gray-700">What needs to change? (goes straight to the employee)</p>
                 <Input.TextArea
                     id="send-back-note"
+                    aria-label="What needs to change?"
                     rows={3}
                     value={comment}
                     maxLength={500}

@@ -1,7 +1,7 @@
 // PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
 // frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
 // PROTOTYPE-SETUP: ESS Service 1 — the week's status bar (range, status, totals, actions, approval copy) and
-// its notices (locked, sent back with the manager's comment, submitted). Shared by the tab and the viewer;
+// its notices (locked, update requested with the comment, submitted). Shared by the tab and the viewer;
 // `perspective` only changes the wording.
 import type { ReactNode } from 'react';
 
@@ -121,7 +121,7 @@ export const WeekNotices = ({ view, perspective }: WeekNoticesProps) => {
                     showIcon
                     message={
                         <span className="font-medium">
-                            Sent back{week.decision ? ` by ${week.decision.by.name} on ${fmtDate(week.decision.at)}` : ''}
+                            Update requested{week.decision ? ` by ${week.decision.by.name} on ${fmtDate(week.decision.at)}` : ''}
                         </span>
                     }
                     description={

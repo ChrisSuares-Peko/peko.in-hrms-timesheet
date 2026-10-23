@@ -25,7 +25,7 @@ const WEEK_COUNTS: { key: keyof TimesheetStatusView['weekCounts']; label: string
     { key: 'APPROVED', label: 'Approved', color: '#16a34a' },
     { key: 'WITH_PAYROLL', label: 'With Payroll', color: '#2563eb' },
     { key: 'SUBMITTED', label: 'With manager', color: '#2563eb' },
-    { key: 'SENT_BACK', label: 'Sent back', color: '#dc2626' },
+    { key: 'SENT_BACK', label: 'Update requested', color: '#dc2626' },
     { key: 'DRAFT', label: 'Draft', color: '#6b7280' },
     { key: 'CHANGE_PENDING', label: 'Edited after sending', color: '#d97706' },
 ];

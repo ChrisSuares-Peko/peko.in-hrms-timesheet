@@ -14,6 +14,8 @@ import {
     addEntry,
     attendanceMonthOf,
     cancelCorrection,
+    resubmitCorrection,
+    resubmitOvertime,
     cancelOvertime,
     checkIn,
     checkOut,
@@ -38,12 +40,13 @@ import {
     timesheetPeriodsOf,
 } from '../store/atsEss';
 import { homeOf } from '../store/atsHome';
-import { createLeaveRequest, leaveViewOf, setEmployeeLife, withdrawLeaveRequest } from '../store/atsLeave';
+import { createLeaveRequest, leaveViewOf, resubmitLeaveRequest, setEmployeeLife, withdrawLeaveRequest } from '../store/atsLeave';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../store/atsProfile';
 import { currentMonth, getSettings, overtimeContext, resetTodayCheckIn, today, weekView } from '../store/atsStore';
 import {
     RequestType,
     approveWeek,
+    bulkApprove,
     assertManages,
     autoRunSubmissionDay,
     decideRequest,
@@ -150,6 +153,8 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/corrections`, ess((ctx, me) => correctionsView(ctx.mode, me))),
     route('POST', `${A}/corrections`, ess((ctx, me) => createCorrection(ctx.mode, me, ctx.body))),
     route('POST', `${A}/corrections/:id/cancel`, ess((ctx, me) => cancelCorrection(ctx.mode, me, ctx.params.id!))),
+    // PROTOTYPE-SETUP (My team, Slice 1): update a request that was sent back and send it again (to the manager first).
+    route('POST', `${A}/corrections/:id/resubmit`, ess((ctx, me) => resubmitCorrection(ctx.mode, me, ctx.params.id!, ctx.body))),
 
     // ---- ESS: my profile (PROTOTYPE-SETUP: Overview, Slice 1) ---------------------------------------------
     route('GET', `${A}/profile`, ess((ctx, me) => myProfileOf(ctx.mode, me))),
@@ -176,12 +181,14 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/leave`, ess((ctx, me) => leaveViewOf(ctx.mode, me))),
     route('POST', `${A}/leave/requests`, ess((ctx, me) => createLeaveRequest(ctx.mode, me, ctx.body))),
     route('POST', `${A}/leave/requests/:id/withdraw`, ess((ctx, me) => withdrawLeaveRequest(ctx.mode, me, ctx.params.id!))),
+    route('POST', `${A}/leave/requests/:id/resubmit`, ess((ctx, me) => resubmitLeaveRequest(ctx.mode, me, ctx.params.id!, ctx.body))),
 
     // ---- ESS: overtime ------------------------------------------------------------------------------------
     route('GET', `${A}/overtime`, ess((ctx, me) => overtimeViewOf(ctx.mode, me, monthParam(ctx.query)))),
     route('GET', `${A}/overtime/context`, ess((ctx, me) => overtimeContext(ctx.mode, me, dateParam(ctx.query)))),
     route('POST', `${A}/overtime`, ess((ctx, me) => createOvertime(ctx.mode, me, ctx.body))),
     route('POST', `${A}/overtime/:id/cancel`, ess((ctx, me) => cancelOvertime(ctx.mode, me, ctx.params.id!))),
+    route('POST', `${A}/overtime/:id/resubmit`, ess((ctx, me) => resubmitOvertime(ctx.mode, me, ctx.params.id!, ctx.body))),
 
     // ---- ESS - Manager: my team -------------------------------------------------------------------------
     route('GET', `${A}/team/today`, ess((ctx, me) => teamToday(ctx.mode, me))),
@@ -194,15 +201,21 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/team/approvals/timesheets`, ess((ctx, me) => timesheetQueue(ctx.mode, me, scopeParam(ctx.query)))),
     route('POST', `${A}/team/approvals/timesheets/:employeeId/:weekStart/approve`, ess((ctx, me) => approveWeek(ctx.mode, me, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
     route('POST', `${A}/team/approvals/timesheets/:employeeId/:weekStart/send-back`, ess((ctx, me) => sendBackWeek(ctx.mode, me, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
+    // PROTOTYPE-SETUP (My team, Slice 1): "Ask for update" (send-back stays as an alias) and bulk approve.
+    route('POST', `${A}/team/approvals/timesheets/:employeeId/:weekStart/ask-for-update`, ess((ctx, me) => sendBackWeek(ctx.mode, me, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
+    route('POST', `${A}/team/approvals/bulk-approve`, ess((ctx, me) => bulkApprove(ctx.mode, me, ctx.body))),
     route('GET', `${A}/team/approvals/requests/:requestType`, ess((ctx, me) => teamRequests(ctx.mode, me, typeParam(ctx.params), scopeParam(ctx.query)))),
     route('POST', `${A}/team/approvals/requests/:requestType/:id/approve`, ess((ctx, me) => decideRequest(ctx.mode, typeParam(ctx.params), ctx.params.id!, { role: 'MANAGER', manager: me }, 'APPROVED', ctx.body?.comment))),
     route('POST', `${A}/team/approvals/requests/:requestType/:id/reject`, ess((ctx, me) => decideRequest(ctx.mode, typeParam(ctx.params), ctx.params.id!, { role: 'MANAGER', manager: me }, 'REJECTED', ctx.body?.comment))),
+    route('POST', `${A}/team/approvals/requests/:requestType/:id/ask-for-update`, ess((ctx, me) => decideRequest(ctx.mode, typeParam(ctx.params), ctx.params.id!, { role: 'MANAGER', manager: me }, 'UPDATE_REQUESTED', ctx.body?.comment))),
 
     // ---- Payroll: level 2, timesheet status, payroll months ---------------------------------------------
     route('GET', `${A}/payroll/approvals/counts`, ctx => run(ctx.mode, () => level2Counts(ctx.mode, roleParam(ctx.query)))),
     route('GET', `${A}/payroll/approvals/:requestType`, ctx => run(ctx.mode, () => level2Requests(ctx.mode, roleParam(ctx.query), level2TypeParam(ctx.params), scopeParam(ctx.query)))),
     route('POST', `${A}/payroll/approvals/:requestType/:id/approve`, ctx => run(ctx.mode, () => decideRequest(ctx.mode, level2TypeParam(ctx.params), ctx.params.id!, { role: roleParam(ctx.query) }, 'APPROVED', ctx.body?.comment))),
     route('POST', `${A}/payroll/approvals/:requestType/:id/reject`, ctx => run(ctx.mode, () => decideRequest(ctx.mode, level2TypeParam(ctx.params), ctx.params.id!, { role: roleParam(ctx.query) }, 'REJECTED', ctx.body?.comment))),
+    // PROTOTYPE-SETUP (My team, Slice 5): level 2 asks for an update — straight back to the employee.
+    route('POST', `${A}/payroll/approvals/:requestType/:id/ask-for-update`, ctx => run(ctx.mode, () => decideRequest(ctx.mode, level2TypeParam(ctx.params), ctx.params.id!, { role: roleParam(ctx.query) }, 'UPDATE_REQUESTED', ctx.body?.comment))),
     route('GET', `${A}/payroll/timesheet-status`, ctx => run(ctx.mode, () => timesheetStatusOrDefault(ctx))),
     // PROTOTYPE-SETUP (Final batch, Slice 1): timesheets at level 2 — Payroll's final approval.
     route('GET', `${A}/payroll/timesheets`, ctx => run(ctx.mode, () => payrollTimesheetQueue(ctx.mode, scopeParam(ctx.query)))),
@@ -211,6 +224,7 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/payroll/timesheets/:employeeId/month`, ctx => run(ctx.mode, () => payrollMonthView(ctx.mode, ctx.params.employeeId!, monthParam(ctx.query)))),
     route('POST', `${A}/payroll/timesheets/:employeeId/:weekStart/approve`, ctx => run(ctx.mode, () => payrollApproveWeek(ctx.mode, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
     route('POST', `${A}/payroll/timesheets/:employeeId/:weekStart/send-back`, ctx => run(ctx.mode, () => payrollSendBackWeek(ctx.mode, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
+    route('POST', `${A}/payroll/timesheets/:employeeId/:weekStart/ask-for-update`, ctx => run(ctx.mode, () => payrollSendBackWeek(ctx.mode, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
     route('GET', `${A}/payroll/months`, ctx => run(ctx.mode, () => payrollMonths(ctx.mode))),
     route('GET', `${A}/payroll/months/:month`, ctx => run(ctx.mode, () => payrollMonthStatus(ctx.mode, monthOrFail(ctx.params.month)))),
     route('POST', `${A}/payroll/months/:month/process`, ctx => run(ctx.mode, () => processPayrollMonth(ctx.mode, monthOrFail(ctx.params.month)))),

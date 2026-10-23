@@ -53,6 +53,9 @@ import {
     locationDetailText,
     locationTrailText,
     workingFromText,
+    reachedLevel2,
+    resubmitTrail,
+    trailLabel,
 } from '../attendance';
 
 const S = DEFAULT_SETTINGS;
@@ -630,5 +633,41 @@ describe('working from (location timeline)', () => {
         expect(locationDetailText(trail)).toBe('Office from 9:30 AM, Client site (Brightline) from 2:00 PM');
         expect(workingFromText({ location: 'CLIENT', client: 'Brightline' }, '14:00')).toBe('Working from Client site (Brightline) from 2:00 PM');
         expect(workingFromText({ location: 'HOME' })).toBe('Working from Home');
+    });
+});
+
+// PROTOTYPE-SETUP (My team, Slice 1): "Ask for update" and resubmission.
+describe('ask for update and resubmit', () => {
+    const settings = { level2: { ...DEFAULT_SETTINGS.level2 } };
+    const mgr = { id: 1, name: 'Arjun Mehta' };
+    it('at level 1: needs a comment, goes back to the employee, records who and why', () => {
+        const t = startTrail('leave', mgr, settings);
+        expect(() => decide(t, 'MANAGER', 'UPDATE_REQUESTED', ' ', '2026-10-20T10:00:00Z')).toThrow('Add a short note so the employee knows what to update.');
+        const u = decide(t, 'MANAGER', 'UPDATE_REQUESTED', 'Wrong dates', '2026-10-20T10:00:00Z');
+        expect(u.status).toBe('UPDATE_REQUESTED');
+        expect(u.updateRequest).toEqual({ level: 1, role: 'MANAGER', by: 'Arjun Mehta', comment: 'Wrong dates', at: '2026-10-20T10:00:00Z' });
+        expect(trailLabel(u)).toBe('Update requested');
+        expect(() => decide(u, 'MANAGER', 'APPROVED', undefined, 'x')).toThrow(/no longer waiting/);
+        const r = resubmitTrail(u, '2026-10-21T09:00:00Z', 'Sneha Iyer');
+        expect(r.status).toBe('PENDING_MANAGER');
+        expect(r.updateRequest).toBeUndefined();
+        expect(r.steps.every(st => !st.decision)).toBe(true);
+        expect(r.history?.map(h => h.action)).toEqual(['Update requested', 'Updated and resubmitted']);
+    });
+    it('at level 2: straight back to the employee; resubmitting starts again at the manager', () => {
+        const approved = decide(startTrail('leave', mgr, settings), 'MANAGER', 'APPROVED', undefined, 'a');
+        expect(approved.status).toBe('PENDING_HR');
+        expect(reachedLevel2(approved)).toBe(true);
+        const u = decide(approved, 'HR', 'UPDATE_REQUESTED', 'Attach the invite', 'b');
+        expect(u).toMatchObject({ status: 'UPDATE_REQUESTED', updateRequest: { level: 2, role: 'HR', by: 'HR team' } });
+        const r = resubmitTrail(u, 'c', 'Sneha Iyer');
+        expect(r.status).toBe('PENDING_MANAGER');
+        expect(reachedLevel2(r)).toBe(false);
+        expect(r.history?.map(h => h.action)).toEqual(['Approved', 'Update requested', 'Updated and resubmitted']);
+    });
+    it('no manager: resubmitting goes straight to level 2; only an asked-for request can be resubmitted', () => {
+        const u = decide(startTrail('overtime', null, settings), 'PAYROLL', 'UPDATE_REQUESTED', 'Fix the hours', 'a');
+        expect(resubmitTrail(u, 'b', 'Rohan').status).toBe('PENDING_PAYROLL');
+        expect(() => resubmitTrail(startTrail('overtime', mgr, settings), 'b', 'x')).toThrow(/Nothing was asked/);
     });
 });

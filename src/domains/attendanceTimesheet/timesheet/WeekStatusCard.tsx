@@ -9,7 +9,7 @@
 //   With manager ..... "With {manager} since {23 Oct}. You can still edit it, but it goes back to draft and needs submitting again."
 //   With Payroll ..... "Approved by {manager}, now with Payroll. Editing moves it back to draft."
 //   Approved ......... "Approved. You can still edit it until payroll is processed; edits need submitting again."
-//   Sent back ........ "{manager} sent it back: {comment} Fix it, then submit again."
+//   Update requested . "{manager} asked for an update: {comment} Update it, then submit again." (My team, Slice 1)
 //   Approval off / payroll processed: an explanation, no action.
 import { LeftOutlined, RightOutlined, WarningOutlined } from '@ant-design/icons';
 import { Button, Skeleton, Tag, Tooltip } from 'antd';
@@ -50,7 +50,7 @@ export const statusLine = (view: TimesheetWeekView, today: string) => {
     switch (week.status) {
         case 'SENT_BACK': {
             const by = week.sentBackBy === 'PAYROLL' ? 'Payroll' : week.decision?.by.name ?? mgr;
-            return `${by} sent it back: ${week.decision?.comment ?? ''} Fix it, then submit again.`;
+            return `${by} asked for an update: ${week.decision?.comment ?? ''} Update it, then submit again.`;
         }
         case 'SUBMITTED': {
             const since = week.submittedAt ? ` since ${dayjs(week.submittedAt).format('D MMM')}` : '';

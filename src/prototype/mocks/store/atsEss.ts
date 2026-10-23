@@ -26,6 +26,7 @@ import type {
 } from '@src/domains/attendanceTimesheet/types';
 import {
     RuleError,
+    resubmitTrail,
     addDays,
     addLocationStamp,
     dayLocations,
@@ -403,7 +404,11 @@ const HHMM = /^\d{2}:\d{2}$/;
  * then Payroll. outDays: 0 = check-out the same day, 1 = the next day. A day still checked in has to be checked out
  * first. A past break's change is mentioned in the reason.
  */
-export const createCorrection = (mode: DataMode, e: MockEmployee, input: CorrectionInput): AttendanceCorrection => {
+/**
+ * The checks an attendance correction passes (the form's, and a resubmission's): date, lock, reason, the requested
+ * times. Returns the day as recorded and the requested times.
+ */
+const checkCorrection = (mode: DataMode, e: MockEmployee, input: CorrectionInput) => {
     const settings = getSettings(mode);
     if (!hasCheckIn(settings.mode)) {
         throw new RuleError(hasTracking(settings.mode) ? 'Attendance corrections are off — your company uses timesheets only.' : NOT_TRACKED);
@@ -432,6 +437,12 @@ export const createCorrection = (mode: DataMode, e: MockEmployee, input: Correct
     if (requestedIn === day.checkIn && requestedOut === day.checkOut && outDays === day.outDays) {
         throw new RuleError('Those are already the recorded times.', 400);
     }
+    return { day, reason, requested: { checkIn: requestedIn, checkOut: requestedOut, outDays: requestedOut ? outDays : 0 } };
+};
+
+export const createCorrection = (mode: DataMode, e: MockEmployee, input: CorrectionInput): AttendanceCorrection => {
+    const settings = getSettings(mode);
+    const { day, reason, requested } = checkCorrection(mode, e, input);
     if (correctionsOf(mode, e).some(c => c.date === input.date && c.trail.status.startsWith('PENDING'))) {
         throw new RuleError(`A correction for ${dayLabel(input.date)} is already waiting for approval.`);
     }
@@ -441,7 +452,7 @@ export const createCorrection = (mode: DataMode, e: MockEmployee, input: Correct
         employeeId: e.id,
         date: input.date,
         current: { checkIn: day.checkIn, checkOut: day.checkOut, outDays: day.outDays },
-        requested: { checkIn: requestedIn, checkOut: requestedOut, outDays: requestedOut ? outDays : 0 },
+        requested,
         reason,
         ...(input.fromTimesheet ? { fromTimesheet: true } : {}),
         trail: startTrail('attendance', managerRef(e), settings),
@@ -457,6 +468,22 @@ export const cancelCorrection = (mode: DataMode, e: MockEmployee, id: string) =>
     if (!c) throw new RuleError('Correction not found.', 404);
     const trail = cancelTrail(c.trail);
     atsCorrections.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: nowIso() } : x)));
+    return correctionsView(mode, e);
+};
+
+/**
+ * PROTOTYPE-SETUP (My team, Slice 1): the employee updates a correction they were asked to update and sends it again —
+ * the same checks as a new one; it starts again at the manager.
+ */
+export const resubmitCorrection = (mode: DataMode, e: MockEmployee, id: string, input: Partial<CorrectionInput> | undefined) => {
+    const c = atsCorrections.get(mode).find(x => x.id === id && x.employeeId === e.id);
+    if (!c) throw new RuleError('Correction not found.', 404);
+    const { day, reason, requested } = checkCorrection(mode, e, { ...(input ?? {}), date: c.date } as CorrectionInput);
+    const at = nowIso();
+    const trail = resubmitTrail(c.trail, at, e.fullName);
+    atsCorrections.update(mode, list =>
+        list.map(x => (x.id === id ? { ...x, current: { checkIn: day.checkIn, checkOut: day.checkOut, outDays: day.outDays }, requested, reason, trail, updatedAt: at } : x))
+    );
     return correctionsView(mode, e);
 };
 
@@ -607,6 +634,8 @@ export const submitWeekRecord = (
         submittedAt: at,
         autoSubmitted: auto,
         attendance: attendanceSnapshot(mode, e, week),
+        // PROTOTYPE-SETUP (My team, Slice 1): a new round — the manager approves it again before Payroll sees it.
+        managerDecision: undefined,
         ...(status === 'APPROVED'
             ? { approvedEntries: week.entries, baselineEntries: null, editedAfter: undefined, decision: { by: SYSTEM_ACTOR, at, comment: 'Auto-approved — no reporting manager.' } }
             : { decision: undefined, sentBackBy: undefined }),
@@ -816,6 +845,32 @@ export const createOvertime = (mode: DataMode, e: MockEmployee, input: OvertimeI
     };
     atsOvertime.update(mode, list => [request, ...list]);
     return request;
+};
+
+/**
+ * PROTOTYPE-SETUP (My team, Slice 1): update an overtime request that was sent back (date, time, note) and send it
+ * again — the same checks as a new one; it starts again at the manager.
+ */
+export const resubmitOvertime = (mode: DataMode, e: MockEmployee, id: string, input: Partial<OvertimeInput> | undefined) => {
+    const o = atsOvertime.get(mode).find(x => x.id === id && x.employeeId === e.id);
+    if (!o) throw new RuleError('Overtime request not found.', 404);
+    const next: OvertimeInput = {
+        kind: o.kind,
+        date: input?.date ?? o.date,
+        minutes: Math.round(Number(input?.minutes ?? o.minutes)),
+        description: input?.description ?? o.description,
+    };
+    validateOvertimeInput(next, today());
+    if (next.date < e.dateOfJoin) throw new RuleError('That day is before your joining date.', 400);
+    if (isDayLocked(mode, next.date)) throw new RuleError(lockReasonFor(next.date));
+    const other = activeOvertimeOn(mode, e, next.date);
+    if (other && other.id !== id) throw new RuleError(`You already have an overtime request for ${dayLabel(next.date)}.`);
+    const at = nowIso();
+    const trail = resubmitTrail(o.trail, at, e.fullName);
+    atsOvertime.update(mode, list =>
+        list.map(x => (x.id === id ? { ...x, date: next.date, minutes: next.minutes, description: next.description?.trim() || x.description, trail, updatedAt: at } : x))
+    );
+    return overtimeViewOf(mode, e, currentMonth());
 };
 
 export const cancelOvertime = (mode: DataMode, e: MockEmployee, id: string) => {

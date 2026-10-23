@@ -73,7 +73,7 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
         .forEach(w =>
             items.push(
                 w.kind === 'sent-back'
-                    ? { id: `sb-${w.weekStart}`, tone: 'back', title: `${fmtPeriod(w.weekStart, w.periodEnd)} sent back`, text: w.text, button: openLabel(w.weekStart, w.periodEnd), go: () => onOpenWeek(w.weekStart) }
+                    ? { id: `sb-${w.weekStart}`, tone: 'back', title: `${fmtPeriod(w.weekStart, w.periodEnd)}: update requested`, text: w.text, button: openLabel(w.weekStart, w.periodEnd), go: () => onOpenWeek(w.weekStart) }
                     : { id: `ch-${w.weekStart}`, tone: 'info', title: `Change waiting · ${fmtPeriod(w.weekStart, w.periodEnd)}`, text: w.text, button: openLabel(w.weekStart, w.periodEnd), go: () => onOpenWeek(w.weekStart) }
             )
         );

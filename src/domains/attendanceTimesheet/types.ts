@@ -148,7 +148,7 @@ export interface LocationStamp {
     client?: string;
 }
 
-export type RequestState = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type RequestState = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'update_requested';
 
 /** One day of attendance as shown to people — status and minutes derived by the rules. */
 export interface AttendanceDay {
@@ -223,7 +223,9 @@ export type ApprovalStatus =
     | 'PENDING_ADMIN'
     | 'APPROVED'
     | 'REJECTED'
-    | 'CANCELLED';
+    | 'CANCELLED'
+    /** PROTOTYPE-SETUP (My team, Slice 1): "Ask for update" at level 1 or 2 — back with the employee to update and resubmit. */
+    | 'UPDATE_REQUESTED';
 
 export type ApproverRole = 'MANAGER' | 'HR' | 'FINANCE' | 'PAYROLL' | 'ADMIN';
 
@@ -235,7 +237,7 @@ export interface ApprovalStep {
     approverName?: string;
     /** Level 1 skipped because the employee has no reporting manager (the CEO). */
     skipped?: boolean;
-    decision?: 'APPROVED' | 'REJECTED';
+    decision?: 'APPROVED' | 'REJECTED' | 'UPDATE_REQUESTED';
     comment?: string;
     at?: string;
 }
@@ -244,6 +246,20 @@ export interface ApprovalTrail {
     type: ApprovalType;
     status: ApprovalStatus;
     steps: ApprovalStep[];
+    /** PROTOTYPE-SETUP (My team, Slice 1): who asked for an update, at which level, and why (while UPDATE_REQUESTED). */
+    updateRequest?: { level: 1 | 2; role: ApproverRole; by: string; comment: string; at: string };
+    /** Earlier rounds: each decision, then "Updated and resubmitted" (oldest first). */
+    history?: TrailEvent[];
+}
+
+/** PROTOTYPE-SETUP (My team, Slice 1): one line of a request's history across rounds. */
+export interface TrailEvent {
+    level: 0 | 1 | 2;
+    role?: ApproverRole;
+    by: string;
+    action: 'Approved' | 'Rejected' | 'Update requested' | 'Updated and resubmitted';
+    comment?: string;
+    at: string;
 }
 
 // ---- attendance corrections -------------------------------------------------------------------------------
@@ -799,6 +815,8 @@ export interface MyProfileView {
     pending: (ProfileUpdateRequest & { statusLabel: string }) | null;
     /** The most recent decided request, for the approved / rejected banner. */
     lastDecided: (ProfileUpdateRequest & { statusLabel: string }) | null;
+    /** PROTOTYPE-SETUP (My team, Slice 1): HR asked for an update — sending changes again resubmits this one. */
+    updateRequested: (ProfileUpdateRequest & { statusLabel: string }) | null;
 }
 
 // ---- ESS - Employee Overview (PROTOTYPE-SETUP: Overview, Slice 3) ----------------------------------------------
@@ -838,7 +856,8 @@ export interface OverviewRequest {
     detail: string;
     /** "Approved by Arjun Mehta" / "Rejected by HR team: …" / "Waiting with Arjun Mehta" */
     statusText: string;
-    state: 'pending' | 'approved' | 'rejected';
+    /** PROTOTYPE-SETUP (My team, Slice 1): 'update_requested' — back with the employee to update and resubmit. */
+    state: 'pending' | 'approved' | 'rejected' | 'update_requested';
     /** Latest change. */
     at: string;
     link: OverviewLink;

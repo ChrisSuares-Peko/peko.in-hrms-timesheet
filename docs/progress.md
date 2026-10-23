@@ -1,20 +1,14 @@
-# Progress — final batch (ESS - Employee)
+# Progress — My team (managers) + "Ask for update"
 
-PROTOTYPE-SETUP. Run log for the "final batch" (timesheet filing, location, late deductions, leave policy). If a run is
-interrupted, continue from the first slice that isn't **done**.
-
-Builds on `f19137e feat(ess): implement configurable timesheet filing` (kept: filing frequency, project codes,
-duration-only entries, manual submit, overlap and gap warnings).
+PROTOTYPE-SETUP. Run log for the "My team" batch. If a run is interrupted, continue from the first step that isn't
+**done**. The previous run (the final batch, `11b50a0`–`74c9543`) is finished and pushed.
 
 | Step | Commit | Status |
 |---|---|---|
-| Stale branches deleted (ess-employee-v2, overview-v1, overview-v2 — local and origin; all fully merged) | — | done |
-| Slice 1 — Rules and data (with tests) | 11b50a0 | done |
-| Slice 2 — Timesheet entry form, location, project codes | c69ba11 | done |
-| Slice 3 — Timesheet template, upload, submit | 43e2c3c | done |
-| Slice 4 — Reviews and the Payroll queue | 63c7a6c | done |
-| Slice 5 — Late check-in deductions (UI) | 55d700f | done |
-| Slice 6 — Leave page and leave policy settings | 8c3a01a | done |
-| Slice 7 — Payroll settings tidy-up | 03089fc | done |
-| Slice 8 — Consistency and clean-up | (final commit, see git log) | done |
-| VERIFY 1–11 (1440 / 1024 / 375), single push | — | done |
+| Prerequisite: final batch finished and pushed (main = origin/main at 74c9543) | — | done |
+| Slice 1 — Rules and data (with tests) | (this commit) | done |
+| Slice 2 — Employee side of "Ask for update" | — | to do |
+| Slice 3 — My team: Approvals inbox | — | to do |
+| Slice 4 — My team: Team attendance and Leave calendar | — | to do |
+| Slice 5 — Payroll level 2 and consistency | — | to do |
+| VERIFY 1–8 (1440 / 1024 / 375), single push | — | to do |

@@ -16,6 +16,7 @@ import {
     startTrail,
     trailLabel,
     validatePersonalDetails,
+    resubmitTrail,
 } from '@src/prototype/rules/attendance';
 
 import { getSettings, nowIso } from './atsStore';
@@ -88,6 +89,7 @@ export const myProfileOf = (mode: DataMode, e: MockEmployee): MyProfileView => {
     const m = managerOf(e);
     const requests = profileRequestsOf(mode, e);
     const pending = requests.find(r => r.trail.status === 'PENDING_HR');
+    const askedForUpdate = requests.find(r => r.trail.status === 'UPDATE_REQUESTED');
     const lastDecided = requests.find(r => r.trail.status === 'APPROVED' || r.trail.status === 'REJECTED');
     return {
         work: {
@@ -103,6 +105,7 @@ export const myProfileOf = (mode: DataMode, e: MockEmployee): MyProfileView => {
         },
         personal: personalOf(mode, e),
         pending: pending ? withLabel(pending) : null,
+        updateRequested: askedForUpdate ? withLabel(askedForUpdate) : null,
         lastDecided: lastDecided ? withLabel(lastDecided) : null,
     };
 };
@@ -116,6 +119,13 @@ export const createProfileRequest = (mode: DataMode, e: MockEmployee, input: Par
     const changes = profileChanges(current, input ?? {});
     if (!changes.length) throw new RuleError(PROFILE_MESSAGES.nothing, 400);
     const at = nowIso();
+    // PROTOTYPE-SETUP (My team, Slice 1): HR asked for an update — this sends that request again, with the new values.
+    const asked = profileRequestsOf(mode, e).find(r => r.trail.status === 'UPDATE_REQUESTED');
+    if (asked) {
+        const trail = resubmitTrail(asked.trail, at, e.fullName);
+        atsProfileRequests.update(mode, list => list.map(x => (x.id === asked.id ? { ...x, changes, trail, updatedAt: at } : x)));
+        return myProfileOf(mode, e);
+    }
     const request: ProfileUpdateRequest = {
         id: `pu-${Date.now().toString(36)}`,
         employeeId: e.id,

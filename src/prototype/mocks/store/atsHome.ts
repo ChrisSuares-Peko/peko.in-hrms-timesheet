@@ -128,9 +128,9 @@ const actionsOf = (mode: DataMode, e: MockEmployee): OverviewAction[] => {
             .forEach(w =>
                 actions.push({
                     kind: 'sent-back',
-                    title: 'Timesheet sent back',
+                    title: 'Update requested: timesheet',
                     text: `${periodLabel(w.weekStart, periodEndOf(w))}: ${w.decision?.comment ?? 'Your manager asked for changes.'}`,
-                    button: 'Fix and resubmit',
+                    button: 'Update and resubmit',
                     link: { tab: 'timesheet', date: w.weekStart },
                     tone: 'back',
                 })
@@ -189,6 +189,8 @@ export const trailStatusText = (trail: ApprovalTrail) => {
     const last = decided[decided.length - 1];
     if (trail.status === 'REJECTED' && last) return `Rejected by ${who(last)}${last.comment ? `: ${last.comment}` : ''}`;
     if (trail.status === 'APPROVED') return last ? `Approved by ${who(last)}` : 'Approved';
+    // PROTOTYPE-SETUP (My team, Slice 1): "Update requested by Arjun Mehta: …"
+    if (trail.status === 'UPDATE_REQUESTED' && trail.updateRequest) return `Update requested by ${trail.updateRequest.by}: ${trail.updateRequest.comment}`;
     const pending = trail.steps.find(s => !s.decision && !s.skipped);
     return pending ? `Waiting with ${who(pending)}` : trailLabel(trail);
 };

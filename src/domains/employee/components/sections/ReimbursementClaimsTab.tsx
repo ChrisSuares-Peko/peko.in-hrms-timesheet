@@ -30,6 +30,7 @@ const statusColor: Record<UiReimbursementStatus, string> = {
     Approved: 'success',
     Rejected: 'error',
     Cancelled: 'default',
+    'Update requested': 'warning',
 };
 
 const customStatusStyle: Partial<Record<UiReimbursementStatus, { bg: string; color: string }>> = {

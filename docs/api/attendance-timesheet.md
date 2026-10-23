@@ -322,3 +322,26 @@ Demo data is relative to today. Sneha Iyer (ACME-004, reports to Arjun Mehta) ha
 Arjun's team today: Rahul is late, Karthik hasn't checked in, and Ananya is on leave.
 
 HR's queue has one profile update waiting (Karthik: new mobile number and address).
+
+## My team and "Ask for update" (PROTOTYPE-SETUP: My team)
+
+- **Levels:** level 1 is the reporting manager. Level 2 is the Payroll panel (Payroll, HR, Admin or Finance, as set in Settings).
+- **What level 2 sees:** an item reaches level 2 only after level 1 has approved it, or right away when the employee has no manager (`reachedLevel2`).
+- **Ask for update:** at either level, the approver can ask for an update. This needs a comment and always sends the item straight back to the employee:
+  - for requests, the status becomes `UPDATE_REQUESTED`, and `trail.updateRequest` records the level, the role, who asked (`by`), the comment and the time;
+  - for timesheets, the status becomes `SENT_BACK`, shown as "Update requested", with `sentBackBy` set to `MANAGER` or `PAYROLL`.
+- **Resubmit:** when the employee updates and resubmits, the round's decisions move to `trail.history` with "Updated and resubmitted". The item then starts again at the manager, or at level 2 when there's no manager.
+- **Manager on leave:** items wait for the manager. There's no delegation.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `corrections/{id}/resubmit` | `{ checkIn, checkOut, outDays, reason }` | corrections |
+| POST | `overtime/{id}/resubmit` | `{ date?, minutes?, description? }` | `OvertimeView` |
+| POST | `leave/requests/{id}/resubmit` | `{ start?, end?, half?, reason?, proof? }` | `LeaveView` |
+| POST | `…/reimbursement-requests/{id}/resubmit` (ESS reimbursements) | `{ amount?, date?, description? }` | `ReimbursementRecord` |
+| POST | `profile/update-request` | changed fields | `MyProfileView`. While HR has asked for an update, this resubmits that request. |
+| POST | `team/approvals/requests/{type}/{id}/ask-for-update` | `{ comment }` | `RequestItem` |
+| POST | `team/approvals/timesheets/{employeeId}/{weekStart}/ask-for-update` | `{ comment }` | `TimesheetApprovalItem` (`send-back` stays as an alias) |
+| POST | `team/approvals/bulk-approve` | `{ items: [{ kind: 'timesheet', employeeId, weekStart } \| { kind: type, id }] }` | `{ approved, failed: [{ item, reason }] }`. Each item moves on as a single approval would. |
+| POST | `payroll/approvals/{type}/{id}/ask-for-update?role=` | `{ comment }` | `RequestItem` |
+| POST | `payroll/timesheets/{employeeId}/{weekStart}/ask-for-update` | `{ comment }` | `TimesheetApprovalItem` |

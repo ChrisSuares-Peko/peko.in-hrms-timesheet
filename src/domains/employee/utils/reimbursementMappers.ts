@@ -2,13 +2,14 @@ import dayjs from 'dayjs';
 
 import { ReimbursementApiStatus, ReimbursementRecord } from '../types';
 
-export type UiReimbursementStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
+export type UiReimbursementStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled' | 'Update requested';
 
 const STATUS_TO_UI: Record<ReimbursementApiStatus, UiReimbursementStatus> = {
     requestedByEmployee: 'Pending',
     approved: 'Approved',
     rejected: 'Rejected',
     cancelledByEmployee: 'Cancelled',
+    updateRequested: 'Update requested',
 };
 
 const PAYMENT_STATUS_TO_UI: Record<string, UiReimbursementStatus> = {

@@ -128,7 +128,7 @@ import {
     liveMonthRecordsOf,
     liveTodaySummary,
 } from '../store/atsLegacy';
-import { StoredClaim, atsReimbursements, legacyClaimStatus } from '../store/atsRequests';
+import { StoredClaim, atsReimbursements, legacyClaimStatus, resubmitClaim } from '../store/atsRequests';
 import { getSettings } from '../store/atsStore';
 import { updateSettings } from '../store/atsTeam';
 
@@ -674,6 +674,11 @@ const toEmployeeReimbursement = (r: MockReimbursement): reimbursementListingResp
 /** PROTOTYPE-SETUP (Final batch, Slice 1): a live claim in the shape the ESS screens read. */
 const liveClaimRecord = (c: StoredClaim): ReimbursementRecord => ({
     id: c.id,
+    category: c.category,
+    // PROTOTYPE-SETUP (My team, Slice 1): who asked for an update, and why.
+    ...(c.trail.status === 'UPDATE_REQUESTED' && c.trail.updateRequest
+        ? { updateRequest: { by: c.trail.updateRequest.by, comment: c.trail.updateRequest.comment } }
+        : {}),
     expenseDate: c.expenseDate,
     totalPay: c.totalPay,
     expenseDetails: c.expenseDetails,
@@ -1434,10 +1439,20 @@ const essRoutes: MockRoute[] = [
     route('PATCH', `${P}/reimbursement-requests/:reimbursementId/cancel`, ({ mode, params }): ReimbursementRecord => {
         const claim = atsReimbursements.get(mode).find(c => c.id === params.reimbursementId && c.employeeId === essEmployee().id);
         if (!claim) throw fail(404, 'Claim not found.');
-        if (!claim.trail.status.startsWith('PENDING')) throw fail(409, 'Only a pending claim can be cancelled.');
+        if (!claim.trail.status.startsWith('PENDING') && claim.trail.status !== 'UPDATE_REQUESTED') throw fail(409, 'Only a pending claim can be cancelled.');
         const next = { ...claim, trail: { ...claim.trail, status: 'CANCELLED' as const }, withdrawn: true, updatedAt: new Date().toISOString() };
         atsReimbursements.update(mode, list => list.map(c => (c.id === claim.id ? next : c)));
         return liveClaimRecord(next);
+    }),
+    // PROTOTYPE-SETUP (My team, Slice 1): update a claim that was sent back and send it again (to the manager first).
+    route('POST', `${P}/reimbursement-requests/:reimbursementId/resubmit`, ({ mode, params, body }): ReimbursementRecord => {
+        const me = essEmployee();
+        try {
+            return liveClaimRecord(resubmitClaim(mode, me.id, params.reimbursementId ?? '', body, me.fullName));
+        } catch (e) {
+            if (e instanceof RuleError) throw fail(e.status, e.message);
+            throw e;
+        }
     }),
 ];
 

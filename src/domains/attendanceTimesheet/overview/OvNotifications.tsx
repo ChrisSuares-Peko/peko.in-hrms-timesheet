@@ -22,7 +22,7 @@ const TONE = {
     amber: 'bg-[#FFF6E0] border-[#FCE3A6]',
 } as const;
 
-const DOT = { pending: 'bg-[#2E62E8]', approved: 'bg-[#43B75D]', rejected: 'bg-[#FF4F4F]' } as const;
+const DOT = { pending: 'bg-[#2E62E8]', approved: 'bg-[#43B75D]', rejected: 'bg-[#FF4F4F]', update_requested: 'bg-[#F79009]' } as const;
 
 const SHOWN_REQUESTS = 3;
 

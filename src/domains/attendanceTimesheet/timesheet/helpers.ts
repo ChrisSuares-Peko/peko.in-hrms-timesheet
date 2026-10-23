@@ -32,7 +32,7 @@ export const HISTORY_LABEL: Record<HistoryAction, string> = {
     SUBMITTED: 'Submitted the week',
     AUTO_SUBMITTED: 'Sent to the manager automatically',
     APPROVED: 'Approved the week',
-    SENT_BACK: 'Sent the week back',
+    SENT_BACK: 'Asked for an update',
     // PROTOTYPE-SETUP (Final batch, Slice 1): an edit pulled a sent or approved timesheet back to draft.
     EDITED_AFTER_SENDING: 'Edited after it was sent',
 };

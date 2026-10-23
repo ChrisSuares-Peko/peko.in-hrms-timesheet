@@ -133,7 +133,9 @@ export type ReimbursementApiStatus =
     | 'requestedByEmployee'
     | 'approved'
     | 'rejected'
-    | 'cancelledByEmployee';
+    | 'cancelledByEmployee'
+    // PROTOTYPE-SETUP (My team, Slice 1): an approver asked for an update — the employee updates and resubmits.
+    | 'updateRequested';
 
 export interface ReimbursementRecord {
     id: string;
@@ -144,6 +146,10 @@ export interface ReimbursementRecord {
     status: ReimbursementApiStatus;
     paymentStatus?: string;
     supportingDocs?: string;
+    /** PROTOTYPE-SETUP (My team, Slice 1): who asked for an update, and what to change (status updateRequested). */
+    updateRequest?: { by: string; comment: string };
+    /** The claim's category (prototype data). */
+    category?: string;
 }
 
 export interface DocumentRequest {
