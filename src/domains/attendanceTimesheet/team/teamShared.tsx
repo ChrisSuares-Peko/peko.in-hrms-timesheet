@@ -51,10 +51,8 @@ export const ALL_TEAM_TABS: MyTeamTab[] = ['approvals', 'today', 'attendance', '
  */
 export const visibleTeamTabs = ({ mode }: Pick<TeamSettings, 'mode' | 'approvalOn'>) =>
     ALL_TEAM_TABS.filter(tab => {
-        if (tab === 'attendance') return false; // Slice 4
-        if (tab === 'today') return hasCheckIn(mode);
+        if (tab === 'today' || tab === 'attendance') return hasCheckIn(mode);
         if (tab === 'timesheets') return hasTimesheets(mode);
-        if (tab === 'leave-calendar') return false; // Slice 4
         return true;
     });
 

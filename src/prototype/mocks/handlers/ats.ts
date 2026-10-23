@@ -60,6 +60,8 @@ import {
     teamApprovalCounts,
     teamMonthSummary,
     teamRequests,
+    teamAttendance,
+    teamLeave,
     teamToday,
     teamWeekGrid,
     payrollApproveWeek,
@@ -197,6 +199,9 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/team/members/:employeeId/timesheet/week`, ess((ctx, me) => weekView(ctx.mode, member(ctx, me), dateParam(ctx.query), { readOnly: true }))),
     route('GET', `${A}/team/members/:employeeId/timesheet/month`, ess((ctx, me) => timesheetMonthOf(ctx.mode, member(ctx, me), monthParam(ctx.query)))),
     route('GET', `${A}/team/members/:employeeId/attendance`, ess((ctx, me) => attendanceMonthOf(ctx.mode, member(ctx, me), monthParam(ctx.query)))),
+    // PROTOTYPE-SETUP (My team, Slice 4): Team attendance (month grid) and the Leave calendar.
+    route('GET', `${A}/team/attendance`, ess((ctx, me) => teamAttendance(ctx.mode, me, monthParam(ctx.query)))),
+    route('GET', `${A}/team/leave`, ess((ctx, me) => teamLeave(ctx.mode, me, monthParam(ctx.query)))),
     route('GET', `${A}/team/approvals/counts`, ess((ctx, me) => teamApprovalCounts(ctx.mode, me))),
     route('GET', `${A}/team/approvals/timesheets`, ess((ctx, me) => timesheetQueue(ctx.mode, me, scopeParam(ctx.query)))),
     route('POST', `${A}/team/approvals/timesheets/:employeeId/:weekStart/approve`, ess((ctx, me) => approveWeek(ctx.mode, me, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),

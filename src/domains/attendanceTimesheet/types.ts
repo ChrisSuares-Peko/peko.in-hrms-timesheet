@@ -672,6 +672,36 @@ export interface AtsOverview {
 
 // ---- ESS - Manager: My team ---------------------------------------------------------------------------------
 
+/** PROTOTYPE-SETUP (My team, Slice 4): one month of attendance for each direct report (Team attendance). */
+export interface TeamAttendanceView {
+    month: string;
+    today: string;
+    dates: string[];
+    /** Weekly offs and holidays (shaded). */
+    off: string[];
+    shift: { start: string; end: string };
+    mode: AtsMode;
+    rows: {
+        employee: PersonRef;
+        /** Each day as the employee sees it, plus the timesheet hours logged. */
+        days: (AttendanceDay & { loggedMinutes: number })[];
+        /** Late check-ins this month, up to today. */
+        lateCount: number;
+    }[];
+}
+
+/** PROTOTYPE-SETUP (My team, Slice 4): who's off when (Leave calendar) — approved and pending leave. */
+export interface TeamLeaveView {
+    month: string;
+    today: string;
+    /** Weekly offs and holidays (nobody counts as off then). */
+    off: string[];
+    rows: {
+        employee: PersonRef;
+        leave: { id: string; type: LeaveType; start: string; end: string; half: LeaveHalf | null; state: 'approved' | 'pending' }[];
+    }[];
+}
+
 export interface TeamTodayRow {
     employee: PersonRef;
     status: DayStatus;
@@ -680,6 +710,10 @@ export interface TeamTodayRow {
     checkOut: string | null;
     minutesAtWork: number;
     loggedMinutesToday: number;
+    /** PROTOTYPE-SETUP (My team, Slice 4): next-day check-out, today's breaks, and an earlier day still open. */
+    outDays?: number;
+    breaks?: { count: number; minutes: number; onBreak: boolean };
+    openFrom?: { date: string; checkIn: string };
 }
 
 export interface TeamTodayView {

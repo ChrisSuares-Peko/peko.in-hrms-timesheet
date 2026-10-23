@@ -4,11 +4,12 @@
 import { useEffect, useState } from 'react';
 
 import { Col, Flex, Row, Skeleton, Typography } from 'antd';
+import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
 
 import { getTeamToday } from '../api';
 import { CountTile, NoTeamEmpty, PersonCell } from './teamShared';
-import { displayTime, fmtDay, formatDuration } from '../components/format';
+import { displayTime, displayTimeOn, fmtDay, formatDuration } from '../components/format';
 import { DayStatusTag } from '../components/StatusTags';
 import { useAtsPaths } from '../hooks/useAtsPaths';
 import { useAtsScope } from '../hooks/useAtsScope';
@@ -45,18 +46,30 @@ const MemberCard = ({ row, hasCheckIn, onOpen }: { row: TeamTodayRow; hasCheckIn
                         )}
                     </Flex>
                 </Flex>
+                {/* PROTOTYPE-SETUP (My team, Slice 4): an earlier day still open (also on a day off). */}
+                {hasCheckIn && row.openFrom && (
+                    <Typography.Text className="rounded-lg bg-[#FFFAEB] px-2 py-1 text-xs text-[#93370D]" data-open-from>
+                        Still checked in from {dayjs(row.openFrom.date).format('ddd D MMM')} (since {displayTime(row.openFrom.checkIn)})
+                    </Typography.Text>
+                )}
                 {away ? (
                     <Typography.Text type="secondary" className="text-sm">
                         {row.status === 'on-leave' ? 'Away today' : 'Not a working day'}
                         {row.loggedMinutesToday > 0 ? ` · logged ${formatDuration(row.loggedMinutesToday)}` : ''}
                     </Typography.Text>
                 ) : (
-                    <div className={`grid gap-3 ${hasCheckIn ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2'}`}>
-                        {hasCheckIn && <Field label="Check-in" value={row.checkIn ? displayTime(row.checkIn) : '—'} />}
-                        {hasCheckIn && <Field label="Check-out" value={row.checkOut ? displayTime(row.checkOut) : '—'} />}
-                        {hasCheckIn && <Field label="At work" value={row.minutesAtWork ? formatDuration(row.minutesAtWork) : '—'} />}
-                        <Field label="Logged today" value={row.loggedMinutesToday ? formatDuration(row.loggedMinutesToday) : '—'} />
-                    </div>
+                    <div className={`grid gap-3 ${hasCheckIn ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2'}`}>
+                            {hasCheckIn && <Field label="Check-in" value={row.checkIn ? displayTime(row.checkIn) : '—'} />}
+                            {hasCheckIn && <Field label="Check-out" value={row.checkOut ? displayTimeOn(row.checkOut, row.outDays ?? 0) : '—'} />}
+                            {hasCheckIn && <Field label="At work" value={row.minutesAtWork ? formatDuration(row.minutesAtWork) : '—'} />}
+                            {hasCheckIn && (
+                                <Field
+                                    label="Breaks"
+                                    value={row.breaks?.count ? `${row.breaks.onBreak ? 'On break · ' : ''}${row.breaks.count} · ${formatDuration(row.breaks.minutes)}` : '—'}
+                                />
+                            )}
+                            <Field label="Logged today" value={row.loggedMinutesToday ? formatDuration(row.loggedMinutesToday) : '—'} />
+                        </div>
                 )}
             </Flex>
         </button>

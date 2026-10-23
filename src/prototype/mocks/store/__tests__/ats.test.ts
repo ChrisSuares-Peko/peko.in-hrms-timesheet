@@ -54,6 +54,9 @@ import {
     processPayrollMonth,
     runSubmissionDay,
     sendBackWeek,
+    teamAttendance,
+    teamLeave,
+    teamOf,
     teamRequests,
     teamToday,
     teamWeekGrid,
@@ -1159,5 +1162,33 @@ describe('my team: the employee side of ask for update', () => {
         expect(a).toMatchObject({ kind: 'update', title: 'Update requested: reimbursement claim', text: `${arjun.fullName}: Attach the bill`, button: 'Open', link: { page: 'reimbursements' } });
         resubmitClaim(M, sneha.id, c.id, {}, sneha.fullName);
         expect(homeOf(M, sneha).actions.some(x => x.kind === 'update')).toBe(false);
+    });
+});
+
+// PROTOTYPE-SETUP (My team, Slice 4): Team attendance (month grid) and the Leave calendar.
+describe('my team: team attendance and leave calendar', () => {
+    it("one row per direct report with each day's status, hours logged and the month's late count", () => {
+        const v = teamAttendance(M, arjun, currentMonth());
+        const ids = teamOf(M, arjun).map(e => e.id).sort();
+        expect(v.rows.map(r => r.employee.id).sort()).toEqual(ids);
+        const row = v.rows.find(r => r.employee.id === sneha.id)!;
+        expect(row.days).toHaveLength(v.dates.length);
+        expect(row.lateCount).toBe(row.days.filter(d => d.date <= v.today && d.lateMinutes > 0).length);
+        const day = row.days.find(d => d.date === s.today)!;
+        expect(day.loggedMinutes).toBeGreaterThanOrEqual(0);
+        expect(v.off.every(d => v.dates.includes(d))).toBe(true);
+    });
+
+    it('the leave calendar has approved and pending leave (half days marked) for the month', () => {
+        let d = s.today;
+        for (let k = 0; k < 3; ) {
+            d = addDays(d, 1);
+            if (isWorkingDay(d)) k += 1;
+        }
+        createLeaveRequest(M, sneha, { type: 'CASUAL', start: d, half: 'SECOND', reason: 'Errand' });
+        const v = teamLeave(M, arjun, d.slice(0, 7));
+        const mine = v.rows.find(r => r.employee.id === sneha.id)!.leave;
+        expect(mine.find(l => l.start === d)).toMatchObject({ state: 'pending', half: 'SECOND' });
+        expect(v.rows.flatMap(r => r.leave).every(l => l.state === 'approved' || l.state === 'pending')).toBe(true);
     });
 });

@@ -15,6 +15,8 @@ import type { MyTeamTab } from '../hooks/useAtsPaths';
 import { useAtsScope } from '../hooks/useAtsScope';
 import type { ApprovalCounts } from '../types';
 import TeamApprovalsInbox, { inboxKinds } from './TeamApprovalsInbox';
+import TeamAttendanceGrid from './TeamAttendanceGrid';
+import TeamLeaveCalendar from './TeamLeaveCalendar';
 import { ALL_TEAM_TABS, useTeamSettings, visibleTeamTabs } from './teamShared';
 import TeamTimesheets from './TeamTimesheets';
 import TeamToday from './TeamToday';
@@ -73,6 +75,8 @@ const MyTeamPage = () => {
     const renderTab = (tab: MyTeamTab) => {
         if (tab === 'approvals') return <TeamApprovalsInbox settings={settings} onChanged={refreshCounts} />;
         if (tab === 'today') return <TeamToday mode={settings.mode} />;
+        if (tab === 'attendance') return <TeamAttendanceGrid />;
+        if (tab === 'leave-calendar') return <TeamLeaveCalendar />;
         return <TeamTimesheets />;
     };
 

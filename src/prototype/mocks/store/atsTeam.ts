@@ -26,6 +26,8 @@ import type {
     TimesheetStatusView,
     TimesheetWeek,
     Weekday,
+    TeamAttendanceView,
+    TeamLeaveView,
 } from '@src/domains/attendanceTimesheet/types';
 import {
     RuleError,
@@ -54,11 +56,12 @@ import {
     weekDates,
     weekStartOf,
     reachedLevel2,
+    isWeeklyOff,
 } from '@src/prototype/rules/attendance';
 import { LEAVE_LABEL, LEAVE_TYPES } from '@src/prototype/rules/leavePolicy';
 import { afterManagerApproval, isAutoSubmitDue, periodEndOf, periodsDueForSubmission } from '@src/prototype/rules/timesheetFiling';
 
-import { autoSubmitNote, submitWeekRecord, timesheetMonthOf } from './atsEss';
+import { attendanceMonthOf, autoSubmitNote, submitWeekRecord, timesheetMonthOf } from './atsEss';
 import { applyApprovedProfile, atsProfileRequests } from './atsProfile';
 import { StoredClaim, atsLeaveRequests, atsReimbursements } from './atsRequests';
 import {
@@ -96,6 +99,8 @@ import {
     today,
     weekOf,
     weeksSummary,
+    publicHolidayOn,
+    openSessionBefore,
 } from './atsStore';
 import { actorOf } from '../data/ats-seed';
 import { MockEmployee, findEmployee, managerOf } from '../data/employees';
@@ -125,6 +130,13 @@ export const teamToday = (mode: DataMode, manager: MockEmployee): TeamTodayView 
             checkOut: d.checkOut,
             minutesAtWork: d.minutesAtWork,
             loggedMinutesToday: loggedOn(mode, e, t),
+            // PROTOTYPE-SETUP (My team, Slice 4): breaks, a next-day check-out, an earlier day still checked in.
+            outDays: d.outDays,
+            breaks: { count: d.breaks.length, minutes: d.breakMinutes, onBreak: d.onBreak },
+            ...(() => {
+                const open = openSessionBefore(mode, e, t);
+                return open?.checkIn && !d.checkIn ? { openFrom: { date: open.date, checkIn: open.checkIn } } : {};
+            })(),
         };
     });
     return { date: t, counts: teamTodayCounts(rows.map(r => r.status)), rows };
@@ -572,6 +584,52 @@ export const decideRequest = (
     const trail = decide(o.trail, actor.role, decision, comment, at, actorName(actor));
     atsOvertime.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
     return overtimeItem(mode, { ...o, trail }, actor.role)!;
+};
+
+// ---- Team attendance and the Leave calendar (PROTOTYPE-SETUP: My team, Slice 4) -------------------------------
+
+const offDaysOf = (mode: DataMode, dates: string[]) => {
+    const settings = getSettings(mode);
+    return dates.filter(d => isWeeklyOff(d, settings) || Boolean(publicHolidayOn(d)));
+};
+
+/** Every direct report's month: each day's status (as the employee sees it), hours logged, and the late count. */
+export const teamAttendance = (mode: DataMode, manager: MockEmployee, month: string): TeamAttendanceView => {
+    const settings = getSettings(mode);
+    const t = today();
+    const dates = monthDates(month);
+    return {
+        month,
+        today: t,
+        dates,
+        off: offDaysOf(mode, dates),
+        shift: settings.shift,
+        mode: settings.mode,
+        rows: teamOf(mode, manager).map(e => {
+            const days = attendanceMonthOf(mode, e, month).days.map(d => ({ ...d, loggedMinutes: loggedOn(mode, e, d.date) }));
+            return { employee: personRef(e), days, lateCount: days.filter(d => d.date <= t && d.lateMinutes > 0).length };
+        }),
+    };
+};
+
+/** Approved and pending leave of the direct reports that touches the month. */
+export const teamLeave = (mode: DataMode, manager: MockEmployee, month: string): TeamLeaveView => {
+    const dates = monthDates(month);
+    const first = dates[0];
+    const last = dates[dates.length - 1];
+    return {
+        month,
+        today: today(),
+        off: offDaysOf(mode, dates),
+        rows: teamOf(mode, manager).map(e => ({
+            employee: personRef(e),
+            leave: atsLeaveRequests
+                .get(mode)
+                .filter(l => l.employeeId === e.id && !l.withdrawn && l.start <= last && l.end >= first)
+                .filter(l => l.trail.status === 'APPROVED' || l.trail.status.startsWith('PENDING'))
+                .map(l => ({ id: l.id, type: l.type, start: l.start, end: l.end, half: l.half, state: l.trail.status === 'APPROVED' ? ('approved' as const) : ('pending' as const) })),
+        })),
+    };
 };
 
 // ---- bulk approve (PROTOTYPE-SETUP: My team, Slice 1) ----------------------------------------------------

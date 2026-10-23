@@ -345,3 +345,15 @@ HR's queue has one profile update waiting (Karthik: new mobile number and addres
 | POST | `team/approvals/bulk-approve` | `{ items: [{ kind: 'timesheet', employeeId, weekStart } \| { kind: type, id }] }` | `{ approved, failed: [{ item, reason }] }`. Each item moves on as a single approval would. |
 | POST | `payroll/approvals/{type}/{id}/ask-for-update?role=` | `{ comment }` | `RequestItem` |
 | POST | `payroll/timesheets/{employeeId}/{weekStart}/ask-for-update` | `{ comment }` | `TimesheetApprovalItem` |
+
+### My team screens (Slice 4)
+
+| Method | Path | Query | Returns |
+|---|---|---|---|
+| GET | `team/attendance` | `?month=` | `TeamAttendanceView`. Each direct report's days for the month (with `loggedMinutes`), their `lateCount` up to today, and the `off` days (weekly offs and holidays). |
+| GET | `team/leave` | `?month=` | `TeamLeaveView`. Each direct report's approved and pending leave in the month (`state`, `half`), plus the `off` days. |
+
+`team/today` rows also carry the following:
+- `outDays`, for a next-day check-out;
+- `breaks: { count, minutes, onBreak }`;
+- `openFrom`, for an earlier day that's still checked in.
