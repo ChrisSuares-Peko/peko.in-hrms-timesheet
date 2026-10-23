@@ -10,6 +10,8 @@ import { InfoCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { Alert, Button, Drawer, Popconfirm, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 
+import { locationDetailText } from '@src/prototype/rules/attendance';
+
 import type { CorrectionWithStatus } from '../api';
 import { BEFORE_JOINING } from './AttendanceCalendar';
 import { isPending } from './CorrectionsList';
@@ -96,6 +98,8 @@ const DayDetailDrawer = ({
                             {onClock && <span className="text-titleText font-normal"> (still at work)</span>}
                         </Row>
                         <Row label="Time at work">{atWorkText}</Row>
+                        {/* PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — where they worked from. */}
+                        {day.locations && day.locations.length > 0 && <Row label="Location">{locationDetailText(day.locations)}</Row>}
                         {/* PROTOTYPE-SETUP (HR rules, Slice 2): the day's breaks (included in the time at work). */}
                         {day.breaks.length > 0 && (
                             <Row label={`Breaks · ${formatDuration(day.breakMinutes)}`}>

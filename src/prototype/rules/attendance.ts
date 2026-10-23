@@ -23,6 +23,7 @@ import type {
     TimesheetEntry,
     LeaveHalf,
     LeavePolicy,
+    LocationStamp,
     WorkLocation,
     TimesheetFields,
     TimesheetFilingSettings,
@@ -631,13 +632,38 @@ export const locationText = (location: WorkLocation, client?: string) =>
     location === 'CLIENT' && client ? `Client site (${client})` : LOCATION_LABEL[location];
 
 /** An entry's location (default Office); a client site needs the client's name (up to 60 characters). */
-const whereOf = (input: { location?: WorkLocation | null; client?: string | null }): { location: WorkLocation; client?: string } => {
+export const whereOf = (input: { location?: WorkLocation | null; client?: string | null }): { location: WorkLocation; client?: string } => {
     const location: WorkLocation = input.location === 'HOME' || input.location === 'CLIENT' ? input.location : 'OFFICE';
     if (location !== 'CLIENT') return { location };
     const client = (input.client ?? '').trim().slice(0, 60);
     if (!client) throw new RuleError(ENTRY_MESSAGES.client, 400);
     return { location, client };
 };
+
+// ---- where they work from (Attendance only mode; PROTOTYPE-SETUP: Final batch, Slice 2) -------------------
+
+/** Adds "working from … since {at}" unless it's where they already are. */
+export const addLocationStamp = (trail: LocationStamp[], stamp: LocationStamp): LocationStamp[] => {
+    const last = trail[trail.length - 1];
+    if (last && last.location === stamp.location && (last.client ?? '') === (stamp.client ?? '')) return trail;
+    return [...trail, stamp];
+};
+
+/** The day's timeline: the stored one, or Office from check-in (the default) when nothing was set. */
+export const dayLocations = (stored: LocationStamp[] | undefined, checkIn: string | null): LocationStamp[] => {
+    if (stored?.length) return stored;
+    return checkIn ? [{ at: checkIn, location: 'OFFICE' }] : [];
+};
+
+/** "Office 9:30 AM → Client site (Brightline) 2:00 PM" */
+export const locationTrailText = (trail: LocationStamp[]) => trail.map(x => `${locationText(x.location, x.client)} ${displayTime(x.at)}`).join(' → ');
+
+/** "Office from 9:30 AM, Client site (Brightline) from 2:00 PM" (day details) */
+export const locationDetailText = (trail: LocationStamp[]) => trail.map(x => `${locationText(x.location, x.client)} from ${displayTime(x.at)}`).join(', ');
+
+/** "Working from Client site (Brightline) from 2:00 PM" (the toast) */
+export const workingFromText = (w: { location: WorkLocation; client?: string }, at?: string | null) =>
+    `Working from ${LOCATION_LABEL[w.location]}${w.location === 'CLIENT' && w.client ? ` (${w.client})` : ''}${at ? ` from ${displayTime(at)}` : ''}`;
 
 /**
  * Validation messages — the prototype's wording (docs/prototypes/attendance-timesheet.html), plus `missing`

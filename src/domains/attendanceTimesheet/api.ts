@@ -37,6 +37,7 @@ import type {
     TimesheetStatusView,
     TimesheetNotices,
     TimesheetWeekView,
+    WorkLocation,
 } from './types';
 
 export interface AtsScope {
@@ -117,6 +118,8 @@ export const cancelCorrection = (s: AtsScope, id: string) =>
     call<CorrectionWithStatus[]>(s, 'post', `corrections/${id}/cancel`);
 // PROTOTYPE-SETUP (HR rules, Slice 1): no automatic check-out — check out of an earlier day still open; breaks.
 export const checkOutPrevious = (s: AtsScope) => call<AtsOverview>(s, 'post', 'check-out/previous');
+/** PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — "Working from". */
+export const setWorkingFrom = (s: AtsScope, body: { location: WorkLocation; client?: string }) => call<AtsOverview>(s, 'put', 'working-from', { body });
 export const startBreak = (s: AtsScope) => call<AtsOverview>(s, 'post', 'breaks/start');
 export const endBreak = (s: AtsScope) => call<AtsOverview>(s, 'post', 'breaks/end');
 /** Today's breaks, edited directly (past breaks change through a correction). */

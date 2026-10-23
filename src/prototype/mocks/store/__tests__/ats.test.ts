@@ -21,6 +21,7 @@ import {
     overtimeViewOf,
     endBreak,
     overviewOf,
+    setWorkingFrom,
     startBreak,
     reviewOf,
     submitWeek,
@@ -896,5 +897,35 @@ describe('final batch: reimbursements go manager → Admin', () => {
         expect(level2Requests(M, 'ADMIN', 'reimbursement', 'waiting').some(r => r.id === pending.id)).toBe(true);
         expect(level2Counts(M, 'ADMIN').reimbursement).toBeGreaterThanOrEqual(1);
         expect(decideRequest(M, 'reimbursement', pending.id, { role: 'ADMIN' }, 'APPROVED').trail.status).toBe('APPROVED');
+    });
+});
+
+// PROTOTYPE-SETUP (Final batch, Slice 2): "Working from" in Attendance only mode.
+describe('working from (Attendance only mode)', () => {
+    it('only in Attendance only mode; picked before check-in, stamped while checked in, fixed after check-out', () => {
+        expect(() => setWorkingFrom(M, sneha, { location: 'HOME' })).toThrow(/attendance only/);
+        updateSettings(M, { mode: 'attendance' });
+        resetTodayCheckIn(M);
+        if (overviewOf(M, sneha).today.openFrom) checkOutPrevious(M, sneha);
+        if (overviewOf(M, sneha).today.status === 'on-leave') return;
+        expect(overviewOf(M, sneha).today.workingFrom).toEqual({ location: 'OFFICE' });
+        expect(() => setWorkingFrom(M, sneha, { location: 'CLIENT', client: ' ' })).toThrow('Add the client’s name for a client-site entry.');
+        expect(setWorkingFrom(M, sneha, { location: 'HOME' }).today.workingFrom).toEqual({ location: 'HOME' });
+        const inNow = checkIn(M, sneha);
+        expect(inNow.today.locations).toEqual([{ at: inNow.today.checkIn, location: 'HOME' }]);
+        const moved = setWorkingFrom(M, sneha, { location: 'CLIENT', client: 'Brightline' });
+        expect(moved.today.locations?.map(l => l.location)).toEqual(['HOME', 'CLIENT']);
+        expect(moved.today.workingFrom).toEqual({ location: 'CLIENT', client: 'Brightline' });
+        expect(setWorkingFrom(M, sneha, { location: 'CLIENT', client: 'Brightline' }).today.locations).toHaveLength(2);
+        checkOut(M, sneha);
+        expect(() => setWorkingFrom(M, sneha, { location: 'OFFICE' })).toThrow('You’ve checked out for today.');
+        expect(attendanceDay(M, sneha, s.today).locations).toHaveLength(2);
+    });
+
+    it('a past day with no location set shows Office from check-in; other modes show none', () => {
+        const day = attendanceMonthOf(M, sneha, lastMonth()).days.find(d => d.checkIn)!;
+        expect(day.locations).toBeUndefined();
+        updateSettings(M, { mode: 'attendance' });
+        expect(attendanceDay(M, sneha, day.date).locations).toEqual([{ at: day.checkIn, location: 'OFFICE' }]);
     });
 });

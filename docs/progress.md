@@ -9,9 +9,9 @@ duration-only entries, manual submit, overlap and gap warnings).
 | Step | Commit | Status |
 |---|---|---|
 | Stale branches deleted (ess-employee-v2, overview-v1, overview-v2 — local and origin; all fully merged) | — | done |
-| Slice 1 — Rules and data (with tests) | (this commit) | done |
-| Slice 2 — Timesheet entry form, location, project codes | — | in progress |
-| Slice 3 — Timesheet template, upload, submit | — | to do |
+| Slice 1 — Rules and data (with tests) | 11b50a0 | done |
+| Slice 2 — Timesheet entry form, location, project codes | (this commit) | done |
+| Slice 3 — Timesheet template, upload, submit | — | in progress |
 | Slice 4 — Reviews and the Payroll queue | — | to do |
 | Slice 5 — Late check-in deductions (UI) | — | to do |
 | Slice 6 — Leave page and leave policy settings | — | to do |

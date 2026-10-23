@@ -14,7 +14,7 @@ import dayjs from 'dayjs';
 
 import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
 import { useAppDispatch } from '@src/hooks/store';
-import { entryMins, entryTimeText, formatDuration, isTimed, usesTimes } from '@src/prototype/rules/attendance';
+import { entryMins, entryTimeText, formatDuration, isTimed, locationChip, usesTimes } from '@src/prototype/rules/attendance';
 import { PERIOD_NOUN, periodKind } from '@src/prototype/rules/timesheetFiling';
 import { showToast } from '@src/slices/apiSlice';
 
@@ -119,7 +119,10 @@ const OvTimesheetCard = ({
                                 </span>
                             )}
                             <span className="tabular-nums text-[#616161]">{formatDuration(entryMins(e))}</span>
-                            <span className="truncate text-[#080808]" title={e.description}>
+                            <span className="truncate text-[#080808]" title={`${locationChip(e.location, e.client)} · ${e.description}`}>
+                                <span className="text-[#9e9e9e]" data-location-chip>
+                                    {locationChip(e.location, e.client)} ·{' '}
+                                </span>
                                 {e.description}
                             </span>
                         </li>

@@ -137,6 +137,15 @@ export interface AttendanceRecord {
     breaks?: AttendanceBreak[];
     /** How the times got here. 'correction' = an approved attendance correction. */
     source: 'ess' | 'manual' | 'correction';
+    /** PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — where they worked from, as it changed. */
+    locations?: LocationStamp[];
+}
+
+/** PROTOTYPE-SETUP (Final batch, Slice 2): "working from" since a time of day (Attendance only mode; no geofencing). */
+export interface LocationStamp {
+    at: string;
+    location: WorkLocation;
+    client?: string;
 }
 
 export type RequestState = 'pending' | 'approved' | 'rejected' | 'cancelled';
@@ -163,6 +172,8 @@ export interface AttendanceDay {
     lateMinutes: number;
     /** PROTOTYPE-SETUP (Final batch, Slice 1): approved half-day leave on this day. */
     halfLeave?: LeaveHalf | null;
+    /** PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — the day's location timeline (default Office). */
+    locations?: LocationStamp[];
     /** Extra time per the overtime rule for the current mode (0 if none). */
     overtimeMinutes: number;
     /** Holiday name, leave type, "Weekly off", … */
@@ -621,6 +632,8 @@ export interface AtsOverview {
         /** Why check-in / out is unavailable, if it is. */
         hint?: string;
         loggedMinutes: number;
+        /** PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — where they're working from now (or will be). */
+        workingFrom?: { location: WorkLocation; client?: string };
     };
     shift: { start: string; end: string };
     graceMinutes: number;

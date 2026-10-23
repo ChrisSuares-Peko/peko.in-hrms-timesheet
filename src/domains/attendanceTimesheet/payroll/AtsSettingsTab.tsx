@@ -12,6 +12,7 @@ import {
     Col,
     Flex,
     Form,
+    Input,
     InputNumber,
     Radio,
     Row,
@@ -28,7 +29,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 
 import { useAppDispatch } from '@src/hooks/store';
-import { DEFAULT_FILING, WEEKDAYS, filingFieldsError, formatDuration } from '@src/prototype/rules/attendance';
+import { DEFAULT_FILING, PROJECT_CODE_RE, WEEKDAYS, filingFieldsError, formatDuration } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
 
 import { updateAtsSettings } from '../api';
@@ -218,6 +219,51 @@ const ModeCards = ({
         </div>
     </Radio.Group>
 );
+
+/** PROTOTYPE-SETUP (Final batch, Slice 2): the company's project codes — add (Enter or Add) and remove. */
+const ProjectCodeList = ({ value = [], onChange }: { value?: string[]; onChange?: (next: string[]) => void }) => {
+    const [draft, setDraft] = useState('');
+    const code = draft.trim().toUpperCase();
+    let problem = '';
+    if (code && !PROJECT_CODE_RE.test(code)) problem = 'Use up to 20 letters, numbers, dots, dashes or slashes.';
+    else if (code && value.includes(code)) problem = 'That code is already on the list.';
+    const add = () => {
+        if (!code || problem) return;
+        onChange?.([...value, code]);
+        setDraft('');
+    };
+    return (
+        <Flex vertical gap={8} className="max-w-xl">
+            <Flex wrap gap={6} data-project-code-list>
+                {value.length === 0 && <Text type="secondary" className="text-xs">No codes yet.</Text>}
+                {value.map(c => (
+                    <Tag key={c} closable className="!m-0 font-mono" onClose={() => onChange?.(value.filter(x => x !== c))} closeIcon={<span aria-label={`Remove ${c}`}>×</span>}>
+                        {c}
+                    </Tag>
+                ))}
+            </Flex>
+            <Flex gap={6}>
+                <Input
+                    size="small"
+                    className="!w-[180px]"
+                    placeholder="e.g. PAY-101"
+                    aria-label="New project code"
+                    value={draft}
+                    status={problem ? 'error' : undefined}
+                    onChange={e => setDraft(e.target.value.toUpperCase().slice(0, 20))}
+                    onPressEnter={e => {
+                        e.preventDefault();
+                        add();
+                    }}
+                />
+                <Button size="small" onClick={add} disabled={!code || Boolean(problem)}>
+                    Add
+                </Button>
+            </Flex>
+            {problem && <Text type="danger" className="text-xs">{problem}</Text>}
+        </Flex>
+    );
+};
 
 const AtsSettingsTab = () => {
     const dispatch = useAppDispatch();
@@ -486,13 +532,12 @@ const AtsSettingsTab = () => {
                                 <Text type="secondary" className="mb-2 block text-xs">
                                     The description is always asked for.
                                 </Text>
-                                <div className="grid max-w-2xl grid-cols-2 gap-2 md:grid-cols-4">
+                                <div className="grid max-w-xl grid-cols-2 gap-2 md:grid-cols-3">
                                     {(
                                         [
                                             ['fieldStart', 'Start time'],
                                             ['fieldEnd', 'End time'],
                                             ['fieldDuration', 'Duration'],
-                                            ['fieldProjectCode', 'Project code'],
                                         ] as const
                                     ).map(([name, label]) => (
                                         <Flex key={name} align="center" gap={8}>
@@ -514,14 +559,32 @@ const AtsSettingsTab = () => {
                                         : ''}
                                 </Text>
                             )}
+                        </Flex>
+                    )}
+                </Card>
+
+                {/* PROTOTYPE-SETUP (Final batch, Slice 2): project codes — on / off, and the company's list. */}
+                <Card title="Project codes" size="small">
+                    {timesheetsOff ? (
+                        <Text type="secondary">Timesheets are turned off in Attendance only mode.</Text>
+                    ) : (
+                        <Flex vertical gap={12}>
+                            <Flex align="start" gap={12}>
+                                <Form.Item name="fieldProjectCode" valuePropName="checked" noStyle>
+                                    <Switch aria-label="Project codes" />
+                                </Form.Item>
+                                <Flex vertical gap={2} className="min-w-0">
+                                    <Text strong>{fieldProjectCode ? 'Every entry needs a project code' : 'Project codes are off'}</Text>
+                                    <Text type="secondary" className="text-xs">
+                                        {fieldProjectCode
+                                            ? 'Employees pick a code from this list (or type another: up to 20 letters, numbers, dots, dashes or slashes).'
+                                            : 'Entries don’t ask for a project. Codes already on entries are kept.'}
+                                    </Text>
+                                </Flex>
+                            </Flex>
                             {fieldProjectCode && (
-                                <Form.Item
-                                    name="projectCodes"
-                                    label="Suggested project codes"
-                                    className="!mb-0"
-                                    extra="Offered as employees type. They can enter another code too (up to 20 letters, numbers, dots, dashes or slashes)."
-                                >
-                                    <Select mode="tags" tokenSeparators={[',', ' ']} placeholder="e.g. PAY-101" aria-label="Suggested project codes" />
+                                <Form.Item name="projectCodes" className="!mb-0">
+                                    <ProjectCodeList />
                                 </Form.Item>
                             )}
                         </Flex>

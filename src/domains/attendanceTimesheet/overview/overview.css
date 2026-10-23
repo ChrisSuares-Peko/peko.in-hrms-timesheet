@@ -22,6 +22,12 @@
     gap: 24px;
 }
 
+/* PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode adds "Working from" (the switch, the client line and
+   a two-line trail, or the client name box) to the Attendance card: ~110px more. */
+.ess-ov--attendance {
+    --ov-top: 576px;
+}
+
 .ess-ov > * {
     display: flex;
     min-width: 0;

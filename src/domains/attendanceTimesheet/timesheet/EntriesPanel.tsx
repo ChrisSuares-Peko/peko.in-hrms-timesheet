@@ -19,6 +19,7 @@ import {
     entryMins,
     entryStartMinutes,
     entryTimeText,
+    locationChip,
     formatDuration,
     isTimed,
     sortEntries,
@@ -178,8 +179,12 @@ const EntryLine = ({
             <span className={`w-[56px] shrink-0 tabular-nums ${showTimes ? 'text-gray-500' : 'font-medium text-gray-900'}`}>{formatDuration(entryMins(entry))}</span>
             {/* PROTOTYPE-SETUP (V2): on phones the description gets its own full-width line under the times. */}
             <span className="order-last min-w-0 basis-full break-words text-gray-700 md:order-none md:flex-1 md:basis-0">
+                {/* PROTOTYPE-SETUP (Final batch, Slice 2): location and project chips. */}
+                <Tag bordered={false} className="!mr-1.5 align-middle !text-[11px]" data-location-chip>
+                    {locationChip(entry.location, entry.client)}
+                </Tag>
                 {fields.projectCode && entry.projectCode && (
-                    <Tag bordered={false} className="!mr-1.5 align-middle font-mono !text-[11px]" data-project-code>
+                    <Tag color="blue" bordered={false} className="!mr-1.5 align-middle font-mono !text-[11px]" data-project-code>
                         {entry.projectCode}
                     </Tag>
                 )}

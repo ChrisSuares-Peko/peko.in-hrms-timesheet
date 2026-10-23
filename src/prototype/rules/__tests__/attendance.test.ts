@@ -48,6 +48,11 @@ import {
     weekStartOf,
     weekdayOf,
     weeksOverlappingMonth,
+    addLocationStamp,
+    dayLocations,
+    locationDetailText,
+    locationTrailText,
+    workingFromText,
 } from '../attendance';
 
 const S = DEFAULT_SETTINGS;
@@ -598,5 +603,32 @@ describe('overtime at the HR minimum', () => {
         expect(qualifyingOvertime(29, 30)).toBe(0);
         expect(qualifyingOvertime(4, 0)).toBe(4);
         expect(qualifyingOvertime(0, 0)).toBe(0);
+    });
+});
+
+// PROTOTYPE-SETUP (Final batch, Slice 2): where they work from (Attendance only mode).
+describe('working from (location timeline)', () => {
+    it('adds a stamp only when the place changes; the default is Office from check-in', () => {
+        expect(dayLocations(undefined, '09:30')).toEqual([{ at: '09:30', location: 'OFFICE' }]);
+        expect(dayLocations(undefined, null)).toEqual([]);
+        let trail = dayLocations([], '09:30');
+        trail = addLocationStamp(trail, { at: '11:00', location: 'OFFICE' });
+        expect(trail).toHaveLength(1);
+        trail = addLocationStamp(trail, { at: '14:00', location: 'CLIENT', client: 'Brightline' });
+        trail = addLocationStamp(trail, { at: '15:00', location: 'CLIENT', client: 'Brightline' });
+        expect(trail).toHaveLength(2);
+        trail = addLocationStamp(trail, { at: '16:00', location: 'CLIENT', client: 'Zenith' });
+        expect(trail).toHaveLength(3);
+    });
+
+    it('reads as the prototype words it', () => {
+        const trail = [
+            { at: '09:30', location: 'OFFICE' as const },
+            { at: '14:00', location: 'CLIENT' as const, client: 'Brightline' },
+        ];
+        expect(locationTrailText(trail)).toBe('Office 9:30 AM → Client site (Brightline) 2:00 PM');
+        expect(locationDetailText(trail)).toBe('Office from 9:30 AM, Client site (Brightline) from 2:00 PM');
+        expect(workingFromText({ location: 'CLIENT', client: 'Brightline' }, '14:00')).toBe('Working from Client site (Brightline) from 2:00 PM');
+        expect(workingFromText({ location: 'HOME' })).toBe('Working from Home');
     });
 });

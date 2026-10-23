@@ -23,6 +23,7 @@ import { REMEMBER_CHECK_OUT_NOTE } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
 
 import { checkIn, checkOut, checkOutPrevious, endBreak, startBreak } from '../api';
+import LocationBar from './LocationBar';
 import { displayTime, formatDuration } from '../components/format';
 import BreaksModal from '../ess/BreaksModal';
 import { secondsSince, useNow } from '../ess/ui';
@@ -163,6 +164,8 @@ export const AttendancePunch = ({
     return (
         <>
             <EssStatusBlock tone={strip.tone} title={strip.text} sub={sub} />
+            {/* PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — "Working from". */}
+            {overview.mode === 'attendance' && <LocationBar overview={overview} onOverview={onOverview} />}
             {t.checkIn && (
                 <div className="-mt-1 flex items-center justify-between gap-2 text-sm text-[#616161]" data-breaks-today>
                     <span>{breaksLine(t, now)}</span>

@@ -20,10 +20,14 @@ import type {
     TimesheetWeek,
     TimesheetWeekView,
     SubmittedAttendanceDay,
+    WorkLocation,
 } from '@src/domains/attendanceTimesheet/types';
 import {
     RuleError,
     addDays,
+    addLocationStamp,
+    dayLocations,
+    whereOf,
     cancelTrail,
     BREAK_MESSAGES,
     breaksAsEntries,
@@ -97,6 +101,7 @@ import {
     weekOf,
     weekView,
     weeksSummary,
+    atsWorkingFrom,
     breaksOn,
     editedAfterSending,
     entriesOn,
@@ -157,6 +162,7 @@ export const overviewOf = (mode: DataMode, e: MockEmployee): AtsOverview => {
             ...(open?.checkIn ? { openFrom: { date: open.date, checkIn: open.checkIn } } : {}),
             ...(hint ? { hint } : {}),
             loggedMinutes: loggedOn(mode, e, t),
+            ...(settings.mode === 'attendance' ? { workingFrom: workingFromOf(mode, e) } : {}),
         },
         shift: settings.shift,
         graceMinutes: settings.graceMinutes,
@@ -199,7 +205,35 @@ export const checkIn = (mode: DataMode, e: MockEmployee) => {
     const open = openSessionBefore(mode, e, t);
     if (open) throw new RuleError(`Check out from ${dayLabel(open.date)} first.`);
     if (attendanceDay(mode, e, t).status === 'on-leave') throw new RuleError("You're on approved leave today.");
-    saveRecord(mode, { employeeId: e.id, date: t, checkIn: clockNow(), checkOut: null, outDays: 0, breaks: [], source: 'ess' });
+    const at = clockNow();
+    // PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — the location picked before check-in starts the trail.
+    const locations = settings.mode === 'attendance' ? [{ at, ...(atsWorkingFrom.get(mode)[e.id] ?? { location: 'OFFICE' as const }) }] : undefined;
+    saveRecord(mode, { employeeId: e.id, date: t, checkIn: at, checkOut: null, outDays: 0, breaks: [], source: 'ess', ...(locations ? { locations } : {}) });
+    return overviewOf(mode, e);
+};
+
+// ---- where they work from (PROTOTYPE-SETUP: Final batch, Slice 2) ----------------------------------------
+
+/** Where they're working from: the latest stamp today (checked in), else what they picked (default Office). */
+const workingFromOf = (mode: DataMode, e: MockEmployee) => {
+    const rec = recordOf(mode, e, today());
+    const last = rec?.checkIn ? dayLocations(rec.locations, rec.checkIn).at(-1) : undefined;
+    const w = last ?? atsWorkingFrom.get(mode)[e.id] ?? { location: 'OFFICE' as const };
+    return { location: w.location, ...(w.client ? { client: w.client } : {}) };
+};
+
+/**
+ * "Working from" (Attendance only mode): before check-in it's remembered for the check-in; while checked in a change
+ * is added to today's trail with the time; after check-out the day's trail is final.
+ */
+export const setWorkingFrom = (mode: DataMode, e: MockEmployee, body: { location?: WorkLocation | null; client?: string | null } | undefined) => {
+    if (getSettings(mode).mode !== 'attendance') throw new RuleError('Work location is only asked for when your company tracks attendance only.');
+    const where = whereOf(body ?? {});
+    const t = today();
+    const rec = recordOf(mode, e, t);
+    if (rec?.checkOut) throw new RuleError('You’ve checked out for today.');
+    atsWorkingFrom.update(mode, all => ({ ...all, [e.id]: where }));
+    if (rec?.checkIn) saveRecord(mode, { ...rec, locations: addLocationStamp(dayLocations(rec.locations, rec.checkIn), { at: clockNow(), ...where }) });
     return overviewOf(mode, e);
 };
 

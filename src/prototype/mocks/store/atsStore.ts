@@ -16,6 +16,7 @@ import type {
     TimesheetStatus,
     TimesheetWeek,
     TimesheetWeekView,
+    WorkLocation,
 } from '@src/domains/attendanceTimesheet/types';
 import {
     DEFAULT_FILING,
@@ -42,6 +43,7 @@ import {
     overtimeMinutes,
     requestState,
     trailLabel,
+    dayLocations,
 } from '@src/prototype/rules/attendance';
 import { LEAVE_LABEL } from '@src/prototype/rules/leavePolicy';
 import {
@@ -310,6 +312,9 @@ export const weekStatusOf = (mode: DataMode, e: MockEmployee, weekStart: string)
 
 // ---- attendance days ----------------------------------------------------------------------------------
 
+/** PROTOTYPE-SETUP (Final batch, Slice 2): "Working from" picked before check-in (Attendance only mode). */
+export const atsWorkingFrom = createCollection<Record<number, { location: WorkLocation; client?: string }>>('ats-working-from', () => ({}));
+
 export const recordOf = (mode: DataMode, e: MockEmployee, date: string) =>
     atsAttendance.get(mode)[recordKey(e.id, date)];
 
@@ -391,6 +396,8 @@ export const attendanceDay = (mode: DataMode, e: MockEmployee, date: string): At
         onBreak: d.onBreak,
         lateMinutes: d.lateMinutes,
         ...(d.halfLeave ? { halfLeave: d.halfLeave } : {}),
+        // PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — where they worked from (default Office).
+        ...(settings.mode === 'attendance' && d.checkIn ? { locations: dayLocations(rec?.locations, d.checkIn) } : {}),
         // PROTOTYPE-SETUP (HR rules, Slice 1): overtime counts to the check-in day, once checked out.
         overtimeMinutes:
             date < t || (date === t && d.checkOut)

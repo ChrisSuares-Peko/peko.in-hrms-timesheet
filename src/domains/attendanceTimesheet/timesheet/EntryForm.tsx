@@ -11,14 +11,18 @@
 //   project code (when on) ......... a code box offering the company's suggested codes (a native datalist, so
 //                                    Escape never clears it)
 // Overlapping another entry is allowed: an amber note names the entry and the shared time (no popup, nothing blocked).
+// PROTOTYPE-SETUP (Final batch, Slice 2): labelled fields — Start time · End time · Hours · Location · (Client, for a
+// client site) · Project (when project codes are on) · Description — wrapping onto a second line when narrow. The
+// location defaults to the last one used (and its client); a client site needs the client's name.
 import { useId, useMemo, useState } from 'react';
 
 import { PlusOutlined, WarningOutlined } from '@ant-design/icons';
-import { Button, Input, Tag } from 'antd';
+import { Button, Input, Select, Tag } from 'antd';
 
 import {
     DEFAULT_FILING,
     ENTRY_MESSAGES,
+    LOCATION_LABEL,
     MINUTES_PER_DAY,
     RuleError,
     entryTimeText,
@@ -30,7 +34,7 @@ import {
 } from '@src/prototype/rules/attendance';
 import { findOverlaps, rangeText } from '@src/prototype/rules/timesheetFiling';
 
-import type { TimesheetEntry, TimesheetFields } from '../types';
+import type { TimesheetEntry, TimesheetFields, WorkLocation } from '../types';
 
 /** What the form saves: normalised (mins always set; next-day flags when true). */
 export type EntryFormValue = Omit<TimesheetEntry, 'id'>;
@@ -69,6 +73,21 @@ export interface EntryFormProps {
     onCancel?: () => void;
 }
 
+/** The last location used (the next new entry starts with it). */
+let lastWhere: { location: WorkLocation; client: string } | null = null;
+
+const LOCATION_OPTIONS = (Object.keys(LOCATION_LABEL) as WorkLocation[]).map(value => ({ value, label: LOCATION_LABEL[value] }));
+
+/** A field with its label above (the form wraps; `width` is the field's basis). */
+const Field = ({ label, className, children }: { label: string; className: string; children: React.ReactNode }) => (
+    <div className={`flex min-w-0 flex-col gap-0.5 ${className}`}>
+        <span className="text-[11px] leading-4 text-gray-500" aria-hidden>
+            {label}
+        </span>
+        {children}
+    </div>
+);
+
 const EntryForm = ({
     date,
     initial,
@@ -90,6 +109,12 @@ const EntryForm = ({
     const [hours, setHours] = useState(initial ? formatHoursInput(initial.mins) : '');
     const [code, setCode] = useState(initial?.projectCode ?? '');
     const [description, setDescription] = useState(initial?.description ?? '');
+    const newestWhere = [...others].reverse().find(o => !o.id.startsWith('break:') && o.location);
+    const startWhere = initial
+        ? { location: initial.location ?? 'OFFICE', client: initial.client ?? '' }
+        : lastWhere ?? { location: newestWhere?.location ?? 'OFFICE', client: newestWhere?.client ?? '' };
+    const [location, setLocation] = useState<WorkLocation>(startWhere.location);
+    const [client, setClient] = useState(startWhere.client);
     const [error, setError] = useState('');
 
     // On a day whose session crosses midnight, a start before check-in is after midnight.
@@ -151,6 +176,8 @@ const EntryForm = ({
                     description,
                     // Project codes off: an existing code is kept, not shown.
                     projectCode: fields.projectCode ? code : initial?.projectCode ?? null,
+                    location,
+                    client: location === 'CLIENT' ? client : null,
                     id: initial?.id,
                 },
                 others,
@@ -161,12 +188,13 @@ const EntryForm = ({
             return;
         }
         const ok = await onSave(value);
+        if (ok) lastWhere = { location, client: location === 'CLIENT' ? client : '' };
         if (ok && quick) {
             setStart('');
             setEnd('');
             setHours('');
             setDescription('');
-            // The code stays: the next task is often on the same project.
+            // The code and the location stay: the next task is often on the same project, in the same place.
         }
     };
 
@@ -186,7 +214,19 @@ const EntryForm = ({
     if (times) hint = duration && !fields.duration ? `Duration: ${duration} (from the times).` : 'The duration is calculated from the start and end.';
 
     const codeListId = `project-codes-${useId().replace(/:/g, '')}`;
-    const descriptionBox = compact ? 'basis-full' : 'min-w-[180px] flex-1 basis-[220px]';
+    // Fixed widths on a wide row; on the compact card (and phones) the short fields share lines and the description
+    // gets its own.
+    const short = 'min-w-[90px] flex-1 basis-[90px]';
+    const box = compact
+        ? { time: short, hours: short, location: short, client: short, project: short, description: 'basis-full' }
+        : {
+              time: `${short} sm:w-[112px] sm:flex-none sm:basis-auto`,
+              hours: `${short} sm:w-[80px] sm:flex-none sm:basis-auto`,
+              location: `${short} sm:w-[124px] sm:flex-none sm:basis-auto`,
+              client: `${short} sm:w-[150px] sm:flex-none sm:basis-auto`,
+              project: `${short} sm:w-[170px] sm:flex-none sm:basis-auto`,
+              description: 'min-w-[200px] flex-[1_1_240px]',
+          };
 
     return (
         // eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -196,32 +236,67 @@ const EntryForm = ({
             onClick={e => e.stopPropagation()}
             data-entry-form
         >
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-                {quick && !compact && <PlusOutlined aria-hidden className="hidden text-gray-400 md:block" />}
-                {times ? (
+            <div className="flex min-w-0 flex-wrap items-end gap-x-2 gap-y-1.5">
+                {quick && !compact && <PlusOutlined aria-hidden className="mb-1.5 hidden text-gray-400 md:block" />}
+                {times && (
                     <>
-                        <Input type="time" size="small" className="!w-[124px]" aria-label="Start time" title="Start" value={start} onChange={e => { setStart(e.target.value); clear(); }} />
-                        <Input type="time" size="small" className="!w-[124px]" aria-label="End time" title="End" value={end} onChange={e => { setEnd(e.target.value); clear(); }} />
-                        {fields.duration && (
-                            <Input size="small" className="!w-[78px]" aria-label="Duration (calculated)" title="Calculated from the times" value={duration} placeholder="—" readOnly tabIndex={-1} />
-                        )}
+                        <Field label="Start time" className={box.time}>
+                            <Input type="time" size="small" aria-label="Start time" value={start} onChange={e => { setStart(e.target.value); clear(); }} />
+                        </Field>
+                        <Field label="End time" className={box.time}>
+                            <Input type="time" size="small" aria-label="End time" value={end} onChange={e => { setEnd(e.target.value); clear(); }} />
+                        </Field>
                     </>
-                ) : (
-                    <Input size="small" className="!w-[90px]" inputMode="decimal" placeholder="1:30" aria-label="Duration" value={hours} onChange={e => { setHours(e.target.value); clear(); }} />
                 )}
-                {fields.projectCode && (
-                    <>
+                {times && fields.duration && (
+                    <Field label="Hours" className={box.hours}>
+                        <Input size="small" aria-label="Hours (calculated)" title="Calculated from the times" value={duration} placeholder="—" readOnly tabIndex={-1} />
+                    </Field>
+                )}
+                {!times && (
+                    <Field label="Hours" className={box.hours}>
+                        <Input size="small" inputMode="decimal" placeholder="1:30" aria-label="Hours" value={hours} onChange={e => { setHours(e.target.value); clear(); }} />
+                    </Field>
+                )}
+                <Field label="Location" className={box.location}>
+                    <Select
+                        size="small"
+                        aria-label="Location"
+                        value={location}
+                        options={LOCATION_OPTIONS}
+                        onChange={v => {
+                            setLocation(v);
+                            clear();
+                        }}
+                    />
+                </Field>
+                {location === 'CLIENT' && (
+                    <Field label="Client" className={box.client}>
                         <Input
                             size="small"
-                            className="!w-[120px]"
+                            placeholder="Client name"
+                            aria-label="Client"
+                            maxLength={60}
+                            value={client}
+                            onChange={e => {
+                                setClient(e.target.value);
+                                clear();
+                            }}
+                        />
+                    </Field>
+                )}
+                {fields.projectCode && (
+                    <Field label="Project" className={box.project}>
+                        <Input
+                            size="small"
                             list={codeListId}
                             value={code}
                             onChange={e => {
                                 setCode(e.target.value.toUpperCase().slice(0, 20));
                                 clear();
                             }}
-                            placeholder="Project code"
-                            aria-label="Project code"
+                            placeholder="Pick…"
+                            aria-label="Project"
                             autoComplete="off"
                         />
                         <datalist id={codeListId}>
@@ -229,35 +304,35 @@ const EntryForm = ({
                                 <option key={c} value={c} />
                             ))}
                         </datalist>
-                    </>
+                    </Field>
                 )}
-                {multilineDescription ? (
-                    <Input.TextArea
-                        rows={3}
-                        className={descriptionBox}
-                        style={{ resize: 'none' }}
-                        placeholder="What did you work on?"
-                        aria-label="Description"
-                        value={description}
-                        onChange={e => {
-                            setDescription(e.target.value);
-                            clear();
-                        }}
-                    />
-                ) : (
-                    <Input
-                        size="small"
-                        className={descriptionBox}
-                        placeholder="What did you work on?"
-                        aria-label="Description"
-                        autoFocus={!quick}
-                        value={description}
-                        onChange={e => {
-                            setDescription(e.target.value);
-                            clear();
-                        }}
-                    />
-                )}
+                <Field label="Description" className={box.description}>
+                    {multilineDescription ? (
+                        <Input.TextArea
+                            rows={3}
+                            style={{ resize: 'none' }}
+                            placeholder="What did you work on?"
+                            aria-label="Description"
+                            value={description}
+                            onChange={e => {
+                                setDescription(e.target.value);
+                                clear();
+                            }}
+                        />
+                    ) : (
+                        <Input
+                            size="small"
+                            placeholder="What did you work on?"
+                            aria-label="Description"
+                            autoFocus={!quick}
+                            value={description}
+                            onChange={e => {
+                                setDescription(e.target.value);
+                                clear();
+                            }}
+                        />
+                    )}
+                </Field>
                 <div className="flex gap-1">
                     <Button size="small" type="primary" loading={busy} disabled={busy} onClick={save}>
                         {quick ? 'Add' : 'Save'}

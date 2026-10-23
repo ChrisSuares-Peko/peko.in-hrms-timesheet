@@ -18,6 +18,7 @@ import {
     checkIn,
     checkOut,
     checkOutPrevious,
+    setWorkingFrom,
     correctionsView,
     createCorrection,
     endBreak,
@@ -136,6 +137,8 @@ export const atsRoutes: MockRoute[] = [
     route('POST', `${A}/check-out`, ess((ctx, me) => checkOut(ctx.mode, me))),
     // PROTOTYPE-SETUP (HR rules, Slice 1): check out of an earlier day still open (now, with outDays), and breaks.
     route('POST', `${A}/check-out/previous`, ess((ctx, me) => checkOutPrevious(ctx.mode, me))),
+    // PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — where they're working from.
+    route('PUT', `${A}/working-from`, ess((ctx, me) => setWorkingFrom(ctx.mode, me, ctx.body))),
     route('POST', `${A}/breaks/start`, ess((ctx, me) => startBreak(ctx.mode, me))),
     route('POST', `${A}/breaks/end`, ess((ctx, me) => endBreak(ctx.mode, me))),
     route('PUT', `${A}/breaks`, ess((ctx, me) => updateTodayBreaks(ctx.mode, me, ctx.body))),
