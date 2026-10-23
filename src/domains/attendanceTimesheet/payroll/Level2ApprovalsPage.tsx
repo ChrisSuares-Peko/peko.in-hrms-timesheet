@@ -1,25 +1,29 @@
-// PROTOTYPE-SETUP: ESS Service 1 — Payroll → Approvals (paths.payroll.approvals). The Payroll, HR and Finance
-// level-2 queues. PROTOTYPE-SETUP (HR rules, Slice 4): Payroll is the default tab — attendance corrections and
-// overtime go to Payroll at level 2 by default; HR and Finance stay for leave and reimbursements (and for anything
-// routed to them in Settings). A request reaches them only after the reporting manager approves it (or straight away for the CEO,
-// who has no manager), and only if Settings → Approval matrix routes that request type to them. Timesheets
-// are approved by managers only, so they aren't here. Replaces the Timesheet V1 Level2Approvals page.
+// PROTOTYPE-SETUP: ESS Service 1 — Payroll → Approvals (paths.payroll.approvals), the level-2 queues. A request
+// reaches level 2 only after the reporting manager approves it (or straight away for the CEO, who has no manager),
+// and only if Settings → Approvals routes that request type there.
+// PROTOTYPE-SETUP (Final batch, Slice 4): queues Payroll (default) | HR | Admin (Finance only while something is
+// routed to it). Payroll: "Timesheets waiting for Payroll" (the same review screen as the manager's), then attendance
+// corrections and overtime. HR: leave and profile updates (profile updates have no manager step). Admin:
+// reimbursements. Each queue shows what Settings routes to it.
 import { useCallback, useEffect, useState } from 'react';
 
 import { Alert, Badge, Empty, Flex, Segmented, Skeleton, Tabs, Typography } from 'antd';
 import { Link, useSearchParams } from 'react-router-dom';
 
-import { hasTracking } from '@src/prototype/rules/attendance';
+import { hasTimesheets, hasTracking } from '@src/prototype/rules/attendance';
 
 import { type Level2RequestType, getLevel2Counts } from '../api';
 import type { Level2Role } from '../types';
 import Level2Queue, { ROLE_NAME, TYPE_LABEL } from './Level2Queue';
+import PayrollTimesheetsPanel from './PayrollTimesheetsPanel';
 import { payrollLinks, useAtsSettings, usePayrollScope } from './usePayrollAts';
 
 const { Text } = Typography;
 
-type Counts = Record<Level2RequestType, number>;
-const ROLES: Level2Role[] = ['PAYROLL', 'HR', 'FINANCE'];
+type Counts = Record<Level2RequestType | 'timesheets', number>;
+const ALL_ROLES: Level2Role[] = ['PAYROLL', 'HR', 'ADMIN', 'FINANCE'];
+/** The order types appear in a queue. */
+const TYPE_ORDER: Level2RequestType[] = ['attendance', 'overtime', 'leave', 'profile', 'reimbursement'];
 
 const Level2ApprovalsPage = () => {
     const scope = usePayrollScope();
@@ -27,23 +31,28 @@ const Level2ApprovalsPage = () => {
     const [params, setParams] = useSearchParams();
     const [counts, setCounts] = useState<Partial<Record<Level2Role, Counts>>>({});
 
+    // Finance only while something is routed to it.
+    const roles = ALL_ROLES.filter(r => r !== 'FINANCE' || (settings && Object.values(settings.level2).includes('FINANCE')));
     const roleParam = params.get('role') as Level2Role | null;
-    const role: Level2Role = roleParam && ROLES.includes(roleParam) ? roleParam : 'PAYROLL';
-    // PROTOTYPE-SETUP (Overview, Slice 4): HR also gets profile updates (no manager step, always HR).
-    // PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' mode has no attendance corrections or overtime.
-    let tracked: Level2RequestType[] = ['attendance', 'overtime'];
-    if (settings?.mode === 'timesheet') tracked = ['overtime'];
-    if (settings && !hasTracking(settings.mode)) tracked = [];
-    const types: Level2RequestType[] = [...tracked, ...(role === 'HR' ? ['profile' as const] : [])];
-    const routed = types.filter(t => (t === 'profile' ? role === 'HR' : settings?.level2[t] === role));
+    const role: Level2Role = roleParam && roles.includes(roleParam) ? roleParam : 'PAYROLL';
+
+    // 'none' mode has no attendance corrections or overtime; Timesheet only mode has no corrections.
+    const available = (t: Level2RequestType) => {
+        if (!settings) return false;
+        if (t === 'attendance') return settings.mode !== 'timesheet' && hasTracking(settings.mode);
+        if (t === 'overtime') return hasTracking(settings.mode);
+        return true;
+    };
+    const routedTo = (r: Level2Role, t: Level2RequestType) => (t === 'profile' ? r === 'HR' : settings?.level2[t] === r);
+    const types = TYPE_ORDER.filter(t => available(t) && routedTo(role, t));
+    const timesheetsHere = Boolean(settings && hasTimesheets(settings.mode) && settings.level2.timesheet === role);
     const requested = params.get('type') as Level2RequestType | null;
-    const type: Level2RequestType =
-        requested && types.includes(requested) ? requested : (routed[0] ?? types[0]);
+    const type: Level2RequestType | undefined = requested && types.includes(requested) ? requested : types[0];
 
     const loadCounts = useCallback(async () => {
-        const all = await Promise.all(ROLES.map(r => getLevel2Counts(scope, r)));
+        const all = await Promise.all(ALL_ROLES.map(r => getLevel2Counts(scope, r)));
         const next: Partial<Record<Level2Role, Counts>> = {};
-        ROLES.forEach((r, i) => {
+        ALL_ROLES.forEach((r, i) => {
             const c = all[i];
             if (c) next[r] = c;
         });
@@ -61,31 +70,30 @@ const Level2ApprovalsPage = () => {
         setParams(next, { replace: true });
     };
 
-    const total = (r: Level2Role) => types.reduce((sum, t) => sum + (counts[r]?.[t] ?? 0), 0);
-    const routedLabel = routed.map(t => TYPE_LABEL[t].toLowerCase()).join(' and ');
+    const total = (r: Level2Role) =>
+        TYPE_ORDER.filter(t => available(t) && routedTo(r, t)).reduce((sum, t) => sum + (counts[r]?.[t] ?? 0), 0) + (counts[r]?.timesheets ?? 0);
+    const routedLabel = [...(timesheetsHere ? ['timesheets'] : []), ...types.map(t => TYPE_LABEL[t].toLowerCase())].join(', ');
 
     return (
         <Flex vertical gap={16} className="w-full min-w-0">
             <Flex vertical gap={4}>
                 <Text className="font-normal text-lg sm:text-2xl">Approvals</Text>
                 <Text type="secondary" className="text-xs sm:text-sm">
-                    Payroll, HR and Finance see a request after the employee&apos;s reporting manager
-                    approves it. Their approval is final. Attendance corrections and overtime go to
-                    Payroll; leave and reimbursements to HR or Finance. Timesheets are approved by managers only — see{' '}
-                    <Link to={payrollLinks.timesheetStatus()}>Timesheet status</Link>. Profile updates
-                    go straight to HR, with no manager step.
+                    Payroll, HR and Admin see a request after the employee&apos;s reporting manager approves it, and their approval is final. By
+                    default timesheets, attendance corrections and overtime go to Payroll; leave and profile updates to HR; reimbursements to Admin.
+                    Profile updates go straight to HR, with no manager step. See also <Link to={payrollLinks.timesheetStatus()}>Timesheet status</Link>.
                 </Text>
             </Flex>
 
             <Segmented<Level2Role>
                 value={role}
                 onChange={r => setParam('role', r)}
-                className="self-start"
-                options={ROLES.map(r => ({
+                className="max-w-full self-start overflow-x-auto"
+                options={roles.map(r => ({
                     value: r,
                     label: (
                         <Flex gap={6} align="center" className="px-1">
-                            Act as {ROLE_NAME[r]}
+                            {ROLE_NAME[r]}
                             {total(r) > 0 && <Badge count={total(r)} size="small" />}
                         </Flex>
                     ),
@@ -93,13 +101,11 @@ const Level2ApprovalsPage = () => {
             />
 
             {settingsLoading && !settings && <Skeleton active paragraph={{ rows: 6 }} />}
-            {!settingsLoading && !settings && (
-                <Alert type="error" showIcon message="Couldn't load approval settings." />
-            )}
+            {!settingsLoading && !settings && <Alert type="error" showIcon message="Couldn't load approval settings." />}
 
             {settings && (
                 <>
-                    {routed.length > 0 ? (
+                    {routedLabel ? (
                         <Text type="secondary" className="text-xs">
                             Routed to {ROLE_NAME[role]} at level 2: {routedLabel}.
                         </Text>
@@ -110,46 +116,30 @@ const Level2ApprovalsPage = () => {
                             message={`No requests are routed to ${ROLE_NAME[role]} right now`}
                             description={
                                 <>
-                                    Older requests that went through {ROLE_NAME[role]} still show
-                                    under All requests. Change the routing in{' '}
-                                    <Link to={payrollLinks.settings}>
-                                        Settings → Attendance &amp; Timesheet
-                                    </Link>
-                                    .
+                                    Change the routing in <Link to={payrollLinks.settings}>Settings → Attendance &amp; Timesheet</Link>.
                                 </>
                             }
                         />
                     )}
-                    {types.length === 0 && (
-                        <Empty
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            description={`Nothing reaches ${ROLE_NAME[role]} in this mode: your company doesn't track attendance or timesheets.`}
-                        />
-                    )}
-                    {types.length > 0 && (
-                    <>
-                    <Tabs
-                        activeKey={type}
-                        onChange={t => setParam('type', t)}
-                        items={types.map(t => ({
-                            key: t,
-                            label: (
-                                <Flex gap={6} align="center">
-                                    {TYPE_LABEL[t]}
-                                    {!!counts[role]?.[t] && (
-                                        <Badge count={counts[role]?.[t]} size="small" />
-                                    )}
-                                </Flex>
-                            ),
-                        }))}
-                    />
-                    <Level2Queue
-                        key={`${role}:${type}`}
-                        role={role}
-                        type={type}
-                        onChanged={loadCounts}
-                    />
-                    </>
+                    {timesheetsHere && <PayrollTimesheetsPanel roleName={ROLE_NAME[role]} onChanged={loadCounts} />}
+                    {!routedLabel && !timesheetsHere && types.length === 0 && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`Nothing reaches ${ROLE_NAME[role]} at the moment.`} />}
+                    {type && (
+                        <>
+                            <Tabs
+                                activeKey={type}
+                                onChange={t => setParam('type', t)}
+                                items={types.map(t => ({
+                                    key: t,
+                                    label: (
+                                        <Flex gap={6} align="center">
+                                            {TYPE_LABEL[t]}
+                                            {!!counts[role]?.[t] && <Badge count={counts[role]?.[t]} size="small" />}
+                                        </Flex>
+                                    ),
+                                }))}
+                            />
+                            <Level2Queue key={`${role}:${type}`} role={role} type={type} onChanged={loadCounts} />
+                        </>
                     )}
                 </>
             )}

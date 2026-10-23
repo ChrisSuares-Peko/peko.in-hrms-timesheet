@@ -41,6 +41,7 @@ import {
     autoRunSubmissionDay,
     payrollApproveWeek,
     payrollSendBackWeek,
+    payrollMonthView,
     payrollTimesheetQueue,
     decideRequest,
     level2Counts,
@@ -953,5 +954,25 @@ describe('timesheet upload', () => {
         expect(after.status === 'DRAFT' || after.status === 'SENT_BACK').toBe(true);
         expect(after.history.some(h => /Imported from a file/.test(h.detail ?? ''))).toBe(true);
         expect(() => importTimesheet(M, sneha, { csv: 'Date,Description\n' })).toThrow();
+    });
+});
+
+// PROTOTYPE-SETUP (Final batch, Slice 4): the level-2 timesheet queue follows Settings; Payroll's review screen.
+describe('timesheets at level 2', () => {
+    it('are counted for the role Settings routes them to (Payroll by default)', () => {
+        const waiting = payrollTimesheetQueue(M, 'waiting').length;
+        expect(waiting).toBeGreaterThanOrEqual(1);
+        expect(level2Counts(M, 'PAYROLL').timesheets).toBe(waiting);
+        expect(level2Counts(M, 'HR').timesheets).toBe(0);
+        updateSettings(M, { level2: { ...getSettings(M).level2, timesheet: 'HR' } });
+        expect(level2Counts(M, 'PAYROLL').timesheets).toBe(0);
+        expect(level2Counts(M, 'HR').timesheets).toBe(waiting);
+    });
+
+    it('Payroll sees the month too (the shared review screen)', () => {
+        const item = payrollTimesheetQueue(M, 'waiting')[0];
+        const month = payrollMonthView(M, item.employee.id, item.weekStart.slice(0, 7));
+        expect(month.days.length).toBeGreaterThanOrEqual(28);
+        expect(() => payrollMonthView(M, 999999, item.weekStart.slice(0, 7))).toThrow('Employee not found.');
     });
 });

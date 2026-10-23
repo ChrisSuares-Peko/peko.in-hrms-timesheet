@@ -1,8 +1,9 @@
 // PROTOTYPE-SETUP: ESS Service 1 (V2) — ESS - Manager copy. The manager's read-only viewer and review use these
 // frozen components; the employee's Timesheet tab is redesigned separately (../). Only the entry shape changes here.
-// PROTOTYPE-SETUP: ESS Service 1 — "What changed" between an approved week and a change request, grouped by
-// day: added (green), removed (red, struck through), edited (before → after), with a summary line. Used by the
-// employee's change-request view, the read-only viewer and the manager's approvals.
+// PROTOTYPE-SETUP: ESS Service 1 — "What changed", grouped by day: added (green), removed (red, struck through),
+// edited (before → after), with a summary line. PROTOTYPE-SETUP (Final batch, Slice 4): it compares a period edited
+// after it was sent with its baseline (the last approved version, or the version as sent); each day shows its hours
+// before → after. Used by the review drawer (manager and Payroll).
 import { ArrowRightOutlined } from '@ant-design/icons';
 
 import {
@@ -71,6 +72,8 @@ const Edited = ({ before, after }: { before: TimesheetEntry; after: TimesheetEnt
     );
 };
 
+const dayTotal = (list: TimesheetEntry[], date: string) => list.filter(e => e.date === date).reduce((s, e) => s + entryMinutes(e), 0);
+
 const ManagerChangeDiff = ({ base, proposed }: ChangeDiffProps) => {
     const diff = diffEntries(base, proposed);
     const dates = datesTouched(diff);
@@ -95,7 +98,12 @@ const ManagerChangeDiff = ({ base, proposed }: ChangeDiffProps) => {
             {!dates.length && <span className="text-xs text-gray-500">No changes to the entries.</span>}
             {dates.map(date => (
                 <div key={date} className="flex min-w-0 flex-col gap-1">
-                    <span className="text-xs font-medium text-gray-500">{fmtDay(date)}</span>
+                    <span className="flex flex-wrap gap-x-2 text-xs font-medium text-gray-500">
+                        {fmtDay(date)}
+                        <span className="tabular-nums font-normal">
+                            {formatDuration(dayTotal(base, date))} → {formatDuration(dayTotal(proposed, date))}
+                        </span>
+                    </span>
                     {diff.edited
                         .filter(x => x.after.date === date)
                         .map(x => (

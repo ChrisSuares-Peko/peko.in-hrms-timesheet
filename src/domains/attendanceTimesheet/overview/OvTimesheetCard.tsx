@@ -1,6 +1,6 @@
 // PROTOTYPE-SETUP (Overview, Slice 2; decluttered in Overview v2, Slice 2; ESS design, Slice 2): section 3 —
 // "Timesheet" with "Full timesheet".
-// "Today: 1h 30m of 8h", the day bar and meter (the Timesheet tab's components), the last 2 entries ("and N
+// "Today: 1h 30m of 8h", the day bar (the Timesheet tab's component), the last 2 entries ("and N
 // more"), and "+ Add entry", which opens the entry form (same rules as the Timesheet tab, no hint) in a small modal
 // (Overview v5, Slice 1) that closes after a successful add or on Cancel — the card never changes height. The week's status is a small chip ("Week: Draft ·
 // auto-submits Fri 16 Oct"). When today can't be edited, a one-line message replaces the button.
@@ -26,7 +26,7 @@ import { showToast } from '@src/slices/apiSlice';
 import { addEntry, submitWeek } from '../api';
 import { WEEK_STATUS } from '../components/format';
 import { useAtsScope } from '../hooks/useAtsScope';
-import { BarTrack, Meter } from '../timesheet/DayRows';
+import { BarTrack } from '../timesheet/DayRows';
 import EntryForm, { EntryFormValue } from '../timesheet/EntryForm';
 import SubmitReviewModal from '../timesheet/SubmitReviewModal';
 import { statusLine, submitNote } from '../timesheet/WeekStatusCard';
@@ -142,8 +142,8 @@ const OvTimesheetCard = ({
                     {day.expectedMinutes ? <span className="text-[#616161]"> of {formatDuration(day.expectedMinutes)}</span> : null}
                 </Text>
                 <div className="mt-3">
+                    {/* PROTOTYPE-SETUP (Final batch, Slice 4): the bar only (no thin meter under it). */}
                     <BarTrack day={day} mode={mode} />
-                    <Meter logged={day.loggedMinutes} expected={day.expectedMinutes} />
                 </div>
             </div>
             {shown.length ? (

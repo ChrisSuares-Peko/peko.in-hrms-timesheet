@@ -62,6 +62,7 @@ import {
     payrollApproveWeek,
     payrollSendBackWeek,
     payrollTimesheetQueue,
+    payrollMonthView,
     payrollWeekView,
     timesheetQueue,
     timesheetStatusView,
@@ -206,6 +207,8 @@ export const atsRoutes: MockRoute[] = [
     // PROTOTYPE-SETUP (Final batch, Slice 1): timesheets at level 2 — Payroll's final approval.
     route('GET', `${A}/payroll/timesheets`, ctx => run(ctx.mode, () => payrollTimesheetQueue(ctx.mode, scopeParam(ctx.query)))),
     route('GET', `${A}/payroll/timesheets/:employeeId/week`, ctx => run(ctx.mode, () => payrollWeekView(ctx.mode, ctx.params.employeeId!, dateParam(ctx.query)))),
+    // PROTOTYPE-SETUP (Final batch, Slice 4): the same review screen as the manager's (its month view).
+    route('GET', `${A}/payroll/timesheets/:employeeId/month`, ctx => run(ctx.mode, () => payrollMonthView(ctx.mode, ctx.params.employeeId!, monthParam(ctx.query)))),
     route('POST', `${A}/payroll/timesheets/:employeeId/:weekStart/approve`, ctx => run(ctx.mode, () => payrollApproveWeek(ctx.mode, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
     route('POST', `${A}/payroll/timesheets/:employeeId/:weekStart/send-back`, ctx => run(ctx.mode, () => payrollSendBackWeek(ctx.mode, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
     route('GET', `${A}/payroll/months`, ctx => run(ctx.mode, () => payrollMonths(ctx.mode))),

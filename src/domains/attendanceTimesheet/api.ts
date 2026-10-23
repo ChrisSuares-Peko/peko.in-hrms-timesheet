@@ -198,7 +198,7 @@ export const decideTeamRequest = (
 // ---- Payroll ----------------------------------------------------------------------------------------------
 
 export const getLevel2Counts = (s: AtsScope, role: Level2Role) =>
-    call<Record<Level2RequestType, number>>(s, 'get', 'payroll/approvals/counts', { params: { role } });
+    call<Record<Level2RequestType | 'timesheets', number>>(s, 'get', 'payroll/approvals/counts', { params: { role } });
 export const getLevel2Queue = (s: AtsScope, role: Level2Role, type: Level2RequestType, scope: QueueScope) =>
     call<RequestItem[]>(s, 'get', `payroll/approvals/${type}`, { params: { role, scope } });
 export const decideLevel2 = (
@@ -231,6 +231,8 @@ export const getPayrollTimesheets = (s: AtsScope, scope: QueueScope) =>
     call<TimesheetApprovalItem[]>(s, 'get', 'payroll/timesheets', { params: { scope } });
 export const getPayrollWeek = (s: AtsScope, employeeId: number, date: string) =>
     call<TimesheetWeekView>(s, 'get', `payroll/timesheets/${employeeId}/week`, { params: { date } });
+export const getPayrollMonthView = (s: AtsScope, employeeId: number, month: string) =>
+    call<TimesheetMonthView>(s, 'get', `payroll/timesheets/${employeeId}/month`, { params: { month } });
 export const payrollApproveWeek = (s: AtsScope, employeeId: number, weekStart: string, comment?: string) =>
     call<TimesheetApprovalItem>(s, 'post', `payroll/timesheets/${employeeId}/${weekStart}/approve`, { body: { comment } });
 export const payrollSendBackWeek = (s: AtsScope, employeeId: number, weekStart: string, comment: string) =>

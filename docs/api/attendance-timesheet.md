@@ -276,6 +276,7 @@ The manager's approval sends a timesheet on to Payroll (`WITH_PAYROLL`); with no
 | GET | `payroll/approvals/{attendance\|overtime\|profile\|leave\|reimbursement}` | `?role=&scope=waiting\|all` | `RequestItem[]` (requests whose chain includes that role; profile items carry `profile.changes`) |
 | GET | `payroll/timesheets` | `?scope=waiting\|all` | `TimesheetApprovalItem[]` — "Timesheets waiting for Payroll" (`approvedBy`, `editedAfter`) |
 | GET | `payroll/timesheets/{employeeId}/week` | `?date=` | `TimesheetWeekView` (read-only) |
+| GET | `payroll/timesheets/{employeeId}/month` | `?month=` | `TimesheetMonthView`. PROTOTYPE-SETUP (Final batch, Slice 4): for the shared review screen. |
 | POST | `payroll/timesheets/{employeeId}/{weekStart}/approve` / `send-back` | `{ comment? }` (required to send back) | `TimesheetApprovalItem` |
 | POST | `payroll/approvals/{type}/{id}/approve` / `reject` | `?role=`, `{ comment? }` | `RequestItem` |
 | GET | `payroll/timesheet-status` | `?month=` (default: earliest unprocessed) | `TimesheetStatusView` (status only, never entries) |
@@ -285,6 +286,10 @@ The manager's approval sends a timesheet on to Payroll (`WITH_PAYROLL`); with no
 
 **Approval chain:**
 - Level 1 is the reporting manager.
+- Payroll → Approvals (PROTOTYPE-SETUP: Final batch, Slice 4): there are queues for Payroll (the default), HR and Admin. Finance shows only while something is routed to it.
+  - The queue that timesheets are routed to (Payroll by default) opens with "Timesheets waiting for Payroll", which uses the manager's review screen: "What changed" for edited periods, then "Approve timesheet" or "Send back" with a required note.
+  - Its request tabs follow. Payroll has attendance corrections and overtime, HR has leave and profile updates, and Admin has reimbursements.
+  - `counts.timesheets` is counted for the role that timesheets are routed to.
 - Level 2 comes from settings: attendance corrections, overtime and timesheets go to the single **Payroll** queue (`PENDING_PAYROLL` / `WITH_PAYROLL`), leave to HR, reimbursements to **Admin** (`PENDING_ADMIN`).
 - Rejecting at any level needs a comment and is final.
 - The CEO skips level 1 and goes straight to level 2.

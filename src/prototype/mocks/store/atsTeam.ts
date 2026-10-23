@@ -57,7 +57,7 @@ import {
 import { LEAVE_LABEL, LEAVE_TYPES } from '@src/prototype/rules/leavePolicy';
 import { afterManagerApproval, isAutoSubmitDue, periodEndOf, periodsDueForSubmission } from '@src/prototype/rules/timesheetFiling';
 
-import { autoSubmitNote, submitWeekRecord } from './atsEss';
+import { autoSubmitNote, submitWeekRecord, timesheetMonthOf } from './atsEss';
 import { applyApprovedProfile, atsProfileRequests } from './atsProfile';
 import { StoredClaim, atsLeaveRequests, atsReimbursements } from './atsRequests';
 import {
@@ -285,6 +285,13 @@ export const payrollWeekView = (mode: DataMode, employeeId: string | number, dat
     return weekView(mode, e, date, { readOnly: true });
 };
 
+/** PROTOTYPE-SETUP (Final batch, Slice 4): the month view for Payroll's review screen. */
+export const payrollMonthView = (mode: DataMode, employeeId: string | number, month: string) => {
+    const e = findEmployee(employeeId);
+    if (!e) throw new RuleError('Employee not found.', 404);
+    return timesheetMonthOf(mode, e, month);
+};
+
 const payrollWeek = (mode: DataMode, employeeId: string, weekStart: string) => {
     const e = findEmployee(employeeId);
     if (!e) throw new RuleError('Employee not found.', 404);
@@ -482,8 +489,8 @@ export const level2Counts = (mode: DataMode, role: Level2Role) => ({
     profile: level2Requests(mode, role, 'profile', 'waiting').length,
     leave: level2Requests(mode, role, 'leave', 'waiting').length,
     reimbursement: level2Requests(mode, role, 'reimbursement', 'waiting').length,
-    // PROTOTYPE-SETUP (Final batch, Slice 1): timesheets waiting for Payroll.
-    timesheets: role === 'PAYROLL' ? payrollTimesheetQueue(mode, 'waiting').length : 0,
+    // PROTOTYPE-SETUP (Final batch, Slices 1 and 4): timesheets at level 2 — with the role Settings routes them to.
+    timesheets: getSettings(mode).level2.timesheet === role ? payrollTimesheetQueue(mode, 'waiting').length : 0,
 });
 
 /** Approve / reject at the level the request is waiting for. A fully approved correction updates attendance. */

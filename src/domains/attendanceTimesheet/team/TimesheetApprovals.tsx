@@ -1,6 +1,7 @@
-// PROTOTYPE-SETUP: ESS Service 1, Slice 6 — "Timesheet approvals" tab of ESS - Manager "My team": submitted weeks
-// and change requests from direct reports, "Waiting for you" / "All requests". Opening one shows the review
-// drawer (shared with the member timesheet page).
+// PROTOTYPE-SETUP: ESS Service 1, Slice 6 — "Timesheet approvals" tab of ESS - Manager "My team": submitted
+// timesheets from direct reports, "Waiting for you" / "All requests". Opening one shows the review drawer (shared
+// with the member timesheet page). PROTOTYPE-SETUP (Final batch, Slice 4): a period edited after it was sent is
+// flagged ("Edited after approval" / "Edited after sending") and reviewed with "What changed".
 import { useCallback, useEffect, useState } from 'react';
 
 import { RightOutlined } from '@ant-design/icons';
@@ -18,6 +19,9 @@ const ItemCard = ({ item, onOpen }: { item: TimesheetApprovalItem; onOpen: () =>
     const status = approvalItemStatus(item);
     // PROTOTYPE-SETUP (Final batch, Slice 1): no change requests — a period edited after it was approved is flagged.
     const edited = Boolean(item.editedAfter);
+    const afterApproval = item.editedAfter === 'APPROVED';
+    let editedLabel = 'Submitted';
+    if (edited) editedLabel = afterApproval ? 'Edited after approval' : 'Edited after sending';
     const short = item.loggedMinutes < item.expectedMinutes;
     let verb = 'Decided';
     if (item.waitingForYou) verb = 'Submitted';
@@ -35,12 +39,12 @@ const ItemCard = ({ item, onOpen }: { item: TimesheetApprovalItem; onOpen: () =>
                     <PersonCell person={item.employee} />
                     <Flex gap={6} align="center" wrap="wrap">
                         <Tag color={edited ? 'gold' : 'blue'} className="!m-0">
-                            {edited ? 'Edited after approval' : 'Submitted'}
+                            {editedLabel}
                         </Tag>
                         <Typography.Text strong>{fmtPeriod(item.weekStart, item.periodEnd)}</Typography.Text>
                     </Flex>
                     <Typography.Text type="secondary" className="text-sm">
-                        {edited ? 'Edited after it was approved · logged ' : 'Logged '}
+                        {edited ? `Edited after it was ${afterApproval ? 'approved' : 'sent'} · logged ` : 'Logged '}
                         <span className={short ? 'text-[#B54708] font-medium' : 'text-[#171717] font-medium'}>
                             {formatDuration(item.loggedMinutes)}
                         </span>{' '}
@@ -114,8 +118,8 @@ const TimesheetApprovals = ({ onChanged }: { onChanged?: () => void }) => {
                                 </Typography.Text>
                                 <Typography.Text type="secondary">
                                     {queueScope === 'waiting'
-                                        ? 'Weeks reach you on submission day, and change requests as soon as they are raised.'
-                                        : 'Submitted weeks and change requests from your team will be listed here.'}
+                                        ? 'Timesheets reach you when your team submits them, or at auto-submit.'
+                                        : 'Timesheets your team submits will be listed here.'}
                                 </Typography.Text>
                             </Flex>
                         }

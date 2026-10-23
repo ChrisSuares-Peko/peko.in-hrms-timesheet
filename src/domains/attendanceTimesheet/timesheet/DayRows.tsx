@@ -4,7 +4,7 @@
 //   Column B: a meta line ("In 9:00 AM · Out 5:00 AM (next day) · At work 20h · Logged 18h 45m of 20h worked · 1h
 //             without set times" plus overtime / outside-check-in chips), the bar (grey = attendance window or shift,
 //             blue = timed entries, hatched grey = breaks, amber stripes = outside check-in; hours-only entries aren't
-//             drawn) and a thin logged-vs-worked meter (green, amber when over).
+//             drawn). PROTOTYPE-SETUP (Final batch, Slice 4): no thin logged-vs-worked meter under the bar.
 //   Column C: the entries panel — always open in Day view; in Week / Month it opens on a row click (one at a time).
 // PROTOTYPE-SETUP (HR rules, Slice 3): the axis runs 7am–10pm, or past midnight (up to 7am +1) when a visible day
 // does; breaks are drawn and keyed. On mobile the date sits above the bar and the axis is hidden.
@@ -60,18 +60,6 @@ export const BarTrack = ({ day, mode, axisEnd = AXIS_END }: { day: TimesheetDay;
                     style={{ left: `${pct(b.startMinutes)}%`, width: `${Math.max(0.5, pct(b.endMinutes) - pct(b.startMinutes))}%`, background: BREAK_HATCH }}
                 />
             ))}
-        </div>
-    );
-};
-
-export const Meter = ({ logged, expected }: { logged: number; expected: number }) => {
-    let fill = 0;
-    if (expected) fill = Math.min(100, (logged / expected) * 100);
-    else if (logged) fill = 100;
-    const over = expected > 0 && logged > expected;
-    return (
-        <div aria-hidden className="relative mt-1 h-[3px] overflow-hidden rounded-sm bg-gray-100">
-            <i className={`absolute inset-y-0 left-0 rounded-sm ${over ? 'bg-amber-500' : 'bg-green-500'}`} style={{ width: `${fill}%` }} />
         </div>
     );
 };
@@ -132,7 +120,6 @@ export const DayRow = ({ day, mode, today, shift, overtime, expanded, axisEnd = 
                     {clickable && <span className="text-gray-400">{caret}</span>}
                 </div>
                 <BarTrack day={day} mode={mode} axisEnd={axisEnd} />
-                <Meter logged={day.loggedMinutes} expected={day.expectedMinutes} />
             </div>
             {expanded && children && <div className="min-w-0 px-3.5 pb-3.5 md:col-start-2 md:pl-0 md:pr-4">{children}</div>}
         </div>
@@ -166,10 +153,6 @@ const Axis = ({ axisEnd }: { axisEnd: number }) => (
                 <span className="inline-flex items-center gap-1.5">
                     <i className="inline-block h-2 w-3.5 rounded-sm" style={{ background: STRIPES }} />
                     Outside check-in
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                    <i className="inline-block h-[3px] w-3.5 rounded-sm bg-green-500" />
-                    Hours logged vs worked
                 </span>
             </div>
         </div>
