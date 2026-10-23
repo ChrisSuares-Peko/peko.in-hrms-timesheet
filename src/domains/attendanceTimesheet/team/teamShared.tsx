@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 
 import { Avatar, Empty, Flex, Typography } from 'antd';
 
-import { hasCheckIn, hasTimesheets, hasTracking } from '@src/prototype/rules/attendance';
+import { hasCheckIn, hasTimesheets } from '@src/prototype/rules/attendance';
 
 import { getAtsSettings } from '../api';
 import type { AtsScope } from '../api';
@@ -43,25 +43,19 @@ export const useTeamSettings = (scope: AtsScope): TeamSettings => {
     return state;
 };
 
-export const ALL_TEAM_TABS: MyTeamTab[] = [
-    'today',
-    'timesheets',
-    'timesheet-approvals',
-    'attendance-approvals',
-    'overtime-approvals',
-    'leave-approvals',
-    'reimbursement-approvals',
-];
+export const ALL_TEAM_TABS: MyTeamTab[] = ['approvals', 'today', 'attendance', 'timesheets', 'leave-calendar'];
 
-export const visibleTeamTabs = ({ mode, approvalOn }: Pick<TeamSettings, 'mode' | 'approvalOn'>) =>
-    // PROTOTYPE-SETUP (Overview v4, Slice 5): rule helpers, so 'none' mode (nothing tracked) shows no tabs.
+/**
+ * PROTOTYPE-SETUP (My team, Slices 3–4): Approvals and the Leave calendar always show; Team today and Team attendance
+ * need check-in (not Timesheet only mode); Team timesheets need timesheets (not Attendance only mode).
+ */
+export const visibleTeamTabs = ({ mode }: Pick<TeamSettings, 'mode' | 'approvalOn'>) =>
     ALL_TEAM_TABS.filter(tab => {
+        if (tab === 'attendance') return false; // Slice 4
+        if (tab === 'today') return hasCheckIn(mode);
         if (tab === 'timesheets') return hasTimesheets(mode);
-        if (tab === 'timesheet-approvals') return approvalOn && hasTimesheets(mode);
-        if (tab === 'attendance-approvals') return hasCheckIn(mode);
-        // PROTOTYPE-SETUP (Final batch): leave and reimbursements don't depend on tracking.
-        if (tab === 'leave-approvals' || tab === 'reimbursement-approvals') return true;
-        return hasTracking(mode); // Team today, Overtime approvals
+        if (tab === 'leave-calendar') return false; // Slice 4
+        return true;
     });
 
 // ---- people ---------------------------------------------------------------------------------------------

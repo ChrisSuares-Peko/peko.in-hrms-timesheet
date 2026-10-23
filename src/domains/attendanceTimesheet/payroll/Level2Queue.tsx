@@ -5,7 +5,7 @@ import { useCallback } from 'react';
 
 import { type Level2RequestType, decideLevel2, getLevel2Queue } from '../api';
 import { usePayrollScope } from './usePayrollAts';
-import RequestQueue from '../components/RequestQueue';
+import RequestQueue, { RequestDecision } from '../components/RequestQueue';
 import type { Level2Role, QueueScope, RequestItem } from '../types';
 
 export const ROLE_NAME: Record<Level2Role, 'HR' | 'Finance' | 'Payroll' | 'Admin'> = { HR: 'HR', FINANCE: 'Finance', PAYROLL: 'Payroll', ADMIN: 'Admin' };
@@ -33,7 +33,7 @@ const Level2Queue = ({ role, type, defaultScope, onChanged }: Level2QueueProps) 
         [scope, role, type]
     );
     const decide = useCallback(
-        (item: RequestItem, d: 'approve' | 'reject', comment?: string) =>
+        (item: RequestItem, d: RequestDecision, comment?: string) =>
             decideLevel2(scope, role, type, item.id, d, comment),
         [scope, role, type]
     );

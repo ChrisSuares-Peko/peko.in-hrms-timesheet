@@ -1,9 +1,11 @@
 // PROTOTYPE-SETUP: ESS Service 1 — attendance-correction / overtime approval list with "Waiting for you" and
 // "All requests". Used by ESS - Manager (level 1) and Payroll HR / Finance (level 2). Approve takes an optional
 // comment, reject needs one; decisions are final. A request on a payroll-processed day can't be approved.
+// PROTOTYPE-SETUP (My team, Slices 3 and 5): "Ask for update" at either level (a comment required) sends it straight
+// back to the employee. RequestCard and RequestDecisionModal are shared with the My team Approvals inbox.
 import { Fragment, useCallback, useEffect, useState } from 'react';
 
-import { CheckOutlined, CloseOutlined, LockOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, EditOutlined, LockOutlined } from '@ant-design/icons';
 import { Alert, Avatar, Button, Empty, Flex, Input, Modal, Segmented, Skeleton, Tag, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -24,7 +26,7 @@ export interface RequestQueueProps {
     /** Load the list for a scope. */
     load: (scope: QueueScope) => Promise<RequestItem[] | false>;
     /** Approve / reject. Approve/Reject buttons show only on items with `waitingForYou`; reject needs a comment. */
-    decide: (item: RequestItem, decision: 'approve' | 'reject', comment?: string) => Promise<RequestItem | false>;
+    decide: (item: RequestItem, decision: RequestDecision, comment?: string) => Promise<RequestItem | false>;
     /** After a decision, e.g. to refresh tab counts. */
     onChanged?: () => void;
     defaultScope?: QueueScope;
@@ -135,10 +137,178 @@ const CorrectionTimes = ({ item }: { item: RequestItem }) => {
     );
 };
 
-interface PendingDecision {
+export interface PendingDecision {
     item: RequestItem;
-    decision: 'approve' | 'reject';
+    decision: RequestDecision;
 }
+
+export type RequestDecision = 'approve' | 'reject' | 'update';
+
+/**
+ * PROTOTYPE-SETUP (My team, Slice 3): one request — who, what, the change, the reason, the status and its trail — with
+ * Reject / Ask for update / Approve while it's waiting for the viewer. Shared by the queues and the My team inbox.
+ */
+export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (d: RequestDecision) => void }) => (
+        <div
+                        className={`rounded-2xl border border-solid bg-white p-4 ${
+                item.waitingForYou ? 'border-[#FECDCA]' : 'border-[#EAECF0]'
+            }`}
+        >
+            <Flex gap={12} align="flex-start" wrap="wrap" justify="space-between">
+                <Flex gap={12} align="flex-start" className="min-w-0 flex-1 basis-[260px]">
+                    <Avatar className="!bg-[#FF4F4F] shrink-0">
+                        {item.employee.name
+                            .split(' ')
+                            .slice(0, 2)
+                            .map(p => p[0])
+                            .join('')}
+                    </Avatar>
+                    <Flex vertical gap={6} className="min-w-0 flex-1">
+                        <Flex gap={6} wrap="wrap" align="baseline">
+                            <Typography.Text strong>{item.employee.name}</Typography.Text>
+                            <Typography.Text type="secondary" className="text-xs">
+                                {item.employee.designation}
+                                {item.employee.department ? ` · ${item.employee.department}` : ''}
+                            </Typography.Text>
+                        </Flex>
+                        <Typography.Text className="font-medium text-[#171717]">{item.title}</Typography.Text>
+                        {item.correction && <CorrectionTimes item={item} />}
+                        {item.profile && <ProfileChanges item={item} />}
+                        {!item.correction && !item.profile && item.detail && <Typography.Text>{item.detail}</Typography.Text>}
+                        {item.overtimeContext && (
+                            <Typography.Text
+                                type="secondary"
+                                className={`text-sm ${item.overtimeContext.dayCompleted ? '' : 'italic'}`}
+                            >
+                                {item.overtimeContext.basis === 'timesheet' ? 'Timesheet: ' : 'Attendance: '}
+                                {overtimeContextText(item.overtimeContext)}
+                            </Typography.Text>
+                        )}
+                        {item.notes && (
+                            <Typography.Paragraph type="secondary" className="!mb-0 text-sm">
+                                <span className="font-medium text-[#475467]">Reason: </span>
+                                {item.notes}
+                            </Typography.Paragraph>
+                        )}
+                        <Flex gap={8} wrap="wrap" align="center">
+                            <RequestStatusTag trail={item.trail} label={item.statusLabel} />
+                            <TrailSteps trail={item.trail} />
+                        </Flex>
+                        {item.blockedReason && item.waitingForYou && (
+                            <Alert
+                                type="warning"
+                                showIcon
+                                icon={<LockOutlined />}
+                                className="!py-1.5"
+                                message={`Can't be approved: ${item.blockedReason}`}
+                            />
+                        )}
+                    </Flex>
+                </Flex>
+                <Flex vertical align="flex-end" gap={8} className="ml-auto">
+                    <Tooltip title={fmtStamp(item.at)}>
+                        <Typography.Text type="secondary" className="text-xs whitespace-nowrap">
+                            {timeAgo(item.at)}
+                        </Typography.Text>
+                    </Tooltip>
+                    {item.waitingForYou && (
+                        <Flex gap={8} wrap="wrap" justify="flex-end">
+                            <Button icon={<CloseOutlined />} onClick={() => onDecide('reject')}>
+                                Reject
+                            </Button>
+                            {/* PROTOTYPE-SETUP (My team, Slice 3): straight back to the employee, with a comment. */}
+                            <Button icon={<EditOutlined />} onClick={() => onDecide('update')} data-ask-update>
+                                Ask for update
+                            </Button>
+                            <Tooltip title={item.blockedReason}>
+                                <Button
+                                    type="primary"
+                                    icon={<CheckOutlined />}
+                                    disabled={Boolean(item.blockedReason)}
+                                    onClick={() => onDecide('approve')}
+                                >
+                                    Approve
+                                </Button>
+                            </Tooltip>
+                        </Flex>
+                    )}
+                </Flex>
+            </Flex>
+        </div>
+);
+
+const DECISION_COPY: Record<RequestDecision, { title: (single: string, first: string) => string; ok: string; placeholder: string; error: string }> = {
+    approve: { title: single => `Approve ${single}?`, ok: 'Approve', placeholder: 'Comment (optional)', error: '' },
+    reject: { title: single => `Reject ${single}?`, ok: 'Reject', placeholder: 'Tell them why it is rejected (required)', error: 'Add a comment explaining why.' },
+    update: {
+        title: (_s, first) => `Ask ${first} to update this`,
+        ok: 'Send to employee',
+        placeholder: 'What needs to change? (goes straight to the employee)',
+        error: 'Add a short note so the employee knows what to update.',
+    },
+};
+
+/** Approve (optional comment), reject (reason required) or ask for an update (what to change, required). */
+export const RequestDecisionModal = ({
+    pending,
+    busy,
+    comment,
+    commentError,
+    single,
+    onComment,
+    onConfirm,
+    onClose,
+}: {
+    pending: PendingDecision | null;
+    busy: boolean;
+    comment: string;
+    commentError: boolean;
+    single: string;
+    onComment: (c: string) => void;
+    onConfirm: () => void;
+    onClose: () => void;
+}) => {
+    const c = DECISION_COPY[pending?.decision ?? 'approve'];
+    const first = pending?.item.employee.name.split(' ')[0] ?? '';
+    return (
+        <Modal
+            open={Boolean(pending)}
+            title={c.title(single, first)}
+            okText={c.ok}
+            okButtonProps={{ danger: pending?.decision === 'reject', loading: busy }}
+            onOk={onConfirm}
+            onCancel={onClose}
+            destroyOnHidden
+        >
+            {pending && (
+                <Flex vertical gap={10}>
+                    <Typography.Text>
+                        <span className="font-medium">{pending.item.employee.name}</span> · {pending.item.title}
+                    </Typography.Text>
+                    <Input.TextArea
+                        rows={3}
+                        value={comment}
+                        aria-label={c.placeholder}
+                        status={commentError ? 'error' : undefined}
+                        onChange={e => onComment(e.target.value)}
+                        placeholder={c.placeholder}
+                        maxLength={500}
+                    />
+                    {commentError && (
+                        <Typography.Text type="danger" className="text-sm">
+                            {c.error}
+                        </Typography.Text>
+                    )}
+                    <Typography.Text type="secondary" className="text-xs">
+                        {pending.decision === 'update'
+                            ? 'It goes straight back to the employee. When they resubmit, it starts again with their manager.'
+                            : 'Decisions are final and can’t be undone.'}
+                    </Typography.Text>
+                </Flex>
+            )}
+        </Modal>
+    );
+};
 
 const RequestQueue = ({ type, load, decide, onChanged, defaultScope = 'waiting', actingAs = 'Manager' }: RequestQueueProps) => {
     const dispatch = useAppDispatch();
@@ -161,7 +331,7 @@ const RequestQueue = ({ type, load, decide, onChanged, defaultScope = 'waiting',
         refresh();
     }, [refresh]);
 
-    const open = (item: RequestItem, decision: 'approve' | 'reject') => {
+    const open = (item: RequestItem, decision: RequestDecision) => {
         setPending({ item, decision });
         setComment('');
         setCommentError(false);
@@ -170,7 +340,7 @@ const RequestQueue = ({ type, load, decide, onChanged, defaultScope = 'waiting',
     const confirm = async () => {
         if (!pending) return;
         const note = comment.trim();
-        if (pending.decision === 'reject' && !note) {
+        if (pending.decision !== 'approve' && !note) {
             setCommentError(true);
             return;
         }
@@ -178,7 +348,12 @@ const RequestQueue = ({ type, load, decide, onChanged, defaultScope = 'waiting',
         const res = await decide(pending.item, pending.decision, note || undefined);
         setBusy(false);
         if (res === false) return;
-        dispatch(showToast({ variant: 'success', description: pending.decision === 'approve' ? 'Request approved' : 'Request rejected' }));
+        const done: Record<RequestDecision, string> = {
+            approve: 'Request approved',
+            reject: 'Request rejected',
+            update: `Sent back to ${pending.item.employee.name} to update`,
+        };
+        dispatch(showToast({ variant: 'success', description: done[pending.decision] }));
         setPending(null);
         await refresh();
         onChanged?.();
@@ -223,89 +398,7 @@ const RequestQueue = ({ type, load, decide, onChanged, defaultScope = 'waiting',
         return (
             <Flex vertical gap={12} className={loading ? 'opacity-60 transition-opacity' : ''}>
                 {items.map(item => (
-                    <div
-                        key={item.id}
-                        className={`rounded-2xl border border-solid bg-white p-4 ${
-                            item.waitingForYou ? 'border-[#FECDCA]' : 'border-[#EAECF0]'
-                        }`}
-                    >
-                        <Flex gap={12} align="flex-start" wrap="wrap" justify="space-between">
-                            <Flex gap={12} align="flex-start" className="min-w-0 flex-1 basis-[260px]">
-                                <Avatar className="!bg-[#FF4F4F] shrink-0">
-                                    {item.employee.name
-                                        .split(' ')
-                                        .slice(0, 2)
-                                        .map(p => p[0])
-                                        .join('')}
-                                </Avatar>
-                                <Flex vertical gap={6} className="min-w-0 flex-1">
-                                    <Flex gap={6} wrap="wrap" align="baseline">
-                                        <Typography.Text strong>{item.employee.name}</Typography.Text>
-                                        <Typography.Text type="secondary" className="text-xs">
-                                            {item.employee.designation}
-                                            {item.employee.department ? ` · ${item.employee.department}` : ''}
-                                        </Typography.Text>
-                                    </Flex>
-                                    <Typography.Text className="font-medium text-[#171717]">{item.title}</Typography.Text>
-                                    {item.correction && <CorrectionTimes item={item} />}
-                                    {item.profile && <ProfileChanges item={item} />}
-                                    {!item.correction && !item.profile && item.detail && <Typography.Text>{item.detail}</Typography.Text>}
-                                    {item.overtimeContext && (
-                                        <Typography.Text
-                                            type="secondary"
-                                            className={`text-sm ${item.overtimeContext.dayCompleted ? '' : 'italic'}`}
-                                        >
-                                            {item.overtimeContext.basis === 'timesheet' ? 'Timesheet: ' : 'Attendance: '}
-                                            {overtimeContextText(item.overtimeContext)}
-                                        </Typography.Text>
-                                    )}
-                                    {item.notes && (
-                                        <Typography.Paragraph type="secondary" className="!mb-0 text-sm">
-                                            <span className="font-medium text-[#475467]">Reason: </span>
-                                            {item.notes}
-                                        </Typography.Paragraph>
-                                    )}
-                                    <Flex gap={8} wrap="wrap" align="center">
-                                        <RequestStatusTag trail={item.trail} label={item.statusLabel} />
-                                        <TrailSteps trail={item.trail} />
-                                    </Flex>
-                                    {item.blockedReason && item.waitingForYou && (
-                                        <Alert
-                                            type="warning"
-                                            showIcon
-                                            icon={<LockOutlined />}
-                                            className="!py-1.5"
-                                            message={`Can't be approved: ${item.blockedReason}`}
-                                        />
-                                    )}
-                                </Flex>
-                            </Flex>
-                            <Flex vertical align="flex-end" gap={8} className="ml-auto">
-                                <Tooltip title={fmtStamp(item.at)}>
-                                    <Typography.Text type="secondary" className="text-xs whitespace-nowrap">
-                                        {timeAgo(item.at)}
-                                    </Typography.Text>
-                                </Tooltip>
-                                {item.waitingForYou && (
-                                    <Flex gap={8}>
-                                        <Button icon={<CloseOutlined />} onClick={() => open(item, 'reject')}>
-                                            Reject
-                                        </Button>
-                                        <Tooltip title={item.blockedReason}>
-                                            <Button
-                                                type="primary"
-                                                icon={<CheckOutlined />}
-                                                disabled={Boolean(item.blockedReason)}
-                                                onClick={() => open(item, 'approve')}
-                                            >
-                                                Approve
-                                            </Button>
-                                        </Tooltip>
-                                    </Flex>
-                                )}
-                            </Flex>
-                        </Flex>
-                    </div>
+                    <RequestCard key={item.id} item={item} onDecide={d => open(item, d)} />
                 ))}
             </Flex>
         );
@@ -329,46 +422,19 @@ const RequestQueue = ({ type, load, decide, onChanged, defaultScope = 'waiting',
                 )}
             </Flex>
             {renderList()}
-            <Modal
-                open={Boolean(pending)}
-                title={pending?.decision === 'approve' ? `Approve ${copy.single}?` : `Reject ${copy.single}?`}
-                okText={pending?.decision === 'approve' ? 'Approve' : 'Reject'}
-                okButtonProps={{ danger: pending?.decision === 'reject', loading: busy }}
-                onOk={confirm}
-                onCancel={() => setPending(null)}
-                destroyOnHidden
-            >
-                {pending && (
-                    <Flex vertical gap={10}>
-                        <Typography.Text>
-                            <span className="font-medium">{pending.item.employee.name}</span> · {pending.item.title}
-                        </Typography.Text>
-                        <Input.TextArea
-                            rows={3}
-                            value={comment}
-                            status={commentError ? 'error' : undefined}
-                            onChange={e => {
-                                setComment(e.target.value);
-                                if (e.target.value.trim()) setCommentError(false);
-                            }}
-                            placeholder={
-                                pending.decision === 'approve'
-                                    ? 'Comment (optional)'
-                                    : 'Tell them why it is rejected (required)'
-                            }
-                            maxLength={500}
-                        />
-                        {commentError && (
-                            <Typography.Text type="danger" className="text-sm">
-                                Add a comment explaining why.
-                            </Typography.Text>
-                        )}
-                        <Typography.Text type="secondary" className="text-xs">
-                            Decisions are final and can&apos;t be undone.
-                        </Typography.Text>
-                    </Flex>
-                )}
-            </Modal>
+            <RequestDecisionModal
+                pending={pending}
+                busy={busy}
+                comment={comment}
+                commentError={commentError}
+                single={copy.single}
+                onComment={c => {
+                    setComment(c);
+                    if (c.trim()) setCommentError(false);
+                }}
+                onConfirm={confirm}
+                onClose={() => setPending(null)}
+            />
         </Flex>
     );
 };

@@ -42,9 +42,9 @@ const MyTeamCard = () => {
     const go = (tab?: MyTeamTab) => navigate(paths.myTeam(tab));
 
     const approvals: { label: string; value: number; tab: MyTeamTab }[] = [
-        { label: 'Timesheets', value: counts?.timesheets ?? 0, tab: 'timesheet-approvals' as MyTeamTab },
-        { label: 'Attendance', value: counts?.attendance ?? 0, tab: 'attendance-approvals' as MyTeamTab },
-        { label: 'Overtime', value: counts?.overtime ?? 0, tab: 'overtime-approvals' as MyTeamTab },
+        { label: 'Timesheets', value: counts?.timesheets ?? 0, tab: 'approvals' as MyTeamTab },
+        { label: 'Attendance', value: counts?.attendance ?? 0, tab: 'approvals' as MyTeamTab },
+        { label: 'Overtime', value: counts?.overtime ?? 0, tab: 'approvals' as MyTeamTab },
     ].filter(a => tabs.includes(a.tab));
     const waitingTotal = approvals.reduce((s, a) => s + a.value, 0);
 

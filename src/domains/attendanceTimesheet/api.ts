@@ -184,6 +184,9 @@ export const getMemberMonth = (s: AtsScope, employeeId: number, month: string) =
 export const getMemberAttendance = (s: AtsScope, employeeId: number, month: string) =>
     call<AttendanceMonthView>(s, 'get', `team/members/${employeeId}/attendance`, { params: { month } });
 
+/** "update" → the ask-for-update endpoint (PROTOTYPE-SETUP: My team). */
+const decisionPath = (d: 'approve' | 'reject' | 'update') => (d === 'update' ? 'ask-for-update' : d);
+
 export const getTeamApprovalCounts = (s: AtsScope) => call<ApprovalCounts>(s, 'get', 'team/approvals/counts');
 export const getTimesheetQueue = (s: AtsScope, scope: QueueScope) =>
     call<TimesheetApprovalItem[]>(s, 'get', 'team/approvals/timesheets', { params: { scope } });
@@ -197,9 +200,17 @@ export const decideTeamRequest = (
     s: AtsScope,
     type: AtsRequestType,
     id: string,
-    decision: 'approve' | 'reject',
+    decision: 'approve' | 'reject' | 'update',
     comment?: string
-) => call<RequestItem>(s, 'post', `team/approvals/requests/${type}/${id}/${decision}`, { body: { comment } });
+) => call<RequestItem>(s, 'post', `team/approvals/requests/${type}/${id}/${decisionPath(decision)}`, { body: { comment } });
+
+/** PROTOTYPE-SETUP (My team, Slice 3): approve several level-1 items at once. */
+export const bulkApproveTeam = (
+    s: AtsScope,
+    items: ({ kind: 'timesheet'; employeeId: number; weekStart: string } | { kind: AtsRequestType; id: string })[]
+) => call<{ approved: number; failed: { reason: string }[] }>(s, 'post', 'team/approvals/bulk-approve', { body: { items } });
+export const askForUpdateWeek = (s: AtsScope, employeeId: number, weekStart: string, comment: string) =>
+    call<TimesheetApprovalItem>(s, 'post', `team/approvals/timesheets/${employeeId}/${weekStart}/ask-for-update`, { body: { comment } });
 
 // ---- Payroll ----------------------------------------------------------------------------------------------
 
@@ -212,9 +223,9 @@ export const decideLevel2 = (
     role: Level2Role,
     type: Level2RequestType,
     id: string,
-    decision: 'approve' | 'reject',
+    decision: 'approve' | 'reject' | 'update',
     comment?: string
-) => call<RequestItem>(s, 'post', `payroll/approvals/${type}/${id}/${decision}`, { body: { comment }, params: { role } });
+) => call<RequestItem>(s, 'post', `payroll/approvals/${type}/${id}/${decisionPath(decision)}`, { body: { comment }, params: { role } });
 
 export const getTimesheetStatus = (s: AtsScope, month?: string) =>
     call<TimesheetStatusView>(s, 'get', 'payroll/timesheet-status', month ? { params: { month } } : {});
