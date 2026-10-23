@@ -593,7 +593,7 @@ export const parseHours = (text: string | null | undefined): number | null => {
 /** 90 → "1:30" (the form's Hours field). */
 export const formatHoursInput = (mins: number) => `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, '0')}`;
 
-const MAX_DAY_MINUTES = 24 * 60;
+export const MAX_DAY_MINUTES = 24 * 60;
 const HHMM_RE = /^\d{2}:\d{2}$/;
 
 // ---- task-entry fields (PROTOTYPE-SETUP: Timesheet filing) -------------------------------------------------

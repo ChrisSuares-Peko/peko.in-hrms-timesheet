@@ -4,6 +4,7 @@
 // interceptor shows the server message as a toast, so callers only need to check for `false`.
 import { SuccessGenericResponse } from '@customtypes/general';
 import type { SubmissionAcknowledgement } from '@src/prototype/rules/timesheetFiling';
+import type { ImportPreview } from '@src/prototype/rules/timesheetImport';
 import { ApiClient } from '@src/services/config';
 
 import type {
@@ -141,6 +142,9 @@ export const getTimesheetMonth = (s: AtsScope, month: string) =>
     call<TimesheetMonthView>(s, 'get', 'timesheet/month', { params: { month } });
 export const addEntry = (s: AtsScope, body: TimesheetEntryInput) =>
     call<TimesheetWeekView>(s, 'post', 'timesheet/entries', { body });
+/** PROTOTYPE-SETUP (Final batch, Slice 3): template upload — check the file, then import its ready rows. */
+export const previewTimesheetImport = (s: AtsScope, csv: string) => call<ImportPreview>(s, 'post', 'timesheet/import/preview', { body: { csv } });
+export const importTimesheet = (s: AtsScope, csv: string) => call<{ imported: number }>(s, 'post', 'timesheet/import', { body: { csv } });
 export const editEntry = (s: AtsScope, entryId: string, body: TimesheetEntryInput) =>
     call<TimesheetWeekView>(s, 'put', `timesheet/entries/${entryId}`, { body });
 export const deleteEntry = (s: AtsScope, entryId: string) =>

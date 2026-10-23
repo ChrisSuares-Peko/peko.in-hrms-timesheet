@@ -72,6 +72,7 @@ import {
     reviewPeriod,
     reviewSummary,
 } from '@src/prototype/rules/timesheetFiling';
+import { ImportContext, ImportPreview, analyseImport } from '@src/prototype/rules/timesheetImport';
 
 import {
     activeOvertimeOn,
@@ -481,6 +482,39 @@ export const addEntry = (mode: DataMode, e: MockEmployee, input: TimesheetEntryI
     const entry: TimesheetEntry = { id: uid('te'), ...clean };
     saveEdited(mode, e, week, [...week.entries, entry], event(e, 'ENTRY_ADDED', `${entryLabel(entry)} · ${entry.description}`));
     return weekView(mode, e, week.weekStart);
+};
+
+// ---- template upload (PROTOTYPE-SETUP: Final batch, Slice 3) --------------------------------------------
+
+const importContext = (mode: DataMode, e: MockEmployee): ImportContext => {
+    const filing = getSettings(mode).timesheetFiling;
+    return {
+        today: today(),
+        fields: filing.fields,
+        projectCodes: filing.projectCodes,
+        isLocked: d => isDayLocked(mode, d),
+        dateOfJoin: e.dateOfJoin,
+        existingOn: d => withBreaks(mode, e, d, weekOf(mode, e, d).entries.filter(x => x.date === d)),
+    };
+};
+
+/** Checks an uploaded CSV (nothing is saved): matched columns, and each row ready or why not. */
+export const previewImport = (mode: DataMode, e: MockEmployee, body: { csv?: string } | undefined): ImportPreview => {
+    assertTimesheets(mode);
+    return analyseImport(body?.csv ?? '', importContext(mode, e));
+};
+
+/** Imports the ready rows as draft entries (each period they touch is edited, as by hand). */
+export const importTimesheet = (mode: DataMode, e: MockEmployee, body: { csv?: string } | undefined) => {
+    const preview = previewImport(mode, e, body);
+    const ready = (preview.rows ?? []).filter(r => r.ready && r.entry);
+    if (!ready.length) throw new RuleError(preview.error ?? 'Nothing in the file is ready to import.', 400);
+    ready.forEach(r => {
+        const week = weekOf(mode, e, r.entry!.date);
+        const entry: TimesheetEntry = { id: uid('te'), ...r.entry! };
+        saveEdited(mode, e, week, [...week.entries, entry], event(e, 'ENTRY_ADDED', `Imported from a file: ${entryLabel(entry)} · ${entry.description}`));
+    });
+    return { imported: ready.length };
 };
 
 /** The stored period holding an entry (any period of the employee's). */

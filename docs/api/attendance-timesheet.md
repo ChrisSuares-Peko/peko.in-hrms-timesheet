@@ -76,6 +76,8 @@ On weekly offs and holidays, all time worked counts as overtime.
 | POST | `timesheet/entries` | `TimesheetEntryInput` | `TimesheetWeekView` |
 | PUT | `timesheet/entries/{entryId}` | `TimesheetEntryInput` (same week) | `TimesheetWeekView` |
 | DELETE | `timesheet/entries/{entryId}` | — | `TimesheetWeekView` |
+| POST | `timesheet/import/preview` | `{ csv }` | `ImportPreview` — PROTOTYPE-SETUP (Final batch, Slice 3): nothing is saved. `columns` (each header's column or null = ignored; synonyms such as Day, From, To, Duration, Task, Where), then `rows` (`ready`, `reason`, `note`, `entry`) and `ready`. Rules: src/prototype/rules/timesheetImport.ts. |
+| POST | `timesheet/import` | `{ csv }` | `{ imported }`. Adds only the ready rows, as by hand (a period that was sent goes back to Draft). 400 when nothing is ready. |
 | POST | `timesheet/weeks/{weekStart}/submit` | `{ acknowledged?: { overlaps?: boolean; gaps?: boolean } }` — submits a started DRAFT period or resubmits a SENT_BACK one (`weekStart` = the period's first day) | `TimesheetWeekView` |
 | GET | `leave` | — | `LeaveView` — see docs/api/leave-policy.md |
 | POST | `leave/requests` | `LeaveRequestInput` | `LeaveView` |
@@ -182,6 +184,19 @@ Each case has a unit test in `src/prototype/rules/__tests__/attendance.test.ts` 
   - On a past day with entries but no check-in, the flag prompts a correction. `suggested` comes from the timed entries, or is `null` when there are only hours-only entries.
 - Period statuses (PROTOTYPE-SETUP: Final batch): `DRAFT → SUBMITTED` (with manager) `→ WITH_PAYROLL → APPROVED`, and `SENT_BACK` at either level (with a required comment; `sentBackBy` says which). Timesheet level 2 is `settings.level2.timesheet` (Payroll by default; NONE = the manager's approval is final).
 - Manual submission (Timesheet filing): the employee submits a DRAFT period once it has started, or resubmits a SENT_BACK one. A future period returns 409 "You can't submit a period that hasn't started."; a submitted one 409 "This timesheet is already with {manager}." (so a repeated click never submits twice). Entries missing a required field return 400 "{n} entries need more details before you submit: {message}". Draft periods also go out automatically (see below).
+- Template and upload (PROTOTYPE-SETUP: Final batch, Slice 3): the template's example rows follow the company's fields. On upload, each row is checked in this order:
+  1. date;
+  2. payroll processed for the month;
+  3. before joining;
+  4. more than 30 days ahead;
+  5. times, then hours (0–24);
+  6. project code (when on: one on the list or any well-formed code, as in the form);
+  7. description;
+  8. location (Office, Home or Client: Name);
+  9. the entry rules (`validateEntry`).
+
+  Overlapping another entry is allowed, with a note, as in the form. Overlapping a recorded break isn't.
+- Manual submit checks in this order: entries missing details (this blocks), overlaps, gaps over 5 minutes, then checked-in hours not logged (15 minutes or more, on days up to today: "Submit for approval?"). Each warning can be overridden with "Submit anyway". Auto-submit never stops for these checks.
 - Every entry change saves straight away (there's no Save or draft button). A period goes for approval only on Submit, or at auto-submit.
 - Entries stay editable until payroll is processed for the month, even after final approval (`editMode` is always `direct` until then). An edit to a period that's SUBMITTED, WITH_PAYROLL or APPROVED moves it back to DRAFT and keeps a baseline (`baselineEntries` — the last approved version, or the version as submitted; `editedAfter` = the status it had) so reviewers see "What changed". It has to be submitted again. The baseline is cleared on final approval. The old change-request flow is gone.
 - With approval off, weeks stay DRAFT, are just recorded, and are editable until payroll is processed.

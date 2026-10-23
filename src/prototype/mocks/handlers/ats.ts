@@ -18,6 +18,8 @@ import {
     checkIn,
     checkOut,
     checkOutPrevious,
+    importTimesheet,
+    previewImport,
     setWorkingFrom,
     correctionsView,
     createCorrection,
@@ -162,6 +164,9 @@ export const atsRoutes: MockRoute[] = [
     // PROTOTYPE-SETUP (HR rules, Slice 3): the Notices panel's "Needs your action", across all weeks.
     route('GET', `${A}/timesheet/notices`, ess((ctx, me) => timesheetNoticesOf(ctx.mode, me))),
     route('POST', `${A}/timesheet/entries`, ess((ctx, me) => addEntry(ctx.mode, me, ctx.body))),
+    // PROTOTYPE-SETUP (Final batch, Slice 3): template upload — check a CSV, then import its ready rows as draft.
+    route('POST', `${A}/timesheet/import/preview`, ess((ctx, me) => previewImport(ctx.mode, me, ctx.body))),
+    route('POST', `${A}/timesheet/import`, ess((ctx, me) => importTimesheet(ctx.mode, me, ctx.body))),
     route('PUT', `${A}/timesheet/entries/:entryId`, ess((ctx, me) => editEntry(ctx.mode, me, ctx.params.entryId!, ctx.body))),
     route('DELETE', `${A}/timesheet/entries/:entryId`, ess((ctx, me) => deleteEntry(ctx.mode, me, ctx.params.entryId!))),
     route('POST', `${A}/timesheet/weeks/:weekStart/submit`, ess((ctx, me) => submitWeek(ctx.mode, me, ctx.params.weekStart!, ctx.body))),

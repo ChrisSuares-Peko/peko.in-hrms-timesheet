@@ -254,6 +254,21 @@ describe('the period review and the submission prompt', () => {
         expect(submissionPrompt(r, 'manual', { overlaps: true })).toBeNull();
         expect(reviewSummary(r)).toBe('1 overlap');
     });
+    // PROTOTYPE-SETUP (Final batch, Slice 3): checked-in hours not logged (15 min or more, days up to today) come last.
+    it('unlogged hours: "Submit for approval?" after the other checks, then Submit anyway', () => {
+        // Hours-only filing: no timeline checks, so only the unlogged hours are reviewed.
+        const d1 = { ...fullDay, date: '2026-10-07', entries: [], expectedMinutes: 540, loggedMinutes: 400 };
+        const d2 = { ...fullDay, date: '2026-10-08', entries: [], expectedMinutes: 540, loggedMinutes: 530 };
+        const d3 = { ...fullDay, date: '2026-10-09', entries: [], expectedMinutes: 540, loggedMinutes: 0 };
+        const r = reviewPeriod({ days: [d1, d2, d3], fields: DURATION, mode: 'both', today });
+        expect(r.unlogged).toEqual([{ date: '2026-10-07', minutes: 140 }]);
+        expect(submissionPrompt(r, 'manual')).toBe('unlogged');
+        expect(submissionPrompt(r, 'manual', { unlogged: true })).toBeNull();
+        expect(submissionPrompt(r, 'auto')).toBeNull();
+        const both = reviewPeriod({ days: [{ ...d1, date: D, entries: [timed('a', '09:00', '13:00'), timed('b', '12:30', '18:00')] }], fields: TIMES, mode: 'both', today });
+        expect(submissionPrompt(both, 'manual')).toBe('overlaps');
+        expect(submissionPrompt(both, 'manual', { overlaps: true })).toBe('unlogged');
+    });
     it('a qualifying gap: warn, then Submit anyway → no prompt', () => {
         const r = reviewPeriod({ days: [day([timed('a', '09:00', '13:00'), timed('b', '14:00', '17:00')])], fields: TIMES, mode: 'both', today });
         expect(gapCount(r)).toBe(1);

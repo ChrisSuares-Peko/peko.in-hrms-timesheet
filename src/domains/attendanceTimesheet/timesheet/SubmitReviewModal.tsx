@@ -2,6 +2,8 @@
 //   issues ...... entries missing a required field — blocking: "Review entries" only
 //   overlaps .... entries sharing time — "Review entries" or "Continue anyway"
 //   gaps ........ workday time not covered for more than 5 minutes — "Review entries" or "Submit anyway"
+//   unlogged .... PROTOTYPE-SETUP (Final batch, Slice 3): checked-in hours not logged up to today — "Submit for
+//                 approval?" with "Review entries" or "Submit anyway"
 // Each row names the day (and entries); clicking it opens that day with the entries outlined. Automatic submission
 // never shows this.
 import { RightOutlined, WarningFilled } from '@ant-design/icons';
@@ -19,6 +21,9 @@ export interface SubmitReviewModalProps {
     /** The period's entries (to name them). */
     entries: TimesheetEntry[];
     busy?: boolean;
+    /** PROTOTYPE-SETUP (Final batch, Slice 3): who reviews it, and what the period is ("week", "day", "month"). */
+    managerName?: string | null;
+    periodWord?: string;
     /** Open a day with these entries outlined (and close). */
     onReview: (date: string, entryIds: string[]) => void;
     /** Overlaps / gaps: go on with the submission. */
@@ -54,9 +59,14 @@ const COPY = {
         intro: 'Parts of your workday have no entry for more than 5 minutes. You can still submit.',
         go: 'Submit anyway',
     },
+    unlogged: {
+        title: 'Submit for approval?',
+        intro: '',
+        go: 'Submit anyway',
+    },
 } as const;
 
-const SubmitReviewModal = ({ kind, review, entries, busy, onReview, onContinue, onClose }: SubmitReviewModalProps) => {
+const SubmitReviewModal = ({ kind, review, entries, busy, managerName, periodWord = 'week', onReview, onContinue, onClose }: SubmitReviewModalProps) => {
     if (!kind || !review) return null;
     const name = (id: string) => entries.find(e => e.id === id)?.description ?? 'An entry';
     let rows: Row[] = [];
@@ -69,6 +79,8 @@ const SubmitReviewModal = ({ kind, review, entries, busy, onReview, onContinue, 
             ids: [o.a, o.b],
             text: `${rangeText(o.from, o.to)}: ${name(o.a)} and ${name(o.b)}`,
         }));
+    } else if (kind === 'unlogged') {
+        rows = review.unlogged.map(u => ({ key: u.date, date: u.date, ids: [], text: `${formatDuration(u.minutes)} not logged` }));
     } else {
         rows = review.gaps.flatMap(d =>
             d.gaps.map(g => ({ key: `${d.date}-${g.from}`, date: d.date, ids: [], text: `${rangeText(g.from, g.to)} (${formatDuration(g.minutes)})` }))
@@ -79,6 +91,8 @@ const SubmitReviewModal = ({ kind, review, entries, busy, onReview, onContinue, 
     let count = review.issues.length;
     if (kind === 'overlaps') count = review.overlaps.length;
     if (kind === 'gaps') count = gapCount(review);
+    if (kind === 'unlogged') count = review.unlogged.length;
+    const intro = kind === 'unlogged' ? `Some checked-in hours aren’t logged yet. ${managerName ?? 'Your manager'} may send the ${periodWord} back.` : copy.intro;
 
     return (
         <Modal
@@ -104,7 +118,7 @@ const SubmitReviewModal = ({ kind, review, entries, busy, onReview, onContinue, 
                 </div>
             }
         >
-            <p className="mb-3 mt-1 text-sm text-[#616161]">{copy.intro}</p>
+            <p className="mb-3 mt-1 text-sm text-[#616161]">{intro}</p>
             <ul className="m-0 list-none p-0" aria-label={copy.title} data-review-kind={kind}>
                 {rows.slice(0, MAX_ROWS).map(r => (
                     <li key={r.key}>
@@ -115,7 +129,7 @@ const SubmitReviewModal = ({ kind, review, entries, busy, onReview, onContinue, 
                         >
                             <span className="min-w-0">
                                 <b className="font-medium">{dayText(r.date)}</b>
-                                <span className="text-gray-600"> · {r.text}</span>
+                                <span className={kind === 'unlogged' ? 'text-[#B54708]' : 'text-gray-600'}> · {r.text}</span>
                             </span>
                             <RightOutlined className="shrink-0 text-[10px] text-gray-400" />
                         </button>

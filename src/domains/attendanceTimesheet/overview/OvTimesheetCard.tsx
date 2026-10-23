@@ -6,23 +6,30 @@
 // auto-submits Fri 16 Oct"). When today can't be edited, a one-line message replaces the button.
 // PROTOTYPE-SETUP (Timesheet filing): the chip names the filing period ("Day" / "Week" / "Month") and its automatic
 // submission date; the form and the entry lines follow the company's fields (no times in duration-only filing).
-import { useState } from 'react';
+// PROTOTYPE-SETUP (Final batch, Slice 3): Submit for the period, with the status line, the auto-save note and the same
+// checks as the Timesheet tab (missing details, overlaps, gaps, then checked-in hours not logged — "Submit for
+// approval?"); "Review entries" opens the full timesheet on that day.
+import { useMemo, useRef, useState } from 'react';
+
 
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Modal, Tag, Typography } from 'antd';
+import { Button, Modal, Tag, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
+import { useNavigate } from 'react-router-dom';
 
 import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
 import { useAppDispatch } from '@src/hooks/store';
 import { entryMins, entryTimeText, formatDuration, isTimed, locationChip, usesTimes } from '@src/prototype/rules/attendance';
-import { PERIOD_NOUN, periodKind } from '@src/prototype/rules/timesheetFiling';
+import { PERIOD_NOUN, SubmissionAcknowledgement, SubmissionPrompt, periodKind, reviewPeriod, submissionPrompt } from '@src/prototype/rules/timesheetFiling';
 import { showToast } from '@src/slices/apiSlice';
 
-import { addEntry } from '../api';
+import { addEntry, submitWeek } from '../api';
 import { WEEK_STATUS } from '../components/format';
 import { useAtsScope } from '../hooks/useAtsScope';
 import { BarTrack, Meter } from '../timesheet/DayRows';
 import EntryForm, { EntryFormValue } from '../timesheet/EntryForm';
+import SubmitReviewModal from '../timesheet/SubmitReviewModal';
+import { statusLine, submitNote } from '../timesheet/WeekStatusCard';
 import type { AtsMode, TimesheetWeekView } from '../types';
 
 const { Text } = Typography;
@@ -64,8 +71,38 @@ const OvTimesheetCard = ({
     const dispatch = useAppDispatch();
     const [busy, setBusy] = useState(false);
     const [adding, setAdding] = useState(false);
+    const [prompt, setPrompt] = useState<{ kind: Exclude<SubmissionPrompt, null>; ack: SubmissionAcknowledgement } | null>(null);
+    const submitting = useRef(false);
+    const navigate = useNavigate();
+    const review = useMemo(() => reviewPeriod({ days: week.days, fields: week.filing.fields, mode: week.mode, today }), [week, today]);
     const day = week.days.find(d => d.date === today);
     if (!day) return null;
+
+    const open = week.week.status === 'DRAFT' || week.week.status === 'SENT_BACK';
+    const canSubmit = week.approvalEnabled && week.editMode !== 'locked' && week.filing.period.start <= today;
+
+    const send = async (ack: SubmissionAcknowledgement) => {
+        if (submitting.current) return;
+        submitting.current = true;
+        setPrompt(null);
+        setBusy(true);
+        const res = await submitWeek(scope, week.week.weekStart, ack);
+        setBusy(false);
+        submitting.current = false;
+        if (!res) return;
+        onWeek(res);
+        dispatch(showToast({ description: `Sent to ${week.employee.managerName ?? 'Payroll'} for approval`, variant: 'success' }));
+    };
+    const advance = (ack: SubmissionAcknowledgement) => {
+        const kind = submissionPrompt(review, 'manual', ack);
+        if (kind) setPrompt({ kind, ack });
+        else send(ack);
+    };
+    /** "Review entries": the full timesheet on that day. */
+    const reviewDay = (date: string) => {
+        setPrompt(null);
+        navigate(`${fullPath.split('?')[0]}?date=${date}`);
+    };
 
     const editable = week.editMode === 'direct' && !day.locked;
     const shown = day.entries.slice(-SHOWN_ENTRIES);
@@ -132,10 +169,36 @@ const OvTimesheetCard = ({
             ) : (
                 <Text className="text-sm text-[#9e9e9e]">Nothing logged today yet.</Text>
             )}
-            {addArea}
-            <Tag color={chip.color} bordered={false} className={`!m-0 self-start px-3 py-0.5 text-xs ${chip.className ?? ''}`}>
-                {chip.text}
-            </Tag>
+            <div className="flex flex-wrap items-center gap-2">
+                {addArea}
+                {canSubmit && (
+                    <Tooltip title={open ? undefined : 'Already sent for approval'}>
+                        <Button type="primary" disabled={!open || !week.canSubmit || busy} loading={busy && !adding} onClick={() => advance({})} data-ov-submit>
+                            Submit
+                        </Button>
+                    </Tooltip>
+                )}
+            </div>
+            <div className="flex flex-col gap-1">
+                <Tag color={chip.color} bordered={false} className={`!m-0 self-start px-3 py-0.5 text-xs ${chip.className ?? ''}`}>
+                    {chip.text}
+                </Tag>
+                <Text className="text-xs text-[#616161]" data-ov-status-line>
+                    {statusLine(week, today)}
+                </Text>
+                {canSubmit && <Text className="text-[11px] leading-4 text-[#9e9e9e]">{submitNote(!open)}</Text>}
+            </div>
+            <SubmitReviewModal
+                kind={prompt?.kind ?? null}
+                review={review}
+                entries={week.week.entries}
+                busy={busy}
+                managerName={week.employee.managerName}
+                periodWord={PERIOD_NOUN[periodKind(week.filing.period.start, week.filing.period.end, week.filing.frequency)]}
+                onReview={reviewDay}
+                onContinue={() => prompt && advance({ ...prompt.ack, [prompt.kind]: true })}
+                onClose={() => setPrompt(null)}
+            />
             <Modal
                 open={adding && editable}
                 title={`Add entry · Today, ${dayjs(today).format('ddd D MMM')}`}

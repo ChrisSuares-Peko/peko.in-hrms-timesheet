@@ -20,7 +20,9 @@ import {
     createOvertime,
     overtimeViewOf,
     endBreak,
+    importTimesheet,
     overviewOf,
+    previewImport,
     setWorkingFrom,
     startBreak,
     reviewOf,
@@ -927,5 +929,29 @@ describe('working from (Attendance only mode)', () => {
         expect(day.locations).toBeUndefined();
         updateSettings(M, { mode: 'attendance' });
         expect(attendanceDay(M, sneha, day.date).locations).toEqual([{ at: day.checkIn, location: 'OFFICE' }]);
+    });
+});
+
+// PROTOTYPE-SETUP (Final batch, Slice 3): template upload.
+describe('timesheet upload', () => {
+    it('checks the file, imports only the ready rows as draft, and a sent period goes back to draft', () => {
+        const date = s.today;
+        const csv = [
+            'Date,Start time,End time,Hours,Location,Project code,Description',
+            `${date},05:00,05:30,,Home,,Early prep`,
+            `${date},05:30,06:00,,Client: Zenith,,Client call`,
+            `${addMonths(lastMonth(), -1)}-03,09:00,10:00,,Office,,Old work`,
+            `${date},06:00,06:30,,,,No location`,
+        ].join('\n');
+        const p = previewImport(M, sneha, { csv });
+        expect(p.rows!.map(r => r.reason ?? 'ready')).toEqual(['ready', 'ready', 'Payroll is processed for that month', 'Location missing (Office, Home or Client: Name)']);
+        const before = weekView(M, sneha, date).week.entries.length;
+        expect(importTimesheet(M, sneha, { csv })).toEqual({ imported: 2 });
+        const after = weekView(M, sneha, date).week;
+        expect(after.entries.length).toBe(before + 2);
+        expect(after.entries.find(x => x.description === 'Client call')).toMatchObject({ location: 'CLIENT', client: 'Zenith', start: '05:30' });
+        expect(after.status === 'DRAFT' || after.status === 'SENT_BACK').toBe(true);
+        expect(after.history.some(h => /Imported from a file/.test(h.detail ?? ''))).toBe(true);
+        expect(() => importTimesheet(M, sneha, { csv: 'Date,Description\n' })).toThrow();
     });
 });

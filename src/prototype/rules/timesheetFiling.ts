@@ -373,11 +373,19 @@ export interface PeriodReview {
     timelineChecks: boolean;
     /** Days that couldn't be checked for gaps, and why. */
     skipped: { date: string; reason: GapSkip }[];
+    /**
+     * PROTOTYPE-SETUP (Final batch, Slice 3): days up to today with at least UNLOGGED_REVIEW_MINUTES of expected time
+     * not logged (the manager may send the period back).
+     */
+    unlogged: { date: string; minutes: number }[];
 }
+
+/** Unlogged time worth a look before submitting. */
+export const UNLOGGED_REVIEW_MINUTES = 15;
 
 /** Checks a period's days before it is submitted: missing fields (blocking), overlaps and gaps (warnings). */
 export const reviewPeriod = (input: {
-    days: Pick<TimesheetDay, 'date' | 'window' | 'entries' | 'breaks'>[];
+    days: (Pick<TimesheetDay, 'date' | 'window' | 'entries' | 'breaks'> & Partial<Pick<TimesheetDay, 'loggedMinutes' | 'expectedMinutes'>>)[];
     fields: TimesheetFields;
     mode: AtsMode;
     today: string;
@@ -395,7 +403,11 @@ export const reviewPeriod = (input: {
             } else if (check.reason !== 'no-workday' && check.reason !== 'not-finished') skipped.push({ date: d.date, reason: check.reason });
         });
     }
-    return { issues, overlaps: timelineChecks ? findOverlaps(entries) : [], gaps, timelineChecks, skipped };
+    const unlogged = input.days
+        .filter(d => d.date <= input.today)
+        .map(d => ({ date: d.date, minutes: (d.expectedMinutes ?? 0) - (d.loggedMinutes ?? 0) }))
+        .filter(u => u.minutes >= UNLOGGED_REVIEW_MINUTES);
+    return { issues, overlaps: timelineChecks ? findOverlaps(entries) : [], gaps, timelineChecks, skipped, unlogged };
 };
 
 export const gapCount = (r: Pick<PeriodReview, 'gaps'>) => r.gaps.reduce((s, d) => s + d.gaps.length, 0);
@@ -404,9 +416,11 @@ export const gapCount = (r: Pick<PeriodReview, 'gaps'>) => r.gaps.reduce((s, d) 
 export interface SubmissionAcknowledgement {
     overlaps?: boolean;
     gaps?: boolean;
+    /** PROTOTYPE-SETUP (Final batch, Slice 3): "Submit anyway" with checked-in hours not logged. */
+    unlogged?: boolean;
 }
 
-export type SubmissionPrompt = 'issues' | 'overlaps' | 'gaps' | null;
+export type SubmissionPrompt = 'issues' | 'overlaps' | 'gaps' | 'unlogged' | null;
 
 /**
  * What a submission shows before it goes. Manual: entries missing a required field block it ('issues' — review
@@ -423,6 +437,7 @@ export const submissionPrompt = (
     if (review.issues.length) return 'issues';
     if (review.overlaps.length && !ack.overlaps) return 'overlaps';
     if (gapCount(review) && !ack.gaps) return 'gaps';
+    if (review.unlogged?.length && !ack.unlogged) return 'unlogged';
     return null;
 };
 

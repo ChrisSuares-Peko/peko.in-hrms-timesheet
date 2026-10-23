@@ -16,12 +16,13 @@
 // submit twice. Automatic submission happens on the server and never shows these warnings.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Skeleton } from 'antd';
+import { DownloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { Button, Skeleton } from 'antd';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
 import { useAppDispatch } from '@src/hooks/store';
 import { DEFAULT_SETTINGS } from '@src/prototype/rules/attendance';
-import { SubmissionAcknowledgement, SubmissionPrompt, reviewPeriod, submissionPrompt } from '@src/prototype/rules/timesheetFiling';
+import { PERIOD_NOUN, SubmissionAcknowledgement, SubmissionPrompt, periodKind, reviewPeriod, submissionPrompt } from '@src/prototype/rules/timesheetFiling';
 import { showToast } from '@src/slices/apiSlice';
 
 import {
@@ -45,6 +46,7 @@ import Calendar3, { inRangeFor } from './Calendar3';
 import DayRows from './DayRows';
 import EntriesPanel from './EntriesPanel';
 import type { EntryFormValue } from './EntryForm';
+import { TemplateModal, UploadModal } from './ImportModals';
 import NoticesPanel from './NoticesPanel';
 import SubmitReviewModal from './SubmitReviewModal';
 import './timesheet.css';
@@ -68,6 +70,7 @@ interface CorrectionTarget {
     current: CorrectionTimes & { open?: boolean };
 }
 
+
 const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) => {
     const scope = useAtsScope();
     const dispatch = useAppDispatch();
@@ -89,6 +92,8 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
     const [prompt, setPrompt] = useState<{ kind: Exclude<SubmissionPrompt, null>; ack: SubmissionAcknowledgement } | null>(null);
     /** "Review entries": the entries outlined in their day's panel. */
     const [highlight, setHighlight] = useState<Set<string>>(new Set());
+    /** PROTOTYPE-SETUP (Final batch, Slice 3): the template / upload modals. */
+    const [fileModal, setFileModal] = useState<'template' | 'upload' | null>(null);
     const submitting = useRef(false);
 
     useEffect(() => {
@@ -178,9 +183,8 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
         if (!focusWeek || submitting.current) return;
         submitting.current = true;
         setPrompt(null);
-        const manager = focusWeek.employee.managerName ?? 'your manager';
-        const again = focusWeek.week.status === 'SENT_BACK';
-        await apply(() => submitWeek(scope, focusWeek.week.weekStart, ack), again ? `Resubmitted to ${manager}` : `Submitted to ${manager}`);
+        // PROTOTYPE-SETUP (Final batch, Slice 3): no manager (the CEO) → straight to Payroll.
+        await apply(() => submitWeek(scope, focusWeek.week.weekStart, ack), `Sent to ${focusWeek.employee.managerName ?? 'Payroll'} for approval`);
         submitting.current = false;
     };
 
@@ -281,6 +285,16 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
                 ofWord={atsMode === 'timesheet' ? 'shift' : 'worked'}
                 onMode={nav.changeMode}
                 onStep={nav.step}
+                actions={
+                    <>
+                        <Button size="small" icon={<DownloadOutlined />} onClick={() => setFileModal('template')}>
+                            Download template
+                        </Button>
+                        <Button size="small" icon={<UploadOutlined />} onClick={() => setFileModal('upload')}>
+                            Upload timesheet
+                        </Button>
+                    </>
+                }
             />
 
             {/* 3. day rows */}
@@ -325,9 +339,29 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
                 review={review}
                 entries={focusWeek?.week.entries ?? []}
                 busy={busy}
+                managerName={focusWeek?.employee.managerName}
+                periodWord={PERIOD_NOUN[focusWeek ? periodKind(focusWeek.filing.period.start, focusWeek.filing.period.end, focusWeek.filing.frequency) : 'WEEKLY']}
                 onReview={reviewEntries}
                 onContinue={() => prompt && advance({ ...prompt.ack, [prompt.kind]: true })}
                 onClose={() => setPrompt(null)}
+            />
+            <TemplateModal
+                open={fileModal === 'template'}
+                today={today}
+                projectsOn={Boolean(focusWeek?.filing.fields.projectCode)}
+                projectCode={focusWeek?.filing.projectCodes[0]}
+                fields={focusWeek?.filing.fields}
+                onClose={() => setFileModal(null)}
+            />
+            <UploadModal
+                open={fileModal === 'upload'}
+                projectsOn={Boolean(focusWeek?.filing.fields.projectCode)}
+                onClose={() => setFileModal(null)}
+                onImported={() => {
+                    setFileModal(null);
+                    reload();
+                    changed();
+                }}
             />
             <CorrectionModal
                 open={!!correction}
