@@ -575,6 +575,17 @@ img.has-img{object-fit:cover;display:block}
 .lb{display:flex;flex-direction:column;gap:2px}
 .lb b{font-size:18px;font-weight:500}
 .lb.lop{background:var(--red-soft)}
+.tpl-strip{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.mc.saved{background:var(--blue-soft);color:var(--blue-ink)}
+.mc.sub{background:var(--cal-ok);color:var(--cal-ok-ink);font-weight:500}
+.mc.lv{background:#EBDDFD;color:#5B21B6}
+.mc.inr{box-shadow:none;outline:1.5px solid var(--red);outline-offset:-1.5px}
+.mc.sel{box-shadow:inset 0 0 0 2px var(--red)}
+.lg.saved{background:var(--blue-soft);box-shadow:inset 0 0 0 1px var(--blue)}
+.lg.lv{background:#EBDDFD}
+.lg.selx{background:transparent;box-shadow:inset 0 0 0 1.5px var(--red)}
+.ov-cards:has(.ov-sc:nth-child(6)){grid-template-columns:repeat(6,minmax(0,1fr))}
+.ov-sc-i svg{width:17px;height:17px}
 .bulk-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px}
 .ap-row{display:grid;grid-template-columns:34px minmax(0,1fr);align-items:start;border-bottom:1px solid var(--line)}
 .ap-row:last-child{border-bottom:0}
@@ -607,6 +618,7 @@ a.btn{text-decoration:none}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/htm@3.1.1/dist/htm.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (function(){
 'use strict';
@@ -997,7 +1009,7 @@ const otText = (o, emp) => o.off ? 'Worked ' + dur(o.worked) + ' on a day off. A
 // submit = send for approval: manager first, then Payroll (level 2)
 function submitWeek(s, empId, ws, by, text) {
   const w = writeWeek(s, empId, ws);
-  w.unsaved = false; w.comment = null;
+  w.unsaved = false; w.comment = null; w.dirty = {};
   if (!EMAP[empId].mgr) { w.status = s.settings.l2.timesheet !== 'None' ? 'with_payroll' : 'approved'; if (w.status === 'approved') { w.approved = clone(w.entries); delete w.baseline; } hist(w, TODAY, 'System', text + ' No reporting manager, so it skipped level 1.'); }
   else { w.status = 'submitted'; hist(w, TODAY, by, text); }
 }
@@ -1006,8 +1018,9 @@ function runSubmission(s) {
   Object.keys(s.weeks).forEach(key => { const [id, ws] = key.split('|'); const w = s.weeks[key]; if (w.status === 'draft' && ws <= THIS_WEEK && Object.values(w.entries).some(l => l.length)) submitWeek(s, id, ws, 'System', 'Auto-submitted ' + DAY_LONG[s.settings.submitDay] + ' at ' + t12(s.settings.submitTime || '23:00')); });
 }
 // any edit to a week that was already sent pulls it back to draft; it must be submitted again
-function markEdited(s, empId, ws, by) {
+function markEdited(s, empId, ws, by, day) {
   const w = writeWeek(s, empId, ws);
+  if (day) { w.dirty = w.dirty || {}; w.dirty[day] = true; }  // shown as "Saved" until submitted
   if (['submitted', 'with_payroll', 'approved'].includes(w.status)) {
     if (!w.baseline) w.baseline = clone(w.approved || w.entries);
     hist(w, TODAY, by, 'Edited after it was ' + WEEK_STATUS[w.status].label.toLowerCase() + '. Needs submitting again.');
@@ -1799,16 +1812,16 @@ function tsMonthCell(store, emp, k, entriesFn) {
 }
 /* ---- timesheet workspace (shared by employee, manager viewer and review) ---- */
 function calState(store, emp, k) {
-  if (isOff(k)) return 'off';
-  if (!approvalOn(store)) return '';
-  const ws = mondayOf(k);
-  if (ws > THIS_WEEK) return '';
-  const w = store.weeks[emp.id + '|' + ws];
-  if (!w) return '';
+  if (leaveOn(store, emp.id, k) || halfLeaveOn(store, emp.id, k)) return 'lv';
+  const w = store.weeks[emp.id + '|' + mondayOf(k)];
+  const has = !!(w && (w.entries[k] || []).length);
+  if (w && w.dirty && w.dirty[k]) return 'saved';
+  if (isOff(k) && !has) return 'off';
+  if (!w || !approvalOn(store)) return has ? 'saved' : '';
   if (w.status === 'rejected') return 'back';
-  if (w.change || w.status === 'submitted') return 'sub';
-  if (w.status === 'approved') return 'ok';
-  return '';
+  if (w.baseline && has) return 'sub';  // edited after sending: only the changed days show as Saved
+  if (['submitted', 'with_payroll', 'approved'].includes(w.status)) return has ? 'sub' : '';
+  return has ? 'saved' : '';
 }
 // the timesheet should cover every checked-in hour, breaks included
 function expectedFor(store, emp, k) {
@@ -1854,7 +1867,7 @@ function MiniMonth({ month, emp, sel, inRange, onPick, extraClass }) {
         const st = calState(store, emp, k);
         const lv = leaveOn(store, emp.id, k);
         const cls = 'mc ' + st + (inRange(k) ? ' inr' : '') + (k === sel ? ' sel' : '') + (k === TODAY ? ' tdy' : '');
-        const tip = fmtLong(k) + (holidayOf(k) ? ', ' + holidayOf(k) : '') + (lv ? ', on leave' : '') + ({ ok: ', approved', sub: ', submitted', back: ', update requested' }[st] || '');
+        const tip = fmtLong(k) + (holidayOf(k) ? ', ' + holidayOf(k) : '') + (lv ? ', on leave' : '') + ({ saved: ', saved (not submitted)', sub: ', submitted', back: ', update requested', lv: ', on leave' }[st] || '');
         return html`<button key=${k} className=${cls} title=${tip} aria-label=${tip} aria-pressed=${k === sel} onClick=${() => onPick(k)}>${fromKey(k).getDate()}${lv ? html`<i className="lv"></i>` : null}</button>`;
       })}
     </div>
@@ -1871,11 +1884,11 @@ function Calendar3({ emp, cursor, sel, rangeFn, onPick, onShift, onToday }) {
       <button className="btn sm" aria-label="Later months" onClick=${() => onShift(1)}>›</button></div>
     <div className="cal3">${months.map((m, i) => html`<${MiniMonth} key=${m} month=${m} emp=${emp} sel=${sel} inRange=${rangeFn} onPick=${onPick} extraClass=${i === 1 ? '' : 'side'} />`)}</div>
     <div className="legend">
-      <span><i className="lg off"></i>Weekend or holiday</span>
+      <span><i className="lg saved"></i>Saved</span>
       ${appr ? html`<span><i className="lg sub"></i>Submitted</span>` : null}
-      ${appr ? html`<span><i className="lg ok"></i>Approved</span>` : null}
       ${appr ? html`<span><i className="lg back"></i>Update requested</span>` : null}
-      <span><i className="lg lvd"></i>Leave</span>
+      <span><i className="lg lv"></i>Leave</span>
+      <span><i className="lg selx"></i>Selected</span>
     </div>
   </section>`;
 }
@@ -2114,6 +2127,52 @@ function SubmitBar({ emp, ws }) {
   </div>`;
 }
 const TPL_COLS = ['Date', 'Start time', 'End time', 'Hours', 'Location', 'Project code', 'Description'];
+// confirm what a Submit from the view bar will send: the periods in view that have saved changes
+function SubmitViewModal({ emp, view, label, days, onClose }) {
+  const { store, update, notify } = useApp();
+  const mgr = emp.mgr ? EMAP[emp.mgr] : null;
+  const weeks = Array.from(new Set(days.map(mondayOf))).filter(ws => !weekDays(ws).every(k => isLocked(store, k)));
+  const cands = weeks.map(ws => ({ ws, w: readWeek(store, emp.id, ws) })).filter(x => ['draft', 'rejected'].includes(x.w.status) && (Object.keys(x.w.dirty || {}).length || Object.values(x.w.entries).some(l => l.length)));
+  const changes = cands.filter(x => x.w.baseline || x.w.status === 'rejected');
+  const onlyChanges = cands.length > 0 && changes.length === cands.length;
+  const changedDays = cands.flatMap(x => Object.keys(x.w.dirty || {})).sort();
+  const extraDays = view === 'day' ? cands.flatMap(x => weekDays(x.ws).filter(k => k !== days[0] && (x.w.entries[k] || []).length && !(x.w.dirty && x.w.dirty[k] === undefined && x.w.baseline))) : [];
+  const go = () => { update(s => cands.forEach(x => submitWeek(s, emp.id, x.ws, emp.name, onlyChanges ? 'Changes resubmitted' : 'Submitted'))); notify((onlyChanges ? 'Changes resubmitted to ' : 'Sent to ') + (mgr ? mgr.name : 'Payroll') + ' for approval'); onClose(); };
+  return html`<${Modal} title=${'Submit ' + label + '?'} onClose=${onClose} footer=${cands.length ? [html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="s" className="btn primary" onClick=${go}>${onlyChanges ? 'Resubmit changes' : 'Submit for approval'}</button>`] : [html`<button key="c" className="btn" onClick=${onClose}>OK</button>`]}>
+    ${!cands.length ? html`<div>Nothing new to submit in this ${view}. Everything here is already sent, or there are no entries yet.</div>`
+      : onlyChanges ? html`<div><div style=${{ marginBottom: '8px' }}>Only your changes will be resubmitted:</div>${changedDays.map(k => html`<div key=${k} className="ul-row" style=${{ cursor: 'default' }}><span>${fmtLong(k)}</span><span className="chip">Saved</span></div>`)}<div className="small muted" style=${{ marginTop: '8px' }}>They go to ${mgr ? mgr.name : 'Payroll'} first, then Payroll. Everything else stays as it was approved.</div></div>`
+      : html`<div><div style=${{ marginBottom: '8px' }}>This sends your timesheet for <b style=${{ fontWeight: 500 }}>${label}</b> to ${mgr ? mgr.name : 'Payroll'} for approval${changes.length ? ', including your changes to ' + changedDays.map(fmtShort).join(', ') : ''}.</div>
+          ${cands.map(x => html`<div key=${x.ws} className="ul-row" style=${{ cursor: 'default' }}><span>Week of ${weekRange(x.ws)}</span><span className="muted small">${dur(Object.values(x.w.entries).reduce((t, l) => t + sumMins(l), 0))} logged</span></div>`)}
+          ${view === 'day' && extraDays.length ? html`<div className="small muted" style=${{ marginTop: '8px' }}>Approvals go week by week, so the rest of that week goes too.</div>` : null}</div>`}
+  <//>`;
+}
+/* ---- Excel helpers: download a date range of the timesheet, and the upload template ---- */
+function saveXlsx(rows, name, sheet) {
+  if (typeof XLSX === 'undefined') return false;
+  try { const ws = XLSX.utils.aoa_to_sheet(rows); ws['!cols'] = rows[0].map((h, i) => ({ wch: Math.min(48, Math.max(10, ...rows.map(r => String(r[i] || '').length)) + 2) })); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, sheet || 'Timesheet'); XLSX.writeFile(wb, name); return true; } catch (e) { return false; }
+}
+function tplRows(store) {
+  const d0 = THIS_WEEK, pj = store.settings.projectsOn ? store.settings.projects[0].code : '';
+  return [TPL_COLS, [d0, '09:30', '11:00', '', 'Office', pj, 'Sprint planning'], [d0, '11:00', '13:00', '', 'Office', pj, 'Payroll API work'], [addDays(d0, 1), '', '', '2:30', 'Home', pj, 'Code review (hours only)'], [addDays(d0, 1), '22:00', '01:00', '', 'Client: Brightline', pj, 'Release cutover (ends next day)']];
+}
+function DownloadModal({ emp, onClose }) {
+  const { store, notify } = useApp();
+  const [preset, setPreset] = useState('week');
+  const [from, setFrom] = useState(THIS_WEEK); const [to, setTo] = useState(addDays(THIS_WEEK, 6));
+  const pick = v => { setPreset(v); if (v === 'week') { setFrom(THIS_WEEK); setTo(addDays(THIS_WEEK, 6)); } if (v === 'month') { setFrom(firstOf(monthOf(TODAY))); setTo(addDays(firstOf(addMonths(monthOf(TODAY), 1)), -1)); } if (v === 'last') { const m = addMonths(monthOf(TODAY), -1); setFrom(firstOf(m)); setTo(addDays(firstOf(monthOf(TODAY)), -1)); } };
+  const err = !from || !to ? 'Pick both dates.' : from > to ? 'The end date is before the start date.' : daysBetween(from, to) > 366 ? 'Pick a range of up to a year.' : '';
+  const rows = [TPL_COLS.concat(['Status'])]; let n = 0, mins = 0;
+  if (!err) for (let k = from; k <= to; k = addDays(k, 1)) { const w = readWeek(store, emp.id, mondayOf(k)); const st = WEEK_STATUS[weekStatusKey(w)]; entriesOn(store, emp.id, k).slice().sort(byStart).forEach(e => { n++; mins += entryMins(e); rows.push([k, e.start || '', e.end || '', fmtH(entryMins(e)), e.isBreak ? 'Break' : e.loc === 'client' ? 'Client: ' + (e.client || '') : e.loc ? LOCS[e.loc] : 'Office', e.project || '', e.isBreak ? 'Break' + (e.desc ? ': ' + e.desc : '') : e.desc, w.dirty && w.dirty[k] ? 'Saved' : st ? st.label : '']); }); }
+  const dl = () => { notify(saveXlsx(rows, 'timesheet-' + from + '-to-' + to + '.xlsx') ? 'Downloading ' + n + ' entries as Excel' : 'Excel download isn\u2019t available here. Use Copy rows instead.'); };
+  const copy = () => { try { navigator.clipboard.writeText(rows.map(r => r.join('\t')).join('\n')); notify('Copied. Paste it into Excel.'); } catch (e) { notify('Couldn\u2019t copy'); } };
+  return html`<${Modal} wide title="Download timesheet" onClose=${onClose} footer=${[html`<span key="n" className="small muted" style=${{ marginRight: 'auto' }}>${err || n + ' entries \u00b7 ' + dur(mins) + ' logged'}</span>`, html`<button key="c" className="btn" disabled=${!!err || !n} onClick=${copy}>Copy rows</button>`, html`<button key="d" className="btn primary" disabled=${!!err || !n} onClick=${dl}>Download Excel</button>`]}>
+    <div className="field"><label>Date range</label><${Seg} label="Date range" value=${preset} onChange=${pick} options=${[['week', 'This week'], ['month', 'This month'], ['last', 'Last month'], ['custom', 'Custom']]} /></div>
+    <div className="row" style=${{ flexWrap: 'nowrap', marginBottom: '10px' }}><div className="field" style=${{ flex: 1 }}><label htmlFor="dlf">From</label><input id="dlf" className="input" type="date" value=${from} onChange=${e => { setFrom(e.target.value); setPreset('custom'); }} /></div><div className="field" style=${{ flex: 1 }}><label htmlFor="dlt">To</label><input id="dlt" className="input" type="date" value=${to} onChange=${e => { setTo(e.target.value); setPreset('custom'); }} /></div></div>
+    ${!err && n ? kids(html`<div className="scroll-x panel" style=${{ maxHeight: '280px', overflowY: 'auto' }}><table><thead><tr>${rows[0].map(c => html`<th key=${c}>${c}</th>`)}</tr></thead><tbody>${rows.slice(1, 13).map((r, i) => html`<tr key=${i}>${r.map((c, j) => html`<td key=${j} className=${c ? '' : 'muted'}>${c || '\u2014'}</td>`)}</tr>`)}</tbody></table></div>
+      ${n > 12 ? html`<div className="small muted" style=${{ marginTop: '6px' }}>Showing 12 of ${n} rows. The file has them all.</div>` : null}`) : !err ? html`<div className="small muted">No entries in this range.</div>` : null}
+    <div className="small muted" style=${{ marginTop: '8px' }}>The file uses the same columns as the upload template (plus Status), so you can edit it and upload it back.</div>
+  <//>`;
+}
 function TemplateModal({ onClose }) {
   const { store, notify } = useApp();
   const d0 = THIS_WEEK, pj = store.settings.projectsOn ? store.settings.projects[0].code : '';
@@ -2139,9 +2198,15 @@ function UploadModal({ emp, onClose }) {
   const [file, setFile] = useState(''); const [res, setRes] = useState(null);
   const projOn = store.settings.projectsOn, codes = store.settings.projects.map(p => p.code);
   const alias = { date: 'Date', day: 'Date', start: 'Start time', 'start time': 'Start time', from: 'Start time', end: 'End time', 'end time': 'End time', to: 'End time', hours: 'Hours', duration: 'Hours', project: 'Project code', 'project code': 'Project code', code: 'Project code', description: 'Description', task: 'Description', work: 'Description', notes: 'Description', location: 'Location', 'work location': 'Location', 'working from': 'Location', where: 'Location' };
-  const read = f => { setFile(f.name); const r = new FileReader(); r.onload = () => setRes(analyse(String(r.result))); r.readAsText(f); };
-  const analyse = text => {
-    const rows = parseCsv(text); if (!rows.length) return { error: 'The file is empty.' };
+  const [showTpl, setShowTpl] = useState(false);
+  const read = f => { setFile(f.name); const r = new FileReader();
+    if (/\.csv$/i.test(f.name)) { r.onload = () => setRes(analyse(parseCsv(String(r.result)))); r.readAsText(f); return; }
+    if (typeof XLSX === 'undefined') { setRes({ error: 'Excel files can\u2019t be read here right now. Save the sheet as CSV and upload that instead.' }); return; }
+    r.onload = () => { try { const wb = XLSX.read(new Uint8Array(r.result), { type: 'array' }); const ws = wb.Sheets[wb.SheetNames[0]]; setRes(analyse(XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, dateNF: 'yyyy-mm-dd', defval: '' }).map(row => row.map(c => String(c).trim())))); } catch (e) { setRes({ error: 'That file couldn\u2019t be read. Use the template and save it as .xlsx.' }); } };
+    r.readAsArrayBuffer(f); };
+  const dlTemplate = () => { if (saveXlsx(tplRows(store), 'timesheet-template.xlsx', 'Template')) notify('Template downloaded'); else setShowTpl(true); };
+  const analyse = rowsIn => {
+    const rows = rowsIn.filter(r => r.some(c => String(c || '').trim())); if (!rows.length) return { error: 'The file is empty.' };
     const map = rows[0].map(h => alias[h.toLowerCase()] || null);
     const has = c => map.includes(c);
     if (!has('Date') || !has('Description') || !(has('Hours') || (has('Start time') && has('End time')))) return { error: 'Missing columns. The file needs Date, Description, and either Hours or Start time + End time. Download the template to get the right columns.', map };
@@ -2178,9 +2243,11 @@ function UploadModal({ emp, onClose }) {
     return { rows: out, map };
   };
   const ok = res && res.rows ? res.rows.filter(r => r.ok) : [];
-  const doImport = () => { update(s => { ok.forEach(r => { const w = markEdited(s, emp.id, mondayOf(r.d), emp.name); w.entries[r.d] = (w.entries[r.d] || []).concat([Object.assign({ id: 'e' + (s.seq++) }, r.entry)]); }); }); notify('Imported ' + ok.length + ' entr' + (ok.length === 1 ? 'y' : 'ies') + '. Submit when you’re ready.'); onClose(); };
+  const doImport = () => { update(s => { ok.forEach(r => { const w = markEdited(s, emp.id, mondayOf(r.d), emp.name, r.d); w.entries[r.d] = (w.entries[r.d] || []).concat([Object.assign({ id: 'e' + (s.seq++) }, r.entry)]); }); }); notify('Imported ' + ok.length + ' entr' + (ok.length === 1 ? 'y' : 'ies') + '. Submit when you’re ready.'); onClose(); };
   return html`<${Modal} wide title="Upload timesheet" onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="i" className="btn primary" disabled=${!ok.length} onClick=${doImport}>${ok.length ? 'Import ' + ok.length + ' entr' + (ok.length === 1 ? 'y' : 'ies') : 'Import'}</button>`]}>
-    <div className="field"><label htmlFor="upf">CSV file (from the template)</label><input id="upf" className="input" type="file" accept=".csv,text/csv" onChange=${e => e.target.files && e.target.files[0] && read(e.target.files[0])} /></div>
+    <div className="field"><div className="tpl-strip"><span className="small">Fill in the template, then upload it here. Each row is one entry.</span><span className="spacer"></span><button className="btn sm" onClick=${dlTemplate}>Download template</button></div>
+    ${showTpl ? html`<div className="small muted" style=${{ marginBottom: '10px' }}>The download didn\u2019t start here, so these are the template columns: <b style=${{ fontWeight: 500 }}>${TPL_COLS.join(', ')}</b>.</div>` : null}
+    <label htmlFor="upf">Excel file (.xlsx) from the template. CSV works too.</label><input id="upf" className="input" type="file" accept=".xlsx,.xls,.csv" onChange=${e => e.target.files && e.target.files[0] && read(e.target.files[0])} /></div>
     ${res && res.error && html`<div className="banner red"><div>${res.error}</div></div>`}
     ${res && res.map && html`<div className="small muted" style=${{ marginBottom: '8px' }}>Matched columns: ${res.map.map((m, i) => m || '(ignored)').join(' · ')}</div>`}
     ${res && res.rows && html`<div>
@@ -2195,6 +2262,7 @@ function UploadModal({ emp, onClose }) {
 function MyTimesheet({ emp, initDate, onGoTab }) {
   const { store, update, notify } = useApp();
   const [tpl, setTpl] = useState(false);
+  const [subAsk, setSubAsk] = useState(false);
   const [up, setUp] = useState(false);
   const [view, setView] = useState('week');
   const [cursor, setCursor] = useState(initDate || TODAY);
@@ -2222,13 +2290,13 @@ function MyTimesheet({ emp, initDate, onGoTab }) {
   const save = (k, entry) => {
     if (draft && draft.ws === mondayOf(k)) { setDraft(prev => { const d = clone(prev); const list = d.entries[k] || []; d.entries[k] = entry.id ? list.map(e => e.id === entry.id ? entry : e) : list.concat([Object.assign({}, entry, { id: 'n' + Date.now() })]); return d; }); return; }
     update(s => {
-      const w = markEdited(s, emp.id, mondayOf(k), emp.name); const list = w.entries[k] || [];
+      const w = markEdited(s, emp.id, mondayOf(k), emp.name, k); const list = w.entries[k] || [];
       w.entries[k] = entry.id ? list.map(e => e.id === entry.id ? entry : e) : list.concat([Object.assign({}, entry, { id: 'e' + (s.seq++) })]);
     });
   };
   const del = (k, id) => {
     if (draft && draft.ws === mondayOf(k)) { setDraft(prev => { const d = clone(prev); d.entries[k] = (d.entries[k] || []).filter(e => e.id !== id); return d; }); return; }
-    update(s => { const w = markEdited(s, emp.id, mondayOf(k), emp.name); w.entries[k] = (w.entries[k] || []).filter(e => e.id !== id); });
+    update(s => { const w = markEdited(s, emp.id, mondayOf(k), emp.name, k); w.entries[k] = (w.entries[k] || []).filter(e => e.id !== id); });
   };
   const p = periodOf(store, emp, view, cursor, entriesFor);
   const step = n => { setSel(null); setCursor(view === 'day' ? addDays(cursor, n) : view === 'week' ? addDays(cursor, 7 * n) : firstOf(addMonths(monthOf(cursor), n))); };
@@ -2257,14 +2325,14 @@ function MyTimesheet({ emp, initDate, onGoTab }) {
   else if (fweek.status === 'submitted') statusLine = 'With ' + mgrName + (lastSub ? ' since ' + fmtShort(lastSub.at) : '') + '. You can still edit it, but it goes back to draft and needs submitting again.';
   else if (fweek.status === 'with_payroll') statusLine = 'Approved by ' + mgrName + ', now with Payroll. Editing moves it back to draft.';
   else statusLine = 'Approved. You can still edit it until payroll is processed; edits need submitting again.';
-  if (appr && !allLocked) actions = html`<${SubmitBar} emp=${emp} ws=${fws} />`;
+  actions = null; // submitting happens from the view bar
 
   // timesheet notices: things that need the employee's attention, across all weeks
   const notices = [];
-  const openWeek = ws => { setDraft(null); setView('week'); setCursor(ws); setSel(null); };
+  const openWeek = (ws, day) => { setDraft(null); const w = store.weeks[emp.id + '|' + ws]; const d = day || (w && w.dirty && Object.keys(w.dirty).sort()[0]) || weekDays(ws).find(k => !isOff(k)) || ws; setView('day'); setCursor(d); setSel(null); };
   if (appr) Object.keys(store.weeks).filter(x => x.startsWith(emp.id + '|')).sort().forEach(x => { const ws = x.split('|')[1]; const w = store.weeks[x]; if (ws === fws) return;
-    if (w.status === 'rejected') notices.push({ id: 'sb' + ws, tone: 'back', title: 'Week of ' + fmtShort(ws) + ' sent back', text: w.comment, btn: 'Open week', go: () => openWeek(ws) });
-    else if (w.change) notices.push({ id: 'ch' + ws, tone: 'info', title: 'Change waiting · week of ' + fmtShort(ws), text: 'With ' + (mgr ? mgr.name : 'HR') + '. ' + w.change.reason, btn: 'Open week', go: () => openWeek(ws) }); });
+    if (w.status === 'rejected') notices.push({ id: 'sb' + ws, tone: 'back', title: 'Week of ' + fmtShort(ws) + ' sent back', text: w.comment, btn: 'Go to day', go: () => openWeek(ws) });
+    else if (w.change) notices.push({ id: 'ch' + ws, tone: 'info', title: 'Change waiting · week of ' + fmtShort(ws), text: 'With ' + (mgr ? mgr.name : 'HR') + '. ' + w.change.reason, btn: 'Go to day', go: () => openWeek(ws) }); });
   { const pd = store.settings.mode === 'both' ? openSessionBefore(store, emp, TODAY) : null; if (pd && onGoTab) notices.push({ id: 'open' + pd, tone: 'info', title: 'Still checked in from ' + fmtDate(pd), text: 'Check out of that day before you check in today, then request a correction if needed.', btn: 'Go to attendance', go: () => onGoTab('attendance') }); }
   { let n = 0, m = 0; for (let i = 1; i <= 35; i++) { const d = addDays(TODAY, -i); if (isLocked(store, d)) continue; const o = otSuggestion(store, emp, d); if (o && !otRequestFor(store, emp.id, d)) { n++; m += o.extra; } }
     if (n && onGoTab) notices.push({ id: 'ot', tone: 'amber', title: dur(m) + ' of overtime not claimed', text: n + ' day' + (n === 1 ? '' : 's') + ' beyond your standard hours.', btn: 'Review overtime', go: () => onGoTab('overtime') }); }
@@ -2295,9 +2363,10 @@ function MyTimesheet({ emp, initDate, onGoTab }) {
       <button className="btn sm" aria-label="Previous" onClick=${() => step(-1)}>‹</button>
       <span className="range">${p.label}</span>
       <button className="btn sm" aria-label="Next" onClick=${() => step(1)}>›</button>
+      ${appr ? html`<button className="btn sm primary" onClick=${() => setSubAsk(true)}>Submit</button>` : null}
       <span className="spacer"></span>
       <span className="small" style=${{ color: 'var(--ink-2)' }}>Logged <b style=${{ fontWeight: 500 }}>${dur(totLogged)}</b> of ${dur(totWorked)} ${ofWord}${unknownDays ? ' (' + unknownDays + ' day' + (unknownDays === 1 ? '' : 's') + ' not known)' : ''}</span>
-      <button className="btn sm" onClick=${() => setTpl(true)}>Download template</button>
+      <button className="btn sm" onClick=${() => setTpl(true)}>Download timesheet</button>
       <button className="btn sm" onClick=${() => setUp(true)}>Upload timesheet</button>
       ${editingThis && html`<span className="chip amber">Editing a change</span>`}
       ${showProposed && fweek.change && !editingThis && html`<span className="chip amber">Showing your proposed changes</span>`}
@@ -2311,7 +2380,8 @@ function MyTimesheet({ emp, initDate, onGoTab }) {
         setDraft(null); setAskReason(false); notify('Change sent to ' + (mgr ? mgr.name : 'HR')); }} />`}
     ${otModal && html`<${OvertimeModal} emp=${emp} prefill=${otModal} onClose=${() => setOtModal(null)} />`}
     ${fix && html`<${AttendanceFixModal} emp=${emp} k=${fix.k} prefill=${fix.prefill} onClose=${() => setFix(null)} />`}
-    ${tpl && html`<${TemplateModal} onClose=${() => setTpl(false)} />`}
+    ${tpl && html`<${DownloadModal} emp=${emp} onClose=${() => setTpl(false)} />`}
+    ${subAsk && html`<${SubmitViewModal} emp=${emp} view=${view} label=${p.label} days=${p.days} onClose=${() => setSubAsk(false)} />`}
     ${up && html`<${UploadModal} emp=${emp} onClose=${() => setUp(false)} />`}
   </div>`;
 }
@@ -2848,7 +2918,7 @@ function OvTimesheet({ emp, wide, go }) {
   const logged = sumMins(list), exp = expectedFor(store, emp, TODAY);
   const win = dayWindow(store, emp, TODAY);
   const mgr = emp.mgr ? EMAP[emp.mgr] : null;
-  const save = (k, entry) => update(s => { const w = markEdited(s, emp.id, mondayOf(k), emp.name); w.entries[k] = (w.entries[k] || []).concat([Object.assign({}, entry, { id: 'e' + (s.seq++) })]); });
+  const save = (k, entry) => update(s => { const w = markEdited(s, emp.id, mondayOf(k), emp.name, k); w.entries[k] = (w.entries[k] || []).concat([Object.assign({}, entry, { id: 'e' + (s.seq++) })]); });
   const weekLine = !appr ? 'Approval is off for timesheets.' : week.status === 'draft' && !week.change ? 'This week auto-submits to ' + (mgr ? mgr.name : 'HR') + ' on ' + fmtDate(submitDateOf(store, THIS_WEEK)) + '.' : 'This week: ' + WEEK_STATUS[weekStatusKey(week)].label.toLowerCase() + '.';
   return html`<section className=${'panel pad ov-card' + (wide ? ' ov-wide' : '')} aria-label="Today's timesheet">
     <div className="row"><h3>Timesheet</h3><span className="spacer"></span><button className="btn link small" onClick=${() => go('time', { tab: 'timesheet', date: TODAY })}>Full timesheet ›</button></div>
@@ -2942,7 +3012,7 @@ const OvIcon = {
   pay: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>`,
   doc: html`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4M9 13h6M9 17h4"/></svg>`,
 };
-function OvCards({ emp, go }) {
+function OvCards({ emp, go, isManager }) {
   const { store } = useApp();
   const mine = t => store.requests.filter(r => r.empId === emp.id && r.type === t);
   const pend = t => mine(t).filter(r => r.status === 'pending_l1' || r.status === 'pending_l2');
@@ -2957,6 +3027,7 @@ function OvCards({ emp, go }) {
     { k: 'ot', icon: OvIcon.ot, label: 'Overtime', value: dur(otApproved) + ' approved', sub: 'in ' + MON_LONG[+m.slice(5) - 1] + ', ' + plural(pend('overtime').length, 'request') + ' waiting', go: ['time', { tab: 'overtime' }] },
     { k: 'pay', icon: OvIcon.pay, label: 'Payslips', value: 'Not in this prototype', sub: 'Coming in a later service', dim: true },
     { k: 'doc', icon: OvIcon.doc, label: 'Documents', value: 'Not in this prototype', sub: 'Coming in a later service', dim: true },
+    ...(isManager ? [(() => { const reports = EMP.filter(e => e.mgr === emp.id).map(e => e.id); const n = (approvalOn(store) ? teamTimesheetItems(store, emp.id).length : 0) + store.requests.filter(r => reports.includes(r.empId) && r.status === 'pending_l1' && reqVisible(store, r)).length; return { k: 'team', icon: Icon.mgr, label: 'My team', value: n ? n + ' waiting for you' : 'All caught up', sub: reports.length + ' direct reports', go: ['team'] }; })()] : []),
   ];
   return html`<section className="ov-cards" aria-label="Shortcuts">${cards.map(c => html`<button key=${c.k} className=${'ov-sc' + (c.dim ? ' dim' : '')} disabled=${!!c.dim} onClick=${() => c.go && go(...c.go)}>
     <span className="ov-sc-i">${c.icon}</span><span className="ov-sc-l">${c.label}</span><b>${c.value}</b><span className="ov-sc-s">${c.sub}</span></button>`)}</section>`;
@@ -2968,7 +3039,7 @@ function Home({ emp, isManager, go }) {
     <${OvProfile} emp=${emp} go=${go} />
     ${mode !== 'timesheet' && html`<${OvAttendance} emp=${emp} wide=${mode === 'attendance'} go=${go} />`}
     ${mode !== 'attendance' && html`<${OvTimesheet} emp=${emp} wide=${mode === 'timesheet'} go=${go} />`}
-    <${OvCards} emp=${emp} go=${go} />
+    <${OvCards} emp=${emp} go=${go} isManager=${isManager} />
     <${OvTable} emp=${emp} go=${go} />
     <${OvNotifications} emp=${emp} isManager=${isManager} go=${go} />
   </div>`;

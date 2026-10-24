@@ -27,9 +27,8 @@ import {
 } from '@src/domains/dashboard/corporateCards/utils/activeRole';
 // import { ComingSoon } from '@src/domains/dashboard/MoreServices/utils/data';
 import { useAppSelector } from '@src/hooks/store';
-import { EMPLOYEES } from '@src/prototype/mocks/data/employees';
 import { atsSettings } from '@src/prototype/mocks/store/atsStore';
-import { teamApprovalCounts } from '@src/prototype/mocks/store/atsTeam';
+import { teamWaiting } from '@src/prototype/mocks/store/atsTeam';
 import { ESS_EMPLOYEE_GROUP, ESS_MANAGER_GROUP, essSubItems } from '@src/prototype/persona/essNav';
 import { ESS_TABS } from '@src/prototype/persona/essPersonas';
 import { paths } from '@src/routes/paths';
@@ -505,13 +504,7 @@ export function useNavData() {
                     // PROTOTYPE-SETUP (Overview, Slice 3): ESS - Employee expands into its pages. PROTOTYPE-SETUP
                     // (My team, Slice 5): so does ESS - Manager (the same pages), and "My team" shows only for someone
                     // with direct reports, with a badge of what's waiting for them.
-                    const {persona} = essTab;
-                    const hasReports = dataMode !== 'empty' && EMPLOYEES.some(e => e.managerEmployeeId === persona.employeeId);
-                    let myTeam: { waiting: number } | null = null;
-                    if (hasReports) {
-                        const c = teamApprovalCounts(dataMode, persona);
-                        myTeam = { waiting: c.timesheets + c.attendance + c.overtime + c.leave + c.reimbursement };
-                    }
+                    const myTeam = teamWaiting(dataMode, essTab.persona);
                     const subItems = essSubItems(atsSettings.get(dataMode).mode, route, myTeam);
                     const activeSub = subItems
                         .filter(s => location.pathname === s.key || location.pathname.startsWith(`${s.key}/`))

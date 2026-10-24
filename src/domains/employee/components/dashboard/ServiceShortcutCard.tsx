@@ -13,6 +13,8 @@ interface ServiceShortcutCardProps {
     iconSize?: number;
     // PROTOTYPE-SETUP (Overview v5, Slice 2): extra classes for the title (e.g. a wider title for a long name).
     titleClassName?: string;
+    // PROTOTYPE-SETUP (My team: overview entry points): an 80×80 tile and a slightly smaller title, so seven fit one row.
+    compact?: boolean;
 }
 
 // Matches the Payroll dashboard's quick-access card size (96x96, 40px icon), on a
@@ -24,6 +26,7 @@ const ServiceShortcutCard: React.FC<ServiceShortcutCardProps> = ({
     count,
     iconSize = 60,
     titleClassName = '',
+    compact = false,
 }) => {
     const { useBreakpoint } = Grid;
     const screens = useBreakpoint();
@@ -45,7 +48,7 @@ const ServiceShortcutCard: React.FC<ServiceShortcutCardProps> = ({
                     className="transition duration-300 transform cursor-pointer hover:scale-105"
                 >
                     <Flex
-                        className="w-24 h-24 rounded-3xl"
+                        className={compact ? 'w-20 h-20 rounded-3xl' : 'w-24 h-24 rounded-3xl'}
                         style={{ backgroundColor: '#F9F6F5' }}
                         align="center"
                         justify="center"
@@ -62,7 +65,9 @@ const ServiceShortcutCard: React.FC<ServiceShortcutCardProps> = ({
                             src={icon}
                         />
                     </Flex>
-                    <Typography.Text className={`text-[.65rem] text-center sm:text-[0.875rem] line-clamp-2 pt-1 sm:pt-3 ${titleClassName}`}>
+                    <Typography.Text
+                        className={`text-[.65rem] text-center ${compact ? 'sm:text-[0.8rem] sm:pt-2' : 'sm:text-[0.875rem] sm:pt-3'} line-clamp-2 pt-1 ${titleClassName}`}
+                    >
                         {title}
                     </Typography.Text>
                 </Flex>

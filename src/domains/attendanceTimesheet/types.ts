@@ -856,7 +856,7 @@ export interface MyProfileView {
 // ---- ESS - Employee Overview (PROTOTYPE-SETUP: Overview, Slice 3) ----------------------------------------------
 
 /** Where an Overview link goes: a tab of the Attendance & Timesheet section (optionally on a day), or a page. */
-export type OverviewLink = { tab: AtsTab; date?: string } | { page: 'leaves' | 'reimbursements' | 'profile' };
+export type OverviewLink = { tab: AtsTab; date?: string } | { page: 'leaves' | 'reimbursements' | 'profile' | 'my-team/approvals' };
 
 /** One row of "Recent days" (this week and last week, up to today). */
 export interface OverviewDay {
@@ -876,7 +876,8 @@ export interface OverviewDay {
 export interface OverviewAction {
     /** PROTOTYPE-SETUP (Final batch, Slice 5): 'late' — a late check-in deduction in the last 7 days. */
     /** PROTOTYPE-SETUP (My team, Slice 2): 'update' — an approver asked the employee to update a request. */
-    kind: 'sent-back' | 'still-checked-in' | 'overtime' | 'late' | 'update';
+    /** PROTOTYPE-SETUP (My team: overview entry points): 'team' — items waiting for the manager's approval. */
+    kind: 'sent-back' | 'still-checked-in' | 'overtime' | 'late' | 'update' | 'team';
     title: string;
     text: string;
     button: string;
@@ -906,6 +907,8 @@ export interface EssHomeView {
     requests: OverviewRequest[];
     /** The office holiday (first, when there is one) carries its date. */
     announcements: { title: string; text: string; date?: string }[];
+    /** PROTOTYPE-SETUP (My team: overview entry points): for someone with direct reports — what's waiting for them. */
+    myTeam: { waiting: number } | null;
 }
 
 export interface ApprovalCounts {

@@ -56,7 +56,9 @@ import {
     sendBackWeek,
     teamAttendance,
     teamLeave,
+    teamApprovalCounts,
     teamOf,
+    teamWaiting,
     teamRequests,
     teamToday,
     teamWeekGrid,
@@ -1190,5 +1192,23 @@ describe('my team: team attendance and leave calendar', () => {
         const mine = v.rows.find(r => r.employee.id === sneha.id)!.leave;
         expect(mine.find(l => l.start === d)).toMatchObject({ state: 'pending', half: 'SECOND' });
         expect(v.rows.flatMap(r => r.leave).every(l => l.state === 'approved' || l.state === 'pending')).toBe(true);
+    });
+});
+
+// PROTOTYPE-SETUP (My team: overview entry points): the manager's Overview tile and notification; nothing for others.
+describe('my team: overview entry points', () => {
+    it('a manager with items waiting: the count (same as the inbox) and the first Needs-your-action item', () => {
+        const h = homeOf(M, arjun);
+        const c = teamApprovalCounts(M, arjun);
+        const total = c.timesheets + c.attendance + c.overtime + c.leave + c.reimbursement;
+        expect(total).toBeGreaterThan(0);
+        expect(h.myTeam).toEqual({ waiting: total });
+        expect(teamWaiting(M, arjun)).toEqual({ waiting: total });
+        expect(h.actions[0]).toMatchObject({ kind: 'team', title: `${total} waiting for your approval`, button: 'Open My team', link: { page: 'my-team/approvals' } });
+    });
+    it('someone without direct reports: no My team at all', () => {
+        const h = homeOf(M, sneha);
+        expect(h.myTeam).toBeNull();
+        expect(h.actions.some(a => a.kind === 'team')).toBe(false);
     });
 });

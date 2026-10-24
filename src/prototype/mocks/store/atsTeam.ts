@@ -478,6 +478,16 @@ export const teamRequests = (mode: DataMode, manager: MockEmployee, type: Reques
         .sort(byWaitingThenNewest);
 };
 
+/**
+ * PROTOTYPE-SETUP (My team: overview entry points): what's waiting for a manager (the Approvals inbox's total) — the
+ * sidebar badge, the Overview tile and notification. null for someone without direct reports.
+ */
+export const teamWaiting = (mode: DataMode, manager: MockEmployee): { waiting: number } | null => {
+    if (!teamOf(mode, manager).length) return null;
+    const c = teamApprovalCounts(mode, manager);
+    return { waiting: c.timesheets + c.attendance + c.overtime + c.leave + c.reimbursement };
+};
+
 export const teamApprovalCounts = (mode: DataMode, manager: MockEmployee): ApprovalCounts => {
     const queue = timesheetQueue(mode, manager, 'waiting');
     return {

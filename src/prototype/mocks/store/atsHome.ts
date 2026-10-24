@@ -49,6 +49,7 @@ import {
     today,
     weekOf,
 } from './atsStore';
+import { teamWaiting } from './atsTeam';
 import { MockEmployee } from '../data/employees';
 import { holidaysForYear } from '../data/time-calendar';
 import type { DataMode } from '../envelope';
@@ -175,6 +176,19 @@ const actionsOf = (mode: DataMode, e: MockEmployee): OverviewAction[] => {
             tone: 'amber',
         });
     }
+    // PROTOTYPE-SETUP (My team: overview entry points): a manager with items waiting — the very first action.
+    const team = teamWaiting(mode, e);
+    const teamAction: OverviewAction | null =
+        team && team.waiting
+            ? {
+                  kind: 'team',
+                  title: `${team.waiting} waiting for your approval`,
+                  text: 'Timesheets and requests from your team. Approve them, or ask for an update.',
+                  button: 'Open My team',
+                  link: { page: 'my-team/approvals' },
+                  tone: 'info',
+              }
+            : null;
     // PROTOTYPE-SETUP (My team, Slice 2): requests an approver asked to update — first, with the comment and "Open".
     allRequestsOf(mode, e)
         .filter(r => r.state === 'update_requested')
@@ -189,6 +203,7 @@ const actionsOf = (mode: DataMode, e: MockEmployee): OverviewAction[] => {
                 tone: 'back',
             })
         );
+    if (teamAction) actions.unshift(teamAction);
     return actions;
 };
 
@@ -346,5 +361,6 @@ export const homeOf = (mode: DataMode, e: MockEmployee): EssHomeView => {
         actions: actionsOf(mode, e),
         requests: requestsOf(mode, e),
         announcements: announcementsOf(hasTracking(settings.mode)),
+        myTeam: teamWaiting(mode, e),
     };
 };

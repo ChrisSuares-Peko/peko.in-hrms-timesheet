@@ -98,7 +98,11 @@ const EssOverviewPage = () => {
         setWeek(next);
         loadHome();
     };
-    const hrefOf = (link: OverviewLink) => ('tab' in link ? paths.section(link.tab, link.date) : `${paths.home}/${link.page}`);
+    const hrefOf = (link: OverviewLink) => {
+        if ('tab' in link) return paths.section(link.tab, link.date);
+        // PROTOTYPE-SETUP (My team: overview entry points)
+        return link.page === 'my-team/approvals' ? paths.myTeam('approvals') : `${paths.home}/${link.page}`;
+    };
 
     // In Timesheet-only mode the Timesheet card takes the Attendance slot.
     const timesheetSlot = mode === 'both' ? 'ess-ov__t' : 'ess-ov__a';
@@ -132,7 +136,9 @@ const EssOverviewPage = () => {
                                 payslips: `${paths.home}/payslips`,
                                 documents: `${paths.home}/documents`,
                                 profile: `${paths.home}/profile`,
+                                team: paths.myTeam('approvals'),
                             }}
+                            myTeam={home.myTeam}
                         />
                     </div>
                     {/* PROTOTYPE-SETUP (Overview v4, Slice 5): no Recent days when nothing is tracked. */}
