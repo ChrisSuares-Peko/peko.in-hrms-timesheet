@@ -2,8 +2,10 @@
 // (the same functions the endpoints call). Dates are relative to the real today.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { periodsToSubmit, submitKind } from '@src/domains/attendanceTimesheet/timesheet/ViewSubmitModal';
 import { DEFAULT_FILING, addDays, addMonths, daysBetween, startTrail, toMinutes, weekStartOf } from '@src/prototype/rules/attendance';
 import { findOverlaps, periodEndOf, reviewPeriod, submissionPrompt } from '@src/prototype/rules/timesheetFiling';
+
 
 import { atsScenario } from '../../data/ats-seed';
 import { findEmployee } from '../../data/employees';
@@ -32,6 +34,7 @@ import {
     submitWeek,
     timesheetPeriodsOf,
     timesheetMonthOf,
+    timesheetNoticesOf,
     updateBreakDescription,
     updateTodayBreaks,
 } from '../atsEss';
@@ -1240,5 +1243,31 @@ describe('timesheet v6: saved days', () => {
         const csv = ['Date,Start time,End time,Location,Description', `${s.today},04:00,04:30,Home,Early`].join('\n');
         importTimesheet(M, sneha, { csv });
         expect(weekView(M, sneha, s.today).week.dirtyDates).toContain(s.today);
+    });
+});
+
+describe('timesheet v6: submit from the view bar', () => {
+    it('an approved week with one edit is a "changes" resubmit; a fresh draft is a full submit; sent periods are out of scope', () => {
+        let ws = weekStartOf(s.today);
+        let { week } = weekView(M, sneha, ws);
+        for (let i = 0; i < 10 && !(week.status === 'APPROVED' && week.entries.length && !weekView(M, sneha, ws).days.some(d => d.locked)); i += 1) {
+            ws = addDays(ws, -7);
+            ({ week } = weekView(M, sneha, ws));
+        }
+        const end = addDays(ws, 6);
+        expect(periodsToSubmit(timesheetPeriodsOf(M, sneha, ws, end), s.today)).toEqual([]);
+        expect(submitKind([])).toBe('none');
+        const target = week.entries[0];
+        editEntry(M, sneha, target.id, { ...target, description: `${target.description} (fixed)` });
+        const scope = periodsToSubmit(timesheetPeriodsOf(M, sneha, ws, end), s.today);
+        expect(scope.map(v => v.week.weekStart)).toEqual([ws]);
+        expect(submitKind(scope)).toBe('changes');
+        const notice = timesheetNoticesOf(M, sneha).weeks.find(w => w.weekStart === ws);
+        expect(notice?.goTo).toBe(target.date);
+    });
+    it('every notice has a day to go to', () => {
+        const n = timesheetNoticesOf(M, sneha);
+        n.weeks.forEach(w => expect(w.goTo >= w.weekStart && w.goTo <= w.periodEnd).toBe(true));
+        if (n.overtime) expect(n.overtime.goTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
 });

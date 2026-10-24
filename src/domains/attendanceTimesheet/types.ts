@@ -620,9 +620,13 @@ export interface PeriodSummary {
  */
 export interface TimesheetNotices {
     /** PROTOTYPE-SETUP (Final batch, Slice 1): 'edited' = edited after it was sent; it needs submitting again. */
-    weeks: { weekStart: string; periodEnd: string; kind: 'sent-back' | 'edited'; text: string }[];
+    /**
+     * PROTOTYPE-SETUP (Timesheet v6, Slice 3): `goTo` = the day "Go to day" opens — the first changed date, else the
+     * period's first working day (overtime: the first day with unclaimed overtime).
+     */
+    weeks: { weekStart: string; periodEnd: string; kind: 'sent-back' | 'edited'; text: string; goTo: string }[];
     openFrom?: { date: string; checkIn: string };
-    overtime?: { days: number; minutes: number };
+    overtime?: { days: number; minutes: number; goTo: string };
 }
 
 export interface TimesheetMonthView {

@@ -3,7 +3,8 @@
 // PROTOTYPE-SETUP (Timesheet filing): the card is the filing period's — a day, a week or a month, per the company's
 // frequency — with ‹ › to the previous / next period, a summary (logged time, entries) and the period's warnings
 // (overlaps, gaps over 5 minutes, entries missing details; click to review them).
-// PROTOTYPE-SETUP (Final batch, Slices 1 and 3): every change saves straight away; the one button is Submit. Lines:
+// PROTOTYPE-SETUP (Final batch, Slices 1 and 3): every change saves straight away. PROTOTYPE-SETUP (Timesheet v6,
+// Slice 3): no Submit here — it's in the view bar, for the current view. Lines:
 //   Draft ............ "Draft. Changes save automatically. Auto-submits {Friday} at {11:00 PM}."
 //   Edited ........... "Edited after it was sent. Submit again to get it re-approved. Changes save automatically. …"
 //   With manager ..... "With {manager} since {23 Oct}. You can still edit it, but it goes back to draft and needs submitting again."
@@ -12,7 +13,7 @@
 //   Update requested . "{manager} asked for an update: {comment} Update it, then submit again." (My team, Slice 1)
 //   Approval off / payroll processed: an explanation, no action.
 import { LeftOutlined, RightOutlined, WarningOutlined } from '@ant-design/icons';
-import { Button, Skeleton, Tag, Tooltip } from 'antd';
+import { Button, Skeleton, Tag } from 'antd';
 import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
@@ -71,11 +72,8 @@ export const statusLine = (view: TimesheetWeekView, today: string) => {
 export interface WeekStatusCardProps {
     view: TimesheetWeekView | null;
     today: string;
-    busy?: boolean;
     /** PROTOTYPE-SETUP (Timesheet filing): the period's checks. */
     review?: PeriodReview | null;
-    /** Submit a draft, or resubmit a sent-back period (runs the checks first). */
-    onSubmit: () => void;
     /** Previous / next filing period. */
     onStepPeriod?: (dir: 1 | -1) => void;
     /** Show the warnings (overlaps, gaps, missing details) with the entries they concern. */
@@ -86,7 +84,7 @@ export interface WeekStatusCardProps {
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-const WeekStatusCard = ({ view, today, busy, review, onSubmit, onStepPeriod, onReview, bare = false }: WeekStatusCardProps) => {
+const WeekStatusCard = ({ view, today, review, onStepPeriod, onReview, bare = false }: WeekStatusCardProps) => {
     const shell = bare ? '' : ESS_CARD;
     if (!view) {
         return (
@@ -97,7 +95,6 @@ const WeekStatusCard = ({ view, today, busy, review, onSubmit, onStepPeriod, onR
     }
     const { week, filing } = view;
     const open = week.status === 'DRAFT' || week.status === 'SENT_BACK';
-    const showSubmit = view.approvalEnabled && view.editMode !== 'locked' && filing.period.start <= today;
     const entries = week.entries.length;
     const checks = review && open ? review : null;
     const warnings = checks
@@ -144,18 +141,6 @@ const WeekStatusCard = ({ view, today, busy, review, onSubmit, onStepPeriod, onR
             <p className="my-2 break-words text-[13px] text-gray-600" data-status-line>
                 {statusLine(view, today)}
             </p>
-            {showSubmit && (
-                <div className="flex flex-col items-start gap-1.5">
-                    <Tooltip title={open ? undefined : 'Already sent for approval'}>
-                        <Button size="small" type="primary" loading={busy} disabled={!open || !view.canSubmit || busy} onClick={onSubmit} data-submit-period>
-                            Submit
-                        </Button>
-                    </Tooltip>
-                    <span className="text-[11px] leading-4 text-gray-500" data-submit-note>
-                        {submitNote(!open)}
-                    </span>
-                </div>
-            )}
         </section>
     );
 };

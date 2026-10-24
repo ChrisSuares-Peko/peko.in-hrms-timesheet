@@ -218,6 +218,12 @@ export const useTimesheetNav = ({ loadRange, initialDate, frequency }: UseTimesh
         pick,
         shiftMonths,
         toggleDay,
+        /** PROTOTYPE-SETUP (Timesheet v6, Slice 3): Notices' "Go to day" — that day, in Day view. */
+        openDay: useCallback((d: string) => {
+            setMode('day');
+            setDate(d);
+            setSelected(null);
+        }, []),
         goToday: useCallback(() => {
             setDate(today);
             setSelected(mode === 'day' ? null : today);

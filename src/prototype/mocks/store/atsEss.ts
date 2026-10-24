@@ -714,10 +714,14 @@ export const timesheetNoticesOf = (mode: DataMode, e: MockEmployee): TimesheetNo
         settings.timesheetApproval.enabled && hasTimesheets(settings.mode) && from <= t
             ? periodsBetween(mode, e, from, t).flatMap((w): TimesheetNotices['weeks'] => {
                   const periodEnd = periodEndOf(w);
-                  if (w.status === 'SENT_BACK') return [{ weekStart: w.weekStart, periodEnd, kind: 'sent-back' as const, text: w.decision?.comment ?? 'Your manager asked for an update.' }];
+                  // PROTOTYPE-SETUP (Timesheet v6, Slice 3): "Go to day" — the first changed date, else the first working day.
+                  const goTo = () =>
+                      w.dirtyDates?.[0] ?? periodDates(w).find(d => d <= t && timesheetDay(mode, e, d, entriesOn(mode, e, d)).expectedMinutes > 0) ?? w.weekStart;
+                  if (w.status === 'SENT_BACK')
+                      return [{ weekStart: w.weekStart, periodEnd, kind: 'sent-back' as const, text: w.decision?.comment ?? 'Your manager asked for an update.', goTo: goTo() }];
                   // PROTOTYPE-SETUP (Final batch, Slice 1): edited after it was sent — it needs submitting again.
                   return w.status === 'DRAFT' && editedAfterSending(w)
-                      ? [{ weekStart: w.weekStart, periodEnd, kind: 'edited' as const, text: `Edited after it was sent. Submit it again so ${manager} can re-approve it.` }]
+                      ? [{ weekStart: w.weekStart, periodEnd, kind: 'edited' as const, text: `Edited after it was sent. Submit it again so ${manager} can re-approve it.`, goTo: goTo() }]
                       : [];
               })
             : [];
@@ -726,7 +730,9 @@ export const timesheetNoticesOf = (mode: DataMode, e: MockEmployee): TimesheetNo
     return {
         weeks,
         ...(open?.checkIn ? { openFrom: { date: open.date, checkIn: open.checkIn } } : {}),
-        ...(suggestions.length ? { overtime: { days: suggestions.length, minutes: suggestions.reduce((s, x) => s + x.minutes, 0) } } : {}),
+        ...(suggestions.length
+            ? { overtime: { days: suggestions.length, minutes: suggestions.reduce((s, x) => s + x.minutes, 0), goTo: suggestions.map(x => x.date).sort()[0] } }
+            : {}),
     };
 };
 

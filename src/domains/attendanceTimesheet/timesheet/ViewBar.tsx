@@ -18,13 +18,15 @@ export interface ViewBarProps {
     expected: number;
     /** PROTOTYPE-SETUP (HR rules, Slice 3): "worked" (check-in to check-out) or "shift" (Timesheet-only mode). */
     ofWord?: 'worked' | 'shift';
-    /** Buttons at the end of the bar (Download template, Upload timesheet). */
+    /** Buttons at the end of the bar (Download timesheet, Upload timesheet). */
     actions?: ReactNode;
+    /** PROTOTYPE-SETUP (Timesheet v6, Slice 3): "Submit" for the current view, right after the date arrows. */
+    submit?: ReactNode;
     onMode: (m: TimesheetViewMode) => void;
     onStep: (dir: 1 | -1) => void;
 }
 
-const ViewBar = ({ mode, label, logged, expected, ofWord = 'worked', actions, onMode, onStep }: ViewBarProps) => (
+const ViewBar = ({ mode, label, logged, expected, ofWord = 'worked', actions, submit, onMode, onStep }: ViewBarProps) => (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
         <Segmented
             aria-label="View"
@@ -42,6 +44,7 @@ const ViewBar = ({ mode, label, logged, expected, ofWord = 'worked', actions, on
             <span className="text-sm font-medium text-gray-900">{label}</span>
             <Button size="small" icon={<RightOutlined />} aria-label="Next" onClick={() => onStep(1)} />
         </span>
+        {submit}
         <span className="hidden flex-1 sm:block" />
         <span className="basis-full text-[13px] text-gray-600 sm:basis-auto">
             Logged <b className="font-medium text-gray-900">{formatDuration(logged)}</b> of {formatDuration(expected)} {ofWord}

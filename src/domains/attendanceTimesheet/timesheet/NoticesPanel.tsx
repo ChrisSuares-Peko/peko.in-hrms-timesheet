@@ -6,6 +6,8 @@
 //   Needs your action    across ALL weeks (not the focused one), with a red "N to do" in the header: another
 //                        sent-back week / a week with a change waiting → "Open week"; still checked in from an earlier
 //                        day → "Go to attendance"; unclaimed overtime → "Review overtime" (the Overtime tab)
+//                        PROTOTYPE-SETUP (Timesheet v6, Slice 3): every item also has "Go to day" (that day, in Day
+//                        view); no Submit anywhere in Notices — it's in the view bar.
 //   Unlogged hours       "{date} · {logged} logged · {gap} missing", clickable, max 5
 //   History              collapsed to "Show N events"
 import { ReactNode, useState } from 'react';
@@ -31,6 +33,8 @@ interface Notice {
     text: string;
     button: string;
     go: () => void;
+    /** The day "Go to day" opens. */
+    day?: string;
 }
 
 const TONE: Record<Notice['tone'], string> = {
@@ -63,9 +67,11 @@ export interface NoticesPanelProps {
     onOpenWeek: (weekStart: string) => void;
     onGoTab?: (tab: AtsTab) => void;
     onPickDay: (date: string) => void;
+    /** PROTOTYPE-SETUP (Timesheet v6, Slice 3): opens the day in Day view. */
+    onGoDay: (date: string) => void;
 }
 
-const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, history, onOpenWeek, onGoTab, onPickDay }: NoticesPanelProps) => {
+const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, history, onOpenWeek, onGoTab, onPickDay, onGoDay }: NoticesPanelProps) => {
     const [showHistory, setShowHistory] = useState(false);
     const items: Notice[] = [];
     (notices?.weeks ?? [])
@@ -73,8 +79,8 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
         .forEach(w =>
             items.push(
                 w.kind === 'sent-back'
-                    ? { id: `sb-${w.weekStart}`, tone: 'back', title: `${fmtPeriod(w.weekStart, w.periodEnd)}: update requested`, text: w.text, button: openLabel(w.weekStart, w.periodEnd), go: () => onOpenWeek(w.weekStart) }
-                    : { id: `ch-${w.weekStart}`, tone: 'info', title: `Change waiting · ${fmtPeriod(w.weekStart, w.periodEnd)}`, text: w.text, button: openLabel(w.weekStart, w.periodEnd), go: () => onOpenWeek(w.weekStart) }
+                    ? { id: `sb-${w.weekStart}`, tone: 'back', title: `${fmtPeriod(w.weekStart, w.periodEnd)}: update requested`, text: w.text, button: openLabel(w.weekStart, w.periodEnd), go: () => onOpenWeek(w.weekStart), day: w.goTo }
+                    : { id: `ch-${w.weekStart}`, tone: 'info', title: `Change waiting · ${fmtPeriod(w.weekStart, w.periodEnd)}`, text: w.text, button: openLabel(w.weekStart, w.periodEnd), go: () => onOpenWeek(w.weekStart), day: w.goTo }
             )
         );
     if (notices?.openFrom && onGoTab) {
@@ -85,10 +91,11 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
             text: `Since ${displayTime(notices.openFrom.checkIn)}. Check out of that day before you check in today, then request a correction if needed.`,
             button: 'Go to attendance',
             go: () => onGoTab('attendance'),
+            day: notices.openFrom.date,
         });
     }
     if (notices?.overtime && onGoTab) {
-        const { days, minutes } = notices.overtime;
+        const { days, minutes, goTo } = notices.overtime;
         items.push({
             id: 'ot',
             tone: 'amber',
@@ -96,6 +103,7 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
             text: `${days} day${days === 1 ? '' : 's'} beyond your standard hours.`,
             button: 'Review overtime',
             go: () => onGoTab('overtime'),
+            day: goTo,
         });
     }
     const missing = unlogged ? unloggedDays(unlogged, today) : [];
@@ -123,9 +131,16 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
                                 <b className="block font-medium">{x.title}</b>
                                 <span className="block break-words text-xs opacity-90">{x.text}</span>
                             </div>
-                            <Button size="small" className="shrink-0" onClick={x.go}>
-                                {x.button}
-                            </Button>
+                            <div className="flex shrink-0 flex-col items-end gap-1">
+                                {x.day && (
+                                    <Button size="small" type="primary" ghost onClick={() => x.day && onGoDay(x.day)} data-go-day={x.day}>
+                                        Go to day
+                                    </Button>
+                                )}
+                                <Button size="small" onClick={x.go}>
+                                    {x.button}
+                                </Button>
+                            </div>
                         </div>
                     ))}
 

@@ -53,6 +53,7 @@ import './timesheet.css';
 import { useCalendarMonths } from './useCalendarMonths';
 import { isListedDay, useTimesheetNav } from './useTimesheetNav';
 import ViewBar from './ViewBar';
+import ViewSubmitModal, { periodsToSubmit, submitKind } from './ViewSubmitModal';
 import WeekStatusCard from './WeekStatusCard';
 
 export interface TimesheetTabProps {
@@ -95,6 +96,13 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
     /** PROTOTYPE-SETUP (Final batch, Slice 3): the template / upload modals. */
     const [fileModal, setFileModal] = useState<'template' | 'upload' | null>(null);
     const submitting = useRef(false);
+    /**
+     * PROTOTYPE-SETUP (Timesheet v6, Slice 3): Submit in the view bar — the confirmation (the periods in scope), then the
+     * queue of periods still to send (each runs its checks first; the head is the one being checked / sent).
+     */
+    const [viewSubmit, setViewSubmit] = useState<TimesheetWeekView[] | null>(null);
+    const [queue, setQueue] = useState<TimesheetWeekView[]>([]);
+    const sentKind = useRef<'changes' | 'full'>('full');
 
     useEffect(() => {
         getAtsSettings(scope).then(s => {
@@ -174,31 +182,64 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
 
     // ---- submission (PROTOTYPE-SETUP: Timesheet filing) ---------------------------------------------------
 
-    const review = useMemo(
-        () => (focusWeek ? reviewPeriod({ days: focusWeek.days, fields: focusWeek.filing.fields, mode: focusWeek.mode, today }) : null),
-        [focusWeek, today]
-    );
+    const reviewOf = (v: TimesheetWeekView | null | undefined) => (v ? reviewPeriod({ days: v.days, fields: v.filing.fields, mode: v.mode, today }) : null);
+    /** The focused period's checks (the card's warnings). */
+    const focusReview = useMemo(() => reviewOf(focusWeek), [focusWeek, today]); // eslint-disable-line react-hooks/exhaustive-deps
+    /** The period being submitted (the queue's head). */
+    const current = queue[0] ?? null;
+    const review = useMemo(() => reviewOf(current), [current, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const send = async (ack: SubmissionAcknowledgement) => {
-        if (!focusWeek || submitting.current) return;
+    /** Opens the confirmation for the periods in the current view. */
+    const openSubmit = () => setViewSubmit(periodsToSubmit(nav.periodWeeks, today));
+
+    /** Sends the queue's periods one by one; a warning pauses it until acknowledged (or the entries are reviewed). */
+    const runQueue = async (list: TimesheetWeekView[], ack: SubmissionAcknowledgement) => {
+        const [head, ...rest] = list;
+        if (!head) {
+            setQueue([]);
+            const to = focusWeek?.employee.managerName ?? 'Payroll';
+            toast(sentKind.current === 'changes' ? `Changes resubmitted to ${to}` : `Sent to ${to} for approval`);
+            changed();
+            return;
+        }
+        setQueue(list);
+        const kind = submissionPrompt(reviewOf(head)!, 'manual', ack);
+        if (kind) {
+            setPrompt({ kind, ack });
+            return;
+        }
+        if (submitting.current) return;
         submitting.current = true;
         setPrompt(null);
-        // PROTOTYPE-SETUP (Final batch, Slice 3): no manager (the CEO) → straight to Payroll.
-        await apply(() => submitWeek(scope, focusWeek.week.weekStart, ack), `Sent to ${focusWeek.employee.managerName ?? 'Payroll'} for approval`);
+        setBusy(true);
+        const res = await submitWeek(scope, head.week.weekStart, ack);
+        setBusy(false);
         submitting.current = false;
+        if (!res) {
+            setQueue([]);
+            return;
+        }
+        setWeek(res);
+        await runQueue(rest, {});
     };
 
-    /** Submit / Resubmit, or the next warning still to acknowledge. */
+    const confirmSubmit = () => {
+        if (!viewSubmit) return;
+        sentKind.current = submitKind(viewSubmit) === 'changes' ? 'changes' : 'full';
+        const list = viewSubmit;
+        setViewSubmit(null);
+        runQueue(list, {});
+    };
+
+    /** A warning was acknowledged ("… anyway"): carry on with the same period. */
     const advance = (ack: SubmissionAcknowledgement) => {
-        if (!review) return;
-        const kind = submissionPrompt(review, 'manual', ack);
-        if (kind) setPrompt({ kind, ack });
-        else send(ack);
+        if (queue.length) runQueue(queue, ack);
     };
 
     /** "Review entries": open the day with the entries outlined; the submission waits for another click. */
     const reviewEntries = (date: string, ids: string[]) => {
         setPrompt(null);
+        setQueue([]);
         setHighlight(new Set(ids));
         if (nav.mode === 'day') nav.setDate(date);
         else nav.pick(date);
@@ -206,12 +247,12 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
 
     /** The card's warnings link: the first thing to look at. */
     const reviewFirst = () => {
-        if (!review) return;
-        const issue = review.issues[0];
-        const overlap = review.overlaps[0];
-        const gap = review.gaps[0];
-        if (issue) reviewEntries(issue.date, review.issues.filter(i => i.date === issue.date).map(i => i.entryId));
-        else if (overlap) reviewEntries(overlap.date, review.overlaps.filter(o => o.date === overlap.date).flatMap(o => [o.a, o.b]));
+        if (!focusReview) return;
+        const issue = focusReview.issues[0];
+        const overlap = focusReview.overlaps[0];
+        const gap = focusReview.gaps[0];
+        if (issue) reviewEntries(issue.date, focusReview.issues.filter(i => i.date === issue.date).map(i => i.entryId));
+        else if (overlap) reviewEntries(overlap.date, focusReview.overlaps.filter(o => o.date === overlap.date).flatMap(o => [o.a, o.b]));
         else if (gap) reviewEntries(gap.date, []);
     };
 
@@ -261,18 +302,8 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
                     onOpenWeek={openWeek}
                     onGoTab={onGoTab}
                     onPickDay={openDay}
-                    week={
-                    <WeekStatusCard
-                        bare
-                        view={focusWeek}
-                        today={today}
-                        busy={busy}
-                        review={review}
-                        onSubmit={() => advance({})}
-                        onStepPeriod={nav.stepPeriod}
-                        onReview={reviewFirst}
-                    />
-                    }
+                    onGoDay={nav.openDay}
+                    week={<WeekStatusCard bare view={focusWeek} today={today} review={focusReview} onStepPeriod={nav.stepPeriod} onReview={reviewFirst} />}
                 />
             </div>
 
@@ -285,6 +316,13 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
                 ofWord={atsMode === 'timesheet' ? 'shift' : 'worked'}
                 onMode={nav.changeMode}
                 onStep={nav.step}
+                submit={
+                    focusWeek?.approvalEnabled !== false && (
+                        <Button size="small" type="primary" onClick={openSubmit} loading={busy && queue.length > 0} data-view-submit-btn>
+                            Submit
+                        </Button>
+                    )
+                }
                 actions={
                     <>
                         <Button size="small" icon={<DownloadOutlined />} onClick={() => setFileModal('template')}>
@@ -334,16 +372,30 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
                 </div>
             )}
 
+            <ViewSubmitModal
+                open={Boolean(viewSubmit)}
+                mode={nav.mode}
+                rangeLabel={nav.label}
+                frequency={frequency}
+                scope={viewSubmit ?? []}
+                managerName={focusWeek?.employee.managerName ?? null}
+                busy={busy}
+                onConfirm={confirmSubmit}
+                onClose={() => setViewSubmit(null)}
+            />
             <SubmitReviewModal
                 kind={prompt?.kind ?? null}
                 review={review}
-                entries={focusWeek?.week.entries ?? []}
+                entries={current?.week.entries ?? []}
                 busy={busy}
-                managerName={focusWeek?.employee.managerName}
-                periodWord={PERIOD_NOUN[focusWeek ? periodKind(focusWeek.filing.period.start, focusWeek.filing.period.end, focusWeek.filing.frequency) : 'WEEKLY']}
+                managerName={current?.employee.managerName}
+                periodWord={PERIOD_NOUN[current ? periodKind(current.filing.period.start, current.filing.period.end, current.filing.frequency) : 'WEEKLY']}
                 onReview={reviewEntries}
                 onContinue={() => prompt && advance({ ...prompt.ack, [prompt.kind]: true })}
-                onClose={() => setPrompt(null)}
+                onClose={() => {
+                    setPrompt(null);
+                    setQueue([]);
+                }}
             />
             <TemplateModal
                 open={fileModal === 'template'}
