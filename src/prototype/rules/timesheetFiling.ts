@@ -11,6 +11,8 @@ import type {
     TimesheetEntry,
     TimesheetFields,
     TimesheetStatus,
+    TimesheetDayState,
+    TimesheetWeek,
 } from '@src/domains/attendanceTimesheet/types';
 
 import {
@@ -452,3 +454,31 @@ export const reviewSummary = (r: PeriodReview) =>
     ]
         .filter(Boolean)
         .join(' · ');
+
+// ---- day states (PROTOTYPE-SETUP: Timesheet v6, Slice 1) --------------------------------------------------------
+
+/** The states that are an approval concept: with approval off, only leave shows. */
+export const dayState = (input: {
+    date: string;
+    hasEntries: boolean;
+    /** Approved full-day or half-day leave. */
+    onLeave: boolean;
+    /** Weekly off or holiday (keeps its grey unless something else applies). */
+    offDay: boolean;
+    approvalEnabled: boolean;
+    period: Pick<TimesheetWeek, 'status' | 'dirtyDates' | 'submittedAt' | 'editedAfter'> | null;
+}): TimesheetDayState | undefined => {
+    if (input.onLeave) return 'leave';
+    const p = input.period;
+    if (!input.approvalEnabled || !p) return undefined;
+    if (p.dirtyDates?.includes(input.date)) return 'saved';
+    const everSent = Boolean(p.submittedAt || p.editedAfter);
+    if (input.hasEntries && !everSent) return 'saved';
+    if (p.status === 'SENT_BACK' && !input.offDay) return 'update';
+    const sent = p.status === 'SUBMITTED' || p.status === 'WITH_PAYROLL' || p.status === 'APPROVED' || (p.status === 'DRAFT' && Boolean(p.editedAfter));
+    if (input.hasEntries && sent) return 'submitted';
+    return undefined;
+};
+
+/** Adds the dates to a period's changed-since-submission set (sorted, no repeats). */
+export const markDirty = (dirty: string[] | undefined, dates: string[]) => [...new Set([...(dirty ?? []), ...dates])].sort();

@@ -25,6 +25,8 @@ import {
     reviewPeriod,
     reviewSummary,
     submissionPrompt,
+    dayState,
+    markDirty,
 } from '../timesheetFiling';
 
 const D = '2026-10-07'; // Wednesday
@@ -346,5 +348,25 @@ describe('entry location', () => {
         expect(validateEntry({ date: D, start: '09:00', end: '10:00', description: 'x', location: 'HOME' }, [], TIMES)).toMatchObject({ location: 'HOME' });
         expect(err(() => validateEntry({ date: D, start: '09:00', end: '10:00', description: 'x', location: 'CLIENT' }, [], TIMES))).toBe(ENTRY_MESSAGES.client);
         expect(validateEntry({ date: D, start: '09:00', end: '10:00', description: 'x', location: 'CLIENT', client: ' Brightline ' }, [], TIMES)).toMatchObject({ location: 'CLIENT', client: 'Brightline' });
+    });
+});
+
+// PROTOTYPE-SETUP (Timesheet v6, Slice 1): per-day states.
+describe('day states', () => {
+    const base = { date: '2026-10-07', hasEntries: true, onLeave: false, offDay: false, approvalEnabled: true };
+    it('in priority order: leave, saved, update requested, submitted', () => {
+        expect(dayState({ ...base, onLeave: true, period: { status: 'APPROVED', dirtyDates: ['2026-10-07'], submittedAt: 'x' } })).toBe('leave');
+        expect(dayState({ ...base, period: { status: 'APPROVED', dirtyDates: ['2026-10-07'], submittedAt: 'x' } })).toBe('saved');
+        expect(dayState({ ...base, period: { status: 'DRAFT', submittedAt: undefined } })).toBe('saved');
+        expect(dayState({ ...base, hasEntries: false, period: { status: 'SENT_BACK', submittedAt: 'x' } })).toBe('update');
+        expect(dayState({ ...base, offDay: true, hasEntries: false, period: { status: 'SENT_BACK', submittedAt: 'x' } })).toBeUndefined();
+        expect(dayState({ ...base, period: { status: 'WITH_PAYROLL', submittedAt: 'x' } })).toBe('submitted');
+        // edited after it was sent: the unchanged days stay Submitted, only the changed ones are Saved
+        expect(dayState({ ...base, date: '2026-10-06', period: { status: 'DRAFT', editedAfter: 'APPROVED', dirtyDates: ['2026-10-07'], submittedAt: 'x' } })).toBe('submitted');
+        expect(dayState({ ...base, hasEntries: false, period: { status: 'APPROVED', submittedAt: 'x' } })).toBeUndefined();
+        expect(dayState({ ...base, approvalEnabled: false, period: { status: 'DRAFT' } })).toBeUndefined();
+    });
+    it('dirty dates: sorted, no repeats', () => {
+        expect(markDirty(['2026-10-07'], ['2026-10-05', '2026-10-07'])).toEqual(['2026-10-05', '2026-10-07']);
     });
 });

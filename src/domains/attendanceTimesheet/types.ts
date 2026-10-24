@@ -466,6 +466,11 @@ export interface TimesheetWeek {
     entries: TimesheetEntry[];
     /** Last approved version. */
     approvedEntries: TimesheetEntry[] | null;
+    /**
+     * PROTOTYPE-SETUP (Timesheet v6, Slice 1): dates changed since the last submission (an entry added, edited, deleted
+     * or imported). Submitting clears it; those dates show as "Saved" until then.
+     */
+    dirtyDates?: string[];
     submittedAt?: string;
     autoSubmitted?: boolean;
     decision?: Decision;
@@ -592,6 +597,13 @@ export interface PeriodFiling {
 }
 
 /** A filing period in a list (month views, payroll status, team grids). */
+/**
+ * PROTOTYPE-SETUP (Timesheet v6, Slice 1): a day's timesheet state, in priority order — leave; saved (changed since the
+ * last submission, or entries in a period never submitted); update requested (the period was sent back); submitted
+ * (entries in a period with the manager, with Payroll or approved — or edited after sending, for the unchanged days).
+ */
+export type TimesheetDayState = 'leave' | 'saved' | 'update' | 'submitted';
+
 export interface PeriodSummary {
     /** The period's first day. */
     weekStart: string;
@@ -625,6 +637,8 @@ export interface TimesheetMonthView {
         label?: string;
         hasOutsideFlag: boolean;
         locked: boolean;
+        /** PROTOTYPE-SETUP (Timesheet v6, Slice 1): the calendar's colour for the day. */
+        state?: TimesheetDayState;
     }[];
     weeks: PeriodSummary[];
     totals: { loggedMinutes: number; expectedMinutes: number; daysNothingLogged: number; extraMinutes: number };

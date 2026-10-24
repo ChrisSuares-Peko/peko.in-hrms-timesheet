@@ -31,6 +31,7 @@ import {
     reviewOf,
     submitWeek,
     timesheetPeriodsOf,
+    timesheetMonthOf,
     updateBreakDescription,
     updateTodayBreaks,
 } from '../atsEss';
@@ -1210,5 +1211,34 @@ describe('my team: overview entry points', () => {
         const h = homeOf(M, sneha);
         expect(h.myTeam).toBeNull();
         expect(h.actions.some(a => a.kind === 'team')).toBe(false);
+    });
+});
+
+// PROTOTYPE-SETUP (Timesheet v6, Slice 1): only the changed day of an approved period is "Saved".
+describe('timesheet v6: saved days', () => {
+    it('editing one day of an approved period turns only that date Saved; submitting clears it', () => {
+        let ws = weekStartOf(s.today);
+        let {week} = weekView(M, sneha, ws);
+        for (let i = 0; i < 10 && !(week.status === 'APPROVED' && week.entries.length && !weekView(M, sneha, ws).days.some(d => d.locked)); i += 1) {
+            ws = addDays(ws, -7);
+            ({ week } = weekView(M, sneha, ws));
+        }
+        expect(week.status).toBe('APPROVED');
+        const target = week.entries[0];
+        const others = [...new Set(week.entries.map(x => x.date))].filter(d => d !== target.date);
+        editEntry(M, sneha, target.id, { ...target, description: `${target.description} (fixed)` });
+        const stateOf = (d: string) => timesheetMonthOf(M, sneha, d.slice(0, 7)).days.find(x => x.date === d)!.state;
+        expect(weekView(M, sneha, ws).week.dirtyDates).toEqual([target.date]);
+        expect(stateOf(target.date)).toBe('saved');
+        others.forEach(d => expect(stateOf(d)).toBe('submitted'));
+        submitWeek(M, sneha, ws, { acknowledged: { overlaps: true, gaps: true, unlogged: true } });
+        expect(weekView(M, sneha, ws).week.dirtyDates).toEqual([]);
+        expect(stateOf(target.date)).toBe('submitted');
+        others.forEach(d => expect(stateOf(d)).toBe('submitted'));
+    });
+    it('imported rows mark their dates', () => {
+        const csv = ['Date,Start time,End time,Location,Description', `${s.today},04:00,04:30,Home,Early`].join('\n');
+        importTimesheet(M, sneha, { csv });
+        expect(weekView(M, sneha, s.today).week.dirtyDates).toContain(s.today);
     });
 });

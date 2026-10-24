@@ -72,6 +72,8 @@ import {
     periodEndOf,
     periodKind,
     periodLabel,
+    dayState,
+    markDirty,
     reviewPeriod,
     reviewSummary,
 } from '@src/prototype/rules/timesheetFiling';
@@ -513,8 +515,9 @@ const fieldsOf = (mode: DataMode) => getSettings(mode).timesheetFiling.fields;
  * processed for the month. A change to a period that's with the manager, with Payroll or approved moves it back to
  * Draft with a baseline (what reviewers compare with) — it has to be submitted again.
  */
-const saveEdited = (mode: DataMode, e: MockEmployee, week: TimesheetWeek, entries: TimesheetEntry[], change: HistoryEvent) => {
-    const back = editedBack(week);
+const saveEdited = (mode: DataMode, e: MockEmployee, week: TimesheetWeek, entries: TimesheetEntry[], change: HistoryEvent, dates: string[]) => {
+    // PROTOTYPE-SETUP (Timesheet v6, Slice 1): the changed dates show as "Saved" until the next submission.
+    const back = { ...editedBack(week), dirtyDates: markDirty(week.dirtyDates, dates) };
     const history = [...week.history, change];
     if (back !== week) {
         history.push(event(e, 'EDITED_AFTER_SENDING', `Edited after it was ${EDITED_AFTER_TEXT[back.editedAfter!]}. Needs submitting again.`));
@@ -528,7 +531,7 @@ export const addEntry = (mode: DataMode, e: MockEmployee, input: TimesheetEntryI
     const clean = validateEntry(input, withBreaks(mode, e, input?.date, week.entries), fieldsOf(mode));
     assertDayEditable(mode, e, clean.date);
     const entry: TimesheetEntry = { id: uid('te'), ...clean };
-    saveEdited(mode, e, week, [...week.entries, entry], event(e, 'ENTRY_ADDED', `${entryLabel(entry)} · ${entry.description}`));
+    saveEdited(mode, e, week, [...week.entries, entry], event(e, 'ENTRY_ADDED', `${entryLabel(entry)} · ${entry.description}`), [entry.date]);
     return weekView(mode, e, week.weekStart);
 };
 
@@ -560,7 +563,7 @@ export const importTimesheet = (mode: DataMode, e: MockEmployee, body: { csv?: s
     ready.forEach(r => {
         const week = weekOf(mode, e, r.entry!.date);
         const entry: TimesheetEntry = { id: uid('te'), ...r.entry! };
-        saveEdited(mode, e, week, [...week.entries, entry], event(e, 'ENTRY_ADDED', `Imported from a file: ${entryLabel(entry)} · ${entry.description}`));
+        saveEdited(mode, e, week, [...week.entries, entry], event(e, 'ENTRY_ADDED', `Imported from a file: ${entryLabel(entry)} · ${entry.description}`), [entry.date]);
     });
     return { imported: ready.length };
 };
@@ -582,7 +585,7 @@ export const editEntry = (mode: DataMode, e: MockEmployee, entryId: string, inpu
     const clean = validateEntry({ ...input, id: entryId }, withBreaks(mode, e, date, week.entries), fieldsOf(mode));
     assertDayEditable(mode, e, clean.date);
     const after = { id: entryId, ...clean };
-    saveEdited(mode, e, week, week.entries.map(x => (x.id === entryId ? after : x)), event(e, 'ENTRY_EDITED', `${entryLabel(after)} · ${after.description}`));
+    saveEdited(mode, e, week, week.entries.map(x => (x.id === entryId ? after : x)), event(e, 'ENTRY_EDITED', `${entryLabel(after)} · ${after.description}`), [before.date, after.date]);
     return weekView(mode, e, week.weekStart);
 };
 
@@ -591,7 +594,7 @@ export const deleteEntry = (mode: DataMode, e: MockEmployee, entryId: string) =>
     const week = weekWithEntry(mode, e, entryId);
     const entry = week.entries.find(x => x.id === entryId)!;
     assertDayEditable(mode, e, entry.date);
-    saveEdited(mode, e, week, week.entries.filter(x => x.id !== entryId), event(e, 'ENTRY_DELETED', `${entryLabel(entry)} · ${entry.description}`));
+    saveEdited(mode, e, week, week.entries.filter(x => x.id !== entryId), event(e, 'ENTRY_DELETED', `${entryLabel(entry)} · ${entry.description}`), [entry.date]);
     return weekView(mode, e, week.weekStart);
 };
 
@@ -636,6 +639,8 @@ export const submitWeekRecord = (
         attendance: attendanceSnapshot(mode, e, week),
         // PROTOTYPE-SETUP (My team, Slice 1): a new round — the manager approves it again before Payroll sees it.
         managerDecision: undefined,
+        // PROTOTYPE-SETUP (Timesheet v6, Slice 1): submitted — nothing is "Saved" any more.
+        dirtyDates: [],
         ...(status === 'APPROVED'
             ? { approvedEntries: week.entries, baselineEntries: null, editedAfter: undefined, decision: { by: SYSTEM_ACTOR, at, comment: 'Auto-approved — no reporting manager.' } }
             : { decision: undefined, sentBackBy: undefined }),
@@ -731,8 +736,18 @@ export const timesheetMonthOf = (mode: DataMode, e: MockEmployee, month: string)
     const t = today();
     const days = monthDates(month).map(date => {
         const d = timesheetDay(mode, e, date, entriesOn(mode, e, date));
+        const period = weekOf(mode, e, date);
+        const state = dayState({
+            date,
+            hasEntries: d.entries.length > 0,
+            onLeave: d.attendance.status === 'on-leave' || Boolean(d.attendance.halfLeave),
+            offDay: ['holiday', 'weekly-off'].includes(d.attendance.status),
+            approvalEnabled: getSettings(mode).timesheetApproval.enabled,
+            period,
+        });
         return {
             date,
+            ...(state ? { state } : {}),
             loggedMinutes: d.loggedMinutes,
             expectedMinutes: d.expectedMinutes,
             status: d.attendance.status,
