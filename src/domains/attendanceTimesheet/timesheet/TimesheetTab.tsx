@@ -46,7 +46,7 @@ import Calendar3, { inRangeFor } from './Calendar3';
 import DayRows from './DayRows';
 import EntriesPanel from './EntriesPanel';
 import type { EntryFormValue } from './EntryForm';
-import { TemplateModal, UploadModal } from './ImportModals';
+import { DownloadModal, UploadModal } from './ImportModals';
 import NoticesPanel from './NoticesPanel';
 import SubmitReviewModal from './SubmitReviewModal';
 import './timesheet.css';
@@ -94,7 +94,7 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
     /** "Review entries": the entries outlined in their day's panel. */
     const [highlight, setHighlight] = useState<Set<string>>(new Set());
     /** PROTOTYPE-SETUP (Final batch, Slice 3): the template / upload modals. */
-    const [fileModal, setFileModal] = useState<'template' | 'upload' | null>(null);
+    const [fileModal, setFileModal] = useState<'download' | 'upload' | null>(null);
     const submitting = useRef(false);
     /**
      * PROTOTYPE-SETUP (Timesheet v6, Slice 3): Submit in the view bar — the confirmation (the periods in scope), then the
@@ -325,8 +325,8 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
                 }
                 actions={
                     <>
-                        <Button size="small" icon={<DownloadOutlined />} onClick={() => setFileModal('template')}>
-                            Download template
+                        <Button size="small" icon={<DownloadOutlined />} onClick={() => setFileModal('download')}>
+                            Download timesheet
                         </Button>
                         <Button size="small" icon={<UploadOutlined />} onClick={() => setFileModal('upload')}>
                             Upload timesheet
@@ -397,17 +397,13 @@ const TimesheetTab = ({ onChanged, initialDate, onGoTab }: TimesheetTabProps) =>
                     setQueue([]);
                 }}
             />
-            <TemplateModal
-                open={fileModal === 'template'}
+            <DownloadModal open={fileModal === 'download'} today={today} onClose={() => setFileModal(null)} />
+            <UploadModal
+                open={fileModal === 'upload'}
                 today={today}
                 projectsOn={Boolean(focusWeek?.filing.fields.projectCode)}
                 projectCode={focusWeek?.filing.projectCodes[0]}
                 fields={focusWeek?.filing.fields}
-                onClose={() => setFileModal(null)}
-            />
-            <UploadModal
-                open={fileModal === 'upload'}
-                projectsOn={Boolean(focusWeek?.filing.fields.projectCode)}
                 onClose={() => setFileModal(null)}
                 onImported={() => {
                     setFileModal(null);

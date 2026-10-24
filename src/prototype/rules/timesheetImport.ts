@@ -7,16 +7,23 @@
 //                  fields, as the form does); only ready rows are imported, as a draft
 // Overlapping another entry is allowed, as in the form (f19137e): the row is ready, with a note. Overlapping a recorded
 // break isn't.
-import type { TimesheetEntry, TimesheetFields, WorkLocation } from '@src/domains/attendanceTimesheet/types';
+// PROTOTYPE-SETUP (Timesheet v6, Slice 4): "Download timesheet" exports the same columns + Status (breaks as rows with
+// Location "Break"), so a downloaded file uploads back: a row that matches a saved entry (date, times / hours,
+// location, project) is skipped when nothing changed ("Already saved"), or updates that entry when only its
+// description changed; "Break" rows are skipped. Excel files are read as text (sheetCellText) and sent as CSV.
+import type { TimesheetEntry, TimesheetFields, TimesheetStatus, TimesheetWeek, WorkLocation } from '@src/domains/attendanceTimesheet/types';
 
 import {
     MAX_DAY_MINUTES,
     PROJECT_CODE_RE,
     RuleError,
     addDays,
+    daysBetween,
     displayTime,
     entryTimeText,
     formatDuration,
+    formatHoursInput,
+    locationChip,
     normaliseProjectCode,
     parseHours,
     toMinutes,
@@ -58,6 +65,76 @@ export const templateIntro = (fields: TimesheetFields | undefined, projectsOn: b
 
 export const toCsv = (rows: string[][]) => rows.map(r => r.map(c => (/[",\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(',')).join('\n');
 
+// ---- download (PROTOTYPE-SETUP: Timesheet v6, Slice 4) ----------------------------------------------------------
+
+export const EXPORT_COLUMNS = [...TEMPLATE_COLUMNS, 'Status'] as const;
+
+/** The Status column. */
+export const EXPORT_STATUS: Record<TimesheetStatus, string> = {
+    DRAFT: 'Saved',
+    SUBMITTED: 'With manager',
+    WITH_PAYROLL: 'With Payroll',
+    APPROVED: 'Approved',
+    SENT_BACK: 'Update requested',
+};
+
+/** An entry's Status: its period's, except a date changed since sending (Saved) — and an edited period's other dates keep where they were. */
+export const exportStatus = (period: Pick<TimesheetWeek, 'status' | 'dirtyDates' | 'editedAfter'>, date: string) => {
+    if (period.dirtyDates?.includes(date)) return EXPORT_STATUS.DRAFT;
+    if (period.status === 'DRAFT' && period.editedAfter) return EXPORT_STATUS[period.editedAfter];
+    return EXPORT_STATUS[period.status];
+};
+
+/** One entry as a row (the template's columns + Status). */
+export const exportEntryRow = (x: TimesheetEntry, status: string, projectsOn: boolean): string[] => [
+    x.date,
+    x.start ?? '',
+    x.end ?? '',
+    formatHoursInput(x.mins),
+    locationChip(x.location, x.client),
+    projectsOn ? x.projectCode ?? '' : '',
+    x.description,
+    status,
+];
+
+/** A recorded break as a row: Location "Break" (an upload skips it). */
+export const exportBreakRow = (b: TimesheetEntry): string[] => [b.date, b.start ?? '', b.end ?? '', formatHoursInput(b.mins), 'Break', '', b.description || 'Break', ''];
+
+export const EXPORT_MAX_DAYS = 366;
+
+/** Why a download range can't be used, or ''. */
+export const exportRangeError = (from: string, to: string) => {
+    if (!from || !to) return 'Pick a From and a To date.';
+    if (to < from) return 'From must be on or before To.';
+    if (daysBetween(from, to) >= EXPORT_MAX_DAYS) return 'Pick at most one year.';
+    return '';
+};
+
+/** "timesheet-2026-10-01-to-2026-10-31.xlsx" */
+export const exportFileName = (from: string, to: string) => `timesheet-${from}-to-${to}.xlsx`;
+
+/** Tab-separated rows ("Copy rows" — pastes into a spreadsheet as cells). */
+export const toTsv = (rows: string[][]) => rows.map(r => r.map(c => c.replace(/[\t\n]/g, ' ')).join('\t')).join('\n');
+
+/** "N entries · X logged" */
+export const exportSummary = (entries: number, loggedMinutes: number) => `${entries} ${entries === 1 ? 'entry' : 'entries'} · ${formatDuration(loggedMinutes)} logged`;
+
+const two = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * An Excel cell as the text a person sees: a date cell → YYYY-MM-DD, a time cell (Excel's 1899-12-30 day) → HH:mm,
+ * anything else → its formatted text (`text`, when the reader has it) or its value.
+ */
+export const sheetCellText = (value: unknown, text?: string): string => {
+    if (value instanceof Date) {
+        if (value.getUTCFullYear() < 1901) return `${two(value.getUTCHours())}:${two(value.getUTCMinutes())}`;
+        return `${value.getUTCFullYear()}-${two(value.getUTCMonth() + 1)}-${two(value.getUTCDate())}`;
+    }
+    if (text !== undefined && text !== '') return String(text).trim();
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+};
+
 export const TEMPLATE_TEXT = {
     projectsOn: 'Project code is required.',
     projectsOff: 'Leave Project code empty (projects are off for your company).',
@@ -82,7 +159,28 @@ export const IMPORT_MESSAGES = {
     locationMissing: 'Location missing (Office, Home or Client: Name)',
     clientMissing: 'Client name missing (use “Client: Name”)',
     location: 'Location must be Office, Home or Client: Name',
+    unchanged: 'Already saved',
+    break: 'Break (from Attendance)',
+    updates: 'Updates the saved entry’s description',
 } as const;
+
+/**
+ * PROTOTYPE-SETUP (Timesheet v6, Slice 4): the row is this saved entry — the same times (or hours, without times),
+ * location and project (when projects are on), as the download writes them; the description may differ.
+ */
+const sameSlot = (o: TimesheetEntry, r: Pick<ImportRow, 'start' | 'end' | 'hours' | 'location' | 'project'>, projectsOn: boolean) => {
+    const start = parseImportTime(r.start);
+    const end = parseImportTime(r.end);
+    const times = o.start ? start === o.start && end === o.end : !start && !end && parseHours(r.hours) === o.mins;
+    const where = parseImportLocation(r.location);
+    return (
+        times &&
+        typeof where !== 'string' &&
+        where.location === (o.location ?? 'OFFICE') &&
+        (where.client ?? '') === (o.client ?? '') &&
+        (!projectsOn || normaliseProjectCode(r.project) === (o.projectCode ?? ''))
+    );
+};
 
 /** Header names → template columns. */
 export const HEADER_ALIASES: Record<string, ImportColumn> = {
@@ -184,6 +282,10 @@ export const parseImportLocation = (v: string): { location: WorkLocation; client
 export interface ImportRow {
     /** The file's row number (the header is row 1). */
     row: number;
+    /** PROTOTYPE-SETUP (Timesheet v6, Slice 4): left out, and not a problem — "Already saved" / "Break". */
+    skipped?: string;
+    /** Ready, and it updates this saved entry (only its description changed). */
+    replaces?: string;
     /** As typed. */
     date: string;
     start: string;
@@ -234,6 +336,7 @@ export const analyseImport = (text: string, ctx: ImportContext): ImportPreview =
         return { error: IMPORT_MESSAGES.columns, columns, ready: 0 };
     }
     const taken = new Map<string, TimesheetEntry[]>();
+    const claimed = new Set<string>();
     const codesOn = ctx.fields.projectCode;
     const out = rows.slice(1).map((cells, i): ImportRow => {
         const cell = (c: ImportColumn) => {
@@ -252,8 +355,15 @@ export const analyseImport = (text: string, ctx: ImportContext): ImportPreview =
             ready: false,
         };
         const bad = (reason: string): ImportRow => ({ ...row, reason });
+        if (row.location.trim().toLowerCase() === 'break') return { ...row, skipped: IMPORT_MESSAGES.break };
         const date = parseImportDate(row.date);
         if (!date) return bad(IMPORT_MESSAGES.date);
+        // PROTOTYPE-SETUP (Timesheet v6, Slice 4): a row that is a saved entry (a downloaded file) — skipped when
+        // unchanged (before any other check: a locked day, or an entry after midnight, stays as it is), or an update of
+        // that entry's description (it keeps everything else).
+        const same = ctx.existingOn(date).find(o => !o.id.startsWith('break:') && !claimed.has(o.id) && sameSlot(o, row, codesOn));
+        if (same) claimed.add(same.id);
+        if (same && same.description.trim() === row.description.trim()) return { ...row, skipped: IMPORT_MESSAGES.unchanged };
         if (ctx.isLocked(date)) return bad(IMPORT_MESSAGES.locked);
         if (ctx.dateOfJoin && date < ctx.dateOfJoin) return bad(IMPORT_MESSAGES.beforeJoining);
         if (date > addDays(ctx.today, 30)) return bad(IMPORT_MESSAGES.future);
@@ -275,6 +385,11 @@ export const analyseImport = (text: string, ctx: ImportContext): ImportPreview =
         if (!row.description.trim()) return bad(IMPORT_MESSAGES.description);
         const where = parseImportLocation(row.location);
         if (typeof where === 'string') return bad(where);
+        if (same) {
+            const entry: Omit<TimesheetEntry, 'id'> & { id?: string } = { ...same, description: row.description.trim().slice(0, 500) };
+            delete entry.id;
+            return { ...row, ready: true, entry, replaces: same.id, note: IMPORT_MESSAGES.updates };
+        }
         const others = [...ctx.existingOn(date), ...(taken.get(date) ?? [])];
         let entry: Omit<TimesheetEntry, 'id'>;
         try {
@@ -316,8 +431,12 @@ export const analyseImport = (text: string, ctx: ImportContext): ImportPreview =
 /** "N ready to import, M with problems (they won’t be imported). Imported entries are added as a draft." */
 export const importSummary = (p: ImportPreview) => {
     const rows = p.rows ?? [];
-    const problems = rows.length - p.ready;
-    return `${p.ready} ready to import${problems ? `, ${problems} with problems (they won’t be imported)` : ''}. Imported entries are added as a draft.`;
+    const skipped = rows.filter(r => r.skipped).length;
+    const updates = rows.filter(r => r.ready && r.replaces).length;
+    const problems = rows.length - p.ready - skipped;
+    return `${p.ready} ready to import${updates ? ` (${updates} updating saved entries)` : ''}${skipped ? `, ${skipped} skipped (already saved, or breaks)` : ''}${
+        problems ? `, ${problems} with problems (they won’t be imported)` : ''
+    }. Imported entries are added as a draft.`;
 };
 
 /** The preview table's Time and Hours cells. */

@@ -151,6 +151,9 @@ export const addEntry = (s: AtsScope, body: TimesheetEntryInput) =>
 /** PROTOTYPE-SETUP (Final batch, Slice 3): template upload — check the file, then import its ready rows. */
 export const previewTimesheetImport = (s: AtsScope, csv: string) => call<ImportPreview>(s, 'post', 'timesheet/import/preview', { body: { csv } });
 export const importTimesheet = (s: AtsScope, csv: string) => call<{ imported: number }>(s, 'post', 'timesheet/import', { body: { csv } });
+/** PROTOTYPE-SETUP (Timesheet v6, Slice 4): "Download timesheet" — the rows (header first) from → to, at most a year. */
+export const getTimesheetExport = (s: AtsScope, from: string, to: string) =>
+    call<{ rows: string[][]; entries: number; loggedMinutes: number }>(s, 'get', 'timesheet/export', { params: { from, to } });
 export const editEntry = (s: AtsScope, entryId: string, body: TimesheetEntryInput) =>
     call<TimesheetWeekView>(s, 'put', `timesheet/entries/${entryId}`, { body });
 export const deleteEntry = (s: AtsScope, entryId: string) =>

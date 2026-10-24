@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { periodsToSubmit, submitKind } from '@src/domains/attendanceTimesheet/timesheet/ViewSubmitModal';
 import { DEFAULT_FILING, addDays, addMonths, daysBetween, startTrail, toMinutes, weekStartOf } from '@src/prototype/rules/attendance';
 import { findOverlaps, periodEndOf, reviewPeriod, submissionPrompt } from '@src/prototype/rules/timesheetFiling';
-
+import { toCsv } from '@src/prototype/rules/timesheetImport';
 
 import { atsScenario } from '../../data/ats-seed';
 import { findEmployee } from '../../data/employees';
@@ -35,6 +35,7 @@ import {
     timesheetPeriodsOf,
     timesheetMonthOf,
     timesheetNoticesOf,
+    timesheetExportOf,
     updateBreakDescription,
     updateTodayBreaks,
 } from '../atsEss';
@@ -1269,5 +1270,33 @@ describe('timesheet v6: submit from the view bar', () => {
         const n = timesheetNoticesOf(M, sneha);
         n.weeks.forEach(w => expect(w.goTo >= w.weekStart && w.goTo <= w.periodEnd).toBe(true));
         if (n.overtime) expect(n.overtime.goTo).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
+});
+
+describe('timesheet v6: Excel round trip', () => {
+    it('download a week, change one description, upload: only that change goes in', () => {
+        let ws = addDays(weekStartOf(s.today), -7);
+        for (let i = 0; i < 10 && !(weekView(M, sneha, ws).week.entries.length && !weekView(M, sneha, ws).days.some(d => d.locked)); i += 1) ws = addDays(ws, -7);
+        const before = weekView(M, sneha, ws).week;
+        const out = timesheetExportOf(M, sneha, ws, addDays(ws, 6));
+        expect(out.rows[0]).toEqual(['Date', 'Start time', 'End time', 'Hours', 'Location', 'Project code', 'Description', 'Status']);
+        expect(out.entries).toBe(before.entries.length);
+        expect(out.loggedMinutes).toBe(before.entries.reduce((n, x) => n + x.mins, 0));
+        expect(out.rows.slice(1).every(r => r[4] === 'Break' || ['Saved', 'With manager', 'With Payroll', 'Approved', 'Update requested'].includes(r[7]))).toBe(true);
+        // unchanged: nothing to import
+        expect(previewImport(M, sneha, { csv: toCsv(out.rows) }).ready).toBe(0);
+        const i = out.rows.findIndex(r => r[4] !== 'Break' && r[0] !== 'Date');
+        const target = out.rows[i];
+        const rows = out.rows.map((r, j) => (j === i ? [...r.slice(0, 6), `${r[6]} (edited)`, r[7]] : r));
+        expect(importTimesheet(M, sneha, { csv: toCsv(rows) })).toEqual({ imported: 1 });
+        const after = weekView(M, sneha, ws).week;
+        expect(after.entries).toHaveLength(before.entries.length);
+        const changed = after.entries.filter(x => !before.entries.some(b => b.id === x.id && b.description === x.description));
+        expect(changed).toHaveLength(1);
+        expect(changed[0]).toMatchObject({ date: target[0], description: `${target[6]} (edited)` });
+        expect(after.dirtyDates).toEqual([target[0]]);
+    });
+    it('a range over a year is refused', () => {
+        expect(() => timesheetExportOf(M, sneha, '2025-01-01', '2026-01-02')).toThrow('Pick at most one year.');
     });
 });

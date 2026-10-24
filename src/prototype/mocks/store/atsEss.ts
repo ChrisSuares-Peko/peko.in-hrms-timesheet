@@ -72,12 +72,22 @@ import {
     periodEndOf,
     periodKind,
     periodLabel,
+    datesBetween,
     dayState,
     markDirty,
     reviewPeriod,
     reviewSummary,
 } from '@src/prototype/rules/timesheetFiling';
-import { ImportContext, ImportPreview, analyseImport } from '@src/prototype/rules/timesheetImport';
+import {
+    EXPORT_COLUMNS,
+    ImportContext,
+    ImportPreview,
+    analyseImport,
+    exportBreakRow,
+    exportEntryRow,
+    exportRangeError,
+    exportStatus,
+} from '@src/prototype/rules/timesheetImport';
 
 import { leaveViewOf } from './atsLeave';
 import {
@@ -562,10 +572,49 @@ export const importTimesheet = (mode: DataMode, e: MockEmployee, body: { csv?: s
     if (!ready.length) throw new RuleError(preview.error ?? 'Nothing in the file is ready to import.', 400);
     ready.forEach(r => {
         const week = weekOf(mode, e, r.entry!.date);
+        // PROTOTYPE-SETUP (Timesheet v6, Slice 4): a downloaded row with a new description updates that entry.
+        const old = r.replaces ? week.entries.find(x => x.id === r.replaces) : undefined;
+        if (old) {
+            const after: TimesheetEntry = { ...old, ...r.entry!, id: old.id };
+            saveEdited(mode, e, week, week.entries.map(x => (x.id === r.replaces ? after : x)), event(e, 'ENTRY_EDITED', `Imported from a file: ${entryLabel(after)} · ${after.description}`), [after.date]);
+            return;
+        }
         const entry: TimesheetEntry = { id: uid('te'), ...r.entry! };
         saveEdited(mode, e, week, [...week.entries, entry], event(e, 'ENTRY_ADDED', `Imported from a file: ${entryLabel(entry)} · ${entry.description}`), [entry.date]);
     });
     return { imported: ready.length };
+};
+
+/**
+ * PROTOTYPE-SETUP (Timesheet v6, Slice 4): "Download timesheet" — every entry from → to (at most a year), with its
+ * Status, and the recorded breaks as rows with Location "Break"; sorted by date and time.
+ */
+export const timesheetExportOf = (mode: DataMode, e: MockEmployee, from: string, to: string) => {
+    assertTimesheets(mode);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(from ?? '') || !/^\d{4}-\d{2}-\d{2}$/.test(to ?? '')) throw new RuleError('Pick a valid date range.', 400);
+    const why = exportRangeError(from, to);
+    if (why) throw new RuleError(why, 400);
+    const projectsOn = fieldsOf(mode).projectCode;
+    const start = from < e.dateOfJoin ? e.dateOfJoin : from;
+    const rows: { key: string; cells: string[] }[] = [];
+    let entries = 0;
+    let loggedMinutes = 0;
+    if (start <= to) {
+        periodsBetween(mode, e, start, to).forEach(w => {
+            w.entries
+                .filter(x => x.date >= start && x.date <= to)
+                .forEach(x => {
+                    entries += 1;
+                    loggedMinutes += x.mins;
+                    rows.push({ key: `${x.date} ${x.start ?? '99:99'} 1`, cells: exportEntryRow(x, exportStatus(w, x.date), projectsOn) });
+                });
+        });
+        datesBetween(start, to < today() ? to : today()).forEach(d =>
+            breaksAsEntries(d, breaksOn(mode, e, d)).forEach(b => rows.push({ key: `${d} ${b.start} 0`, cells: exportBreakRow(b) }))
+        );
+    }
+    rows.sort((a, b) => a.key.localeCompare(b.key));
+    return { rows: [[...EXPORT_COLUMNS] as string[], ...rows.map(r => r.cells)], entries, loggedMinutes };
 };
 
 /** The stored period holding an entry (any period of the employee's). */
