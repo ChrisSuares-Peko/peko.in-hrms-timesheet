@@ -1,8 +1,10 @@
 // PROTOTYPE-SETUP: ESS Service 1 (V2) — the Timesheet tab's three-month calendar (previous, current, next around
-// the period being viewed). Day colours: weekend / holiday grey; week submitted or change pending very light
-// green; week approved green; update requested orange; leave = small blue dot; today = red outline;
-// days in the current view = red underline; selected day = dark ring. The approval colours (and their legend)
-// are hidden when timesheet approval is off. On mobile only the middle month shows.
+// the period being viewed). On mobile only the middle month shows.
+// PROTOTYPE-SETUP (Timesheet v6, Slice 2): each day is coloured by its own state (the month view's `state`, see
+// dayState): Saved light blue · Submitted green · Update requested orange · Leave light purple; weekends and holidays
+// keep their grey otherwise. Every day in the current Day / Week / Month view has a red outline, and the selected day a
+// thicker red ring; today's date is bold red. Legend: Saved · Submitted · Update requested · Leave · Selected (with
+// approval off, only Leave and Selected).
 // PROTOTYPE-SETUP (HR rules, Slice 3): compact — ~24px cells, tighter gaps and a smaller legend (65% of the width).
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { Button, Skeleton } from 'antd';
@@ -11,21 +13,30 @@ import dayjs from 'dayjs';
 import { ESS_CARD } from '@src/components/ess/essTokens';
 import { addDays, monthDates, weekStartOf } from '@src/prototype/rules/attendance';
 
-import type { PeriodSummary, TimesheetMonthView } from '../types';
+import type { TimesheetDayState, TimesheetMonthView } from '../types';
 import { calendarMonths } from './useCalendarMonths';
 
-type CalState = 'off' | 'sub' | 'ok' | 'back' | '';
+type CalState = 'off' | TimesheetDayState | '';
 
-/** Colours per state (prototype tokens). */
-const CELL: Record<Exclude<CalState, ''>, string> = {
+/** Colours per state. */
+export const CELL: Record<Exclude<CalState, ''>, string> = {
     off: 'bg-[#EEF0F3] text-[#9AA3B2]',
-    sub: 'bg-[#E4F6EC] text-[#067647]',
-    ok: 'bg-[#6FCF97] text-[#053D24] font-medium',
-    back: 'bg-[#FFD9A8] text-[#7A3E00] font-medium',
+    saved: 'bg-[#DBEEFF] text-[#0B4A8B]',
+    submitted: 'bg-[#6FCF97] text-[#053D24] font-medium',
+    update: 'bg-[#FFD9A8] text-[#7A3E00] font-medium',
+    leave: 'bg-[#E9E3FF] text-[#4A2FB4]',
 };
 
-// PROTOTYPE-SETUP (Final batch, Slice 8): with the manager or with Payroll = sent for approval; an edited period is a draft.
-const STATE_TIP: Partial<Record<CalState, string>> = { ok: ', approved', sub: ', sent for approval', back: ', update requested' };
+/** The day's tooltip line. */
+export const STATE_TIP: Partial<Record<CalState, string>> = {
+    saved: 'Saved (not submitted)',
+    submitted: 'Submitted',
+    update: 'Update requested',
+    leave: 'On leave',
+};
+
+const RING_VIEW = 'inset 0 0 0 1.5px #EF4444';
+const RING_SELECTED = 'inset 0 0 0 3px #DC2626';
 
 export interface Calendar3Props {
     /** Middle month (YYYY-MM). */
@@ -34,7 +45,7 @@ export interface Calendar3Props {
     today: string;
     /** Highlighted (ringed) day. */
     selected: string | null;
-    /** Days in the current view (red underline). */
+    /** Days in the current view (red outline). */
     inRange: (date: string) => boolean;
     approvalEnabled: boolean;
     onPick: (date: string) => void;
@@ -44,25 +55,19 @@ export interface Calendar3Props {
 
 interface DayInfo {
     off: boolean;
-    leave: boolean;
+    state?: TimesheetDayState;
     label?: string;
 }
 
 const dayInfo = (view: TimesheetMonthView | undefined, date: string): DayInfo => {
     const d = view?.days.find(x => x.date === date);
-    if (!d) return { off: [0, 6].includes(dayjs(date).day()), leave: false };
+    if (!d) return { off: [0, 6].includes(dayjs(date).day()) };
     return {
         off: ['holiday', 'weekly-off', 'worked-off-day'].includes(d.status),
-        leave: d.status === 'on-leave',
+        ...(d.state ? { state: d.state } : {}),
         ...(d.label ? { label: d.label } : {}),
     };
 };
-
-/** PROTOTYPE-SETUP (Timesheet filing): the status of the filing period covering the date (a day, a week or a month). */
-const weekStatusOn = (
-    view: TimesheetMonthView | undefined,
-    date: string
-): PeriodSummary | undefined => view?.weeks.find(w => w.weekStart <= date && w.periodEnd >= date);
 
 interface MiniMonthProps extends Pick<Calendar3Props, 'today' | 'selected' | 'inRange' | 'approvalEnabled' | 'onPick'> {
     month: string;
@@ -74,16 +79,10 @@ interface MiniMonthProps extends Pick<Calendar3Props, 'today' | 'selected' | 'in
 const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnabled, onPick }: MiniMonthProps) => {
     const dates = monthDates(month);
     const lead = (dayjs(dates[0]).day() + 6) % 7;
-    const stateOf = (date: string, info: DayInfo): CalState => {
-        if (info.off) return 'off';
-        if (!approvalEnabled) return '';
-        const w = weekStatusOn(view, date);
-        // Periods that haven't started yet aren't coloured (a running period is, all its days).
-        if (!w || w.weekStart > today) return '';
-        if (w.status === 'SENT_BACK') return 'back';
-        if (w.status === 'SUBMITTED' || w.status === 'WITH_PAYROLL') return 'sub';
-        if (w.status === 'APPROVED') return 'ok';
-        return '';
+    const stateOf = (info: DayInfo): CalState => {
+        if (info.state === 'leave') return 'leave';
+        if (approvalEnabled && info.state) return info.state;
+        return info.off ? 'off' : '';
     };
     return (
         <div className={`min-w-0 ${side ? 'hidden md:block' : ''}`}>
@@ -102,12 +101,12 @@ const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnable
                     ))}
                     {dates.map(date => {
                         const info = dayInfo(view, date);
-                        const st = stateOf(date, info);
-                        const rings = [
-                            inRange(date) ? 'inset 0 -2px 0 #EF4444' : '',
-                            date === selected ? 'inset 0 0 0 2px #111827' : '',
-                        ].filter(Boolean);
-                        const tip = `${dayjs(date).format('ddd, D MMM YYYY')}${info.label && !info.leave ? `, ${info.label}` : ''}${info.leave ? ', on leave' : ''}${STATE_TIP[st] ?? ''}`;
+                        const st = stateOf(info);
+                        let ring = '';
+                        if (inRange(date)) ring = RING_VIEW;
+                        if (date === selected) ring = RING_SELECTED;
+                        const tipState = STATE_TIP[st];
+                        const tip = [dayjs(date).format('ddd, D MMM YYYY'), info.label && st !== 'leave' ? info.label : '', tipState ?? ''].filter(Boolean).join(' · ');
                         return (
                             <button
                                 key={date}
@@ -116,15 +115,15 @@ const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnable
                                 aria-label={tip}
                                 aria-pressed={date === selected}
                                 onClick={() => onPick(date)}
-                                className={`relative h-[24px] cursor-pointer rounded-[5px] border-0 p-0 text-[11px] tabular-nums hover:shadow-[inset_0_0_0_1px_#D0D5DD] ${
+                                className={`relative h-[24px] cursor-pointer rounded-[5px] border-0 p-0 text-[11px] tabular-nums ${
                                     st ? CELL[st] : 'bg-transparent text-gray-900'
-                                } ${date === today ? 'outline outline-[1.5px] outline-offset-[-1.5px] outline-red-500' : ''}`}
-                                style={rings.length ? { boxShadow: rings.join(', ') } : undefined}
+                                } ${date === today ? '!font-bold !text-[#DC2626]' : ''}`}
+                                style={ring ? { boxShadow: ring } : undefined}
+                                data-day-state={st || undefined}
+                                data-in-view={inRange(date) || undefined}
+                                data-selected={date === selected || undefined}
                             >
                                 {Number(date.slice(8))}
-                                {info.leave && (
-                                    <i className="absolute bottom-[3px] left-1/2 -ml-0.5 h-1 w-1 rounded-full bg-blue-500" />
-                                )}
                             </button>
                         );
                     })}
@@ -134,31 +133,34 @@ const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnable
     );
 };
 
+const SWATCH = 'inline-block h-2.5 w-2.5 rounded-[3px]';
+
+/** Saved · Submitted · Update requested · Leave · Selected (approval off: Leave · Selected). */
 const Legend = ({ approvalEnabled }: { approvalEnabled: boolean }) => (
-    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-600">
-        <span className="inline-flex items-center gap-1.5">
-            <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#EEF0F3]" />
-            Weekend or holiday
-        </span>
+    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-600" data-calendar-legend>
         {approvalEnabled && (
             <>
                 <span className="inline-flex items-center gap-1.5">
-                    <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#E4F6EC] shadow-[inset_0_0_0_1px_#6FCF97]" />
-                    Sent for approval
+                    <i className={`${SWATCH} bg-[#DBEEFF]`} />
+                    Saved
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                    <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#6FCF97]" />
-                    Approved
+                    <i className={`${SWATCH} bg-[#6FCF97]`} />
+                    Submitted
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                    <i className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#FFD9A8]" />
+                    <i className={`${SWATCH} bg-[#FFD9A8]`} />
                     Update requested
                 </span>
             </>
         )}
         <span className="inline-flex items-center gap-1.5">
-            <i className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
+            <i className={`${SWATCH} bg-[#E9E3FF]`} />
             Leave
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+            <i className={SWATCH} style={{ boxShadow: RING_VIEW }} />
+            Selected
         </span>
     </div>
 );
@@ -193,7 +195,7 @@ const Calendar3 = ({ month, months, today, selected, inRange, approvalEnabled, o
         </section>
     );
 
-/** Days of the current view (for the red underline). */
+/** Days of the current view (red outline). */
 export const inRangeFor = (mode: 'day' | 'week' | 'month', cursor: string) => (date: string) => {
     if (mode === 'day') return date === cursor;
     if (mode === 'week') return date >= weekStartOf(cursor) && date <= addDays(weekStartOf(cursor), 6);

@@ -6,8 +6,8 @@ PROTOTYPE-SETUP. Run log for "Timesheet v6". If a run is interrupted, continue f
 | Step | Commit | Status |
 |---|---|---|
 | Prerequisite: My team finished and pushed (main = origin/main at 7a76694) | — | done |
-| Slice 1 — Per-day "Saved" state (rules + tests) | (this commit) | done |
-| Slice 2 — Calendar legend and colours | — | to do |
+| Slice 1 — Per-day "Saved" state (rules + tests) | f2e3426 | done |
+| Slice 2 — Calendar legend and colours | (this commit) | done |
 | Slice 3 — Submit from the view bar; Notices without Submit | — | to do |
 | Slice 4 — Download timesheet (Excel) and Upload (Excel) | — | to do |
 | Slice 5 — My team tile on the manager's Overview | 7a76694 | already done (no new commit) |
