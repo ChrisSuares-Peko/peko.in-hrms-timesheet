@@ -214,7 +214,7 @@ describe('upload of a downloaded file', () => {
         const p = analyseImport(toCsv(rows), c);
         expect(p.ready).toBe(0);
         expect(p.rows!.map(r => r.skipped)).toEqual([IMPORT_MESSAGES.unchanged, IMPORT_MESSAGES.unchanged, IMPORT_MESSAGES.break]);
-        expect(importSummary(p)).toBe('0 ready to import, 3 skipped (already saved, or breaks). Imported entries are added as a draft.');
+        expect(importSummary(p)).toBe('0 ready to import, 3 skipped (already saved, breaks or leave). Imported entries are added as a draft.');
     });
     it('a changed description updates that entry, and only that one', () => {
         const changed = rows.map((r, i) => (i === 2 ? [...r.slice(0, 6), 'API work (v2)', r[7]] : r));
@@ -223,6 +223,6 @@ describe('upload of a downloaded file', () => {
         const row = p.rows!.find(r => r.ready)!;
         expect(row.replaces).toBe('te-2');
         expect(row.entry).toMatchObject({ description: 'API work (v2)', start: '11:00', end: '13:00' });
-        expect(importSummary(p)).toBe('1 ready to import (1 updating saved entries), 2 skipped (already saved, or breaks). Imported entries are added as a draft.');
+        expect(importSummary(p)).toBe('1 ready to import (1 updating saved entries), 2 skipped (already saved, breaks or leave). Imported entries are added as a draft.');
     });
 });

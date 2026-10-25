@@ -441,7 +441,7 @@ export const importSummary = (p: ImportPreview) => {
     const skipped = rows.filter(r => r.skipped).length;
     const updates = rows.filter(r => r.ready && r.replaces).length;
     const problems = rows.length - p.ready - skipped;
-    return `${p.ready} ready to import${updates ? ` (${updates} updating saved entries)` : ''}${skipped ? `, ${skipped} skipped (already saved, or breaks)` : ''}${
+    return `${p.ready} ready to import${updates ? ` (${updates} updating saved entries)` : ''}${skipped ? `, ${skipped} skipped (already saved, breaks or leave)` : ''}${
         problems ? `, ${problems} with problems (they won’t be imported)` : ''
     }. Imported entries are added as a draft.`;
 };

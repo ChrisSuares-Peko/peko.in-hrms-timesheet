@@ -1,7 +1,8 @@
 // PROTOTYPE-SETUP (Final batch, Slice 3): "Download template" and "Upload timesheet" on the Timesheet tab's view bar.
 // PROTOTYPE-SETUP (Timesheet v6, Slice 4): Excel both ways (exceljs — already a dependency, loaded lazily):
-//   Download timesheet ... This week / This month / Last month / Custom, From–To (at most a year), a preview of the
-//                          first 12 rows ("N entries · X logged"), "Copy rows" (tab-separated) and "Download Excel"
+//   Download timesheet ... This week / This month / Last month / Custom, From–To (at most a year), one summary line
+//                          ("N entries · X logged"; PROTOTYPE-SETUP (Leave & team, Slice 3): no preview table, the
+//                          normal modal size), "Copy rows" (tab-separated) and "Download Excel"
 //                          (timesheet-{from}-to-{to}.xlsx: the template's columns + Status; breaks as "Break" rows)
 //   Upload timesheet ..... .xlsx, .xls or .csv; a strip with "Download template" (timesheet-template.xlsx); the first
 //                          sheet is read as text and checked by the server (matched columns, then each row: Ready,
@@ -17,7 +18,6 @@ import { downloadSheet } from '@src/domains/dashboard/globalBusinessSetup/utils/
 import { useAppDispatch } from '@src/hooks/store';
 import { addDays, locationChip, weekStartOf } from '@src/prototype/rules/attendance';
 import {
-    EXPORT_COLUMNS,
     ImportPreview,
     ImportRow,
     TEMPLATE_TEXT,
@@ -41,8 +41,6 @@ import { useAtsScope } from '../hooks/useAtsScope';
 import type { TimesheetFields } from '../types';
 
 const { Text } = Typography;
-
-const PREVIEW_ROWS = 12;
 
 type Preset = 'week' | 'month' | 'last' | 'custom';
 
@@ -94,20 +92,13 @@ export const DownloadModal = ({ open, today, onClose }: { open: boolean; today: 
         await downloadSheet(data.rows, 'Timesheet', exportFileName(from, to));
     };
 
-    const rows = !error && data ? data.rows.slice(1) : [];
-    const columns: ColumnsType<{ key: string; cells: string[] }> = EXPORT_COLUMNS.map((c, i) => ({
-        title: c,
-        key: c,
-        render: (_, { cells }) =>
-            cells[i] ? <span className={c === 'Description' ? 'block min-w-[140px] break-words' : 'whitespace-nowrap'}>{cells[i]}</span> : <span className="text-gray-400">—</span>,
-    }));
-    const ready = !error && Boolean(data) && !loading;
+    const empty = Boolean(data) && (data?.rows.length ?? 0) <= 1;
+    const ready = !error && Boolean(data) && !loading && !empty;
 
     return (
         <Modal
             open={open}
             title="Download timesheet"
-            width={860}
             onCancel={onClose}
             destroyOnHidden
             footer={
@@ -167,32 +158,17 @@ export const DownloadModal = ({ open, today, onClose }: { open: boolean; today: 
                         />
                     </div>
                 </div>
-                {error ? (
-                    <Alert type="error" showIcon message={error} data-export-error />
-                ) : (
-                    <>
-                        <Text className="text-sm" data-export-summary>
-                            {data ? exportSummary(data.entries, data.loggedMinutes) : ' '}
-                            {rows.length > PREVIEW_ROWS && (
-                                <Text type="secondary" className="text-xs">
-                                    {' '}
-                                    · showing the first {PREVIEW_ROWS} of {rows.length} rows
-                                </Text>
-                            )}
-                        </Text>
-                        <Table
-                            size="small"
-                            loading={loading}
-                            pagination={false}
-                            rowKey="key"
-                            columns={columns}
-                            dataSource={rows.slice(0, PREVIEW_ROWS).map((cells, n) => ({ key: `${n}`, cells }))}
-                            scroll={{ x: 'max-content' }}
-                            locale={{ emptyText: 'Nothing logged in these dates.' }}
-                            data-export-preview
-                        />
-                    </>
+                {/* PROTOTYPE-SETUP (Leave & team, Slice 3): no preview — one summary line. */}
+                {error && <Alert type="error" showIcon message={error} data-export-error />}
+                {!error && (
+                    <Text className="text-sm" data-export-summary>
+                        {loading && !data && 'Counting entries…'}
+                        {data && (empty ? 'No entries in this range.' : exportSummary(data.entries, data.loggedMinutes))}
+                    </Text>
                 )}
+                <Text type="secondary" className="text-xs">
+                    The file uses the same columns as the upload template (plus Status), so you can edit it and upload it back.
+                </Text>
             </div>
         </Modal>
     );

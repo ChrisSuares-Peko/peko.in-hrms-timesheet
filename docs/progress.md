@@ -7,7 +7,7 @@ PROTOTYPE-SETUP. Run log for "Leave & team". If a run is interrupted, continue f
 |---|---|---|
 | Prerequisite: Timesheet v6 finished and pushed (main = origin/main at f99bc95) | — | done |
 | Slice 1 — Leave and public holidays prefilled in the timesheet (rules + tests) | 0e4dbe9 | done |
-| Slice 2 — Calendar colours and legend; day rows | (this commit) | done |
-| Slice 3 — Download timesheet popup: no preview | — | to do |
+| Slice 2 — Calendar colours and legend; day rows | ddb9774 | done |
+| Slice 3 — Download timesheet popup: no preview | (this commit) | done |
 | Slice 4 — My team: Team reimbursements tab + leave approvals beside the Leave calendar | — | to do |
 | VERIFY 1–8 (1440 / 1024 / 375), single push | — | to do |
