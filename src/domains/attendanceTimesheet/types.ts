@@ -667,6 +667,8 @@ export interface TimesheetMonthView {
         locked: boolean;
         /** PROTOTYPE-SETUP (Timesheet v6, Slice 1): the calendar's colour for the day. */
         state?: TimesheetDayState;
+        /** PROTOTYPE-SETUP (Leave & team, Slice 2): a weekday public holiday with no entries (light yellow). */
+        publicHoliday?: boolean;
     }[];
     weeks: PeriodSummary[];
     totals: { loggedMinutes: number; expectedMinutes: number; daysNothingLogged: number; extraMinutes: number };

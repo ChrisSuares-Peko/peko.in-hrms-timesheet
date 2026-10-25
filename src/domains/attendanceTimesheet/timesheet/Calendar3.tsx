@@ -5,6 +5,9 @@
 // keep their grey otherwise. Every day in the current Day / Week / Month view has a red outline, and the selected day a
 // thicker red ring; today's date is bold red. Legend: Saved · Submitted · Update requested · Leave · Selected (with
 // approval off, only Leave and Selected).
+// PROTOTYPE-SETUP (Leave & team, Slice 2): a weekday public holiday with no entries is light yellow; the legend is
+// Saved · Submitted · Update requested · Leave · Public holiday · Selected (approval off: Leave · Public holiday ·
+// Selected).
 // PROTOTYPE-SETUP (HR rules, Slice 3): compact — ~24px cells, tighter gaps and a smaller legend (65% of the width).
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { Button, Skeleton } from 'antd';
@@ -16,7 +19,7 @@ import { addDays, monthDates, weekStartOf } from '@src/prototype/rules/attendanc
 import type { TimesheetDayState, TimesheetMonthView } from '../types';
 import { calendarMonths } from './useCalendarMonths';
 
-type CalState = 'off' | TimesheetDayState | '';
+type CalState = 'off' | 'hol' | TimesheetDayState | '';
 
 /** Colours per state. */
 export const CELL: Record<Exclude<CalState, ''>, string> = {
@@ -25,6 +28,7 @@ export const CELL: Record<Exclude<CalState, ''>, string> = {
     submitted: 'bg-[#6FCF97] text-[#053D24] font-medium',
     update: 'bg-[#FFD9A8] text-[#7A3E00] font-medium',
     leave: 'bg-[#E9E3FF] text-[#4A2FB4]',
+    hol: 'bg-[#FFF3C4] text-[#7A5B00]',
 };
 
 /** The day's tooltip line. */
@@ -33,6 +37,7 @@ export const STATE_TIP: Partial<Record<CalState, string>> = {
     submitted: 'Submitted',
     update: 'Update requested',
     leave: 'On leave',
+    hol: 'Public holiday',
 };
 
 const RING_VIEW = 'inset 0 0 0 1.5px #EF4444';
@@ -55,6 +60,7 @@ export interface Calendar3Props {
 
 interface DayInfo {
     off: boolean;
+    holiday?: boolean;
     state?: TimesheetDayState;
     label?: string;
 }
@@ -64,6 +70,7 @@ const dayInfo = (view: TimesheetMonthView | undefined, date: string): DayInfo =>
     if (!d) return { off: [0, 6].includes(dayjs(date).day()) };
     return {
         off: ['holiday', 'weekly-off', 'worked-off-day'].includes(d.status),
+        ...(d.publicHoliday ? { holiday: true } : {}),
         ...(d.state ? { state: d.state } : {}),
         ...(d.label ? { label: d.label } : {}),
     };
@@ -81,6 +88,8 @@ const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnable
     const lead = (dayjs(dates[0]).day() + 6) % 7;
     const stateOf = (info: DayInfo): CalState => {
         if (info.state === 'leave') return 'leave';
+        if (approvalEnabled && info.state === 'saved') return 'saved';
+        if (info.holiday) return 'hol';
         if (approvalEnabled && info.state) return info.state;
         return info.off ? 'off' : '';
     };
@@ -135,7 +144,7 @@ const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnable
 
 const SWATCH = 'inline-block h-2.5 w-2.5 rounded-[3px]';
 
-/** Saved · Submitted · Update requested · Leave · Selected (approval off: Leave · Selected). */
+/** Saved · Submitted · Update requested · Leave · Public holiday · Selected (approval off: Leave · Public holiday · Selected). */
 const Legend = ({ approvalEnabled }: { approvalEnabled: boolean }) => (
     <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-600" data-calendar-legend>
         {approvalEnabled && (
@@ -157,6 +166,10 @@ const Legend = ({ approvalEnabled }: { approvalEnabled: boolean }) => (
         <span className="inline-flex items-center gap-1.5">
             <i className={`${SWATCH} bg-[#E9E3FF]`} />
             Leave
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+            <i className={`${SWATCH} bg-[#FFF3C4]`} style={{ boxShadow: 'inset 0 0 0 1px #E8C547' }} />
+            Public holiday
         </span>
         <span className="inline-flex items-center gap-1.5">
             <i className={SWATCH} style={{ boxShadow: RING_VIEW }} />

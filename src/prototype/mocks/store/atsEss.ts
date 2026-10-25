@@ -814,9 +814,12 @@ export const timesheetMonthOf = (mode: DataMode, e: MockEmployee, month: string)
             approvalEnabled: getSettings(mode).timesheetApproval.enabled,
             period,
         });
+        // PROTOTYPE-SETUP (Leave & team, Slice 2): a weekday public holiday with nothing logged by hand.
+        const publicHoliday = d.attendance.status === 'holiday' && !isWeeklyOff(date, getSettings(mode)) && d.entries.length === 0;
         return {
             date,
             ...(state ? { state } : {}),
+            ...(publicHoliday ? { publicHoliday } : {}),
             loggedMinutes: d.loggedMinutes,
             expectedMinutes: d.expectedMinutes,
             status: d.attendance.status,

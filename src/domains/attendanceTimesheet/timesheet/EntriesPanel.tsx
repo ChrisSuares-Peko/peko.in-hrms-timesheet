@@ -29,7 +29,7 @@ import {
 import { EntryOverlap, dayGapCheck, findOverlaps, rangeText } from '@src/prototype/rules/timesheetFiling';
 
 import { RequestStatusTag } from '../components/StatusTags';
-import type { AtsMode, OvertimeRequest, TimesheetBreakRow, TimesheetDay, TimesheetEntry, TimesheetFields } from '../types';
+import type { AtsMode, OvertimeRequest, TimesheetBreakRow, TimesheetDay, TimesheetEntry, TimesheetFields, TimesheetLeaveRow } from '../types';
 import { entryOutsideMinutes, outsideChipText, outsideMinutes } from './dayModel';
 import { BREAK_HATCH } from './DayRows';
 import EntryForm, { EntryFormValue, EntrySession } from './EntryForm';
@@ -71,6 +71,20 @@ export const breakEntries = (day: TimesheetDay): TimesheetEntry[] => [
     ...day.breaks.map(b => ({ id: `break:${b.index}`, date: day.date, start: b.start, end: b.end, mins: b.minutes, description: b.description || 'Break' })),
     ...leaveRowsAsEntries(day.date, day.leaveRows),
 ];
+
+/** PROTOTYPE-SETUP (Leave & team, Slice 2): a leave / public-holiday row — read-only, a chip on light purple. */
+const LeaveLine = ({ row }: { row: TimesheetLeaveRow }) => (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-0 border-b border-solid border-gray-100 bg-[#F5F3FF] px-1 py-1.5 text-[13px] last:border-b-0" data-leave-row={row.kind}>
+        <span className="w-[140px] shrink-0 tabular-nums text-gray-700">{entryTimeText({ start: row.start, end: row.end })}</span>
+        <span className="w-[56px] shrink-0 tabular-nums text-gray-500">{formatDuration(row.minutes)}</span>
+        <span className="order-last flex min-w-0 basis-full items-center gap-1.5 md:order-none md:flex-1 md:basis-0">
+            <Tag className="!m-0 !bg-[#EBDDFD] !text-[#5B21B6]" bordered={false}>
+                {row.tag}
+            </Tag>
+            <span className="min-w-0 break-words text-gray-700">{row.description}</span>
+        </span>
+    </div>
+);
 
 const BreakLine = ({ day, brk, editable, onSave }: { day: TimesheetDay; brk: TimesheetBreakRow; editable: boolean; onSave?: EntriesPanelProps['onBreakDescription'] }) => {
     const [editing, setEditing] = useState(false);
@@ -258,9 +272,10 @@ const EntriesPanel = ({
     const session = sessionOf(day);
     const breaksAsOthers = breakEntries(day);
     // Entries and breaks in time order (hours-only entries last).
-    const rows: ({ kind: 'entry'; e: TimesheetEntry } | { kind: 'break'; b: TimesheetBreakRow })[] = [
+    const rows: ({ kind: 'entry'; e: TimesheetEntry } | { kind: 'break'; b: TimesheetBreakRow } | { kind: 'leave'; l: TimesheetLeaveRow })[] = [
         ...entries.map(e => ({ kind: 'entry' as const, e, at: isTimed(e) ? entryStartMinutes(e) : 2 * MINUTES_PER_DAY })),
         ...day.breaks.map(b => ({ kind: 'break' as const, b, at: b.startMinutes })),
+        ...(day.leaveRows ?? []).map(l => ({ kind: 'leave' as const, l, at: l.startMinutes })),
     ]
         .sort((x, y) => x.at - y.at)
         .map(({ at, ...r }) => r);
@@ -313,6 +328,7 @@ const EntriesPanel = ({
             )}
             {rows.length === 0 && !editable && <div className="py-1 text-xs text-gray-500">No time logged.</div>}
             {rows.map(r => {
+                if (r.kind === 'leave') return <LeaveLine key={r.l.id} row={r.l} />;
                 if (r.kind === 'break') {
                     return <BreakLine key={`break-${r.b.index}`} day={day} brk={r.b} editable={!day.locked} onSave={onBreakDescription} />;
                 }

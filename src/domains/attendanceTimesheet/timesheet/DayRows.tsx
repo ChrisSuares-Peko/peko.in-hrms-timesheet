@@ -8,6 +8,7 @@
 //   Column C: the entries panel — always open in Day view; in Week / Month it opens on a row click (one at a time).
 // PROTOTYPE-SETUP (HR rules, Slice 3): the axis runs 7am–10pm, or past midnight (up to 7am +1) when a visible day
 // does; breaks are drawn and keyed. On mobile the date sits above the bar and the axis is hidden.
+// PROTOTYPE-SETUP (Leave & team, Slice 2): leave / public-holiday rows are purple hatched segments ("Leave" in the key).
 import type { ReactNode } from 'react';
 
 import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons';
@@ -36,6 +37,8 @@ import {
 const STRIPES = 'repeating-linear-gradient(135deg,#F59E0B 0 4px,#FFD27A 4px 8px)';
 /** Recorded breaks (hatched grey). */
 export const BREAK_HATCH = 'repeating-linear-gradient(135deg,#C9CED6 0 3px,#EEF0F3 3px 6px)';
+/** Leave and public-holiday rows (hatched purple). */
+export const LEAVE_HATCH = 'repeating-linear-gradient(135deg,#C4B5FD 0 4px,#EDE9FE 4px 8px)';
 
 export const BarTrack = ({ day, mode, axisEnd = AXIS_END }: { day: TimesheetDay; mode: AtsMode; axisEnd?: number }) => {
     const win = windowRange(day);
@@ -58,6 +61,15 @@ export const BarTrack = ({ day, mode, axisEnd = AXIS_END }: { day: TimesheetDay;
                     title={`Break ${entryTimeText({ start: b.start, end: b.end })}${b.description ? ` ${b.description}` : ''}`}
                     className="absolute inset-y-[3px] rounded-sm"
                     style={{ left: `${pct(b.startMinutes)}%`, width: `${Math.max(0.5, pct(b.endMinutes) - pct(b.startMinutes))}%`, background: BREAK_HATCH }}
+                />
+            ))}
+            {(day.leaveRows ?? []).map(r => (
+                <div
+                    key={r.id}
+                    data-leave-segment
+                    title={`${entryTimeText({ start: r.start, end: r.end })} ${r.tag}: ${r.description}`}
+                    className="absolute inset-y-[3px] rounded-sm"
+                    style={{ left: `${pct(r.startMinutes)}%`, width: `${Math.max(0.5, pct(r.endMinutes) - pct(r.startMinutes))}%`, background: LEAVE_HATCH }}
                 />
             ))}
         </div>
@@ -149,6 +161,10 @@ const Axis = ({ axisEnd }: { axisEnd: number }) => (
                 <span className="inline-flex items-center gap-1.5">
                     <i className="inline-block h-2 w-3.5 rounded-sm" style={{ background: BREAK_HATCH }} />
                     Breaks
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                    <i className="inline-block h-2 w-3.5 rounded-sm" style={{ background: LEAVE_HATCH }} />
+                    Leave
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                     <i className="inline-block h-2 w-3.5 rounded-sm" style={{ background: STRIPES }} />
