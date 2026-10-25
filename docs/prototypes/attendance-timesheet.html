@@ -575,6 +575,19 @@ img.has-img{object-fit:cover;display:block}
 .lb{display:flex;flex-direction:column;gap:2px}
 .lb b{font-size:18px;font-weight:500}
 .lb.lop{background:var(--red-soft)}
+.lc-grid{display:grid;grid-template-columns:minmax(0,65fr) minmax(0,35fr);gap:16px;align-items:stretch}
+.lc-side{position:relative;min-height:420px}
+.lc-side-in{position:absolute;inset:0;display:flex;flex-direction:column}
+.lc-list{flex:1;overflow-y:auto}
+.lc-item{border-bottom:1px solid var(--line)}
+.lc-item:last-child{border-bottom:0}
+.lc-item .req{grid-template-columns:1fr;border-bottom:0;padding:10px 12px}
+@media (max-width:1100px){.lc-grid{grid-template-columns:1fr}.lc-side{position:static;min-height:0}.lc-side-in{position:static}.lc-list{max-height:420px}}
+.mc.hol{background:#FFF3C4;color:#7A5B00}
+.lg.hol{background:#FFF3C4;box-shadow:inset 0 0 0 1px #E8C547}
+.bt-l{position:absolute;top:3px;bottom:3px;border-radius:2px;background:repeating-linear-gradient(135deg,#C4B5FD 0 4px,#EDE9FE 4px 8px)}
+.entry.lv-row{background:#F5F3FF}
+.entry.lv-row .chip{background:#EBDDFD;color:#5B21B6}
 .tpl-strip{display:flex;align-items:center;gap:10px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px}
 .mc.saved{background:var(--blue-soft);color:var(--blue-ink)}
 .mc.sub{background:var(--cal-ok);color:var(--cal-ok-ink);font-weight:500}
@@ -904,7 +917,17 @@ function breakEntries(s, id, k) {
   if (!a || !a.breaks) return [];
   return a.breaks.map((b, i) => ({ id: 'brk' + i, idx: i, isBreak: true, start: b.s, end: b.e || (k === TODAY ? toTime(Math.max(toMin(b.s), nowMin())) : b.s), desc: b.desc || '', open: !b.e }));
 }
-const entriesOn = (s, id, k) => (readWeek(s, id, mondayOf(k)).entries[k] || []).concat(breakEntries(s, id, k));
+// approved leave and weekday holidays fill the working shift automatically (read-only)
+function leaveEntries(s, id, k) {
+  const emp = EMAP[id]; if (!emp) return [];
+  const [ss, se] = shiftOf(emp), mid = ss + Math.round((se - ss) / 2);
+  const mk = (a, b, kind, desc) => [{ id: 'lv-' + k, isLeave: true, kind, start: toTime(a), end: toTime(b), desc }];
+  const lv = leaveOn(s, id, k); if (lv && !isWeekend(k)) return mk(ss, se, 'Leave', lv.data.leaveType + ' leave');
+  const hl = halfLeaveOn(s, id, k); if (hl) return hl.data.half === 'first' ? mk(ss, mid, 'Leave', hl.data.leaveType + ' leave (first half)') : mk(mid, se, 'Leave', hl.data.leaveType + ' leave (second half)');
+  if (holidayOf(k) && !isWeekend(k) && !(s.attendance[id + '|' + k] && s.attendance[id + '|' + k].in)) return mk(ss, se, 'Public holiday', holidayOf(k));
+  return [];
+}
+const entriesOn = (s, id, k) => (readWeek(s, id, mondayOf(k)).entries[k] || []).concat(breakEntries(s, id, k), leaveEntries(s, id, k));
 const timed = e => !!(e.start && e.end);
 const eS = e => toMin(e.start) + (e.startNext ? 1440 : 0);   // minutes from the day's midnight, past 24:00 for next-day times
 const eE = e => toMin(e.end) + (e.endNext ? 1440 : 0);
@@ -977,7 +1000,7 @@ function dayWindow(s, emp, k) {
   return { start: null, end: null, label: 'No check-in recorded', missing: true };
 }
 function outsideMins(e, win) {
-  if (!timed(e) || e.isBreak) return 0;
+  if (!timed(e) || e.isBreak || e.isLeave) return 0;
   const a = eS(e), b = eE(e);
   if (win.start == null) return b - a;
   return Math.max(0, Math.min(b, win.start) - a) + Math.max(0, b - Math.max(a, win.end));
@@ -986,7 +1009,7 @@ function outsideMins(e, win) {
 function otOfDay(s, emp, k) {
   const off = isOff(k);
   if (s.settings.mode === 'timesheet') {
-    const worked = sumMins(entriesOn(s, emp.id, k));
+    const worked = sumMins(entriesOn(s, emp.id, k).filter(e => !e.isLeave));  // leave and holiday hours never count as overtime
     const base = off ? 0 : shiftLen(emp) - s.settings.breakMin;
     return { worked, base, extra: Math.max(0, worked - base), off, source: 'timesheet' };
   }
@@ -1816,6 +1839,7 @@ function calState(store, emp, k) {
   const w = store.weeks[emp.id + '|' + mondayOf(k)];
   const has = !!(w && (w.entries[k] || []).length);
   if (w && w.dirty && w.dirty[k]) return 'saved';
+  if (holidayOf(k) && !isWeekend(k) && !has) return 'hol';
   if (isOff(k) && !has) return 'off';
   if (!w || !approvalOn(store)) return has ? 'saved' : '';
   if (w.status === 'rejected') return 'back';
@@ -1825,15 +1849,17 @@ function calState(store, emp, k) {
 }
 // the timesheet should cover every checked-in hour, breaks included
 function expectedFor(store, emp, k) {
-  if (leaveOn(store, emp.id, k)) return 0;
-  if (store.settings.mode === 'timesheet') return isOff(k) ? 0 : halfLeaveOn(store, emp.id, k) ? Math.round(shiftLen(emp) / 2) : shiftLen(emp);
+  const fullLeave = (leaveOn(store, emp.id, k) && !isWeekend(k)) || (holidayOf(k) && !isWeekend(k));
   const a = attOf(store, emp, k);
+  if (fullLeave && !a) return shiftLen(emp);
+  if (store.settings.mode === 'timesheet') return isOff(k) && !holidayOf(k) ? 0 : shiftLen(emp);
   if (!a) return 0;
-  return workedMins(a, k);
+  const hl = halfLeaveOn(store, emp.id, k);
+  return workedMins(a, k) + (hl ? Math.round(shiftLen(emp) / 2) : 0);
 }
 // hours worked for a day: check-in to check-out (or the shift in timesheet-only mode)
 function workedFor(s, emp, k) {
-  if (leaveOn(s, emp.id, k)) return { mins: 0, kind: 'leave', brk: 0 };
+  if (((leaveOn(s, emp.id, k)) || holidayOf(k)) && !isWeekend(k) && !attOf(s, emp, k)) return { mins: shiftLen(emp), kind: 'shift', brk: 0 };
   if (s.settings.mode === 'timesheet') return isOff(k) ? { mins: 0, kind: 'off', brk: 0 } : { mins: shiftLen(emp), kind: 'shift', brk: 0 };
   const a = attOf(s, emp, k);
   if (!a) return { mins: 0, kind: 'none', brk: 0 };
@@ -1888,6 +1914,7 @@ function Calendar3({ emp, cursor, sel, rangeFn, onPick, onShift, onToday }) {
       ${appr ? html`<span><i className="lg sub"></i>Submitted</span>` : null}
       ${appr ? html`<span><i className="lg back"></i>Update requested</span>` : null}
       <span><i className="lg lv"></i>Leave</span>
+      <span><i className="lg hol"></i>Public holiday</span>
       <span><i className="lg selx"></i>Selected</span>
     </div>
   </section>`;
@@ -1916,6 +1943,7 @@ function BarTrack({ win, list }) {
   (list || []).filter(timed).forEach(e => {
     const a = eS(e), b = eE(e);
     if (e.isBreak) { segs.push({ a, b, brk: true, e }); return; }
+    if (e.isLeave) { segs.push({ a, b, lvx: true, e }); return; }
     if (win.start == null) { segs.push({ a, b, out: true, e }); return; }
     if (a < win.start) segs.push({ a, b: Math.min(b, win.start), out: true, e });
     const ia = Math.max(a, win.start), ib = Math.min(b, win.end);
@@ -1924,7 +1952,7 @@ function BarTrack({ win, list }) {
   });
   return html`<div className="bt" aria-hidden="true">
     ${win.start != null && html`<div className="bt-w" style=${{ left: pct(win.start) + '%', width: (pct(win.end) - pct(win.start)) + '%' }}></div>`}
-    ${segs.map((s, i) => html`<div key=${i} className=${s.brk ? 'bt-b' : s.out ? 'bt-o' : 'bt-e'} title=${entTime(s.e) + ' ' + (s.e.isBreak ? 'Break ' : '') + s.e.desc} style=${{ left: pct(s.a) + '%', width: Math.max(0.5, pct(s.b) - pct(s.a)) + '%' }}></div>`)}
+    ${segs.map((s, i) => html`<div key=${i} className=${s.lvx ? 'bt-l' : s.brk ? 'bt-b' : s.out ? 'bt-o' : 'bt-e'} title=${entTime(s.e) + ' ' + (s.e.isBreak ? 'Break ' : '') + s.e.desc} style=${{ left: pct(s.a) + '%', width: Math.max(0.5, pct(s.b) - pct(s.a)) + '%' }}></div>`)}
   </div>`;
 }
 /* entry form: start + end work out the hours; or type hours alone */
@@ -2031,7 +2059,7 @@ function EntriesPanel({ emp, k, list, editable, onSave, onDelete, onRequestOT, o
       ${otReq && html`<${ReqStatusChip} r=${otReq} />`}
     </div>` : null}
     ${sorted.length === 0 && !editable && html`<div className="empty-day">No time logged.</div>`}
-    ${sorted.map(e => e.isBreak ? html`<${BreakRow} key=${e.id} emp=${emp} k=${k} e=${e} editable=${!isLocked(store, k)} />` : editing === e.id
+    ${sorted.map(e => e.isLeave ? html`<div key=${e.id} className="entry lv-row"><span className="t">${entTime(e)}</span><span className="d">${dur(entryMins(e))}</span><span className="desc"><span className="chip">${e.kind}</span> ${e.desc}</span><span className="acts"></span></div>` : e.isBreak ? html`<${BreakRow} key=${e.id} emp=${emp} k=${k} e=${e} editable=${!isLocked(store, k)} />` : editing === e.id
       ? html`<${EntryForm} key=${e.id} session=${session} initial=${e} others=${sorted.filter(o => o.id !== e.id)} onCancel=${() => setEditing(null)} onSave=${v => { onSave(k, Object.assign({}, e, v)); setEditing(null); }} />`
       : html`<div key=${e.id} className="entry hov" onDoubleClick=${() => editable && setEditing(e.id)}>
           <span className=${'t' + (timed(e) ? '' : ' nt')}>${entTime(e)}</span><span className="d">${dur(entryMins(e))}</span>
@@ -2057,6 +2085,7 @@ function DayLine({ emp, k, list, expanded, onToggle, children }) {
   if (lv) meta = 'On ' + lv.data.leaveType.toLowerCase() + ' leave';
   else if (store.settings.mode === 'timesheet') meta = isOff(k) ? (holidayOf(k) || 'Weekly off') : 'Shift ' + shiftOf(emp).map(toTime).join('–');
   else if (a) meta = 'In ' + t12(a.in) + ' · ' + (a.out ? 'Out ' + t12(a.out) + (a.outDays === 1 ? ' (next day)' : a.outDays > 1 ? ' (' + a.outDays + ' days later)' : '') + ' · At work ' + dur(workedMins(a, k)) : a.carried ? 'Still checked in' : 'Checked in');
+  else if (holidayOf(k) && !isWeekend(k)) meta = holidayOf(k) + ' · public holiday';
   else meta = k > TODAY ? 'Upcoming' : k === TODAY ? 'Not checked in yet' : 'No check-in';
   const hlv = halfLeaveOn(store, emp.id, k);
   if (hlv) meta = halfLabel(hlv) + ' · ' + meta;
@@ -2162,14 +2191,13 @@ function DownloadModal({ emp, onClose }) {
   const pick = v => { setPreset(v); if (v === 'week') { setFrom(THIS_WEEK); setTo(addDays(THIS_WEEK, 6)); } if (v === 'month') { setFrom(firstOf(monthOf(TODAY))); setTo(addDays(firstOf(addMonths(monthOf(TODAY), 1)), -1)); } if (v === 'last') { const m = addMonths(monthOf(TODAY), -1); setFrom(firstOf(m)); setTo(addDays(firstOf(monthOf(TODAY)), -1)); } };
   const err = !from || !to ? 'Pick both dates.' : from > to ? 'The end date is before the start date.' : daysBetween(from, to) > 366 ? 'Pick a range of up to a year.' : '';
   const rows = [TPL_COLS.concat(['Status'])]; let n = 0, mins = 0;
-  if (!err) for (let k = from; k <= to; k = addDays(k, 1)) { const w = readWeek(store, emp.id, mondayOf(k)); const st = WEEK_STATUS[weekStatusKey(w)]; entriesOn(store, emp.id, k).slice().sort(byStart).forEach(e => { n++; mins += entryMins(e); rows.push([k, e.start || '', e.end || '', fmtH(entryMins(e)), e.isBreak ? 'Break' : e.loc === 'client' ? 'Client: ' + (e.client || '') : e.loc ? LOCS[e.loc] : 'Office', e.project || '', e.isBreak ? 'Break' + (e.desc ? ': ' + e.desc : '') : e.desc, w.dirty && w.dirty[k] ? 'Saved' : st ? st.label : '']); }); }
+  if (!err) for (let k = from; k <= to; k = addDays(k, 1)) { const w = readWeek(store, emp.id, mondayOf(k)); const st = WEEK_STATUS[weekStatusKey(w)]; entriesOn(store, emp.id, k).slice().sort(byStart).forEach(e => { n++; mins += entryMins(e); rows.push([k, e.start || '', e.end || '', fmtH(entryMins(e)), e.isLeave ? e.kind : e.isBreak ? 'Break' : e.loc === 'client' ? 'Client: ' + (e.client || '') : e.loc ? LOCS[e.loc] : 'Office', e.project || '', e.isBreak ? 'Break' + (e.desc ? ': ' + e.desc : '') : e.desc, w.dirty && w.dirty[k] ? 'Saved' : st ? st.label : '']); }); }
   const dl = () => { notify(saveXlsx(rows, 'timesheet-' + from + '-to-' + to + '.xlsx') ? 'Downloading ' + n + ' entries as Excel' : 'Excel download isn\u2019t available here. Use Copy rows instead.'); };
   const copy = () => { try { navigator.clipboard.writeText(rows.map(r => r.join('\t')).join('\n')); notify('Copied. Paste it into Excel.'); } catch (e) { notify('Couldn\u2019t copy'); } };
-  return html`<${Modal} wide title="Download timesheet" onClose=${onClose} footer=${[html`<span key="n" className="small muted" style=${{ marginRight: 'auto' }}>${err || n + ' entries \u00b7 ' + dur(mins) + ' logged'}</span>`, html`<button key="c" className="btn" disabled=${!!err || !n} onClick=${copy}>Copy rows</button>`, html`<button key="d" className="btn primary" disabled=${!!err || !n} onClick=${dl}>Download Excel</button>`]}>
+  return html`<${Modal} title="Download timesheet" onClose=${onClose} footer=${[html`<span key="n" className="small muted" style=${{ marginRight: 'auto' }}>${err || n + ' entries \u00b7 ' + dur(mins) + ' logged'}</span>`, html`<button key="c" className="btn" disabled=${!!err || !n} onClick=${copy}>Copy rows</button>`, html`<button key="d" className="btn primary" disabled=${!!err || !n} onClick=${dl}>Download Excel</button>`]}>
     <div className="field"><label>Date range</label><${Seg} label="Date range" value=${preset} onChange=${pick} options=${[['week', 'This week'], ['month', 'This month'], ['last', 'Last month'], ['custom', 'Custom']]} /></div>
     <div className="row" style=${{ flexWrap: 'nowrap', marginBottom: '10px' }}><div className="field" style=${{ flex: 1 }}><label htmlFor="dlf">From</label><input id="dlf" className="input" type="date" value=${from} onChange=${e => { setFrom(e.target.value); setPreset('custom'); }} /></div><div className="field" style=${{ flex: 1 }}><label htmlFor="dlt">To</label><input id="dlt" className="input" type="date" value=${to} onChange=${e => { setTo(e.target.value); setPreset('custom'); }} /></div></div>
-    ${!err && n ? kids(html`<div className="scroll-x panel" style=${{ maxHeight: '280px', overflowY: 'auto' }}><table><thead><tr>${rows[0].map(c => html`<th key=${c}>${c}</th>`)}</tr></thead><tbody>${rows.slice(1, 13).map((r, i) => html`<tr key=${i}>${r.map((c, j) => html`<td key=${j} className=${c ? '' : 'muted'}>${c || '\u2014'}</td>`)}</tr>`)}</tbody></table></div>
-      ${n > 12 ? html`<div className="small muted" style=${{ marginTop: '6px' }}>Showing 12 of ${n} rows. The file has them all.</div>` : null}`) : !err ? html`<div className="small muted">No entries in this range.</div>` : null}
+    ${err ? html`<div className="err">${err}</div>` : !n ? html`<div className="small muted">No entries in this range.</div>` : null}
     <div className="small muted" style=${{ marginTop: '8px' }}>The file uses the same columns as the upload template (plus Status), so you can edit it and upload it back.</div>
   <//>`;
 }
@@ -2280,7 +2308,7 @@ function MyTimesheet({ emp, initDate, onGoTab }) {
   const mgr = emp.mgr ? EMAP[emp.mgr] : null;
   const entriesFor = k => {
     const wk = mondayOf(k);
-    const brk = breakEntries(store, emp.id, k);
+    const brk = breakEntries(store, emp.id, k).concat(leaveEntries(store, emp.id, k));
     if (draft && draft.ws === wk) return (draft.entries[k] || []).concat(brk);
     const w = readWeek(store, emp.id, wk);
     if (showProposed && wk === fws && w.change) return (w.change.entries[k] || []).concat(brk);
@@ -2756,11 +2784,47 @@ function TeamLeaveCal({ mgr }) {
   const [month, setMonth] = useState(monthOf(TODAY));
   const reports = EMP.filter(e => e.mgr === mgr.id).map(e => e.id);
   const lv = store.requests.filter(r => r.type === 'leave' && reports.includes(r.empId) && ['approved', 'pending_l1', 'pending_l2'].includes(r.status));
+  const pendL = lv.filter(r => r.status === 'pending_l1').sort((a, b) => a.data.from < b.data.from ? -1 : 1);
   const cell = k => { const on = lv.filter(r => r.data.from <= k && r.data.to >= k && !isOff(k)); return [on.length ? html`<span key="n" className="cv">${on.length} off</span>` : null, ...on.map(r => html`<span key=${r.id} className=${'mini ' + (r.status === 'approved' ? 'leave' : 'off')} style=${{ border: r.status === 'approved' ? '' : '1px dashed var(--line-2)' }}>${first(EMAP[r.empId].name)}${r.data.half ? ' ½' : ''}</span>`)]; };
   return html`<div>
     <div className="viewbar"><button className="btn sm" aria-label="Previous month" onClick=${() => setMonth(addMonths(month, -1))}>‹</button><span className="range">${fmtMonth(month)}</span><button className="btn sm" aria-label="Next month" onClick=${() => setMonth(addMonths(month, 1))}>›</button>
       <span className="spacer"></span><span className="small muted">Solid = approved · dashed = waiting for approval</span></div>
-    <${MonthGrid} month=${month} selected=${null} onPick=${() => {}} cell=${cell} />
+    <div className="lc-grid">
+      <${MonthGrid} month=${month} selected=${null} onPick=${() => {}} cell=${cell} />
+      <div className="lc-side"><section className="panel lc-side-in" aria-label="Leave to approve">
+        <div className="pad" style=${{ paddingBottom: '8px' }}><div className="row"><h3>Leave to approve</h3><span className="spacer"></span>${pendL.length ? html`<span className="chip red">${pendL.length}</span>` : null}</div>
+          <div className="small muted" style=${{ marginTop: '2px' }}>Check who else is off before you approve.</div></div>
+        <div className="lc-list">${pendL.map(r => { const also = lv.filter(x => x.id !== r.id && x.status === 'approved' && x.data.from <= r.data.to && x.data.to >= r.data.from).map(x => first(EMAP[x.empId].name)); return html`<div key=${r.id} className="lc-item">
+            <div className="row" style=${{ gap: '6px', padding: '8px 12px 0' }}>${also.length ? html`<span className="chip amber">Also off: ${Array.from(new Set(also)).join(', ')}</span>` : html`<span className="chip green">No one else off</span>`}<span className="spacer"></span><button className="btn link small" onClick=${() => setMonth(monthOf(r.data.from))}>Show on calendar</button></div>
+            <${ReqRow} r=${r} showEmp level=${1} actor=${mgr.name} /></div>`; })}
+          ${pendL.length === 0 && html`<${Empty} title="Nothing to approve">New leave requests from your team show up here.<//>`}</div>
+      </section></div>
+    </div>
+  </div>`;
+}
+function TeamReimb({ mgr }) {
+  const { store } = useApp();
+  const [month, setMonth] = useState(monthOf(TODAY));
+  const [st, setSt] = useState('all');
+  const reports = EMP.filter(e => e.mgr === mgr.id).map(e => e.id);
+  const inMonth = store.requests.filter(r => r.type === 'reimbursement' && reports.includes(r.empId) && monthOf(r.data.date || r.created) === month && r.status !== 'withdrawn');
+  const bucket = r => r.status === 'pending_l1' ? 'you' : r.status === 'pending_l2' ? 'l2' : r.status === 'approved' ? 'ok' : r.status === 'update_requested' ? 'upd' : 'no';
+  const sum = list => list.reduce((t, r) => t + (+r.data.amount || 0), 0);
+  const list = st === 'all' ? inMonth : inMonth.filter(r => bucket(r) === st);
+  const byPerson = reports.map(id => ({ e: EMAP[id], list: inMonth.filter(r => r.empId === id) })).filter(x => x.list.length);
+  const c = k => inMonth.filter(r => bucket(r) === k);
+  return html`<div>
+    <div className="viewbar"><button className="btn sm" aria-label="Previous month" onClick=${() => setMonth(addMonths(month, -1))}>‹</button><span className="range">${fmtMonth(month)}</span><button className="btn sm" aria-label="Next month" onClick=${() => setMonth(addMonths(month, 1))}>›</button></div>
+    <div className="stats" style=${{ gridTemplateColumns: 'repeat(4,minmax(0,1fr))' }}>
+      <div className="panel stat"><div className="k">Claimed this month</div><div className="v">${inr(sum(inMonth))}</div><div className="k">${inMonth.length} claim${inMonth.length === 1 ? '' : 's'}</div></div>
+      <div className="panel stat"><div className="k">Waiting for you</div><div className="v">${inr(sum(c('you')))}</div><div className="k">${c('you').length} claim${c('you').length === 1 ? '' : 's'}</div></div>
+      <div className="panel stat"><div className="k">With Admin</div><div className="v">${inr(sum(c('l2')))}</div><div className="k">${c('l2').length} claim${c('l2').length === 1 ? '' : 's'}</div></div>
+      <div className="panel stat"><div className="k">Approved</div><div className="v">${inr(sum(c('ok')))}</div><div className="k">${c('ok').length} claim${c('ok').length === 1 ? '' : 's'}</div></div>
+    </div>
+    ${byPerson.length ? html`<div className="panel pad" style=${{ marginBottom: '14px' }}><h3 style=${{ marginBottom: '6px' }}>By team member</h3>${byPerson.map(x => html`<div key=${x.e.id} className="ul-row" style=${{ cursor: 'default' }}><span>${x.e.name} <span className="muted small">· ${x.list.length} claim${x.list.length === 1 ? '' : 's'}</span></span><span>${inr(sum(x.list))}</span></div>`)}</div>` : null}
+    <div className="row" style=${{ marginBottom: '10px' }}><${Seg} label="Status" value=${st} onChange=${setSt} options=${[['all', 'All (' + inMonth.length + ')'], ['you', 'Waiting for you (' + c('you').length + ')'], ['l2', 'With Admin (' + c('l2').length + ')'], ['upd', 'Update requested (' + c('upd').length + ')'], ['ok', 'Approved (' + c('ok').length + ')'], ['no', 'Rejected (' + c('no').length + ')']]} /></div>
+    <div className="panel">${list.map(r => html`<${ReqRow} key=${r.id} r=${r} showEmp level=${r.status === 'pending_l1' ? 1 : undefined} actor=${mgr.name} />`)}
+      ${list.length === 0 && html`<${Empty} title="No claims here">Reimbursement claims from your team for ${fmtMonth(month)} show up here.<//>`}</div>
   </div>`;
 }
 function TeamPage({ mgr }) {
@@ -2776,6 +2840,7 @@ function TeamPage({ mgr }) {
     mode !== 'timesheet' && { k: 'att', label: 'Team attendance' },
     mode !== 'attendance' && { k: 'teamts', label: 'Team timesheets' },
     { k: 'leavecal', label: 'Leave calendar' },
+    { k: 'reimb', label: 'Team reimbursements' },
   ].filter(Boolean);
   const cur = TABS.find(t => t.k === tab) ? tab : TABS[0].k;
   return html`<div>
@@ -2785,6 +2850,7 @@ function TeamPage({ mgr }) {
     ${cur === 'att' && html`<${TeamAttendance} mgr=${mgr} />`}
     ${cur === 'teamts' && html`<${TeamTimesheets} mgr=${mgr} onReview=${setReview} />`}
     ${cur === 'leavecal' && html`<${TeamLeaveCal} mgr=${mgr} />`}
+    ${cur === 'reimb' && html`<${TeamReimb} mgr=${mgr} />`}
     ${review && html`<${WeekReview} item=${review} mgr=${mgr} onClose=${() => setReview(null)} />`}
   </div>`;
 }
