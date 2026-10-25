@@ -31,6 +31,7 @@ import {
     toMinutes,
     usesTimes,
     validateEntry,
+    isDerivedRow,
 } from '@src/prototype/rules/attendance';
 import { findOverlaps, rangeText } from '@src/prototype/rules/timesheetFiling';
 
@@ -109,7 +110,7 @@ const EntryForm = ({
     const [hours, setHours] = useState(initial ? formatHoursInput(initial.mins) : '');
     const [code, setCode] = useState(initial?.projectCode ?? '');
     const [description, setDescription] = useState(initial?.description ?? '');
-    const newestWhere = [...others].reverse().find(o => !o.id.startsWith('break:') && o.location);
+    const newestWhere = [...others].reverse().find(o => !isDerivedRow(o.id) && o.location);
     const startWhere = initial
         ? { location: initial.location ?? 'OFFICE', client: initial.client ?? '' }
         : lastWhere ?? { location: newestWhere?.location ?? 'OFFICE', client: newestWhere?.client ?? '' };
@@ -150,7 +151,7 @@ const EntryForm = ({
     }, [span, initial?.id, date, start, end, description]);
     const overlaps = useMemo(() => {
         if (!candidate) return [];
-        const tasks = others.filter(o => !o.id.startsWith('break:') && o.id !== candidate.id);
+        const tasks = others.filter(o => !isDerivedRow(o.id) && o.id !== candidate.id);
         return findOverlaps([candidate, ...tasks])
             .filter(o => o.a === candidate.id || o.b === candidate.id)
             .map(o => ({ ...o, other: tasks.find(t => t.id === (o.a === candidate.id ? o.b : o.a))! }));

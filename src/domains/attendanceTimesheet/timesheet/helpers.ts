@@ -15,7 +15,10 @@ export const todayIso = () => dayjs().format('YYYY-MM-DD');
 export const withEntries = (day: TimesheetDay, entries: TimesheetEntry[], today: string): TimesheetDay => {
     const dayEntries = sortEntries(entries.filter(e => e.date === day.date));
     // PROTOTYPE-SETUP (HR rules, Slice 3): recorded breaks count as logged.
-    const logged = dayEntries.reduce((s, e) => s + entryMinutes(e), 0) + (day.breaks ?? []).reduce((s, b) => s + b.minutes, 0);
+    const logged =
+        dayEntries.reduce((s, e) => s + entryMinutes(e), 0) +
+        (day.breaks ?? []).reduce((s, b) => s + b.minutes, 0) +
+        (day.leaveRows ?? []).reduce((s, b) => s + b.minutes, 0);
     return {
         ...day,
         entries: dayEntries,

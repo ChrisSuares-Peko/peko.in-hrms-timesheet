@@ -11,7 +11,7 @@
 // Location "Break"), so a downloaded file uploads back: a row that matches a saved entry (date, times / hours,
 // location, project) is skipped when nothing changed ("Already saved"), or updates that entry when only its
 // description changed; "Break" rows are skipped. Excel files are read as text (sheetCellText) and sent as CSV.
-import type { TimesheetEntry, TimesheetFields, TimesheetStatus, TimesheetWeek, WorkLocation } from '@src/domains/attendanceTimesheet/types';
+import type { TimesheetEntry, TimesheetFields, TimesheetLeaveRow, TimesheetStatus, TimesheetWeek, WorkLocation } from '@src/domains/attendanceTimesheet/types';
 
 import {
     MAX_DAY_MINUTES,
@@ -23,6 +23,7 @@ import {
     entryTimeText,
     formatDuration,
     formatHoursInput,
+    isDerivedRow,
     locationChip,
     normaliseProjectCode,
     parseHours,
@@ -97,6 +98,9 @@ export const exportEntryRow = (x: TimesheetEntry, status: string, projectsOn: bo
     status,
 ];
 
+/** PROTOTYPE-SETUP (Leave & team, Slice 1): a leave / holiday row: Location "Leave" / "Public holiday" (an upload skips it). */
+export const exportLeaveRow = (date: string, r: TimesheetLeaveRow, status: string): string[] => [date, r.start, r.end, formatHoursInput(r.minutes), r.tag, '', r.description, status];
+
 /** A recorded break as a row: Location "Break" (an upload skips it). */
 export const exportBreakRow = (b: TimesheetEntry): string[] => [b.date, b.start ?? '', b.end ?? '', formatHoursInput(b.mins), 'Break', '', b.description || 'Break', ''];
 
@@ -161,6 +165,7 @@ export const IMPORT_MESSAGES = {
     location: 'Location must be Office, Home or Client: Name',
     unchanged: 'Already saved',
     break: 'Break (from Attendance)',
+    leave: 'Leave or holiday (filled in for you)',
     updates: 'Updates the saved entry’s description',
 } as const;
 
@@ -356,12 +361,14 @@ export const analyseImport = (text: string, ctx: ImportContext): ImportPreview =
         };
         const bad = (reason: string): ImportRow => ({ ...row, reason });
         if (row.location.trim().toLowerCase() === 'break') return { ...row, skipped: IMPORT_MESSAGES.break };
+        // PROTOTYPE-SETUP (Leave & team, Slice 1): leave / public-holiday rows come from approved leave and the calendar.
+        if (['leave', 'public holiday'].includes(row.location.trim().toLowerCase())) return { ...row, skipped: IMPORT_MESSAGES.leave };
         const date = parseImportDate(row.date);
         if (!date) return bad(IMPORT_MESSAGES.date);
         // PROTOTYPE-SETUP (Timesheet v6, Slice 4): a row that is a saved entry (a downloaded file) — skipped when
         // unchanged (before any other check: a locked day, or an entry after midnight, stays as it is), or an update of
         // that entry's description (it keeps everything else).
-        const same = ctx.existingOn(date).find(o => !o.id.startsWith('break:') && !claimed.has(o.id) && sameSlot(o, row, codesOn));
+        const same = ctx.existingOn(date).find(o => !isDerivedRow(o.id) && !claimed.has(o.id) && sameSlot(o, row, codesOn));
         if (same) claimed.add(same.id);
         if (same && same.description.trim() === row.description.trim()) return { ...row, skipped: IMPORT_MESSAGES.unchanged };
         if (ctx.isLocked(date)) return bad(IMPORT_MESSAGES.locked);
@@ -416,7 +423,7 @@ export const analyseImport = (text: string, ctx: ImportContext): ImportPreview =
         }
         const id = `import:${i}`;
         const placed: TimesheetEntry = { id, ...entry };
-        const clash = findOverlaps([placed, ...others.filter(o => !o.id.startsWith('break:'))]).find(o => o.a === id || o.b === id);
+        const clash = findOverlaps([placed, ...others.filter(o => !isDerivedRow(o.id))]).find(o => o.a === id || o.b === id);
         taken.set(date, [...(taken.get(date) ?? []), placed]);
         return {
             ...row,

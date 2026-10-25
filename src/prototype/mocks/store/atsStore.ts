@@ -17,6 +17,7 @@ import type {
     TimesheetWeek,
     TimesheetWeekView,
     WorkLocation,
+    TimesheetLeaveRow,
 } from '@src/domains/attendanceTimesheet/types';
 import {
     DEFAULT_FILING,
@@ -25,6 +26,7 @@ import {
     addDays,
     addMonths,
     breaksAsEntries,
+    leaveRowsFor,
     dayWindow,
     deriveDay,
     editModeFor,
@@ -297,6 +299,24 @@ export const breakRowsOn = (mode: DataMode, e: MockEmployee, date: string): Time
         return { index, start: x.start!, end: x.end!, startMinutes, endMinutes, minutes: endMinutes - startMinutes, description: b?.description ?? '', running: !b?.end };
     });
 
+/**
+ * PROTOTYPE-SETUP (Leave & team, Slice 1): approved leave and weekday public holidays as read-only rows for the
+ * shift (timesheet modes only). Not part of loggedOn, so they never count as overtime.
+ */
+export const leaveRowsOn = (mode: DataMode, e: MockEmployee, date: string): TimesheetLeaveRow[] => {
+    const settings = getSettings(mode);
+    if (!hasTimesheets(settings.mode) || date < e.dateOfJoin) return [];
+    const l = approvedLeaveOn(mode, e.id, date);
+    return leaveRowsFor({
+        date,
+        shift: settings.shift,
+        weeklyOff: isWeeklyOff(date, settings),
+        holidayName: publicHolidayOn(date),
+        leave: l ? { label: `${LEAVE_LABEL[l.type]} leave`, half: l.half ?? null } : null,
+        checkedIn: hasCheckIn(settings.mode) && Boolean(recordOf(mode, e, date)?.checkIn),
+    });
+};
+
 /** Entries plus recorded breaks. */
 export const loggedOn = (mode: DataMode, e: MockEmployee, date: string) =>
     entriesOn(mode, e, date).reduce((s, x) => s + entryMins(x), 0) + breakRowsOn(mode, e, date).reduce((s, b) => s + b.minutes, 0);
@@ -419,12 +439,16 @@ export const timesheetDay = (mode: DataMode, e: MockEmployee, date: string, entr
     const attendance = attendanceDay(mode, e, date);
     const dayEntries = sortEntries(entries.filter(x => x.date === date));
     const breaks = hasTimesheets(settings.mode) ? breakRowsOn(mode, e, date) : [];
+    const leaveRows = leaveRowsOn(mode, e, date);
+    let prefill: 'full' | 'half' | null = null;
+    if (leaveRows.length) prefill = leaveRows[0].half ? 'half' : 'full';
     const window =
         date < e.dateOfJoin
             ? { kind: 'none' as const, label: 'Before joining', expectedMinutes: 0 }
-            : dayWindow({ mode: settings.mode, settings, day: attendance, today: t, dateOfJoin: e.dateOfJoin });
-    // PROTOTYPE-SETUP (HR rules, Slice 3): breaks count as logged.
-    const logged = dayEntries.reduce((s, x) => s + entryMins(x), 0) + breaks.reduce((s, b) => s + b.minutes, 0);
+            : dayWindow({ mode: settings.mode, settings, day: attendance, today: t, dateOfJoin: e.dateOfJoin, prefill });
+    // PROTOTYPE-SETUP (HR rules, Slice 3): breaks count as logged. (Leave & team, Slice 1): leave / holiday rows too.
+    const logged =
+        dayEntries.reduce((s, x) => s + entryMins(x), 0) + breaks.reduce((s, b) => s + b.minutes, 0) + leaveRows.reduce((s, r) => s + r.minutes, 0);
     const flag = outsideCheckInFlag({ mode: settings.mode, day: attendance, entries: dayEntries });
     const pending = attendance.correction?.state === 'pending' ? attendance.correction : undefined;
     let { locked } = attendance;
@@ -439,6 +463,7 @@ export const timesheetDay = (mode: DataMode, e: MockEmployee, date: string, entr
         attendance,
         entries: dayEntries,
         breaks,
+        leaveRows,
         loggedMinutes: logged,
         expectedMinutes: window.expectedMinutes,
         unloggedMinutes: date < t ? Math.max(0, window.expectedMinutes - logged) : 0,

@@ -23,6 +23,9 @@ import {
     workedMinutes,
     entriesOverlap,
     expectedMinutes,
+    isDerivedRow,
+    leaveRowsAsEntries,
+    leaveRowsFor,
     formatDuration,
     hasCheckIn,
     hasTimesheets,
@@ -669,5 +672,38 @@ describe('ask for update and resubmit', () => {
         const u = decide(startTrail('overtime', null, settings), 'PAYROLL', 'UPDATE_REQUESTED', 'Fix the hours', 'a');
         expect(resubmitTrail(u, 'b', 'Rohan').status).toBe('PENDING_PAYROLL');
         expect(() => resubmitTrail(startTrail('overtime', mgr, settings), 'b', 'x')).toThrow(/Nothing was asked/);
+    });
+});
+
+// PROTOTYPE-SETUP (Leave & team, Slice 1): leave and public-holiday rows; the day targets.
+describe('leave and holiday rows', () => {
+    const base = { date: '2026-10-21', shift: S.shift, weeklyOff: false, checkedIn: false };
+    it('full-day leave fills the shift; half-day leave one half', () => {
+        expect(leaveRowsFor({ ...base, leave: { label: 'Casual leave' } })).toEqual([
+            { id: 'leave:0', kind: 'LEAVE', tag: 'Leave', start: '09:30', end: '18:30', startMinutes: 570, endMinutes: 1110, minutes: 540, description: 'Casual leave' },
+        ]);
+        expect(leaveRowsFor({ ...base, leave: { label: 'Casual leave', half: 'FIRST' } })[0]).toMatchObject({ start: '09:30', end: '14:00', description: 'Casual leave (first half)', half: 'FIRST' });
+        expect(leaveRowsFor({ ...base, leave: { label: 'Sick leave', half: 'SECOND' } })[0]).toMatchObject({ start: '14:00', end: '18:30', description: 'Sick leave (second half)' });
+    });
+    it('a weekday public holiday fills the shift, unless checked in; weekly offs get nothing', () => {
+        expect(leaveRowsFor({ ...base, holidayName: 'Gandhi Jayanti' })[0]).toMatchObject({ kind: 'HOLIDAY', tag: 'Public holiday', minutes: 540, description: 'Gandhi Jayanti' });
+        expect(leaveRowsFor({ ...base, holidayName: 'Gandhi Jayanti', checkedIn: true })).toEqual([]);
+        expect(leaveRowsFor({ ...base, weeklyOff: true, holidayName: 'Gandhi Jayanti' })).toEqual([]);
+        expect(leaveRowsFor({ ...base, weeklyOff: true, leave: { label: 'Casual leave' } })).toEqual([]);
+    });
+    it('they block overlapping entries', () => {
+        const others = leaveRowsAsEntries('2026-10-21', leaveRowsFor({ ...base, leave: { label: 'Casual leave', half: 'FIRST' } }));
+        expect(isDerivedRow(others[0].id)).toBe(true);
+        expect(() => validateEntry({ date: '2026-10-21', start: '13:00', end: '15:00', description: 'Work' }, others)).toThrow('Overlaps with 9:30 AM – 2:00 PM (Casual leave (first half)).');
+        expect(validateEntry({ date: '2026-10-21', start: '14:00', end: '18:30', description: 'Work' }, others).mins).toBe(270);
+    });
+    it('targets: full leave / holiday = the shift; half leave = worked + half; timesheet-only = the shift', () => {
+        const aday = (over: Partial<AttendanceDay>) => ({ date: '2026-10-21', status: 'present', checkIn: null, checkOut: null, carried: false, minutesAtWork: 0, ...over }) as AttendanceDay;
+        const t = '2026-10-25';
+        expect(expectedMinutes({ mode: 'both', settings: S, day: aday({ status: 'on-leave' }), today: t, prefill: 'full' })).toBe(540);
+        expect(expectedMinutes({ mode: 'both', settings: S, day: aday({ status: 'holiday' }), today: t, prefill: 'full' })).toBe(540);
+        expect(expectedMinutes({ mode: 'both', settings: S, day: aday({ checkIn: '14:00', checkOut: '18:30', minutesAtWork: 270, halfLeave: 'FIRST' }), today: t, prefill: 'half' })).toBe(540);
+        expect(expectedMinutes({ mode: 'timesheet', settings: S, day: aday({ halfLeave: 'FIRST' }), today: t, prefill: 'half' })).toBe(540);
+        expect(expectedMinutes({ mode: 'timesheet', settings: S, day: aday({ status: 'holiday' }), today: t })).toBe(0);
     });
 });

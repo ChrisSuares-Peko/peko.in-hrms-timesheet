@@ -546,6 +546,28 @@ export interface TimesheetBreakRow {
     running: boolean;
 }
 
+/**
+ * PROTOTYPE-SETUP (Leave & team, Slice 1): approved leave and weekday public holidays fill the working shift as
+ * read-only rows (derived, never stored): full-day leave / a holiday = the shift, half-day leave = that half. They
+ * count as logged time, block overlapping entries, and never count as overtime or need submitting.
+ */
+export interface TimesheetLeaveRow {
+    /** "leave:0" (entry-like id, for overlap checks). */
+    id: string;
+    kind: 'LEAVE' | 'HOLIDAY';
+    /** "Leave" / "Public holiday" (the chip, and the Excel Location). */
+    tag: string;
+    start: string;
+    end: string;
+    startMinutes: number;
+    endMinutes: number;
+    minutes: number;
+    /** "Casual leave", "Casual leave (first half)", "Gandhi Jayanti". */
+    description: string;
+    /** Half-day leave (the other half is a working half). */
+    half?: 'FIRST' | 'SECOND';
+}
+
 export interface TimesheetDay {
     date: string;
     window: DayWindow;
@@ -553,6 +575,8 @@ export interface TimesheetDay {
     entries: TimesheetEntry[];
     /** Recorded breaks — they count as logged time. */
     breaks: TimesheetBreakRow[];
+    /** PROTOTYPE-SETUP (Leave & team, Slice 1): leave / public-holiday rows — they count as logged time. */
+    leaveRows?: TimesheetLeaveRow[];
     /** Entries plus breaks. */
     loggedMinutes: number;
     expectedMinutes: number;

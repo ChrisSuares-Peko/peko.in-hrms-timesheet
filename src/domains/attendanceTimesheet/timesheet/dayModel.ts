@@ -123,6 +123,9 @@ export const dayOvertime = (day: TimesheetDay, today: string, minimum: number) =
 export const dayMeta = (day: TimesheetDay, mode: AtsMode, shift: { start: string; end: string }, today: string) => {
     const a = day.attendance;
     if (a.status === 'on-leave') return `On ${(a.label ?? 'leave').toLowerCase().replace(/ leave$/, '')} leave`;
+    // PROTOTYPE-SETUP (Leave & team, Slice 1): "Gandhi Jayanti · public holiday" (a weekday holiday, no check-in).
+    const holiday = day.leaveRows?.find(r => r.kind === 'HOLIDAY');
+    if (holiday) return `${holiday.description} · public holiday`;
     if (mode === 'timesheet') {
         if (['holiday', 'weekly-off', 'worked-off-day'].includes(a.status)) return a.status === 'holiday' ? a.label ?? 'Holiday' : 'Weekly off';
         return `Shift ${displayTime(shift.start)} – ${displayTime(shift.end)}`;
@@ -144,7 +147,9 @@ export const dayMeta = (day: TimesheetDay, mode: AtsMode, shift: { start: string
 export const loggedText = (day: TimesheetDay, mode: AtsMode) => {
     const logged = `Logged ${formatDuration(day.loggedMinutes)}`;
     if (!day.expectedMinutes) return logged;
-    if (mode === 'timesheet') return `${logged} of ${formatDuration(day.expectedMinutes)} shift`;
+    // PROTOTYPE-SETUP (Leave & team, Slice 1): full-day leave / a holiday (no check-in) → "Logged 9h of 9h shift".
+    const fullPrefill = Boolean(day.leaveRows?.some(r => !r.half)) && !day.attendance.checkIn;
+    if (mode === 'timesheet' || fullPrefill) return `${logged} of ${formatDuration(day.expectedMinutes)} shift`;
     return `${logged} of ${formatDuration(day.expectedMinutes)} ${day.attendance.open ? 'so far' : 'worked'}`;
 };
 

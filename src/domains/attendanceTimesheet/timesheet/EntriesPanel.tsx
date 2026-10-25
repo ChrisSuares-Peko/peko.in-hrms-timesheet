@@ -24,6 +24,7 @@ import {
     isTimed,
     sortEntries,
     usesTimes,
+    leaveRowsAsEntries,
 } from '@src/prototype/rules/attendance';
 import { EntryOverlap, dayGapCheck, findOverlaps, rangeText } from '@src/prototype/rules/timesheetFiling';
 
@@ -62,9 +63,14 @@ export const sessionOf = (day: TimesheetDay): EntrySession | null =>
         ? { inMinutes: day.window.startMinutes, outMinutes: day.window.open ? null : day.window.endMinutes ?? null }
         : null;
 
-/** Breaks as entry-like rows, for the form's overlap check (ids "break:<index>"). */
-export const breakEntries = (day: TimesheetDay): TimesheetEntry[] =>
-    day.breaks.map(b => ({ id: `break:${b.index}`, date: day.date, start: b.start, end: b.end, mins: b.minutes, description: b.description || 'Break' }));
+/**
+ * Breaks as entry-like rows, for the form's overlap check (ids "break:<index>"). PROTOTYPE-SETUP (Leave & team,
+ * Slice 1): leave / public-holiday rows too ("leave:<index>").
+ */
+export const breakEntries = (day: TimesheetDay): TimesheetEntry[] => [
+    ...day.breaks.map(b => ({ id: `break:${b.index}`, date: day.date, start: b.start, end: b.end, mins: b.minutes, description: b.description || 'Break' })),
+    ...leaveRowsAsEntries(day.date, day.leaveRows),
+];
 
 const BreakLine = ({ day, brk, editable, onSave }: { day: TimesheetDay; brk: TimesheetBreakRow; editable: boolean; onSave?: EntriesPanelProps['onBreakDescription'] }) => {
     const [editing, setEditing] = useState(false);

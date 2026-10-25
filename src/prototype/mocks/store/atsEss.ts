@@ -34,6 +34,7 @@ import {
     cancelTrail,
     BREAK_MESSAGES,
     breaksAsEntries,
+    leaveRowsAsEntries,
     checkOutMinutes,
     daysBetween,
     displayTime,
@@ -85,6 +86,7 @@ import {
     analyseImport,
     exportBreakRow,
     exportEntryRow,
+    exportLeaveRow,
     exportRangeError,
     exportStatus,
 } from '@src/prototype/rules/timesheetImport';
@@ -120,6 +122,7 @@ import {
     weeksSummary,
     atsWorkingFrom,
     breaksOn,
+    leaveRowsOn,
     editedAfterSending,
     entriesOn,
     storedPeriodsOf,
@@ -516,7 +519,14 @@ const assertDayEditable = (mode: DataMode, e: MockEmployee, date: string) => {
 
 /** PROTOTYPE-SETUP (HR rules, Slice 3): entries can't overlap recorded breaks either. */
 const withBreaks = (mode: DataMode, e: MockEmployee, date: string | undefined, entries: TimesheetEntry[]) =>
-    date ? [...entries, ...breaksAsEntries(date, breaksOn(mode, e, date), date === today() ? nowMinutes() : undefined)] : entries;
+    date
+        ? [
+              ...entries,
+              ...breaksAsEntries(date, breaksOn(mode, e, date), date === today() ? nowMinutes() : undefined),
+              // PROTOTYPE-SETUP (Leave & team, Slice 1): leave / public-holiday rows block overlapping entries.
+              ...leaveRowsAsEntries(date, leaveRowsOn(mode, e, date)),
+          ]
+        : entries;
 
 const fieldsOf = (mode: DataMode) => getSettings(mode).timesheetFiling.fields;
 
@@ -611,6 +621,10 @@ export const timesheetExportOf = (mode: DataMode, e: MockEmployee, from: string,
         });
         datesBetween(start, to < today() ? to : today()).forEach(d =>
             breaksAsEntries(d, breaksOn(mode, e, d)).forEach(b => rows.push({ key: `${d} ${b.start} 0`, cells: exportBreakRow(b) }))
+        );
+        // PROTOTYPE-SETUP (Leave & team, Slice 1): leave / public-holiday rows (Location "Leave" / "Public holiday").
+        datesBetween(start, to).forEach(d =>
+            leaveRowsOn(mode, e, d).forEach(r => rows.push({ key: `${d} ${r.start} 0`, cells: exportLeaveRow(d, r, exportStatus(weekOf(mode, e, d), d)) }))
         );
     }
     rows.sort((a, b) => a.key.localeCompare(b.key));

@@ -43,7 +43,7 @@ import { homeOf } from '../atsHome';
 import { createLeaveRequest, leaveViewOf, resubmitLeaveRequest, setEmployeeLife, withdrawLeaveRequest } from '../atsLeave';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../atsProfile';
 import { atsLeaveRequests, atsReimbursements, resubmitClaim } from '../atsRequests';
-import { atsAttendance, attendanceDay, correctionsOf, currentMonth, getSettings, lastMonth, recordOf, resetTodayCheckIn, weekView } from '../atsStore';
+import { atsAttendance, attendanceDay, correctionsOf, currentMonth, getSettings, lastMonth, publicHolidayOn, recordOf, resetTodayCheckIn, weekView } from '../atsStore';
 import {
     approveWeek,
     bulkApprove,
@@ -676,7 +676,8 @@ describe('overview recent days: leave and absent', () => {
         const after = homeOf(M, sneha).recentDays;
         expect(after.find(d => d.date === absentDay)!.attendance).toMatchObject({ status: 'absent', checkIn: null, minutesAtWork: 0 });
         expect(after.find(d => d.date === leaveDay)!.attendance).toMatchObject({ status: 'on-leave', checkIn: null, minutesAtWork: 0 });
-        expect(after.find(d => d.date === leaveDay)!.timesheet.expectedMinutes).toBe(0);
+        // PROTOTYPE-SETUP (Leave & team, Slice 1): the leave row fills the shift — "Logged 9h of 9h shift".
+        expect(after.find(d => d.date === leaveDay)!.timesheet.expectedMinutes).toBe(540);
     });
 });
 
@@ -866,17 +867,25 @@ describe('final batch: leave requests and the leave page', () => {
                 decideRequest(M, 'leave', r.id, { role: 'HR' }, 'APPROVED');
             });
         expect(attendanceDay(M, sneha, full)).toMatchObject({ status: 'on-leave', label: 'Casual leave' });
-        expect(weekView(M, sneha, full).days.find(d => d.date === full)!.expectedMinutes).toBe(0);
+        // PROTOTYPE-SETUP (Leave & team, Slice 1): read-only rows for the shift (full) and the second half.
+        const fullDay = weekView(M, sneha, full).days.find(d => d.date === full)!;
+        expect(fullDay).toMatchObject({ expectedMinutes: 540, loggedMinutes: 540 });
+        expect(fullDay.leaveRows).toEqual([expect.objectContaining({ kind: 'LEAVE', tag: 'Leave', start: '09:30', end: '18:30', minutes: 540, description: 'Casual leave' })]);
         expect(attendanceDay(M, sneha, half)).toMatchObject({ halfLeave: 'SECOND', label: 'Half-day leave (second half)' });
+        const halfDay = weekView(M, sneha, half).days.find(d => d.date === half)!;
+        expect(halfDay.leaveRows).toEqual([expect.objectContaining({ start: '14:00', end: '18:30', minutes: 270, description: 'Casual leave (second half)', half: 'SECOND' })]);
     });
-    it('half-day leave in Timesheet-only mode expects half the shift', () => {
+    it('half-day leave in Timesheet-only mode expects the shift (the leave row fills the first half)', () => {
         const half = nextWorking(s.today, 35);
         createLeaveRequest(M, sneha, { type: 'CASUAL', start: half, half: 'FIRST', reason: 'x' });
         const r = leaveViewOf(M, sneha).requests.find(x => x.start === half)!;
         decideRequest(M, 'leave', r.id, { role: 'MANAGER', manager: arjun }, 'APPROVED');
         decideRequest(M, 'leave', r.id, { role: 'HR' }, 'APPROVED');
         updateSettings(M, { mode: 'timesheet' });
-        expect(weekView(M, sneha, half).days.find(d => d.date === half)!.expectedMinutes).toBe(270);
+        const day = weekView(M, sneha, half).days.find(d => d.date === half)!;
+        expect(day.expectedMinutes).toBe(540);
+        expect(day.leaveRows).toEqual([expect.objectContaining({ start: '09:30', end: '14:00', description: 'Casual leave (first half)' })]);
+        expect(day.loggedMinutes).toBe(270);
     });
     it('the leave demo: joining and leaving dates drive the maths (exit settlement)', () => {
         const join = `${s.today.slice(0, 4)}-${s.today.slice(5, 7) >= '04' ? '04' : '01'}-10`;
@@ -1298,5 +1307,65 @@ describe('timesheet v6: Excel round trip', () => {
     });
     it('a range over a year is refused', () => {
         expect(() => timesheetExportOf(M, sneha, '2025-01-01', '2026-01-02')).toThrow('Pick at most one year.');
+    });
+});
+
+// PROTOTYPE-SETUP (Leave & team, Slice 1): leave and public holidays prefilled in the timesheet.
+describe('leave & team: leave and holiday rows', () => {
+    const nextWorking = (from: string, n = 1) => {
+        let d = from;
+        for (let k = 0; k < n; ) {
+            d = addDays(d, 1);
+            if (isWorkingDay(d)) k += 1;
+        }
+        return d;
+    };
+    const approveLeave = (start: string, half?: 'FIRST' | 'SECOND') => {
+        createLeaveRequest(M, sneha, { type: 'CASUAL', start, ...(half ? { half } : { end: start }), reason: 'x' });
+        const r = leaveViewOf(M, sneha).requests.find(x => x.start === start && x.trail.status === 'PENDING_MANAGER')!;
+        decideRequest(M, 'leave', r.id, { role: 'MANAGER', manager: arjun }, 'APPROVED');
+        decideRequest(M, 'leave', r.id, { role: 'HR' }, 'APPROVED');
+    };
+    /** A weekday public holiday in the last 120 days. */
+    const holiday = () =>
+        Array.from({ length: 120 }, (_, i) => addDays(s.today, -(i + 1))).find(d => publicHolidayOn(d) && ![0, 6].includes(new Date(`${d}T00:00:00Z`).getUTCDay()))!;
+
+    it('a full-day leave row blocks overlapping entries, is not an entry, and never counts as overtime', () => {
+        const d = nextWorking(s.today, 15);
+        approveLeave(d);
+        updateSettings(M, { mode: 'timesheet' });
+        const day = weekView(M, sneha, d).days.find(x => x.date === d)!;
+        expect(day.entries).toHaveLength(0);
+        expect(day).toMatchObject({ expectedMinutes: 540, loggedMinutes: 540, unloggedMinutes: 0 });
+        expect(() => addEntry(M, sneha, { date: d, start: '10:00', end: '11:00', description: 'Work' })).toThrow('Overlaps with 9:30 AM – 6:30 PM (Casual leave).');
+        // an evening entry is fine; only it counts towards overtime
+        addEntry(M, sneha, { date: d, start: '19:00', end: '20:00', description: 'Late call' });
+        expect(attendanceDay(M, sneha, d).overtimeMinutes).toBe(0);
+        expect(weekView(M, sneha, d).week.dirtyDates).toEqual([d]);
+    });
+    it('the leave rows never make a period Saved', () => {
+        const d = nextWorking(s.today, 40);
+        approveLeave(d);
+        expect(weekView(M, sneha, d).week.dirtyDates ?? []).toEqual([]);
+        expect(timesheetMonthOf(M, sneha, d.slice(0, 7)).days.find(x => x.date === d)!.state).toBe('leave');
+    });
+    it('a weekday public holiday: one row for the shift — gone once checked in', () => {
+        const h = holiday();
+        expect(h).toBeTruthy();
+        const day = weekView(M, sneha, h).days.find(x => x.date === h)!;
+        expect(day.leaveRows).toEqual([expect.objectContaining({ kind: 'HOLIDAY', tag: 'Public holiday', start: '09:30', end: '18:30', description: publicHolidayOn(h) })]);
+        expect(day).toMatchObject({ expectedMinutes: 540, loggedMinutes: 540 + day.entries.reduce((n, x) => n + x.mins, 0) });
+        expect(attendanceDay(M, sneha, h).overtimeMinutes).toBe(0);
+        atsAttendance.update(M, all => ({ ...all, [`${sneha.id}:${h}`]: { employeeId: sneha.id, date: h, checkIn: '10:00', checkOut: '14:00', outDays: 0, breaks: [] } as never }));
+        const worked = weekView(M, sneha, h).days.find(x => x.date === h)!;
+        expect(worked.leaveRows).toEqual([]);
+        expect(worked.expectedMinutes).toBe(240);
+    });
+    it('the download lists them as Leave / Public holiday rows; an upload skips them', () => {
+        const d = nextWorking(s.today, 3);
+        approveLeave(d);
+        const out = timesheetExportOf(M, sneha, d, d);
+        expect(out.rows[1]).toEqual([d, '09:30', '18:30', '9:00', 'Leave', '', 'Casual leave', expect.any(String)]);
+        expect(previewImport(M, sneha, { csv: toCsv(out.rows) }).rows![0].skipped).toBe('Leave or holiday (filled in for you)');
     });
 });

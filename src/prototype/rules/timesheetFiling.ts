@@ -32,6 +32,7 @@ import {
     usesTimes,
     weekStartOf,
     weekdayOf,
+    isDerivedRow,
 } from './attendance';
 
 // ---- frequencies & periods ----------------------------------------------------------------------------------
@@ -252,7 +253,7 @@ const span = (e: TimesheetEntry) => {
  */
 export const findOverlaps = (entries: TimesheetEntry[]): EntryOverlap[] => {
     const timed = entries
-        .filter(e => isTimed(e) && !e.id.startsWith('break:'))
+        .filter(e => isTimed(e) && !isDerivedRow(e.id))
         .map(e => ({ e, ...span(e) }))
         .sort((x, y) => x.start - y.start || x.end - y.end);
     const out: EntryOverlap[] = [];
@@ -332,7 +333,7 @@ export type DayGapCheck = { checked: true; gaps: TimeGap[]; bounds: { start: num
  * (where they fall is unknown). Entries and recorded breaks both cover time.
  */
 export const dayGapCheck = (
-    day: Pick<TimesheetDay, 'date' | 'window' | 'entries' | 'breaks'>,
+    day: Pick<TimesheetDay, 'date' | 'window' | 'entries' | 'breaks' | 'leaveRows'>,
     input: { fields: TimesheetFields; mode: AtsMode; today: string }
 ): DayGapCheck => {
     if (!usesTimes(input.fields)) return { checked: false, reason: 'duration-only' };
@@ -346,6 +347,7 @@ export const dayGapCheck = (
     const intervals = [
         ...day.entries.map(e => ({ start: entryStartMinutes(e), end: entryEndMinutes(e) })),
         ...day.breaks.map(b => ({ start: b.startMinutes, end: b.endMinutes })),
+        ...(day.leaveRows ?? []).map(b => ({ start: b.startMinutes, end: b.endMinutes })),
     ];
     return { checked: true, gaps: findGaps(bounds, intervals), bounds };
 };
@@ -387,7 +389,7 @@ export const UNLOGGED_REVIEW_MINUTES = 15;
 
 /** Checks a period's days before it is submitted: missing fields (blocking), overlaps and gaps (warnings). */
 export const reviewPeriod = (input: {
-    days: (Pick<TimesheetDay, 'date' | 'window' | 'entries' | 'breaks'> & Partial<Pick<TimesheetDay, 'loggedMinutes' | 'expectedMinutes'>>)[];
+    days: (Pick<TimesheetDay, 'date' | 'window' | 'entries' | 'breaks' | 'leaveRows'> & Partial<Pick<TimesheetDay, 'loggedMinutes' | 'expectedMinutes'>>)[];
     fields: TimesheetFields;
     mode: AtsMode;
     today: string;

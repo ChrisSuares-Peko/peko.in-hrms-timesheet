@@ -29,9 +29,10 @@ export interface UseTimesheetNavInput {
 }
 
 /** Days that get a row: working days, plus weekends / holidays with attendance or logged time. */
+// PROTOTYPE-SETUP (Leave & team, Slice 1): leave and public-holiday days are always listed (their rows fill the shift).
 export const isListedDay = (d: TimesheetDay, dateOfJoin: string) =>
     d.date >= dateOfJoin &&
-    (!['holiday', 'weekly-off'].includes(d.attendance.status) || d.entries.length > 0 || Boolean(d.attendance.checkIn));
+    (!['holiday', 'weekly-off'].includes(d.attendance.status) || d.entries.length > 0 || Boolean(d.attendance.checkIn) || (d.leaveRows?.length ?? 0) > 0);
 
 const VIEW_FOR: Record<FilingFrequency, TimesheetViewMode> = { DAILY: 'day', WEEKLY: 'week', MONTHLY: 'month' };
 

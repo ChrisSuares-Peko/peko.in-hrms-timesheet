@@ -31,6 +31,7 @@ import type {
     TimesheetFilingSettings,
     TimesheetStatus,
     Weekday,
+    TimesheetLeaveRow,
 } from '@src/domains/attendanceTimesheet/types';
 
 // ---- errors -------------------------------------------------------------------------------------------------
@@ -568,6 +569,58 @@ export const findOverlap = <E extends TimesheetEntry>(
     candidate: Pick<TimesheetEntry, 'date' | 'start' | 'end' | 'startNext' | 'endNext'> & { id?: string }
 ) => entries.find(e => e.id !== candidate.id && entriesOverlap(e, candidate));
 
+/**
+ * PROTOTYPE-SETUP (Leave & team, Slice 1): rows the employee doesn't log — recorded breaks ("break:<index>") and
+ * leave / public-holiday rows ("leave:<index>"). They're read-only, and entries can't overlap them.
+ */
+export const isDerivedRow = (id: string) => id.startsWith('break:') || id.startsWith('leave:');
+
+/**
+ * PROTOTYPE-SETUP (Leave & team, Slice 1): the day's leave / public-holiday rows, for the working shift.
+ *   full-day approved leave (a working day) ... shift start → shift end, "Leave", "{Type} leave"
+ *   half-day leave ............................ first half: start → mid-shift; second half: mid-shift → end
+ *   weekday public holiday, no check-in ....... shift start → shift end, "Public holiday", the holiday's name
+ * Weekly offs get nothing; a holiday someone checked in on is a worked day (they log real hours — overtime as before).
+ */
+export const leaveRowsFor = (input: {
+    date: string;
+    shift: { start: string; end: string };
+    weeklyOff: boolean;
+    holidayName?: string;
+    /** Approved leave on the date: "Casual leave", and the half for half-day leave. */
+    leave?: { label: string; half?: 'FIRST' | 'SECOND' | null } | null;
+    checkedIn: boolean;
+}): TimesheetLeaveRow[] => {
+    if (input.weeklyOff) return [];
+    const ss = toMinutes(input.shift.start);
+    const se = toMinutes(input.shift.end);
+    const mid = midShiftMinutes(input.shift);
+    const row = (kind: TimesheetLeaveRow['kind'], a: number, b: number, description: string, half?: 'FIRST' | 'SECOND'): TimesheetLeaveRow[] => [
+        {
+            id: 'leave:0',
+            kind,
+            tag: kind === 'LEAVE' ? 'Leave' : 'Public holiday',
+            start: clockOf(a),
+            end: clockOf(b),
+            startMinutes: a,
+            endMinutes: b,
+            minutes: b - a,
+            description,
+            ...(half ? { half } : {}),
+        },
+    ];
+    const { leave } = input;
+    if (input.holidayName) return input.checkedIn ? [] : row('HOLIDAY', ss, se, input.holidayName);
+    if (leave && !leave.half) return row('LEAVE', ss, se, leave.label);
+    if (leave?.half === 'FIRST') return row('LEAVE', ss, mid, `${leave.label} (first half)`, 'FIRST');
+    if (leave?.half === 'SECOND') return row('LEAVE', mid, se, `${leave.label} (second half)`, 'SECOND');
+    return [];
+};
+
+/** Leave rows as entry-like rows (overlap checks), like breaksAsEntries. */
+export const leaveRowsAsEntries = (date: string, rows: TimesheetLeaveRow[] | undefined): TimesheetEntry[] =>
+    (rows ?? []).map(r => ({ id: r.id, date, start: r.start, end: r.end, mins: r.minutes, description: r.description }));
+
 /** Recorded breaks as entry-like rows, so entries can be checked against them (ids "break:<index>"). */
 export const breaksAsEntries = (date: string, breaks: AttendanceBreak[] | undefined, nowMinutes?: number): TimesheetEntry[] =>
     (breaks ?? []).flatMap((b, i) => {
@@ -697,6 +750,7 @@ export const ENTRY_MESSAGES = {
 /** "Overlaps with 9:00 AM – 12:00 PM (Code review)." / "Overlaps with 1:00 PM – 2:00 PM (break)." */
 export const overlapMessage = (clash: Pick<TimesheetEntry, 'id' | 'start' | 'end' | 'startNext' | 'endNext' | 'description'>) =>
     `Overlaps with ${entryTimeText(clash)} (${clash.id.startsWith('break:') ? 'break' : clash.description}).`;
+// PROTOTYPE-SETUP (Leave & team, Slice 1): a leave / holiday row reads "(Casual leave)" / "(Gandhi Jayanti)".
 
 /**
  * Validates and normalises an entry, checking in the prototype's order. Start + end → mins = end − start (the
@@ -781,7 +835,8 @@ export const validateEntry = (
         ...(endAbs >= MINUTES_PER_DAY ? { endNext: true } : {}),
     };
     const candidate = { id: input.id, date: input.date, start, end: clockOf(endAbs), ...flags };
-    const breakClash = findOverlap(sameDay.filter(o => o.id.startsWith('break:')), candidate);
+    // PROTOTYPE-SETUP (Leave & team, Slice 1): leave / public-holiday rows block overlaps too.
+    const breakClash = findOverlap(sameDay.filter(o => isDerivedRow(o.id)), candidate);
     if (breakClash && isTimed(breakClash)) throw new RuleError(overlapMessage(breakClash));
     return { date: input.date, start, end: clockOf(endAbs), ...flags, mins: Math.round(minutes), description, ...projectCode };
 };
@@ -793,8 +848,8 @@ export const validateEntry = (
  * PROTOTYPE-SETUP (HR rules, Slice 1): the timesheet should cover every checked-in hour, breaks included (recorded
  * breaks count as logged). See docs/api/attendance-timesheet.md ("Expected hours").
  *   attendance-only or 'none' mode, or before the joining date ......................... 0
- *   full-day leave (status on-leave) ..................................................... 0
- *   timesheet-only mode, working day .................................................... the shift length
+ *   full-day leave or a weekday public holiday, no check-in (Leave & team, Slice 1) .... the shift length
+ *   timesheet-only mode, working day (half-day leave too) .............................. the shift length
  *   timesheet-only mode, weekly off / holiday ........................................... 0
  *   both mode, checked in and out ................ check-out (+ next-day hours) − check-in (worked off-days too)
  *   both mode, still checked in today ......................................... check-in → now (so far)
@@ -807,18 +862,23 @@ export const expectedMinutes = (input: {
     day: Pick<AttendanceDay, 'date' | 'status' | 'checkIn' | 'checkOut' | 'carried' | 'minutesAtWork'> & Partial<Pick<AttendanceDay, 'halfLeave'>>;
     today: string;
     dateOfJoin?: string;
+    /** PROTOTYPE-SETUP (Leave & team, Slice 1): the day's leave / holiday rows ('full' = the whole shift). */
+    prefill?: 'full' | 'half' | null;
 }) => {
     const { mode, settings, day } = input;
     if (!hasTimesheets(mode)) return 0;
     if (input.dateOfJoin && day.date < input.dateOfJoin) return 0;
+    // PROTOTYPE-SETUP (Leave & team, Slice 1): full-day leave or a public holiday (no check-in) = the shift, which
+    // the leave / holiday row fills ("Logged 9h of 9h shift"); half-day leave = worked hours + half the shift;
+    // timesheet-only mode = the shift (half-day leave included: its row fills that half).
+    if (input.prefill === 'full' && !day.checkIn) return shiftMinutes(settings);
     if (day.status === 'on-leave') return 0;
     if (mode === 'timesheet') {
         if (['holiday', 'weekly-off', 'worked-off-day'].includes(day.status)) return 0;
-        // PROTOTYPE-SETUP (Final batch, Slice 1): half-day leave → half the shift.
-        return day.halfLeave ? Math.round(shiftMinutes(settings) / 2) : shiftMinutes(settings);
+        return shiftMinutes(settings);
     }
     if (!day.checkIn || day.carried) return 0;
-    return day.minutesAtWork;
+    return day.minutesAtWork + (input.prefill === 'half' ? Math.round(shiftMinutes(settings) / 2) : 0);
 };
 
 /**
@@ -833,6 +893,7 @@ export const dayWindow = (input: {
     day: Pick<AttendanceDay, 'date' | 'status' | 'checkIn' | 'checkOut' | 'outDays' | 'open' | 'carried' | 'minutesAtWork' | 'label'>;
     today: string;
     dateOfJoin?: string;
+    prefill?: 'full' | 'half' | null;
 }): DayWindow => {
     const { mode, settings, day } = input;
     const shiftLabel = `Shift ${displayTime(settings.shift.start)} – ${displayTime(settings.shift.end)}`;
@@ -849,7 +910,7 @@ export const dayWindow = (input: {
     if (input.dateOfJoin && day.date < input.dateOfJoin) return { kind: 'none', label: 'Before joining', expectedMinutes: 0 };
     if (mode === 'timesheet') {
         if (offOrLeave || day.status === 'worked-off-day') {
-            return { kind: 'none', label: day.label ?? 'No working hours', expectedMinutes: 0 };
+            return { kind: 'none', label: day.label ?? 'No working hours', expectedMinutes: expected };
         }
         return { kind: 'shift', ...shift, label: shiftLabel, expectedMinutes: expected };
     }
@@ -865,7 +926,7 @@ export const dayWindow = (input: {
         const label = `Checked in ${displayTime(day.checkIn)}, still checked in`;
         return { kind: 'attendance', start: day.checkIn, end: clockOf(endMinutes), startMinutes, endMinutes, label, open: true, expectedMinutes: expected };
     }
-    if (offOrLeave) return { kind: 'none', label: day.label ?? 'No working hours', expectedMinutes: 0 };
+    if (offOrLeave) return { kind: 'none', label: day.label ?? 'No working hours', expectedMinutes: expected };
     if (day.date >= input.today) {
         return { kind: 'shift', ...shift, label: `${shiftLabel} · not checked in yet`, expectedMinutes: expected };
     }
@@ -883,7 +944,7 @@ export const outsideCheckInFlag = (input: {
     entries: TimesheetEntry[];
 }): OutsideCheckInFlag | undefined => {
     if (input.mode !== 'both') return undefined;
-    const dayEntries = input.entries.filter(e => e.date === input.day.date && !e.id.startsWith('break:'));
+    const dayEntries = input.entries.filter(e => e.date === input.day.date && !isDerivedRow(e.id));
     if (!dayEntries.length) return undefined;
     const { checkIn, checkOut } = input.day;
     if (['on-leave', 'holiday', 'weekly-off', 'upcoming', 'not-checked-in'].includes(input.day.status)) return undefined;
