@@ -28,6 +28,9 @@ import type {
     Weekday,
     TeamAttendanceView,
     TeamLeaveView,
+    ApprovalStatus,
+    TeamClaimBucket,
+    TeamReimbursementsView,
 } from '@src/domains/attendanceTimesheet/types';
 import {
     RuleError,
@@ -431,6 +434,7 @@ const leaveItem = (l: LeaveRequest, viewer: ApproverRole): RequestItem | null =>
         manager: managerRef(e),
         title: `${LEAVE_LABEL[l.type]} leave · ${when}`,
         detail: `${l.half ? 'Half a day' : `${l.days} working day${l.days === 1 ? '' : 's'}`}${l.proof ? ` · Proof attached: ${l.proof.name}` : ''}`,
+        leave: { start: l.start, end: l.end, half: l.half ?? null },
         notes: l.reason,
         at: l.createdAt,
         trail: l.trail,
@@ -472,10 +476,65 @@ const byWaitingThenNewest = (a: RequestItem, b: RequestItem) =>
 
 export const teamRequests = (mode: DataMode, manager: MockEmployee, type: RequestType, scope: QueueScope) => {
     const ids = new Set(teamOf(mode, manager).map(e => e.id));
-    return allRequests(mode, type, 'MANAGER')
+    const list = allRequests(mode, type, 'MANAGER')
         .filter(r => ids.has(r.employee.id) && r.trail.status !== 'CANCELLED')
         .filter(r => scope === 'all' || r.waitingForYou)
         .sort(byWaitingThenNewest);
+    if (type !== 'leave') return list;
+    // PROTOTYPE-SETUP (Leave & team, Slice 4): who else on the team is off then (approved leave), for the clash chip.
+    const approved = atsLeaveRequests.get(mode).filter(l => ids.has(l.employeeId) && l.trail.status === 'APPROVED' && !l.withdrawn);
+    return list.map(r => {
+        if (!r.leave) return r;
+        const { start, end } = r.leave;
+        const names = approved
+            .filter(l => l.employeeId !== r.employee.id && l.start <= end && l.end >= start)
+            .map(l => findEmployee(l.employeeId)?.fullName.split(' ')[0] ?? '')
+            .filter(Boolean);
+        return { ...r, leave: { ...r.leave, alsoOff: [...new Set(names)] } };
+    });
+};
+
+// ---- team reimbursements (PROTOTYPE-SETUP: Leave & team, Slice 4) ------------------------------------------
+
+const LEVEL2_NAME: Record<string, string> = { PAYROLL: 'Payroll', HR: 'HR', ADMIN: 'Admin', FINANCE: 'Finance', NONE: 'Admin' };
+
+const claimBucket = (status: ApprovalStatus): TeamClaimBucket | null => {
+    if (status === 'PENDING_MANAGER') return 'you';
+    if (status.startsWith('PENDING')) return 'l2';
+    if (status === 'UPDATE_REQUESTED') return 'upd';
+    if (status === 'APPROVED') return 'ok';
+    if (status === 'REJECTED') return 'no';
+    return null;
+};
+
+/**
+ * My team → Team reimbursements: the direct reports' claims for a month (by expense date; withdrawn ones left out) —
+ * totals (claimed, waiting for the manager, with level 2, approved), each person's count and total, and the claims.
+ */
+export const teamReimbursements = (mode: DataMode, manager: MockEmployee, month: string): TeamReimbursementsView => {
+    if (!/^\d{4}-\d{2}$/.test(month ?? '')) throw new RuleError('Pick a month.', 400);
+    const team = teamOf(mode, manager);
+    const ids = new Set(team.map(e => e.id));
+    const claims = atsReimbursements
+        .get(mode)
+        .filter(c => ids.has(c.employeeId) && !c.withdrawn && c.expenseDate.slice(0, 7) === month)
+        .flatMap(c => {
+            const bucket = claimBucket(c.trail.status);
+            const item = claimItem(c, 'MANAGER');
+            return bucket && item ? [{ item, amount: c.totalPay, date: c.expenseDate.slice(0, 10), bucket }] : [];
+        })
+        .sort((a, b) => Number(b.bucket === 'you') - Number(a.bucket === 'you') || b.date.localeCompare(a.date));
+    const sum = (list: typeof claims) => ({ amount: list.reduce((n, c) => n + c.amount, 0), count: list.length });
+    const of = (b: TeamClaimBucket) => claims.filter(c => c.bucket === b);
+    return {
+        month,
+        level2Label: LEVEL2_NAME[getSettings(mode).level2.reimbursement] ?? 'Admin',
+        totals: { claimed: sum(claims), waiting: sum(of('you')), withLevel2: sum(of('l2')), approved: sum(of('ok')) },
+        byPerson: team
+            .map(e => ({ employee: personRef(e), ...sum(claims.filter(c => c.item.employee.id === e.id)) }))
+            .filter(p => p.count > 0),
+        claims,
+    };
 };
 
 /**

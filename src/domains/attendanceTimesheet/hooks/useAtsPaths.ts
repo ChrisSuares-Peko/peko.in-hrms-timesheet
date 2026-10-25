@@ -12,7 +12,7 @@ import { ESS_TABS, essTabFor } from '@src/prototype/persona/essPersonas';
 import type { AtsTab } from '../types';
 
 // PROTOTYPE-SETUP (My team, Slice 3): one Approvals inbox replaces the per-type approval tabs.
-export type MyTeamTab = 'approvals' | 'today' | 'attendance' | 'timesheets' | 'leave-calendar';
+export type MyTeamTab = 'approvals' | 'today' | 'attendance' | 'timesheets' | 'leave-calendar' | 'reimbursements';
 
 export const atsPathsFor = (base: string) => ({
     home: base,

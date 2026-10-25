@@ -43,7 +43,8 @@ export const useTeamSettings = (scope: AtsScope): TeamSettings => {
     return state;
 };
 
-export const ALL_TEAM_TABS: MyTeamTab[] = ['approvals', 'today', 'attendance', 'timesheets', 'leave-calendar'];
+// PROTOTYPE-SETUP (Leave & team, Slice 4): Team reimbursements after the Leave calendar (always shown).
+export const ALL_TEAM_TABS: MyTeamTab[] = ['approvals', 'today', 'attendance', 'timesheets', 'leave-calendar', 'reimbursements'];
 
 /**
  * PROTOTYPE-SETUP (My team, Slices 3–4): Approvals and the Leave calendar always show; Team today and Team attendance

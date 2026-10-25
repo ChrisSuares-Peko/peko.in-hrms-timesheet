@@ -1,7 +1,8 @@
 // PROTOTYPE-SETUP: ESS Service 1, Slice 6 — "My team" (`<base>/my-team` and `<base>/my-team/:tab`).
 // PROTOTYPE-SETUP (My team, Slices 3–4): a manager uses the same ESS as everyone; My team is the one addition, for
 // people with direct reports. Tabs, in this order (the tab is in the URL):
-//   Approvals (with its count) · Team today · Team attendance · Team timesheets · Leave calendar
+//   Approvals (with its count) · Team today · Team attendance · Team timesheets · Leave calendar · Team reimbursements
+// PROTOTYPE-SETUP (Leave & team, Slice 4): Team reimbursements; the Leave calendar has "Leave to approve" beside it.
 // Team today and Team attendance are hidden in Timesheet only mode (no check-in), Team timesheets in Attendance only
 // mode. The old per-type approval tabs (timesheet-approvals, attendance-approvals, …) open Approvals.
 import { useCallback, useEffect, useState } from 'react';
@@ -17,6 +18,7 @@ import type { ApprovalCounts } from '../types';
 import TeamApprovalsInbox, { inboxKinds } from './TeamApprovalsInbox';
 import TeamAttendanceGrid from './TeamAttendanceGrid';
 import TeamLeaveCalendar from './TeamLeaveCalendar';
+import TeamReimbursements from './TeamReimbursements';
 import { ALL_TEAM_TABS, useTeamSettings, visibleTeamTabs } from './teamShared';
 import TeamTimesheets from './TeamTimesheets';
 import TeamToday from './TeamToday';
@@ -27,6 +29,7 @@ const TAB_LABEL: Record<MyTeamTab, string> = {
     attendance: 'Team attendance',
     timesheets: 'Team timesheets',
     'leave-calendar': 'Leave calendar',
+    reimbursements: 'Team reimbursements',
 };
 
 /** Links from before the inbox (one tab per request type) open Approvals. */
@@ -76,7 +79,8 @@ const MyTeamPage = () => {
         if (tab === 'approvals') return <TeamApprovalsInbox settings={settings} onChanged={refreshCounts} />;
         if (tab === 'today') return <TeamToday mode={settings.mode} />;
         if (tab === 'attendance') return <TeamAttendanceGrid />;
-        if (tab === 'leave-calendar') return <TeamLeaveCalendar />;
+        if (tab === 'leave-calendar') return <TeamLeaveCalendar onChanged={refreshCounts} />;
+        if (tab === 'reimbursements') return <TeamReimbursements onChanged={refreshCounts} />;
         return <TeamTimesheets />;
     };
 

@@ -65,6 +65,7 @@ import {
     teamOf,
     teamWaiting,
     teamRequests,
+    teamReimbursements,
     teamToday,
     teamWeekGrid,
     timesheetQueue,
@@ -1367,5 +1368,45 @@ describe('leave & team: leave and holiday rows', () => {
         const out = timesheetExportOf(M, sneha, d, d);
         expect(out.rows[1]).toEqual([d, '09:30', '18:30', '9:00', 'Leave', '', 'Casual leave', expect.any(String)]);
         expect(previewImport(M, sneha, { csv: toCsv(out.rows) }).rows![0].skipped).toBe('Leave or holiday (filled in for you)');
+    });
+});
+
+// PROTOTYPE-SETUP (Leave & team, Slice 4): My team → Team reimbursements; leave requests with who else is off.
+describe('leave & team: team reimbursements and leave to approve', () => {
+    it('a month of the team’s claims: totals, by person, buckets; approving moves a claim to level 2', () => {
+        const months = Array.from({ length: 6 }, (_, i) => addMonths(s.today.slice(0, 7), -i));
+        const month = months.find(m => teamReimbursements(M, arjun, m).totals.waiting.count > 0)!;
+        expect(month).toBeTruthy();
+        const v = teamReimbursements(M, arjun, month);
+        expect(v.level2Label).toBe('Admin');
+        expect(v.totals.claimed.count).toBe(v.claims.length);
+        expect(v.totals.claimed.amount).toBe(v.claims.reduce((n, c) => n + c.amount, 0));
+        expect(v.byPerson.reduce((n, p) => n + p.count, 0)).toBe(v.claims.length);
+        expect(v.claims.every(c => c.date.startsWith(month))).toBe(true);
+        expect(v.claims[0].bucket).toBe('you');
+        const waiting = v.claims.find(c => c.bucket === 'you')!;
+        expect(waiting.item.waitingForYou).toBe(true);
+        decideRequest(M, 'reimbursement', waiting.item.id, { role: 'MANAGER', manager: arjun }, 'APPROVED');
+        const after = teamReimbursements(M, arjun, month);
+        expect(after.claims.find(c => c.item.id === waiting.item.id)!.bucket).toBe('l2');
+        expect(after.totals.waiting.count).toBe(v.totals.waiting.count - 1);
+        expect(after.totals.withLevel2.count).toBe(v.totals.withLevel2.count + 1);
+        expect(() => teamReimbursements(M, arjun, 'bad')).toThrow('Pick a month.');
+    });
+    it('pending leave carries its dates and who else is off; approving keeps it pending (level 2)', () => {
+        const waiting = teamRequests(M, arjun, 'leave', 'waiting');
+        expect(waiting.length).toBeGreaterThan(0);
+        waiting.forEach(r => expect(r.leave).toMatchObject({ start: expect.any(String), end: expect.any(String), alsoOff: expect.any(Array) }));
+        const r = waiting[0];
+        // another report's approved leave on the same day shows as "Also off"
+        const other = teamOf(M, arjun).find(e => e.id !== r.employee.id)!;
+        const template = atsLeaveRequests.get(M).find(l => l.trail.status === 'APPROVED')!;
+        atsLeaveRequests.update(M, list => [...list, { ...template, id: 'lv-clash', employeeId: other.id, start: r.leave!.start, end: r.leave!.start, half: null, days: 1, withdrawn: false }]);
+        const again = teamRequests(M, arjun, 'leave', 'waiting').find(x => x.id === r.id)!;
+        expect(again.leave!.alsoOff).toContain(other.fullName.split(' ')[0]);
+        decideRequest(M, 'leave', r.id, { role: 'MANAGER', manager: arjun }, 'APPROVED');
+        expect(teamRequests(M, arjun, 'leave', 'waiting').some(x => x.id === r.id)).toBe(false);
+        const cal = teamLeave(M, arjun, r.leave!.start.slice(0, 7)).rows.flatMap(x => x.leave).find(l => l.id === r.id)!;
+        expect(cal.state).toBe('pending');
     });
 });

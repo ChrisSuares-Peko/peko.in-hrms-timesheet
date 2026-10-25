@@ -61,6 +61,7 @@ import {
     teamApprovalCounts,
     teamMonthSummary,
     teamRequests,
+    teamReimbursements,
     teamAttendance,
     teamLeave,
     teamToday,
@@ -212,6 +213,8 @@ export const atsRoutes: MockRoute[] = [
     // PROTOTYPE-SETUP (My team, Slice 1): "Ask for update" (send-back stays as an alias) and bulk approve.
     route('POST', `${A}/team/approvals/timesheets/:employeeId/:weekStart/ask-for-update`, ess((ctx, me) => sendBackWeek(ctx.mode, me, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
     route('POST', `${A}/team/approvals/bulk-approve`, ess((ctx, me) => bulkApprove(ctx.mode, me, ctx.body))),
+    // PROTOTYPE-SETUP (Leave & team, Slice 4): My team → Team reimbursements.
+    route('GET', `${A}/team/reimbursements`, ess((ctx, me) => teamReimbursements(ctx.mode, me, String(ctx.query.month ?? '')))),
     route('GET', `${A}/team/approvals/requests/:requestType`, ess((ctx, me) => teamRequests(ctx.mode, me, typeParam(ctx.params), scopeParam(ctx.query)))),
     route('POST', `${A}/team/approvals/requests/:requestType/:id/approve`, ess((ctx, me) => decideRequest(ctx.mode, typeParam(ctx.params), ctx.params.id!, { role: 'MANAGER', manager: me }, 'APPROVED', ctx.body?.comment))),
     route('POST', `${A}/team/approvals/requests/:requestType/:id/reject`, ess((ctx, me) => decideRequest(ctx.mode, typeParam(ctx.params), ctx.params.id!, { role: 'MANAGER', manager: me }, 'REJECTED', ctx.body?.comment))),

@@ -746,6 +746,19 @@ export interface TeamLeaveView {
     }[];
 }
 
+/** PROTOTYPE-SETUP (Leave & team, Slice 4): where a team member's claim is. */
+export type TeamClaimBucket = 'you' | 'l2' | 'upd' | 'ok' | 'no';
+
+/** PROTOTYPE-SETUP (Leave & team, Slice 4): My team → Team reimbursements, for one month (by expense date). */
+export interface TeamReimbursementsView {
+    month: string;
+    /** The level-2 approver for reimbursements ("Admin" by default) — "With Admin". */
+    level2Label: string;
+    totals: Record<'claimed' | 'waiting' | 'withLevel2' | 'approved', { amount: number; count: number }>;
+    byPerson: { employee: PersonRef; count: number; amount: number }[];
+    claims: { item: RequestItem; amount: number; date: string; bucket: TeamClaimBucket }[];
+}
+
 export interface TeamTodayRow {
     employee: PersonRef;
     status: DayStatus;
@@ -836,6 +849,11 @@ export interface RequestItem {
     profile?: { changes: ProfileChange[] };
     /** Set when the day's payroll is processed: it can't be approved (attendance corrections and overtime). */
     blockedReason?: string;
+    /**
+     * PROTOTYPE-SETUP (Leave & team, Slice 4): a leave request's dates; in the manager's lists, `alsoOff` = the first
+     * names of other direct reports with approved leave on any of those dates.
+     */
+    leave?: { start: string; end: string; half: LeaveHalf | null; alsoOff?: string[] };
     waitingForYou: boolean;
 }
 

@@ -40,6 +40,7 @@ import type {
     TimesheetNotices,
     TimesheetWeekView,
     TeamAttendanceView,
+    TeamReimbursementsView,
     TeamLeaveView,
     WorkLocation,
 } from './types';
@@ -195,6 +196,8 @@ const decisionPath = (d: 'approve' | 'reject' | 'update') => (d === 'update' ? '
 /** PROTOTYPE-SETUP (My team, Slice 4): Team attendance (month grid) and the Leave calendar. */
 export const getTeamAttendance = (s: AtsScope, month: string) => call<TeamAttendanceView>(s, 'get', 'team/attendance', { params: { month } });
 export const getTeamLeave = (s: AtsScope, month: string) => call<TeamLeaveView>(s, 'get', 'team/leave', { params: { month } });
+/** PROTOTYPE-SETUP (Leave & team, Slice 4): My team → Team reimbursements (one month). */
+export const getTeamReimbursements = (s: AtsScope, month: string) => call<TeamReimbursementsView>(s, 'get', 'team/reimbursements', { params: { month } });
 
 export const getTeamApprovalCounts = (s: AtsScope) => call<ApprovalCounts>(s, 'get', 'team/approvals/counts');
 export const getTimesheetQueue = (s: AtsScope, scope: QueueScope) =>
