@@ -27,8 +27,37 @@ export type Level2ConfigurableType = Exclude<ApprovalType, 'profile'>;
 /**
  * PROTOTYPE-SETUP (HR rules, Slice 1): 'PAYROLL' = the Payroll queue (default for attendance, overtime and — Final
  * batch — timesheets). PROTOTYPE-SETUP (Final batch, Slice 1): 'ADMIN' = the Admin queue (default for reimbursements).
+ * PROTOTYPE-SETUP (Settings, Slice 1): a team (a queue in Payroll), a specific person (`person:<employee id>`, their My
+ * team → Approvals) or 'NONE' (level 1 is final).
  */
-export type Level2Approver = 'HR' | 'FINANCE' | 'PAYROLL' | 'ADMIN' | 'NONE';
+export type ApproverTeam = 'HR' | 'FINANCE' | 'PAYROLL' | 'ADMIN';
+export type PersonApprover = `person:${number}`;
+export type Level2Approver = ApproverTeam | PersonApprover | 'NONE';
+/** PROTOTYPE-SETUP (Settings, Slice 1): level 1 — the reporting manager (default), a team or a specific person. */
+export type Level1Approver = 'MANAGER' | ApproverTeam | PersonApprover;
+
+/** PROTOTYPE-SETUP (Settings, Slice 4): what employees can ask for when they apply for leave. */
+export interface LeaveRequestRules {
+    /** Off = the form only offers full days. */
+    halfDay: boolean;
+    /** Sick leave longer than this many days needs proof (0 = always). */
+    proofDays: number;
+}
+
+/** PROTOTYPE-SETUP (Settings, Slice 5): one reimbursement category. */
+export interface ReimbursementCategory {
+    name: string;
+    /** ₹ per employee per month (0 = no limit). */
+    monthlyLimit: number;
+    receiptRequired: boolean;
+}
+
+/** PROTOTYPE-SETUP (Settings, Slice 5): what employees can claim, and how long after the expense. */
+export interface ReimbursementRules {
+    categories: ReimbursementCategory[];
+    /** Claims allowed up to this many days after the expense. */
+    claimWindowDays: number;
+}
 
 /**
  * PROTOTYPE-SETUP (Timesheet filing): how often employees file a timesheet. Daily = one day, weekly = Monday–Sunday,
@@ -82,8 +111,14 @@ export interface AtsSettings {
     leavePolicy: LeavePolicy;
     /** PROTOTYPE-SETUP (Timesheet filing): filing frequency and the task-entry fields. */
     timesheetFiling: TimesheetFilingSettings;
-    /** Level 2 per request type (level 1 is always the reporting manager). */
+    /** PROTOTYPE-SETUP (Settings, Slice 1): level 1 per request type (default: the reporting manager). */
+    level1: Record<Level2ConfigurableType, Level1Approver>;
+    /** Level 2 per request type. */
     level2: Record<Level2ConfigurableType, Level2Approver>;
+    /** PROTOTYPE-SETUP (Settings, Slice 4): half-day leave, sick-leave proof. */
+    leaveRules: LeaveRequestRules;
+    /** PROTOTYPE-SETUP (Settings, Slice 5): reimbursement categories and the claim window. */
+    reimbursements: ReimbursementRules;
     updatedAt: string;
 }
 
@@ -471,6 +506,11 @@ export interface TimesheetWeek {
      * or imported). Submitting clears it; those dates show as "Saved" until then.
      */
     dirtyDates?: string[];
+    /**
+     * PROTOTYPE-SETUP (Settings, Slice 1): who it's with at each level, fixed when it's submitted (a settings change
+     * doesn't move a period already in flight). Older periods without one follow the current settings.
+     */
+    route?: { l1: ApprovalStep | null; l2: ApprovalStep | null };
     submittedAt?: string;
     autoSubmitted?: boolean;
     decision?: Decision;
@@ -598,6 +638,12 @@ export interface TimesheetWeekView {
     approvalEnabled: boolean;
     /** PROTOTYPE-SETUP (Final batch, Slice 1): who approves after the manager ('PAYROLL' by default, or 'NONE'). */
     level2: Level2Approver;
+    /** PROTOTYPE-SETUP (Settings, Slice 1): who it goes to after level 1 approves ("Payroll team", "Priya Nair"), or null. */
+    nextApprover: string | null;
+    /** Who it's waiting with now, by name (or null). */
+    waitingWith: string | null;
+    /** Waiting for whoever asked (the person, or a team for Payroll) — the review screen's buttons. */
+    waitingForViewer?: boolean;
     submissionWeekday: Weekday;
     mode: AtsMode;
     editMode: TimesheetEditMode;
@@ -828,6 +874,9 @@ export interface TimesheetApprovalItem {
     diffSummary?: string;
     /** Who approved it at level 1 (the Payroll queue). */
     approvedBy?: string;
+    /** PROTOTYPE-SETUP (Settings, Slice 1): who it's waiting with ("Priya Nair" / "Payroll team") and at which level. */
+    waitingWith?: string;
+    pendingLevel?: 1 | 2;
     waitingForYou: boolean;
 }
 
@@ -849,6 +898,8 @@ export interface RequestItem {
     profile?: { changes: ProfileChange[] };
     /** Set when the day's payroll is processed: it can't be approved (attendance corrections and overtime). */
     blockedReason?: string;
+    /** PROTOTYPE-SETUP (Settings, Slice 1): the level it's waiting at (a person can be level 1 or level 2). */
+    pendingLevel?: 1 | 2;
     /**
      * PROTOTYPE-SETUP (Leave & team, Slice 4): a leave request's dates; in the manager's lists, `alsoOff` = the first
      * names of other direct reports with approved leave on any of those dates.
@@ -1189,9 +1240,12 @@ export interface AdminRequestRow {
     value: number;
     /** Reimbursements: the expense category. */
     category?: string;
+    /** The employee's reporting manager. */
     managerName: string | null;
     /** Leave: other people in the same department with approved leave on any of those dates. */
     deptClash?: { department: string; names: string[] };
+    /** PROTOTYPE-SETUP (Settings, Slice 1): with approvers — the person it's waiting with. */
+    waitingWith: string | null;
 }
 
 /** The badges on the Payroll service tabs (what's waiting for the admin). */

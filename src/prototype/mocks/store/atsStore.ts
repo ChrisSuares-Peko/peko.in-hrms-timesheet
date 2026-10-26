@@ -18,6 +18,8 @@ import type {
     TimesheetWeekView,
     WorkLocation,
     TimesheetLeaveRow,
+    ApprovalStep,
+    ApprovalType,
 } from '@src/domains/attendanceTimesheet/types';
 import {
     DEFAULT_FILING,
@@ -46,6 +48,10 @@ import {
     requestState,
     trailLabel,
     dayLocations,
+    routeStep,
+    startTrail,
+    type RouteContext,
+    stepName,
 } from '@src/prototype/rules/attendance';
 import { LEAVE_LABEL } from '@src/prototype/rules/leavePolicy';
 import {
@@ -119,6 +125,10 @@ export const getSettings = (mode: DataMode): AtsSettings => {
         timesheetFiling: s.timesheetFiling ?? DEFAULT_FILING,
         timesheetApproval: { ...DEFAULT_SETTINGS.timesheetApproval, ...s.timesheetApproval },
         level2: { ...DEFAULT_SETTINGS.level2, ...s.level2 },
+        // PROTOTYPE-SETUP (Settings, Slices 1, 4, 5): level 1 routing, leave request rules, reimbursement rules.
+        level1: { ...DEFAULT_SETTINGS.level1, ...s.level1 },
+        leaveRules: { ...DEFAULT_SETTINGS.leaveRules, ...s.leaveRules },
+        reimbursements: { ...DEFAULT_SETTINGS.reimbursements, ...s.reimbursements },
         leavePolicy: s.leavePolicy ?? DEFAULT_SETTINGS.leavePolicy,
         lateDeductionDays: s.lateDeductionDays ?? DEFAULT_SETTINGS.lateDeductionDays,
     };
@@ -138,6 +148,31 @@ export const personRef = (e: MockEmployee): PersonRef => ({
 export const managerRef = (e: MockEmployee) => {
     const m = managerOf(e);
     return m ? { id: m.id, name: m.fullName } : null;
+};
+
+// ---- approval routing (PROTOTYPE-SETUP: Settings, Slice 1) ----------------------------------------------------
+
+/** Names a specific approver (and knows who's asking, so "themselves" resolves to their manager). */
+export const routeContext = (e: Pick<MockEmployee, 'id'>): RouteContext => ({ employeeId: e.id, personName: id => findEmployee(id)?.fullName ?? null });
+
+/** A new request's approval chain, per the current settings. */
+export const newTrail = (mode: DataMode, type: ApprovalType, e: MockEmployee) => startTrail(type, managerRef(e), getSettings(mode), routeContext(e));
+
+/** A timesheet period's levels per the current settings (recorded on the period when it's submitted). */
+export const timesheetRouteFor = (mode: DataMode, e: MockEmployee) => {
+    const s = getSettings(mode);
+    const ctx = routeContext(e);
+    return { l1: routeStep(s.level1.timesheet, 1, managerRef(e), ctx), l2: routeStep(s.level2.timesheet, 2, managerRef(e), ctx) };
+};
+
+/** The period's levels: as recorded when it was submitted (older periods: the current settings). */
+export const weekRoute = (mode: DataMode, e: MockEmployee, week: Pick<TimesheetWeek, 'route'>) => week.route ?? timesheetRouteFor(mode, e);
+
+/** Who a period is waiting with: level 1 while submitted, level 2 while with level 2 — or null. */
+export const weekWaitingWith = (mode: DataMode, e: MockEmployee, week: TimesheetWeek): ApprovalStep | null => {
+    if (week.status === 'SUBMITTED') return weekRoute(mode, e, week).l1;
+    if (week.status === 'WITH_PAYROLL') return weekRoute(mode, e, week).l2;
+    return null;
 };
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -478,7 +513,7 @@ export const weekView = (
     mode: DataMode,
     e: MockEmployee,
     date: string,
-    opts: { readOnly?: boolean } = {}
+    opts: { readOnly?: boolean; viewer?: number | 'TEAM' } = {}
 ): TimesheetWeekView => {
     const settings = getSettings(mode);
     const week = weekOf(mode, e, date);
@@ -495,6 +530,17 @@ export const weekView = (
         week,
         days,
         level2: settings.level2.timesheet,
+        nextApprover: week.status === 'SUBMITTED' && weekRoute(mode, e, week).l2 ? stepName(weekRoute(mode, e, week).l2!) : null,
+        waitingWith: weekWaitingWith(mode, e, week) ? stepName(weekWaitingWith(mode, e, week)!) : null,
+        ...(opts.viewer !== undefined
+            ? {
+                  waitingForViewer: (() => {
+                      const ww = weekWaitingWith(mode, e, week);
+                      if (!ww) return false;
+                      return opts.viewer === 'TEAM' ? ww.role !== 'MANAGER' : ww.role === 'MANAGER' && ww.approverId === opts.viewer;
+                  })(),
+              }
+            : {}),
         approvalEnabled,
         submissionWeekday: settings.timesheetApproval.submissionWeekday,
         mode: settings.mode,

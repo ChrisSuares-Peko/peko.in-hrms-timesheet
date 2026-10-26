@@ -18,7 +18,11 @@ import { showToast } from '@src/slices/apiSlice';
 import { AtsRequestType, bulkApproveTeam, decideTeamRequest, getTeamRequests, getTimesheetQueue } from '../api';
 import { PersonCell, TeamSettings } from './teamShared';
 import TimesheetReviewDrawer, { ReviewTarget } from './TimesheetReviewDrawer';
-import { fmtPeriod, formatDuration } from '../components/format';
+import { approvedToast } from '../components/approvalText';
+import {
+    fmtPeriod,
+    formatDuration,
+} from '../components/format';
 import { PendingDecision, RequestCard, RequestDecisionModal } from '../components/RequestQueue';
 import { useAtsScope } from '../hooks/useAtsScope';
 import type { RequestItem, TimesheetApprovalItem } from '../types';
@@ -132,7 +136,7 @@ const TeamApprovalsInbox = ({ settings, onChanged }: { settings: TeamSettings; o
         const res = await decideTeamRequest(scope, pending.item.type as AtsRequestType, pending.item.id, pending.decision, note || undefined);
         setBusy(false);
         if (!res) return;
-        const done = { approve: 'Request approved', reject: 'Request rejected', update: `Sent back to ${pending.item.employee.name} to update` };
+        const done = { approve: approvedToast(res), reject: 'Request rejected', update: `Sent back to ${pending.item.employee.name} to update` };
         dispatch(showToast({ variant: 'success', description: done[pending.decision] }));
         setPending(null);
         changed();

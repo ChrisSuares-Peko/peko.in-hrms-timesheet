@@ -241,6 +241,9 @@ export const processPayrollMonth = (s: AtsScope, month: string) =>
 
 /** The Leave page: leave year, balances and ledger, late deductions, probation / exit notes, requests. */
 export const getLeaveView = (s: AtsScope) => call<LeaveView>(s, 'get', 'leave');
+/** PROTOTYPE-SETUP (Settings, Slice 1): "Approval: Arjun Mehta (manager), then Payroll team." per request type. */
+export const getApprovalLines = (s: AtsScope) =>
+    call<Record<'attendance' | 'overtime' | 'leave' | 'reimbursement' | 'timesheet', string>>(s, 'get', 'approval-lines');
 export const applyForLeave = (s: AtsScope, body: LeaveRequestInput) => call<LeaveView>(s, 'post', 'leave/requests', { body });
 export const withdrawLeave = (s: AtsScope, id: string) => call<LeaveView>(s, 'post', `leave/requests/${id}/withdraw`);
 export const resubmitLeave = (s: AtsScope, id: string, body: { start: string; end: string; half: LeaveHalf | null; reason: string }) =>

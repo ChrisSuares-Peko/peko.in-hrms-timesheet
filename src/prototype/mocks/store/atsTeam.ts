@@ -31,6 +31,9 @@ import type {
     ApprovalStatus,
     TeamClaimBucket,
     TeamReimbursementsView,
+    ApprovalTrail,
+    Level1Approver,
+    ReimbursementRules,
 } from '@src/domains/attendanceTimesheet/types';
 import {
     RuleError,
@@ -60,9 +63,14 @@ import {
     weekStartOf,
     reachedLevel2,
     isWeeklyOff,
+    pendingStep,
+    stepName,
+    TEAM_NAME,
+    approverPersonId,
+    isApproverTeam,
 } from '@src/prototype/rules/attendance';
 import { LEAVE_LABEL, LEAVE_TYPES } from '@src/prototype/rules/leavePolicy';
-import { afterManagerApproval, isAutoSubmitDue, periodEndOf, periodsDueForSubmission } from '@src/prototype/rules/timesheetFiling';
+import { isAutoSubmitDue, periodEndOf, periodsDueForSubmission } from '@src/prototype/rules/timesheetFiling';
 
 import { attendanceMonthOf, autoSubmitNote, submitWeekRecord, timesheetMonthOf } from './atsEss';
 import { applyApprovedProfile, atsProfileRequests } from './atsProfile';
@@ -104,15 +112,35 @@ import {
     weeksSummary,
     publicHolidayOn,
     openSessionBefore,
+    weekRoute,
+    weekWaitingWith,
 } from './atsStore';
 import { actorOf } from '../data/ats-seed';
-import { MockEmployee, findEmployee, managerOf } from '../data/employees';
+import { MockEmployee, findEmployee } from '../data/employees';
 import type { DataMode } from '../envelope';
 
 // ---- team ---------------------------------------------------------------------------------------------
 
 export const teamOf = (mode: DataMode, manager: MockEmployee) =>
     employeesFor(mode).filter(e => e.managerEmployeeId === manager.employeeId);
+
+/**
+ * PROTOTYPE-SETUP (Settings, Slice 1): a person can open someone's timesheet / attendance when they manage them, or when
+ * something of theirs is routed to that person (a request or a timesheet period, at either level).
+ */
+export const assertCanReview = (mode: DataMode, me: MockEmployee, employee: MockEmployee | undefined) => {
+    if (!employee) throw new RuleError('Employee not found.', 404);
+    if (employee.managerEmployeeId === me.employeeId) return employee;
+    const mine = (st: { role: string; approverId?: number } | null | undefined) => st?.role === 'MANAGER' && st.approverId === me.id;
+    const routedWeek = Object.values(atsWeeks.get(mode)).some(w => w.employeeId === employee.id && (mine(w.route?.l1) || mine(w.route?.l2)));
+    const routedRequest = (['attendance', 'overtime', 'leave', 'reimbursement'] as const).some(t =>
+        allRequests(mode, t, 'MANAGER').some(r => r.employee.id === employee.id && r.trail.steps.some(mine))
+    );
+    const s = getSettings(mode);
+    const named = [...Object.values(s.level1), ...Object.values(s.level2)].includes(`person:${me.id}`);
+    if (routedWeek || routedRequest || named) return employee;
+    return assertManages(me, employee);
+};
 
 export const assertManages = (manager: MockEmployee, employee: MockEmployee | undefined) => {
     if (!employee || employee.managerEmployeeId !== manager.employeeId) {
@@ -211,7 +239,10 @@ export const monthSummaryOf = (mode: DataMode, people: MockEmployee[], month: st
 
 // ---- timesheet approvals (manager) -------------------------------------------------------------------
 
-const weekItem = (mode: DataMode, e: MockEmployee, week: TimesheetWeek, viewer: 'MANAGER' | 'PAYROLL' = 'MANAGER'): TimesheetApprovalItem => {
+const weekItem = (mode: DataMode, e: MockEmployee, week: TimesheetWeek, viewer: 'MANAGER' | 'PAYROLL' = 'MANAGER', viewerId?: number): TimesheetApprovalItem => {
+    // PROTOTYPE-SETUP (Settings, Slice 1): waiting for you = with you (a person) / with a team (Payroll).
+    const ww = weekWaitingWith(mode, e, week);
+    const forPerson = viewerId !== undefined ? ww?.role === 'MANAGER' && ww.approverId === viewerId : week.status === 'SUBMITTED';
     const days = periodDates(week).map(d => timesheetDay(mode, e, d, week.entries));
     const edited = week.baselineEntries && week.editedAfter ? diffEntries(week.baselineEntries, week.entries) : null;
     return {
@@ -229,53 +260,72 @@ const weekItem = (mode: DataMode, e: MockEmployee, week: TimesheetWeek, viewer: 
         // PROTOTYPE-SETUP (Final batch, Slice 1): edited after it was sent / approved — "What changed".
         ...(edited ? { editedAfter: week.editedAfter, diffSummary: diffSummary(edited) } : {}),
         ...(week.managerDecision ? { approvedBy: week.managerDecision.by.name } : {}),
-        waitingForYou: viewer === 'MANAGER' ? week.status === 'SUBMITTED' : week.status === 'WITH_PAYROLL',
+        ...(ww ? { waitingWith: stepName(ww), pendingLevel: ww.level } : {}),
+        waitingForYou: viewer === 'MANAGER' ? Boolean(forPerson) : Boolean(ww && ww.role !== 'MANAGER'),
     };
 };
 
 /** The manager's timesheet queue: waiting = with the manager; all = everything that has been sent. */
 export const timesheetQueue = (mode: DataMode, manager: MockEmployee, scope: QueueScope): TimesheetApprovalItem[] => {
+    // PROTOTYPE-SETUP (Settings, Slice 1): waiting = with this person (level 1 or 2); all = the team's sent periods and any
+    // routed to them.
     const team = teamOf(mode, manager);
     const ids = new Set(team.map(e => e.id));
+    const routedToMe = (e: MockEmployee, w: TimesheetWeek) => {
+        const r = weekRoute(mode, e, w);
+        return [r.l1, r.l2].some(st => st?.role === 'MANAGER' && st.approverId === manager.id);
+    };
     return Object.values(atsWeeks.get(mode))
-        .filter(w => ids.has(w.employeeId))
-        .filter(w => (scope === 'waiting' ? w.status === 'SUBMITTED' : w.status !== 'DRAFT' || Boolean(w.submittedAt)))
-        .map(w => weekItem(mode, findEmployee(w.employeeId)!, w))
+        .map(w => ({ w, e: findEmployee(w.employeeId)! }))
+        .filter(({ e }) => Boolean(e))
+        .map(({ w, e }) => ({ w, e, item: weekItem(mode, e, w, 'MANAGER', manager.id) }))
+        .filter(({ w, e, item }) =>
+            scope === 'waiting' ? item.waitingForYou : (ids.has(w.employeeId) || routedToMe(e, w)) && (w.status !== 'DRAFT' || Boolean(w.submittedAt))
+        )
+        .map(({ item }) => item)
         .sort((a, b) => Number(b.waitingForYou) - Number(a.waitingForYou) || b.at.localeCompare(a.at));
 };
 
-const memberWeek = (mode: DataMode, manager: MockEmployee, employeeId: number | string, weekStart: string) => {
-    const e = assertManages(manager, findEmployee(employeeId));
-    return { e, week: weekOf(mode, e, weekStart) };
-};
-
 const NOT_WAITING = 'This timesheet is no longer waiting for your approval — refresh the list.';
+
+/** PROTOTYPE-SETUP (Settings, Slice 1): a period waiting with this person (level 1 or level 2). */
+const memberWeek = (mode: DataMode, manager: MockEmployee, employeeId: number | string, weekStart: string) => {
+    const e = findEmployee(employeeId);
+    if (!e) throw new RuleError('Employee not found.', 404);
+    const week = weekOf(mode, e, weekStart);
+    const ww = weekWaitingWith(mode, e, week);
+    if (!(ww?.role === 'MANAGER' && ww.approverId === manager.id)) {
+        assertManages(manager, e);
+        throw new RuleError(NOT_WAITING);
+    }
+    return { e, week, level: ww.level };
+};
 
 /**
  * PROTOTYPE-SETUP (Final batch, Slice 1): the manager approves → on to Payroll (level 2), or approved when the company
  * has no level 2 for timesheets.
  */
 export const approveWeek = (mode: DataMode, manager: MockEmployee, employeeId: string, weekStart: string, comment?: string) => {
-    const { e, week } = memberWeek(mode, manager, employeeId, weekStart);
-    if (week.status !== 'SUBMITTED') throw new RuleError(NOT_WAITING);
+    const { e, week, level } = memberWeek(mode, manager, employeeId, weekStart);
     const at = nowIso();
     const note = comment?.trim();
     const decision = { by: actorOf(manager, 'MANAGER'), at, ...(note ? { comment: note } : {}) };
-    const next = afterManagerApproval(getSettings(mode).level2.timesheet);
+    // PROTOTYPE-SETUP (Settings, Slice 1): level 1 → on to level 2 (as recorded), or approved; level 2 is final.
+    const l2 = level === 1 ? weekRoute(mode, e, week).l2 : null;
+    const next = l2 ? 'WITH_PAYROLL' : 'APPROVED';
     saveWeek(mode, {
         ...week,
         status: next,
-        managerDecision: decision,
+        ...(level === 1 ? { managerDecision: decision } : {}),
         decision,
         ...(next === 'APPROVED' ? { approvedEntries: week.entries, baselineEntries: null, editedAfter: undefined } : {}),
-        history: [...week.history, { at, actor: actorOf(manager, 'MANAGER'), action: 'APPROVED', detail: `${next === 'APPROVED' ? 'Approved' : 'Approved, sent to Payroll'}${note ? ` — ${note}` : ''}` }],
+        history: [...week.history, { at, actor: actorOf(manager, 'MANAGER'), action: 'APPROVED', detail: `${l2 ? `Approved, sent to ${stepName(l2)}` : 'Approved'}${note ? ` — ${note}` : ''}` }],
     });
-    return weekItem(mode, e, weekOf(mode, e, week.weekStart));
+    return weekItem(mode, e, weekOf(mode, e, week.weekStart), 'MANAGER', manager.id);
 };
 
 export const sendBackWeek = (mode: DataMode, manager: MockEmployee, employeeId: string, weekStart: string, comment?: string) => {
     const { e, week } = memberWeek(mode, manager, employeeId, weekStart);
-    if (week.status !== 'SUBMITTED') throw new RuleError(NOT_WAITING);
     const note = comment?.trim();
     if (!note) throw new RuleError('Add a short note so the employee knows what to fix.', 400);
     const at = nowIso();
@@ -286,7 +336,7 @@ export const sendBackWeek = (mode: DataMode, manager: MockEmployee, employeeId: 
         decision: { by: actorOf(manager, 'MANAGER'), at, comment: note },
         history: [...week.history, { at, actor: actorOf(manager, 'MANAGER'), action: 'SENT_BACK', detail: `Update requested: ${note}` }],
     });
-    return weekItem(mode, e, weekOf(mode, e, week.weekStart));
+    return weekItem(mode, e, weekOf(mode, e, week.weekStart), 'MANAGER', manager.id);
 };
 
 // ---- timesheets at level 2: Payroll (PROTOTYPE-SETUP: Final batch, Slice 1) ------------------------------
@@ -296,15 +346,15 @@ const PAYROLL_ACTOR = { id: null, name: 'Payroll team', role: 'HR' as const };
 /** "Timesheets waiting for Payroll" (waiting) or every timesheet that has reached Payroll (all). */
 export const payrollTimesheetQueue = (mode: DataMode, scope: QueueScope): TimesheetApprovalItem[] =>
     Object.values(atsWeeks.get(mode))
-        .filter(w => (scope === 'waiting' ? w.status === 'WITH_PAYROLL' : w.status === 'WITH_PAYROLL' || Boolean(w.managerDecision) || (w.status === 'APPROVED' && !managerOf(findEmployee(w.employeeId)!))))
         .map(w => weekItem(mode, findEmployee(w.employeeId)!, w, 'PAYROLL'))
+        .filter(it => (scope === 'waiting' ? it.waitingForYou : it.waitingForYou || it.status === 'WITH_PAYROLL' || Boolean(it.approvedBy) || it.status === 'APPROVED'))
         .sort((a, b) => Number(b.waitingForYou) - Number(a.waitingForYou) || b.at.localeCompare(a.at));
 
 /** The period Payroll is reviewing (read-only; no manager check). */
 export const payrollWeekView = (mode: DataMode, employeeId: string | number, date: string) => {
     const e = findEmployee(employeeId);
     if (!e) throw new RuleError('Employee not found.', 404);
-    return weekView(mode, e, date, { readOnly: true });
+    return weekView(mode, e, date, { readOnly: true, viewer: 'TEAM' });
 };
 
 /** PROTOTYPE-SETUP (Final batch, Slice 4): the month view for Payroll's review screen. */
@@ -318,38 +368,56 @@ const payrollWeek = (mode: DataMode, employeeId: string, weekStart: string) => {
     const e = findEmployee(employeeId);
     if (!e) throw new RuleError('Employee not found.', 404);
     const week = weekOf(mode, e, weekStart);
-    if (week.status !== 'WITH_PAYROLL') throw new RuleError('This timesheet is no longer waiting for Payroll — refresh the list.');
-    return { e, week };
+    // PROTOTYPE-SETUP (Settings, Slice 1): waiting with a team (level 1 or level 2) — not with a person.
+    const ww = weekWaitingWith(mode, e, week);
+    if (!ww || ww.role === 'MANAGER') throw new RuleError('This timesheet is no longer waiting for Payroll — refresh the list.');
+    return { e, week, step: ww };
 };
 
 /** Payroll's final approval: the version approved becomes the baseline for any later edit. */
 export const payrollApproveWeek = (mode: DataMode, employeeId: string, weekStart: string, comment?: string) => {
-    const { e, week } = payrollWeek(mode, employeeId, weekStart);
+    const { e, week, step } = payrollWeek(mode, employeeId, weekStart);
     const at = nowIso();
     const note = comment?.trim();
+    const actor = { ...PAYROLL_ACTOR, name: stepName(step) };
+    const decision = { by: actor, at, ...(note ? { comment: note } : {}) };
+    // PROTOTYPE-SETUP (Settings, Slice 1): a team at level 1 passes it on to level 2 (as recorded); level 2 is final.
+    const l2 = step.level === 1 ? weekRoute(mode, e, week).l2 : null;
+    if (l2) {
+        saveWeek(mode, {
+            ...week,
+            status: 'WITH_PAYROLL',
+            managerDecision: decision,
+            decision,
+            history: [...week.history, { at, actor, action: 'APPROVED', detail: `Approved, sent to ${stepName(l2)}${note ? ` — ${note}` : ''}` }],
+        });
+        return weekItem(mode, e, weekOf(mode, e, week.weekStart), 'PAYROLL');
+    }
     saveWeek(mode, {
         ...week,
         status: 'APPROVED',
         approvedEntries: week.entries,
         baselineEntries: null,
         editedAfter: undefined,
-        decision: { by: PAYROLL_ACTOR, at, ...(note ? { comment: note } : {}) },
-        history: [...week.history, { at, actor: PAYROLL_ACTOR, action: 'APPROVED', detail: `Approved by Payroll${note ? ` — ${note}` : ''}` }],
+        ...(step.level === 1 ? { managerDecision: decision } : {}),
+        decision,
+        history: [...week.history, { at, actor, action: 'APPROVED', detail: `Approved by ${stepName(step)}${note ? ` — ${note}` : ''}` }],
     });
     return weekItem(mode, e, weekOf(mode, e, week.weekStart), 'PAYROLL');
 };
 
 export const payrollSendBackWeek = (mode: DataMode, employeeId: string, weekStart: string, comment?: string) => {
-    const { e, week } = payrollWeek(mode, employeeId, weekStart);
+    const { e, week, step } = payrollWeek(mode, employeeId, weekStart);
     const note = comment?.trim();
     if (!note) throw new RuleError('Add a short note so the employee knows what to fix.', 400);
     const at = nowIso();
+    const actor = { ...PAYROLL_ACTOR, name: stepName(step) };
     saveWeek(mode, {
         ...week,
         status: 'SENT_BACK',
         sentBackBy: 'PAYROLL',
-        decision: { by: PAYROLL_ACTOR, at, comment: note },
-        history: [...week.history, { at, actor: PAYROLL_ACTOR, action: 'SENT_BACK', detail: `Update requested: ${note}` }],
+        decision: { by: actor, at, comment: note },
+        history: [...week.history, { at, actor, action: 'SENT_BACK', detail: `Update requested: ${note}` }],
     });
     return weekItem(mode, e, weekOf(mode, e, week.weekStart), 'PAYROLL');
 };
@@ -475,24 +543,41 @@ const itemsOf = (mode: DataMode, type: RequestType, viewer: ApproverRole) => {
 };
 
 export const allRequests = (mode: DataMode, type: RequestType, viewer: ApproverRole): RequestItem[] =>
-    itemsOf(mode, type, viewer).filter((x): x is RequestItem => x !== null);
+    itemsOf(mode, type, viewer)
+        .filter((x): x is RequestItem => x !== null)
+        .map(x => {
+            const p = pendingStep(x.trail);
+            return p ? { ...x, pendingLevel: p.level } : x;
+        });
 
 const byWaitingThenNewest = (a: RequestItem, b: RequestItem) =>
     Number(b.waitingForYou) - Number(a.waitingForYou) || b.at.localeCompare(a.at);
 
+/** PROTOTYPE-SETUP (Settings, Slice 1): is this request waiting with this person (at either level)? */
+export const waitingWithPerson = (trail: ApprovalTrail, personId: number) => {
+    const p = pendingStep(trail);
+    return Boolean(p && p.role === 'MANAGER' && p.approverId === personId);
+};
+
 export const teamRequests = (mode: DataMode, manager: MockEmployee, type: RequestType, scope: QueueScope) => {
+    // PROTOTYPE-SETUP (Settings, Slice 1): waiting = with this person (their reports' requests, or any routed to them at
+    // level 1 or 2); all = their team's requests plus any routed to them.
     const ids = new Set(teamOf(mode, manager).map(e => e.id));
+    const routedToMe = (r: RequestItem) => r.trail.steps.some(st => st.role === 'MANAGER' && st.approverId === manager.id);
     const list = allRequests(mode, type, 'MANAGER')
-        .filter(r => ids.has(r.employee.id) && r.trail.status !== 'CANCELLED')
-        .filter(r => scope === 'all' || r.waitingForYou)
+        .filter(r => r.trail.status !== 'CANCELLED')
+        .map(r => ({ ...r, waitingForYou: waitingWithPerson(r.trail, manager.id) }))
+        .filter(r => (scope === 'all' ? ids.has(r.employee.id) || routedToMe(r) : r.waitingForYou))
         .sort(byWaitingThenNewest);
     if (type !== 'leave') return list;
-    // PROTOTYPE-SETUP (Leave & team, Slice 4): who else on the team is off then (approved leave), for the clash chip.
-    const approved = atsLeaveRequests.get(mode).filter(l => ids.has(l.employeeId) && l.trail.status === 'APPROVED' && !l.withdrawn);
+    // PROTOTYPE-SETUP (Leave & team, Slice 4): who else on the requester's team is off then, for the clash chip.
+    const approved = atsLeaveRequests.get(mode).filter(l => l.trail.status === 'APPROVED' && !l.withdrawn);
     return list.map(r => {
         if (!r.leave) return r;
         const { start, end } = r.leave;
+        const boss = findEmployee(r.employee.id)?.managerEmployeeId;
         const names = approved
+            .filter(l => findEmployee(l.employeeId)?.managerEmployeeId === boss)
             .filter(l => l.employeeId !== r.employee.id && l.start <= end && l.end >= start)
             .map(l => findEmployee(l.employeeId)?.fullName.split(' ')[0] ?? '')
             .filter(Boolean);
@@ -505,7 +590,7 @@ export const teamRequests = (mode: DataMode, manager: MockEmployee, type: Reques
 const LEVEL2_NAME: Record<string, string> = { PAYROLL: 'Payroll', HR: 'HR', ADMIN: 'Admin', FINANCE: 'Finance', NONE: 'Admin' };
 
 const claimBucket = (status: ApprovalStatus): TeamClaimBucket | null => {
-    if (status === 'PENDING_MANAGER') return 'you';
+    // PROTOTYPE-SETUP (Settings, Slice 1): pending with someone else (another person, or a team).
     if (status.startsWith('PENDING')) return 'l2';
     if (status === 'UPDATE_REQUESTED') return 'upd';
     if (status === 'APPROVED') return 'ok';
@@ -525,8 +610,10 @@ export const teamReimbursements = (mode: DataMode, manager: MockEmployee, month:
         .get(mode)
         .filter(c => ids.has(c.employeeId) && !c.withdrawn && c.expenseDate.slice(0, 7) === month)
         .flatMap(c => {
-            const bucket = claimBucket(c.trail.status);
-            const item = claimItem(c, 'MANAGER');
+            const mine = waitingWithPerson(c.trail, manager.id);
+            const bucket = mine ? 'you' : claimBucket(c.trail.status);
+            const base = claimItem(c, 'MANAGER');
+            const item = base && { ...base, waitingForYou: mine };
             return bucket && item ? [{ item, amount: c.totalPay, date: c.expenseDate.slice(0, 10), bucket }] : [];
         })
         .sort((a, b) => Number(b.bucket === 'you') - Number(a.bucket === 'you') || b.date.localeCompare(a.date));
@@ -586,7 +673,7 @@ export const level2Counts = (mode: DataMode, role: Level2Role) => ({
 
 /** Who decided, for the request's history: the manager by name, level 2 by team. */
 const actorName = (actor: { role: 'MANAGER'; manager: MockEmployee } | { role: Level2Role }) =>
-    actor.role === 'MANAGER' ? actor.manager.fullName : ({ HR: 'HR team', FINANCE: 'Finance team', PAYROLL: 'Payroll', ADMIN: 'Admin' } as const)[actor.role];
+    actor.role === 'MANAGER' ? actor.manager.fullName : TEAM_NAME[actor.role];
 
 /**
  * Approve / reject at the level the request is waiting for. A fully approved correction updates attendance.
@@ -607,8 +694,7 @@ export const decideRequest = (
         // straight away (they read the live requests).
         const l = atsLeaveRequests.get(mode).find(x => x.id === id);
         if (!l) throw new RuleError('Request not found.', 404);
-        if (actor.role === 'MANAGER') assertManages(actor.manager, findEmployee(l.employeeId));
-        const trail = decide(l.trail, actor.role, decision, comment, at, actorName(actor));
+        const trail = decide(l.trail, actor.role, decision, comment, at, actorName(actor), actor.role === 'MANAGER' ? actor.manager.id : undefined);
         atsLeaveRequests.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
         return leaveItem({ ...l, trail }, actor.role)!;
     }
@@ -616,8 +702,7 @@ export const decideRequest = (
         // PROTOTYPE-SETUP (Final batch, Slice 1): manager → Admin.
         const c = atsReimbursements.get(mode).find(x => x.id === id);
         if (!c) throw new RuleError('Request not found.', 404);
-        if (actor.role === 'MANAGER') assertManages(actor.manager, findEmployee(c.employeeId));
-        const trail = decide(c.trail, actor.role, decision, comment, at, actorName(actor));
+        const trail = decide(c.trail, actor.role, decision, comment, at, actorName(actor), actor.role === 'MANAGER' ? actor.manager.id : undefined);
         atsReimbursements.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
         return claimItem({ ...c, trail }, actor.role)!;
     }
@@ -633,9 +718,8 @@ export const decideRequest = (
     if (type === 'attendance') {
         const c = atsCorrections.get(mode).find(x => x.id === id);
         if (!c) throw new RuleError('Request not found.', 404);
-        if (actor.role === 'MANAGER') assertManages(actor.manager, findEmployee(c.employeeId));
         if (decision === 'APPROVED' && isDayLocked(mode, c.date)) throw new RuleError(`Can't approve: ${lockReasonFor(c.date)}`);
-        const trail = decide(c.trail, actor.role, decision, comment, at, actorName(actor));
+        const trail = decide(c.trail, actor.role, decision, comment, at, actorName(actor), actor.role === 'MANAGER' ? actor.manager.id : undefined);
         atsCorrections.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
         if (trail.status === 'APPROVED') {
             // Breaks are kept; the times (and the check-out day) come from the request.
@@ -654,9 +738,8 @@ export const decideRequest = (
     }
     const o = atsOvertime.get(mode).find(x => x.id === id);
     if (!o) throw new RuleError('Request not found.', 404);
-    if (actor.role === 'MANAGER') assertManages(actor.manager, findEmployee(o.employeeId));
     if (decision === 'APPROVED' && isDayLocked(mode, o.date)) throw new RuleError(`Can't approve: ${lockReasonFor(o.date)}`);
-    const trail = decide(o.trail, actor.role, decision, comment, at, actorName(actor));
+    const trail = decide(o.trail, actor.role, decision, comment, at, actorName(actor), actor.role === 'MANAGER' ? actor.manager.id : undefined);
     atsOvertime.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
     return overtimeItem(mode, { ...o, trail }, actor.role)!;
 };
@@ -862,7 +945,35 @@ export const autoRunSubmissionDay = (mode: DataMode) => {
 
 // PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' = neither attendance nor timesheet tracking.
 const MODES = ['attendance', 'both', 'timesheet', 'none'] as const;
-const L2: Level2Approver[] = ['HR', 'FINANCE', 'PAYROLL', 'ADMIN', 'NONE'];
+/**
+ * PROTOTYPE-SETUP (Settings, Slice 1): a level-1 / level-2 value — a team, a specific person (an employee), the
+ * reporting manager (level 1 only) or none (level 2 only). Anything else keeps the current value.
+ */
+const approverOk = (v: unknown, level: 1 | 2): boolean => {
+    if (typeof v !== 'string') return false;
+    if (isApproverTeam(v)) return true;
+    if (level === 1 && v === 'MANAGER') return true;
+    if (level === 2 && v === 'NONE') return true;
+    const pid = approverPersonId(v);
+    return pid !== null && Boolean(findEmployee(pid));
+};
+
+/** PROTOTYPE-SETUP (Settings, Slice 5): categories — a name, a monthly limit (0 = none) and whether a receipt is needed. */
+const reimbursementsFrom = (b: Partial<ReimbursementRules> | undefined, cur: ReimbursementRules): ReimbursementRules => {
+    let { categories } = cur;
+    if (Array.isArray(b?.categories)) {
+        const seen = new Set<string>();
+        categories = b!.categories.flatMap(c => {
+            const name = String(c?.name ?? '').trim().slice(0, 40);
+            if (!name) throw new RuleError('Give every category a name.', 400);
+            if (seen.has(name.toLowerCase())) throw new RuleError(`“${name}” is already a category.`, 400);
+            seen.add(name.toLowerCase());
+            return [{ name, monthlyLimit: int(c?.monthlyLimit, 0, 10000000, 0), receiptRequired: Boolean(c?.receiptRequired) }];
+        });
+        if (!categories.length) throw new RuleError('Keep at least one category.', 400);
+    }
+    return { categories, claimWindowDays: int(b?.claimWindowDays, 1, 365, cur.claimWindowDays) };
+};
 const HHMM = /^\d{2}:\d{2}$/;
 const int = (v: unknown, min: number, max: number, fallback: number) => {
     const n = Number(v);
@@ -931,7 +1042,9 @@ export const updateSettings = (mode: DataMode, body: Partial<AtsSettings> | unde
     if (end <= start) throw new RuleError('Shift end must be after the start.', 400);
     const weekday = (v: unknown, fallback: Weekday) => (WEEKDAYS.includes(v as Weekday) ? (v as Weekday) : fallback);
     const l2 = (k: 'attendance' | 'overtime' | 'leave' | 'reimbursement' | 'timesheet') =>
-        L2.includes(b.level2?.[k] as Level2Approver) ? (b.level2![k] as Level2Approver) : cur.level2[k];
+        approverOk(b.level2?.[k], 2) ? (b.level2![k] as Level2Approver) : cur.level2[k];
+    const l1 = (k: 'attendance' | 'overtime' | 'leave' | 'reimbursement' | 'timesheet') =>
+        approverOk(b.level1?.[k], 1) ? (b.level1![k] as Level1Approver) : cur.level1[k];
     const next: AtsSettings = {
         mode: MODES.includes(b.mode as (typeof MODES)[number]) ? (b.mode as AtsSettings['mode']) : cur.mode,
         shift: { start, end },
@@ -946,6 +1059,12 @@ export const updateSettings = (mode: DataMode, body: Partial<AtsSettings> | unde
             submissionTime: HHMM.test(b.timesheetApproval?.submissionTime ?? '') ? b.timesheetApproval!.submissionTime : cur.timesheetApproval.submissionTime,
         },
         level2: { attendance: l2('attendance'), overtime: l2('overtime'), leave: l2('leave'), reimbursement: l2('reimbursement'), timesheet: l2('timesheet') },
+        level1: { attendance: l1('attendance'), overtime: l1('overtime'), leave: l1('leave'), reimbursement: l1('reimbursement'), timesheet: l1('timesheet') },
+        leaveRules: {
+            halfDay: typeof b.leaveRules?.halfDay === 'boolean' ? b.leaveRules.halfDay : cur.leaveRules.halfDay,
+            proofDays: int(b.leaveRules?.proofDays, 0, 30, cur.leaveRules.proofDays),
+        },
+        reimbursements: reimbursementsFrom(b.reimbursements, cur.reimbursements),
         // PROTOTYPE-SETUP (Final batch, Slice 1): leave deducted per late check-in (0 = off), and the leave policy.
         lateDeductionDays: Number.isFinite(Number(b.lateDeductionDays)) && Number(b.lateDeductionDays) >= 0 && Number(b.lateDeductionDays) <= 5
             ? Math.round(Number(b.lateDeductionDays) * 4) / 4

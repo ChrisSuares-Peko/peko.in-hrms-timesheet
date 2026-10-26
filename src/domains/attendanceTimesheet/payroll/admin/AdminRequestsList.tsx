@@ -1,10 +1,12 @@
 // PROTOTYPE-SETUP (Payroll admin, Slices 1 and 5): the admin's requests list for one service (attendance corrections,
 // leave, overtime, reimbursements, profile updates) — every employee, newest first.
-//   filter ........ Waiting for you (default) · With managers · Update requested · Approved · Rejected · All, with counts
+//   filter ........ Waiting for you (default) · With approvers · Update requested · Approved · Rejected · All, with counts
 //   waiting ....... Select all, a checkbox per row, "Approve selected (N)"; Approve / Ask for update / Reject on each row
 //                   (Ask for update needs a comment and goes straight to the employee; on resubmit it starts again at
 //                   the manager)
-//   with managers . read-only: "Waiting for {manager}. You can decide once they approve." · Remind manager (mocked)
+//   with approvers  read-only: "Waiting for {name}. You can decide once they approve." · Remind {first name} (mocked)
+//                   PROTOTYPE-SETUP (Settings, Slice 1): whoever it's waiting with — the manager or a person named in
+//                   settings; a team at level 1 is "Waiting for you" (Payroll decides).
 //   update asked .. Remind employee (mocked)
 // `extra` adds a chip per row (Leave: the department clash chip).
 import { useCallback, useEffect, useState } from 'react';
@@ -18,6 +20,7 @@ import { showToast } from '@src/slices/apiSlice';
 
 import { notifyAdminChanged } from './adminShared';
 import { bulkApproveAdmin, decideAdminRequest, getAdminRequests, remindAdminRequest } from '../../api';
+import { approvedToast } from '../../components/approvalText';
 import { PendingDecision, RequestCard, RequestDecisionModal } from '../../components/RequestQueue';
 import type { AdminBucket, AdminRequestRow, AdminRequestType } from '../../types';
 import { usePayrollScope } from '../usePayrollAts';
@@ -28,7 +31,7 @@ type Filter = AdminBucket | 'all';
 
 const FILTERS: { key: Filter; label: string }[] = [
     { key: 'you', label: 'Waiting for you' },
-    { key: 'mgr', label: 'With managers' },
+    { key: 'mgr', label: 'With approvers' },
     { key: 'upd', label: 'Update requested' },
     { key: 'ok', label: 'Approved' },
     { key: 'no', label: 'Rejected' },
@@ -101,7 +104,7 @@ const AdminRequestsList = ({ type, extra, onChanged }: { type: AdminRequestType;
         const res = await decideAdminRequest(scope, type, pending.item.id, pending.decision, note || undefined);
         setBusy(false);
         if (!res) return;
-        const done = { approve: 'Approved. This approval is final.', reject: 'Request rejected', update: `Sent back to ${pending.item.employee.name} to update` };
+        const done = { approve: approvedToast(res, 'Approved. This approval is final.'), reject: 'Request rejected', update: `Sent back to ${pending.item.employee.name} to update` };
         dispatch(showToast({ variant: 'success', description: done[pending.decision] }));
         setPending(null);
         changed();
@@ -176,10 +179,10 @@ const AdminRequestsList = ({ type, extra, onChanged }: { type: AdminRequestType;
                                         {r.bucket === 'mgr' && (
                                             <>
                                                 <Text type="secondary" className="text-xs" data-with-manager>
-                                                    Waiting for {r.managerName ?? 'the manager'}. You can decide once they approve.
+                                                    Waiting for {r.waitingWith ?? 'the approver'}. You can decide once they approve.
                                                 </Text>
                                                 <Button size="small" icon={<BellOutlined />} onClick={() => remind(r)} data-remind="manager">
-                                                    Remind manager
+                                                    Remind {(r.waitingWith ?? 'approver').split(' ')[0]}
                                                 </Button>
                                             </>
                                         )}

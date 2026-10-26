@@ -10,6 +10,7 @@ import { useAppDispatch } from '@src/hooks/store';
 import { showToast } from '@src/slices/apiSlice';
 
 import { createOvertime, getOvertimeContext } from '../api';
+import { useApprovalLine } from './approvalText';
 import { formatDuration } from './format';
 import { contextSummary } from '../ess/overtimeText';
 import { useAtsScope } from '../hooks/useAtsScope';
@@ -42,6 +43,7 @@ const OvertimeRequestModal = ({
     onClose,
     onSubmitted,
 }: OvertimeRequestModalProps) => {
+    const approvalLine = useApprovalLine('overtime');
     const scope = useAtsScope();
     const dispatch = useAppDispatch();
     const [form] = Form.useForm<FormValues>();
@@ -271,6 +273,13 @@ const OvertimeRequestModal = ({
                         className="mb-4"
                         message="Once the day is over, your actual extra time is shown next to this request."
                     />
+                )}
+
+                {/* PROTOTYPE-SETUP (Settings, Slice 1): who approves, by name. */}
+                {approvalLine && (
+                    <Text className="mb-3 block text-xs text-[#616161]" data-approval-line>
+                        {approvalLine}
+                    </Text>
                 )}
 
                 <div className="flex gap-3">

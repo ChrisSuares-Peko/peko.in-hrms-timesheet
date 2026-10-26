@@ -18,6 +18,7 @@ import { useAppDispatch } from '@src/hooks/store';
 import { showToast } from '@src/slices/apiSlice';
 
 import { createCorrection, getAttendanceMonth } from '../api';
+import { useApprovalLine } from './approvalText';
 import { displayTime, displayTimeOn } from './format';
 import { useAtsScope } from '../hooks/useAtsScope';
 import type { AttendanceDay, AttendanceMonthView, CorrectionTimes } from '../types';
@@ -53,9 +54,8 @@ const FMT = 'HH:mm';
 const ISO = 'YYYY-MM-DD';
 const PICKER_FORMAT = 'h:mm A';
 
-/** Shown under the form. */
-export const CORRECTION_FOOTER =
-    'Your manager reviews this first, then Payroll, before your attendance changes. To change a past break, mention it in the reason.';
+/** Shown under the form (after the approval line). PROTOTYPE-SETUP (Settings, Slice 1): who approves comes from settings. */
+export const CORRECTION_FOOTER = 'Your attendance changes once it’s approved. To change a past break, mention it in the reason.';
 
 const toDayjs = (hhmm: string | null | undefined) => {
     if (!hhmm) return null;
@@ -95,6 +95,7 @@ const blockedReason = (date: string, today: string, day: AttendanceDay | undefin
 };
 
 const CorrectionModal = ({ open, date, initial, current, fromTimesheet, shiftEnd, shiftStart, onClose, onSubmitted }: CorrectionModalProps) => {
+    const approvalLine = useApprovalLine('attendance');
     const scope = useAtsScope();
     const dispatch = useAppDispatch();
     const [form] = Form.useForm<FormValues>();
@@ -359,6 +360,7 @@ const CorrectionModal = ({ open, date, initial, current, fromTimesheet, shiftEnd
                 </Form.Item>
 
                 <Text className="mb-3 block text-xs text-[#616161]" data-correction-footer>
+                    {approvalLine ? `${approvalLine} ` : ''}
                     {CORRECTION_FOOTER}
                 </Text>
 

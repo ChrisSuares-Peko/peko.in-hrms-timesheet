@@ -2,11 +2,32 @@
 // and ledger per type, late check-in deductions, the probation and exit-settlement notes, requests (apply, withdraw)
 // — plus the leave demo (joining and leaving dates). Rules: src/prototype/rules/leavePolicy.ts.
 import type { LeaveRequest, LeaveRequestInput, LeaveType, LeaveView } from '@src/domains/attendanceTimesheet/types';
-import { RuleError, addDays, cancelTrail, resubmitTrail, hasCheckIn, isWeeklyOff, startTrail, trailLabel } from '@src/prototype/rules/attendance';
+import {
+    RuleError,
+    addDays,
+    cancelTrail,
+    resubmitTrail,
+    hasCheckIn,
+    isWeeklyOff,
+    startTrail,
+    trailLabel,
+    approvalPathText,
+} from '@src/prototype/rules/attendance';
 import { LEAVE_LABEL, LEAVE_TYPES, LateEvent, computeLeave, dayMonth, leaveYearOf, validateLeaveRequest } from '@src/prototype/rules/leavePolicy';
 
 import { atsEmployeeLife, atsLeaveRequests, leaveRequestsOf, lifeOf, openingBalancesOf } from './atsRequests';
-import { attendanceDay, correctionsOf, getSettings, managerRef, nowIso, publicHolidayOn, recordOf, today } from './atsStore';
+import {
+    attendanceDay,
+    correctionsOf,
+    getSettings,
+    managerRef,
+    nowIso,
+    publicHolidayOn,
+    recordOf,
+    today,
+    newTrail,
+    routeContext,
+} from './atsStore';
 import { MockEmployee } from '../data/employees';
 import type { DataMode } from '../envelope';
 
@@ -90,7 +111,8 @@ export const leaveViewOf = (mode: DataMode, e: MockEmployee): LeaveView => {
             .map(l => ({ ...l, statusLabel: l.withdrawn ? 'Withdrawn' : trailLabel(l.trail) })),
         managerName: managerRef(e)?.name ?? null,
         employeeName: e.fullName,
-        approvalPath: approvalPathOf(managerRef(e)?.name ?? null, settings.level2.leave),
+        // PROTOTYPE-SETUP (Settings, Slice 1): who a new request would go to, by name.
+        approvalPath: approvalPathText(newTrail(mode, 'leave', e), managerRef(e)?.id ?? null),
         calendar: {
             weeklyOff: settings.weeklyOff,
             holidays: Array.from({ length: 456 }, (_, i) => addDays(t, i - 90)).filter(d => Boolean(publicHolidayOn(d))),
@@ -98,14 +120,6 @@ export const leaveViewOf = (mode: DataMode, e: MockEmployee): LeaveView => {
     };
 };
 
-const LEVEL2_TEAM = { HR: 'HR team', ADMIN: 'Admin', FINANCE: 'Finance team', PAYROLL: 'Payroll' } as const;
-
-/** "Arjun Mehta (manager), then HR team" / "HR team" (no manager) / "Arjun Mehta (manager)" (no level 2). */
-const approvalPathOf = (manager: string | null, level2: keyof typeof LEVEL2_TEAM | 'NONE') => {
-    const second = level2 === 'NONE' ? null : LEVEL2_TEAM[level2];
-    if (!manager) return second ?? 'Approved automatically';
-    return second ? `${manager} (manager), then ${second}` : `${manager} (manager)`;
-};
 
 /** Available per type for a new request: the balance minus requests still pending. */
 const availableForRequest = (mode: DataMode, e: MockEmployee): Record<LeaveType, number> => {
@@ -123,7 +137,7 @@ export const createLeaveRequest = (mode: DataMode, e: MockEmployee, input: Leave
         .map(l => ({ start: l.start, end: l.end, half: l.half, summary: summaryOf(l) }));
     const clean = validateLeaveRequest(input ?? {}, { isWorkingDay: isWorkingDayFor(mode), existing, available: availableForRequest(mode, e) });
     const at = nowIso();
-    const request: LeaveRequest = { id: uid(), employeeId: e.id, ...clean, trail: startTrail('leave', managerRef(e), getSettings(mode)), createdAt: at, updatedAt: at };
+    const request: LeaveRequest = { id: uid(), employeeId: e.id, ...clean, trail: startTrail('leave', managerRef(e), getSettings(mode), routeContext(e)), createdAt: at, updatedAt: at };
     atsLeaveRequests.update(mode, list => [request, ...list]);
     return leaveViewOf(mode, e);
 };

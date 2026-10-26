@@ -62,13 +62,13 @@ import {
     validateEntry,
     validateBreaks,
     validateOvertimeInput,
+    approvalLineFor,
 } from '@src/prototype/rules/attendance';
 import {
     EDITED_AFTER_TEXT,
     SubmissionAcknowledgement,
     canSubmitPeriod,
     editedBack,
-    submittedStatus,
     gapCount,
     periodEndOf,
     periodKind,
@@ -126,6 +126,9 @@ import {
     editedAfterSending,
     entriesOn,
     storedPeriodsOf,
+    routeContext,
+    timesheetRouteFor,
+    newTrail,
 } from './atsStore';
 import { SYSTEM_ACTOR, actorOf } from '../data/ats-seed';
 import { MockEmployee } from '../data/employees';
@@ -470,7 +473,7 @@ export const createCorrection = (mode: DataMode, e: MockEmployee, input: Correct
         requested,
         reason,
         ...(input.fromTimesheet ? { fromTimesheet: true } : {}),
-        trail: startTrail('attendance', managerRef(e), settings),
+        trail: startTrail('attendance', managerRef(e), settings, routeContext(e)),
         createdAt: at,
         updatedAt: at,
     };
@@ -688,15 +691,20 @@ export const submitWeekRecord = (
 ): TimesheetWeek => {
     const at = nowIso();
     const settings = getSettings(mode);
-    const level2 = settings.level2.timesheet;
-    const status = submittedStatus(Boolean(managerRef(e)), level2);
+    // PROTOTYPE-SETUP (Settings, Slice 1): who it goes to at each level is fixed now (level 1 per settings; no level 1
+    // → straight to level 2, or approved when there's none either).
+    const route = timesheetRouteFor(mode, e);
+    let status: TimesheetWeek['status'] = 'APPROVED';
+    if (route.l1) status = 'SUBMITTED';
+    else if (route.l2) status = 'WITH_PAYROLL';
     let again = week.editedAfter ? 'Submitted again after edits' : 'Submitted';
     if (week.status === 'SENT_BACK') again = 'Resubmitted after changes';
-    const skipped = managerRef(e) ? '' : ' No reporting manager, so it skipped level 1.';
+    const skipped = route.l1 ? '' : ' No reporting manager, so it skipped level 1.';
     const t = settings.timesheetApproval;
     const submitted: TimesheetWeek = {
         ...week,
         status,
+        route,
         submittedAt: at,
         autoSubmitted: auto,
         attendance: attendanceSnapshot(mode, e, week),
@@ -926,7 +934,7 @@ export const createOvertime = (mode: DataMode, e: MockEmployee, input: OvertimeI
         minutes: Math.round(input.minutes),
         description: input.description?.trim() || (input.kind === 'worked' ? 'Extra hours worked' : ''),
         basis: overtimeBasisFor(settings.mode),
-        trail: startTrail('overtime', managerRef(e), settings),
+        trail: startTrail('overtime', managerRef(e), settings, routeContext(e)),
         createdAt: at,
         updatedAt: at,
     };
@@ -967,3 +975,12 @@ export const cancelOvertime = (mode: DataMode, e: MockEmployee, id: string) => {
     atsOvertime.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: nowIso() } : x)));
     return overtimeViewOf(mode, e, currentMonth());
 };
+
+/**
+ * PROTOTYPE-SETUP (Settings, Slice 1): "Approval: Arjun Mehta (manager), then Payroll team." for each request type — who
+ * a new request would go to, by name (the employee's forms).
+ */
+export const approvalLinesOf = (mode: DataMode, e: MockEmployee) =>
+    Object.fromEntries(
+        (['attendance', 'overtime', 'leave', 'reimbursement', 'timesheet'] as const).map(t => [t, approvalLineFor(newTrail(mode, t, e), managerRef(e)?.id ?? null)])
+    ) as Record<'attendance' | 'overtime' | 'leave' | 'reimbursement' | 'timesheet', string>;

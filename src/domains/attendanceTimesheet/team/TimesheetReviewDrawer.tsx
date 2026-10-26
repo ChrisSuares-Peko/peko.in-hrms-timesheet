@@ -31,7 +31,7 @@ import { WeekStatusTag } from '../components/StatusTags';
 import { useAtsScope } from '../hooks/useAtsScope';
 import ManagerChangeDiff from '../timesheet/manager/ManagerChangeDiff';
 import ManagerTimesheetViewer from '../timesheet/manager/ManagerTimesheetViewer';
-import type { Level2Approver, TimesheetWeekView } from '../types';
+import type { TimesheetWeekView } from '../types';
 
 export interface ReviewTarget {
     employeeId: number;
@@ -48,7 +48,6 @@ interface TimesheetReviewDrawerProps {
     onDecided?: () => void;
 }
 
-const LEVEL2_NAME: Record<Exclude<Level2Approver, 'NONE'>, string> = { PAYROLL: 'Payroll', HR: 'HR', ADMIN: 'Admin', FINANCE: 'Finance' };
 
 const TimesheetReviewDrawer = ({ target, reviewer = 'MANAGER', onClose, onDecided }: TimesheetReviewDrawerProps) => {
     const scope = useAtsScope();
@@ -89,10 +88,12 @@ const TimesheetReviewDrawer = ({ target, reviewer = 'MANAGER', onClose, onDecide
         load();
     }, [load]);
 
-    const waiting = view?.week.status === (payroll ? 'WITH_PAYROLL' : 'SUBMITTED');
+    // PROTOTYPE-SETUP (Settings, Slice 1): waiting for whoever is looking (this person, or a team for Payroll).
+    const waiting = view?.waitingForViewer ?? view?.week.status === (payroll ? 'WITH_PAYROLL' : 'SUBMITTED');
     const edited = Boolean(view?.week.baselineEntries && view.week.editedAfter);
     const first = view?.employee.name.split(' ')[0] ?? 'them';
-    const next = !payroll && view && view.level2 !== 'NONE' ? LEVEL2_NAME[view.level2] : null;
+    // PROTOTYPE-SETUP (Settings, Slice 1): who it goes to next, by name, as recorded on the period.
+    const next = view?.nextApprover ?? null;
 
     const approve = async () => {
         if (!view) return;

@@ -7,6 +7,7 @@ import type {
     ApprovalTrail,
     ApprovalType,
     ApproverRole,
+    ApproverTeam,
     AtsMode,
     AtsSettings,
     AtsTab,
@@ -14,24 +15,27 @@ import type {
     AttendanceDay,
     DayStatus,
     DayWindow,
+    LeaveHalf,
+    LeavePolicy,
+    Level1Approver,
+    Level2Approver,
+    LocationStamp,
     OutsideCheckInFlag,
     OvertimeBasis,
     OvertimeInput,
     PersonalDetails,
     PersonalField,
     ProfileChange,
+    ReimbursementCategory,
     TimesheetEditMode,
-    TrailEvent,
     TimesheetEntry,
-    LeaveHalf,
-    LeavePolicy,
-    LocationStamp,
-    WorkLocation,
     TimesheetFields,
     TimesheetFilingSettings,
-    TimesheetStatus,
-    Weekday,
     TimesheetLeaveRow,
+    TimesheetStatus,
+    TrailEvent,
+    Weekday,
+    WorkLocation,
 } from '@src/domains/attendanceTimesheet/types';
 
 // ---- errors -------------------------------------------------------------------------------------------------
@@ -202,6 +206,15 @@ export const DEFAULT_LEAVE_POLICY: LeavePolicy = {
 /** Late check-ins deduct this many days by default (0 = off). */
 export const DEFAULT_LATE_DEDUCTION_DAYS = 0.5;
 
+/** PROTOTYPE-SETUP (Settings, Slice 5): the default reimbursement categories. */
+export const DEFAULT_REIMBURSEMENT_CATEGORIES: ReimbursementCategory[] = [
+    { name: 'Travel', monthlyLimit: 0, receiptRequired: true },
+    { name: 'Meals', monthlyLimit: 3000, receiptRequired: true },
+    { name: 'Internet', monthlyLimit: 1500, receiptRequired: false },
+    { name: 'Client entertainment', monthlyLimit: 0, receiptRequired: true },
+    { name: 'Office supplies', monthlyLimit: 2000, receiptRequired: true },
+];
+
 export const DEFAULT_SETTINGS: AtsSettings = {
     mode: 'both',
     shift: { start: '09:30', end: '18:30' },
@@ -217,6 +230,10 @@ export const DEFAULT_SETTINGS: AtsSettings = {
     // PROTOTYPE-SETUP (HR rules, Slice 1): attendance corrections and overtime go to the Payroll queue at level 2.
     // PROTOTYPE-SETUP (Final batch, Slice 1): timesheets go manager → Payroll; reimbursements manager → Admin.
     level2: { attendance: 'PAYROLL', overtime: 'PAYROLL', timesheet: 'PAYROLL', leave: 'HR', reimbursement: 'ADMIN' },
+    // PROTOTYPE-SETUP (Settings, Slice 1): level 1 is the reporting manager for everything by default.
+    level1: { attendance: 'MANAGER', overtime: 'MANAGER', timesheet: 'MANAGER', leave: 'MANAGER', reimbursement: 'MANAGER' },
+    leaveRules: { halfDay: true, proofDays: 3 },
+    reimbursements: { categories: DEFAULT_REIMBURSEMENT_CATEGORIES, claimWindowDays: 60 },
     timesheetFiling: DEFAULT_FILING,
     updatedAt: '',
 };
@@ -1100,29 +1117,91 @@ export const payrollBlockers = <E extends { id: number; dateOfJoin: string }>(in
 
 // ---- approval chain -----------------------------------------------------------------------------------------
 
+// ---- approval routing (PROTOTYPE-SETUP: Settings, Slice 1) -------------------------------------------------------
+// Per request type, settings name level 1 (the reporting manager, a team or a specific person) and level 2 (a team, a
+// specific person or none). A person decides in their My team → Approvals; a team in Payroll → {service} → Requests.
+// Each request records who it's waiting with at each level when it's submitted (its steps), so a later settings
+// change doesn't move anything already in flight.
+
+export const APPROVER_TEAMS: ApproverTeam[] = ['PAYROLL', 'HR', 'ADMIN', 'FINANCE'];
+export const isApproverTeam = (v: string): v is ApproverTeam => (APPROVER_TEAMS as string[]).includes(v);
+export const personApprover = (id: number): `person:${number}` => `person:${id}`;
+/** "person:1004" → 1004; anything else → null. */
+export const approverPersonId = (v: string | undefined | null) => (v && /^person:\d+$/.test(v) ? Number(v.slice(7)) : null);
+
+/** "Payroll team", "HR team"… */
+export const TEAM_NAME: Record<ApproverTeam, string> = { PAYROLL: 'Payroll team', HR: 'HR team', ADMIN: 'Admin team', FINANCE: 'Finance team' };
+
+export interface RouteContext {
+    /** The employee asking (a level 1 that is the employee themselves resolves to their manager). */
+    employeeId: number;
+    /** A person's name, or null if they're not an employee any more. */
+    personName: (id: number) => string | null;
+}
+
 /**
- * Level 1 is always the reporting manager; level 2 per HR settings (timesheets: none). The CEO has no
- * manager: level 1 is skipped and the request goes straight to level 2 (or is approved if there is none).
+ * One level's step: a team; a person (role 'MANAGER' + their id and name — a person decides, whoever they are); the
+ * reporting manager; or nothing (NONE, or no manager — the CEO).
+ */
+export const routeStep = (
+    value: Level1Approver | Level2Approver,
+    level: 1 | 2,
+    manager: { id: number; name: string } | null,
+    ctx?: RouteContext
+): ApprovalStep | null => {
+    const person = (p: { id: number; name: string } | null): ApprovalStep | null => (p ? { level, role: 'MANAGER', approverId: p.id, approverName: p.name } : null);
+    if (value === 'NONE') return null;
+    if (value === 'MANAGER') return person(manager);
+    const pid = approverPersonId(value);
+    if (pid !== null) {
+        if (pid === ctx?.employeeId) return person(manager);
+        const name = ctx?.personName(pid) ?? null;
+        return name ? person({ id: pid, name }) : person(manager);
+    }
+    return isApproverTeam(value) ? { level, role: value } : null;
+};
+
+/** Who a step is with: "Priya Nair" / "Payroll team". */
+export const stepName = (s: Pick<ApprovalStep, 'role' | 'approverName'>) => (s.role === 'MANAGER' ? s.approverName ?? 'Manager' : TEAM_NAME[s.role]);
+
+/** The step a trail is waiting on (the first undecided, non-skipped one while pending). */
+export const pendingStep = (trail: ApprovalTrail) => (trail.status.startsWith('PENDING') ? trail.steps.find(s => !s.decision && !s.skipped) ?? null : null);
+
+/**
+ * The approval chain for a request (level 1, then level 2), resolved from the settings when it's submitted. The CEO
+ * (no manager) skips a "Reporting manager" level 1, and the request goes straight to level 2 (or is approved).
  * PROTOTYPE-SETUP (Overview, Slice 1): a profile update has no manager step — HR only.
+ * PROTOTYPE-SETUP (Settings, Slice 1): level 1 per settings.level1 (default the reporting manager); a person or a team
+ * at either level. Without `ctx` (the seeds) a specific person can't be named, so it falls back to the manager.
  */
 export const startTrail = (
     type: ApprovalType,
     manager: { id: number; name: string } | null,
-    settings: Pick<AtsSettings, 'level2'>
+    settings: Pick<AtsSettings, 'level2'> & Partial<Pick<AtsSettings, 'level1'>>,
+    ctx?: RouteContext
 ): ApprovalTrail => {
     if (type === 'profile') {
         const hrOnly: ApprovalTrail['steps'] = [{ level: 2, role: 'HR' }];
         return { type, status: nextStatus(hrOnly), steps: hrOnly };
     }
-    const l2 = settings.level2[type];
-    const steps: ApprovalTrail['steps'] = [
-        manager
-            ? { level: 1, role: 'MANAGER', approverId: manager.id, approverName: manager.name }
-            : { level: 1, role: 'MANAGER', skipped: true },
-    ];
-    if (l2 !== 'NONE') steps.push({ level: 2, role: l2 });
+    const l1 = routeStep(settings.level1?.[type] ?? 'MANAGER', 1, manager, ctx);
+    const l2 = routeStep(settings.level2[type], 2, manager, ctx);
+    const steps: ApprovalTrail['steps'] = [l1 ?? { level: 1, role: 'MANAGER', skipped: true }];
+    if (l2) steps.push(l2);
     return { type, status: nextStatus(steps), steps };
 };
+
+/** "Arjun Mehta (manager), then HR team" / "Payroll team" / "HR team" (no manager) — who a new request goes to. */
+export const approvalPathText = (trail: ApprovalTrail, managerId: number | null) => {
+    const [first, second] = trail.steps;
+    if (first.level === 2) return stepName(first); // HR only (profile updates)
+    const one = first.skipped ? null : `${stepName(first)}${first.role === 'MANAGER' && first.approverId === managerId ? ' (manager)' : ''}`;
+    if (!one) return second ? stepName(second) : 'Approved automatically';
+    return second ? `${one}, then ${stepName(second)}` : one;
+};
+
+/** "Approval: Arjun Mehta (manager), then HR team." — the line on the employee's forms. */
+export const approvalLineFor = (trail: ApprovalTrail, managerId: number | null) => `Approval: ${approvalPathText(trail, managerId)}.`;
 
 /** The first undecided, non-skipped step decides the status. */
 export function nextStatus(steps: ApprovalTrail['steps']): ApprovalStatus {
@@ -1152,7 +1231,7 @@ export const UPDATE_MESSAGES = {
     notAsked: 'Nothing was asked to be updated on this request — refresh the page.',
 } as const;
 
-const ROLE_TEAM: Record<ApproverRole, string> = { MANAGER: 'Your manager', HR: 'HR team', FINANCE: 'Finance team', PAYROLL: 'Payroll', ADMIN: 'Admin' };
+const ROLE_TEAM: Record<ApproverRole, string> = { MANAGER: 'Your manager', HR: 'HR team', FINANCE: 'Finance team', PAYROLL: 'Payroll team', ADMIN: 'Admin team' };
 
 /**
  * Decide at the pending level. Rejecting needs a comment. PROTOTYPE-SETUP (My team, Slice 1): "Ask for update"
@@ -1165,9 +1244,14 @@ export const decide = (
     decision: 'APPROVED' | 'REJECTED' | 'UPDATE_REQUESTED',
     comment: string | undefined,
     at: string,
-    by?: string
+    by?: string,
+    /** PROTOTYPE-SETUP (Settings, Slice 1): who is deciding, when a person decides — it must be the one it's waiting with. */
+    actorId?: number
 ): ApprovalTrail => {
     if (awaiting(trail) !== actingAs) {
+        throw new RuleError('This request is no longer waiting for your decision — refresh the list.');
+    }
+    if (actingAs === 'MANAGER' && actorId !== undefined && pendingStep(trail)?.approverId !== actorId) {
         throw new RuleError('This request is no longer waiting for your decision — refresh the list.');
     }
     const note = comment?.trim();
@@ -1235,21 +1319,24 @@ export const requestState = (trail: ApprovalTrail) => {
     return 'pending' as const;
 };
 
-/** "With manager (Arjun Mehta)", "With HR", "With Finance", "With Payroll", "Approved", "Rejected", "Cancelled". */
+/**
+ * "With Arjun Mehta", "With HR team", "With Payroll team", "Approved", "Rejected", "Cancelled".
+ * PROTOTYPE-SETUP (Settings, Slice 1): real names — the person or team it's waiting with, at either level.
+ */
 export const trailLabel = (trail: ApprovalTrail) => {
     switch (trail.status) {
         case 'PENDING_MANAGER': {
-            const name = trail.steps[0]?.approverName;
-            return name ? `With manager (${name})` : 'With manager';
+            const name = pendingStep(trail)?.approverName;
+            return name ? `With ${name}` : 'With manager';
         }
         case 'PENDING_HR':
-            return 'With HR';
+            return 'With HR team';
         case 'PENDING_FINANCE':
-            return 'With Finance';
+            return 'With Finance team';
         case 'PENDING_ADMIN':
-            return 'With Admin';
+            return 'With Admin team';
         case 'PENDING_PAYROLL':
-            return 'With Payroll';
+            return 'With Payroll team';
         case 'APPROVED':
             return 'Approved';
         case 'CANCELLED':

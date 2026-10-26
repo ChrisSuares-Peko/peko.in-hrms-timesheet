@@ -20,7 +20,14 @@ import type {
     Level2Role,
     RequestItem,
 } from '@src/domains/attendanceTimesheet/types';
-import { RuleError, awaiting, monthBounds, monthLabel } from '@src/prototype/rules/attendance';
+import {
+    RuleError,
+    awaiting,
+    monthBounds,
+    monthLabel,
+    isApproverTeam,
+    pendingStep,
+} from '@src/prototype/rules/attendance';
 
 import { timesheetMonthOf } from './atsEss';
 import { leaveViewOf } from './atsLeave';
@@ -42,8 +49,11 @@ import type { DataMode } from '../envelope';
 const LEVEL2: Level2Role[] = ['HR', 'FINANCE', 'PAYROLL', 'ADMIN'];
 
 /** The level-2 role a type is routed to (profile updates: HR). 'NONE' = the manager is final. */
-export const adminRoleOf = (mode: DataMode, type: AdminRequestType): Level2Role | 'NONE' =>
-    type === 'profile' ? 'HR' : getSettings(mode).level2[type];
+export const adminRoleOf = (mode: DataMode, type: AdminRequestType): Level2Role | 'NONE' => {
+    if (type === 'profile') return 'HR';
+    const v = getSettings(mode).level2[type];
+    return v === 'NONE' || isApproverTeam(v) ? v : 'NONE';
+};
 
 const bucketOf = (item: RequestItem): AdminBucket | null => {
     const s = item.trail.status;
@@ -98,6 +108,8 @@ export const adminRequests = (mode: DataMode, type: AdminRequestType): AdminRequ
                 value: raw.value,
                 ...('category' in raw && raw.category ? { category: raw.category } : {}),
                 managerName: e ? managerOf(e)?.fullName ?? null : null,
+                // PROTOTYPE-SETUP (Settings, Slice 1): with approvers — the person it's waiting with.
+                waitingWith: bucket === 'mgr' ? pendingStep(item.trail)?.approverName ?? null : null,
             };
             if (type === 'leave' && 'leave' in raw && raw.leave) {
                 const l = raw.leave;
@@ -127,7 +139,7 @@ export const adminCounts = (mode: DataMode): AdminCounts => ({
 const rowOrFail = (mode: DataMode, type: AdminRequestType, id: string) => {
     const row = adminRequests(mode, type).find(r => r.item.id === id);
     if (!row) throw new RuleError('Request not found.', 404);
-    if (row.bucket === 'mgr') throw new RuleError(`Still with ${row.managerName ?? 'the manager'}. You can decide once they approve.`);
+    if (row.bucket === 'mgr') throw new RuleError(`Still with ${row.waitingWith ?? 'the approver'}. You can decide once they approve.`);
     if (row.bucket !== 'you') throw new RuleError('This request is no longer waiting for your decision — refresh the list.');
     return row;
 };
@@ -171,7 +183,7 @@ export const adminBulkApprove = (mode: DataMode, type: AdminRequestType, body: {
 export const adminRemind = (mode: DataMode, type: AdminRequestType, id: string) => {
     const row = adminRequests(mode, type).find(r => r.item.id === id);
     if (!row) throw new RuleError('Request not found.', 404);
-    if (row.bucket === 'mgr') return { to: row.managerName ?? 'the manager', message: `Reminder sent to ${row.managerName ?? 'the manager'}` };
+    if (row.bucket === 'mgr') return { to: row.waitingWith ?? 'the approver', message: `Reminder sent to ${row.waitingWith ?? 'the approver'}` };
     if (row.bucket === 'upd') return { to: row.item.employee.name, message: `Reminder sent to ${row.item.employee.name}` };
     throw new RuleError('Only requests with a manager or waiting for an update can be reminded.', 400);
 };

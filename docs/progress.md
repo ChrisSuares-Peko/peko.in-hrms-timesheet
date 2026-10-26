@@ -1,15 +1,15 @@
-# Progress — Payroll admin (one tab per service: Overview / Details / Requests)
+# Progress — Settings (three tabs, four modes, flexible approvers, leave & reimbursement rules)
 
-PROTOTYPE-SETUP. Run log for "Payroll admin". If a run is interrupted, continue from the first step that isn't
-**done**. The previous run (Leave & team, `0e4dbe9`–`6f0bf03`) is finished and pushed.
+PROTOTYPE-SETUP. Run log for "Settings". If a run is interrupted, continue from the first step that isn't **done**.
+The previous run (Payroll admin, `69d1fb8`–`489bdb2`) is finished and pushed.
 
 | Step | Commit | Status |
 |---|---|---|
-| Prerequisite: Leave & team finished and pushed (main = origin/main at f2b1047) | — | done |
-| Slice 1 — Navigation and clean-up (service tabs, badges, redirects, shared blocks) | 69d1fb8 | done |
-| Slice 2 — Timesheet (Overview / Details / Requests) | fa904a0 | done |
-| Slice 3 — Leave | c67433d | done |
-| Slice 4 — Overtime and Reimbursements | adadc9f | done |
-| Slice 5 — Admin requests list, Attendance and Employees | 29c17d6 | done |
-| Slice 6 — Consistency and clean-up | (this commit) | done |
-| VERIFY 1–8 (1440 / 1024 / 375), single push | — | done (all pass; pushed after slice 6) |
+| Prerequisite: Payroll admin finished and pushed (main = origin/main at 8f1927f) | — | done |
+| Slice 1 — Approval routing engine (rules + tests) | (this commit) | done |
+| Slice 2 — My team visibility | — | to do |
+| Slice 3 — Tab 1: Attendance, timesheet & overtime | — | to do |
+| Slice 4 — Tab 2: Leave | — | to do |
+| Slice 5 — Tab 3: Reimbursements | — | to do |
+| Slice 6 — Demo controls: process payroll | — | to do |
+| VERIFY 1–9 (1440 / 1024 / 375), single push | — | to do |

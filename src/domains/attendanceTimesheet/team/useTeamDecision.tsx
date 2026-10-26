@@ -7,6 +7,7 @@ import { useAppDispatch } from '@src/hooks/store';
 import { showToast } from '@src/slices/apiSlice';
 
 import { AtsRequestType, decideTeamRequest } from '../api';
+import { approvedToast } from '../components/approvalText';
 import { PendingDecision, RequestDecision, RequestDecisionModal } from '../components/RequestQueue';
 import { useAtsScope } from '../hooks/useAtsScope';
 import type { RequestItem } from '../types';
@@ -43,7 +44,7 @@ export const useTeamDecision = (onDone: () => void, decideFn?: DecideFn) => {
             : await decideTeamRequest(scope, pending.item.type as AtsRequestType, pending.item.id, pending.decision, note || undefined);
         setBusy(false);
         if (!res) return;
-        const done = { approve: decideFn ? 'Approved. This approval is final.' : 'Request approved', reject: 'Request rejected', update: `Sent back to ${pending.item.employee.name} to update` };
+        const done = { approve: approvedToast(res as RequestItem, decideFn ? 'Approved. This approval is final.' : 'Request approved'), reject: 'Request rejected', update: `Sent back to ${pending.item.employee.name} to update` };
         dispatch(showToast({ variant: 'success', description: done[pending.decision] }));
         setPending(null);
         onDone();

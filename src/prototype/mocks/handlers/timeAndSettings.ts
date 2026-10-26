@@ -129,7 +129,10 @@ import {
     liveTodaySummary,
 } from '../store/atsLegacy';
 import { StoredClaim, atsReimbursements, legacyClaimStatus, resubmitClaim } from '../store/atsRequests';
-import { getSettings } from '../store/atsStore';
+import {
+    getSettings,
+    routeContext,
+} from '../store/atsStore';
 import { updateSettings } from '../store/atsTeam';
 
 // ---- shared helpers ---------------------------------------------------------------------------------------
@@ -1432,7 +1435,7 @@ const essRoutes: MockRoute[] = [
             supportingDocs: '',
             createdAt: at,
             updatedAt: at,
-            trail: startTrail('reimbursement', managerRefOf(me), getSettings(mode)),
+            trail: startTrail('reimbursement', managerRefOf(me), getSettings(mode), routeContext(me)),
         };
         atsReimbursements.update(mode, list => [claim, ...list]);
         return liveClaimRecord(claim);

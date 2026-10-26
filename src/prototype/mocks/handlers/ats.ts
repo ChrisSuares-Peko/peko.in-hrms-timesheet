@@ -55,6 +55,7 @@ import {
     timesheetMonthOf,
     timesheetNoticesOf,
     timesheetPeriodsOf,
+    approvalLinesOf,
 } from '../store/atsEss';
 import { homeOf } from '../store/atsHome';
 import { createLeaveRequest, leaveViewOf, resubmitLeaveRequest, setEmployeeLife, withdrawLeaveRequest } from '../store/atsLeave';
@@ -64,7 +65,7 @@ import {
     RequestType,
     approveWeek,
     bulkApprove,
-    assertManages,
+    assertCanReview,
     autoRunSubmissionDay,
     decideRequest,
     level2Counts,
@@ -148,8 +149,9 @@ const ess = (handler: (ctx: MockContext, me: ReturnType<typeof essRequester>) =>
     return run(ctx.mode, () => handler(ctx, me));
 };
 
+// PROTOTYPE-SETUP (Settings, Slice 1): or anyone something of theirs is routed to.
 const member = (ctx: MockContext, manager: ReturnType<typeof essRequester>) =>
-    assertManages(manager, findEmployee(ctx.params.employeeId));
+    assertCanReview(ctx.mode, manager, findEmployee(ctx.params.employeeId));
 
 export const atsRoutes: MockRoute[] = [
     // ---- settings & demo ----------------------------------------------------------------------------------
@@ -207,6 +209,8 @@ export const atsRoutes: MockRoute[] = [
 
     // ---- ESS: leave (PROTOTYPE-SETUP: Final batch, Slice 1) ----------------------------------------------
     route('GET', `${A}/leave`, ess((ctx, me) => leaveViewOf(ctx.mode, me))),
+    // PROTOTYPE-SETUP (Settings, Slice 1): who a new request goes to, per type.
+    route('GET', `${A}/approval-lines`, ess((ctx, me) => approvalLinesOf(ctx.mode, me))),
     route('POST', `${A}/leave/requests`, ess((ctx, me) => createLeaveRequest(ctx.mode, me, ctx.body))),
     route('POST', `${A}/leave/requests/:id/withdraw`, ess((ctx, me) => withdrawLeaveRequest(ctx.mode, me, ctx.params.id!))),
     route('POST', `${A}/leave/requests/:id/resubmit`, ess((ctx, me) => resubmitLeaveRequest(ctx.mode, me, ctx.params.id!, ctx.body))),
@@ -222,7 +226,7 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/team/today`, ess((ctx, me) => teamToday(ctx.mode, me))),
     route('GET', `${A}/team/timesheets/week`, ess((ctx, me) => teamWeekGrid(ctx.mode, me, dateParam(ctx.query)))),
     route('GET', `${A}/team/timesheets/month`, ess((ctx, me) => teamMonthSummary(ctx.mode, me, monthParam(ctx.query)))),
-    route('GET', `${A}/team/members/:employeeId/timesheet/week`, ess((ctx, me) => weekView(ctx.mode, member(ctx, me), dateParam(ctx.query), { readOnly: true }))),
+    route('GET', `${A}/team/members/:employeeId/timesheet/week`, ess((ctx, me) => weekView(ctx.mode, member(ctx, me), dateParam(ctx.query), { readOnly: true, viewer: me.id }))),
     route('GET', `${A}/team/members/:employeeId/timesheet/month`, ess((ctx, me) => timesheetMonthOf(ctx.mode, member(ctx, me), monthParam(ctx.query)))),
     route('GET', `${A}/team/members/:employeeId/attendance`, ess((ctx, me) => attendanceMonthOf(ctx.mode, member(ctx, me), monthParam(ctx.query)))),
     // PROTOTYPE-SETUP (My team, Slice 4): Team attendance (month grid) and the Leave calendar.
