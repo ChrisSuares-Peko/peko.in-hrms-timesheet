@@ -49,7 +49,8 @@ export const settlementText = (v: LeaveView) => {
     return `Leaving on ${longDate(v.exit.date)}. Leave is pro-rated to your last day. ${parts.length ? parts.join(' ') : 'Nothing to settle.'}`;
 };
 
-const BalanceCard = ({ b }: { b: LeaveBalance }) => {
+// PROTOTYPE-SETUP (Payroll admin, Slice 3): also on Payroll → Leave → Details (one employee's balances and ledger).
+export const BalanceCard = ({ b }: { b: LeaveBalance }) => {
     const [open, setOpen] = useState(false);
     const extra = [
         `${fmtDays(b.taken)} taken`,

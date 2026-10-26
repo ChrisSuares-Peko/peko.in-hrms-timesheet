@@ -5,6 +5,8 @@
 // tall as the calendar and scrolls inside; below 1100px it stacks under it): each leave request waiting for the manager,
 // earliest first, with a clash chip ("Also off: …" amber / "No one else off" green), "Show on calendar" (jumps to that
 // month) and Approve / Ask for update / Reject. Approving moves it to level 2: dashed on the calendar until approved.
+// PROTOTYPE-SETUP (Payroll admin, Slice 3): Payroll → Leave reuses it for the whole company at level 2 — the loaders
+// and the decision are passed in.
 import { useCallback, useEffect, useState } from 'react';
 
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
@@ -16,7 +18,7 @@ import { addDays, addMonths, monthDates } from '@src/prototype/rules/attendance'
 import { LEAVE_LABEL } from '@src/prototype/rules/leavePolicy';
 
 import { getTeamLeave, getTeamRequests } from '../api';
-import { useTeamDecision } from './useTeamDecision';
+import { DecideFn, useTeamDecision } from './useTeamDecision';
 import { RequestCard } from '../components/RequestQueue';
 import { useAtsScope } from '../hooks/useAtsScope';
 import type { RequestItem, TeamLeaveView } from '../types';
@@ -88,21 +90,31 @@ const LeaveToApprove = ({ items, onShow, onDecide }: { items: RequestItem[] | nu
     </section>
 );
 
-const TeamLeaveCalendar = ({ onChanged }: { onChanged?: () => void }) => {
+export interface TeamLeaveCalendarProps {
+    onChanged?: () => void;
+    /** Another population (default: the manager's team). */
+    loadMonth?: (month: string) => Promise<TeamLeaveView | false | null | undefined>;
+    /** The requests the side panel lists (default: waiting for the manager). */
+    loadPending?: () => Promise<RequestItem[] | false | null | undefined>;
+    /** The decision (default: the manager's, level 1). */
+    decide?: DecideFn;
+}
+
+const TeamLeaveCalendar = ({ onChanged, loadMonth, loadPending: pendingLoader, decide }: TeamLeaveCalendarProps) => {
     const scope = useAtsScope();
     const [month, setMonth] = useState(dayjs().format('YYYY-MM'));
     const [view, setView] = useState<TeamLeaveView | null>(null);
     const [pending, setPending] = useState<RequestItem[] | null>(null);
 
     const load = useCallback(async () => {
-        const res = await getTeamLeave(scope, month);
+        const res = await (loadMonth ? loadMonth(month) : getTeamLeave(scope, month));
         if (res) setView(res);
-    }, [scope, month]);
+    }, [scope, month, loadMonth]);
 
     const loadPending = useCallback(async () => {
-        const res = await getTeamRequests(scope, 'leave', 'waiting');
+        const res = await (pendingLoader ? pendingLoader() : getTeamRequests(scope, 'leave', 'waiting'));
         if (res) setPending([...res].sort((a, b) => (a.leave?.start ?? '').localeCompare(b.leave?.start ?? '')));
-    }, [scope]);
+    }, [scope, pendingLoader]);
 
     useEffect(() => {
         setView(null);
@@ -117,7 +129,7 @@ const TeamLeaveCalendar = ({ onChanged }: { onChanged?: () => void }) => {
         load();
         loadPending();
         onChanged?.();
-    });
+    }, decide);
 
     const dates = monthDates(month);
     const lead = (dayjs(dates[0]).day() + 6) % 7; // Monday first

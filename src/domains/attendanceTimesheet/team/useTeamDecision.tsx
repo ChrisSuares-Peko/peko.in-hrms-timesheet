@@ -13,7 +13,10 @@ import type { RequestItem } from '../types';
 
 const SINGLE: Partial<Record<string, string>> = { leave: 'leave request', reimbursement: 'reimbursement claim' };
 
-export const useTeamDecision = (onDone: () => void) => {
+/** PROTOTYPE-SETUP (Payroll admin, Slice 3): the decision call (default: the manager's, level 1). */
+export type DecideFn = (item: RequestItem, decision: RequestDecision, comment?: string) => Promise<unknown>;
+
+export const useTeamDecision = (onDone: () => void, decideFn?: DecideFn) => {
     const scope = useAtsScope();
     const dispatch = useAppDispatch();
     const [pending, setPending] = useState<PendingDecision | null>(null);
@@ -35,10 +38,12 @@ export const useTeamDecision = (onDone: () => void) => {
             return;
         }
         setBusy(true);
-        const res = await decideTeamRequest(scope, pending.item.type as AtsRequestType, pending.item.id, pending.decision, note || undefined);
+        const res = decideFn
+            ? await decideFn(pending.item, pending.decision, note || undefined)
+            : await decideTeamRequest(scope, pending.item.type as AtsRequestType, pending.item.id, pending.decision, note || undefined);
         setBusy(false);
         if (!res) return;
-        const done = { approve: 'Request approved', reject: 'Request rejected', update: `Sent back to ${pending.item.employee.name} to update` };
+        const done = { approve: decideFn ? 'Approved. This approval is final.' : 'Request approved', reject: 'Request rejected', update: `Sent back to ${pending.item.employee.name} to update` };
         dispatch(showToast({ variant: 'success', description: done[pending.decision] }));
         setPending(null);
         onDone();

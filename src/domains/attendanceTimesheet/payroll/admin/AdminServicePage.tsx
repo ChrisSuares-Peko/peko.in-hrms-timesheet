@@ -3,10 +3,9 @@
 import AdminRequestsList from './AdminRequestsList';
 import { AdminSubTabs, PayrollServiceTabs, ServiceHeader, useAdminCounts, useAdminView } from './adminShared';
 
-type Service = 'leave' | 'overtime' | 'reimbursement';
+type Service = 'overtime' | 'reimbursement';
 
 const COPY: Record<Service, { title: string; line: string }> = {
-    leave: { title: 'Leave', line: 'Everyone’s leave. Approve requests once the employee’s manager has.' },
     overtime: { title: 'Overtime', line: 'Overtime requests from every employee. You approve after their manager.' },
     reimbursement: { title: 'Reimbursements', line: 'Every employee’s claims. You approve after their manager.' },
 };

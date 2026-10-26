@@ -249,6 +249,7 @@ export const adminLeaveBalances = (mode: DataMode): AdminLeaveRow[] =>
         return {
             employee: personRef(e),
             available: { ANNUAL: avail('ANNUAL'), CASUAL: avail('CASUAL'), SICK: avail('SICK') },
+            taken: v.balances.reduce((n, b) => n + b.taken, 0),
             lateDeductionDays: v.balances.reduce((n, b) => n + b.late, 0),
             lossOfPayDays: v.lossOfPayDays,
         };

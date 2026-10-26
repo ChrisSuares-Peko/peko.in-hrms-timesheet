@@ -94,6 +94,7 @@ const ManageBankTransactionsPage = lazy(
 const AdminTimesheetPage = lazy(
     () => import('@src/domains/attendanceTimesheet/payroll/admin/AdminTimesheetPage')
 );
+const AdminLeavePage = lazy(() => import('@src/domains/attendanceTimesheet/payroll/admin/AdminLeavePage'));
 const AdminServicePage = lazy(
     () => import('@src/domains/attendanceTimesheet/payroll/admin/AdminServicePage')
 );
@@ -205,7 +206,7 @@ export const payrollRoutes = [
         path: paths.payroll.serviceTimesheet,
     },
     { element: <Navigate to={`/${paths.payroll.index}`} replace />, path: 'services' },
-    { element: <AdminServicePage key="leave" service="leave" />, path: paths.payroll.serviceLeave },
+    { element: <AdminLeavePage />, path: paths.payroll.serviceLeave },
     { element: <AdminServicePage key="overtime" service="overtime" />, path: paths.payroll.serviceOvertime },
     { element: <AdminServicePage key="reimbursement" service="reimbursement" />, path: paths.payroll.serviceReimbursements },
 

@@ -1229,6 +1229,8 @@ export interface AdminTimesheetOverview {
 export interface AdminLeaveRow {
     employee: PersonRef;
     available: Record<LeaveType, number>;
+    /** Leave taken this leave year, all types (kept from the former Employee leave page). */
+    taken: number;
     /** Late check-in deductions still standing (days). */
     lateDeductionDays: number;
     lossOfPayDays: number;
