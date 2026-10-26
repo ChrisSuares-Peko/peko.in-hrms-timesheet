@@ -98,8 +98,9 @@ const CustomBreadCrumb: React.FC<BreadCrumbProps> = () => {
         if (s === 'manage-bookings' && pathname.includes('/visa/')) {
             return 'Track Visa Status';
         }
+        // PROTOTYPE-SETUP (Payroll admin, Slice 2): /payroll/services/timesheet is the Timesheet service tab.
         if (s === 'timesheet') {
-            return 'Attendance';
+            return pathname.includes('/services/timesheet') ? 'Timesheet' : 'Attendance';
         }
         if (s === 'booking-confirmed') {
             return 'Ticket Details';

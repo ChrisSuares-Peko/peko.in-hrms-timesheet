@@ -2,6 +2,8 @@
 // people × Mon–Sun with logged hours or a marker (leave / holiday / off / nothing logged), total, extra and the
 // week's status. Month: logged, days with nothing logged, extra and per-week status chips. Clicking a person
 // opens their read-only timesheet. On small screens the grid becomes a stacked list per person.
+// PROTOTYPE-SETUP (Payroll admin, Slice 2): Payroll → Timesheet → Details reuses it for every employee — the loaders
+// and what a click opens are passed in (My team keeps its defaults).
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -133,7 +135,17 @@ const Legend = () => (
     </Flex>
 );
 
-const TeamTimesheets = () => {
+export interface TeamTimesheetsProps {
+    /** Load a week / month for another population (default: the manager's team). */
+    loadWeek?: (date: string) => Promise<TeamWeekGrid | false | null | undefined>;
+    loadMonth?: (month: string) => Promise<TeamMonthSummary | false | null | undefined>;
+    /** What clicking a person (and period) opens (default: their timesheet page in My team). */
+    onOpenMember?: (employeeId: number, date: string) => void;
+    /** Shown when nobody is listed (default: the no-team message). */
+    empty?: ReactNode;
+}
+
+const TeamTimesheets = ({ loadWeek, loadMonth, onOpenMember, empty }: TeamTimesheetsProps = {}) => {
     const scope = useAtsScope();
     const paths = useAtsPaths();
     const navigate = useNavigate();
@@ -153,7 +165,9 @@ const TeamTimesheets = () => {
     useEffect(() => {
         let alive = true;
         setLoading(true);
-        const req = view === 'week' ? getTeamWeek(scope, iso(weekStart)) : getTeamMonth(scope, month.format('YYYY-MM'));
+        const week$ = loadWeek ?? (d => getTeamWeek(scope, d));
+        const month$ = loadMonth ?? (m => getTeamMonth(scope, m));
+        const req = view === 'week' ? week$(iso(weekStart)) : month$(month.format('YYYY-MM'));
         req.then(res => {
             if (!alive) return;
             if (view === 'week') setWeek((res as TeamWeekGrid) || null);
@@ -163,9 +177,9 @@ const TeamTimesheets = () => {
         return () => {
             alive = false;
         };
-    }, [scope, view, weekStart, month]);
+    }, [scope, view, weekStart, month, loadWeek, loadMonth]);
 
-    const openMember = (id: number, date: string) => navigate(paths.member(id, { date }));
+    const openMember = (id: number, date: string) => (onOpenMember ? onOpenMember(id, date) : navigate(paths.member(id, { date })));
 
     const weekColumns: ColumnsType<WeekRow> = [
         {
@@ -254,7 +268,7 @@ const TeamTimesheets = () => {
 
     const renderWeek = () => {
         if (!week) return null;
-        if (!week.rows.length) return <NoTeamEmpty />;
+        if (!week.rows.length) return empty ?? <NoTeamEmpty />;
         if (stacked) {
             return (
                 <Flex vertical gap={12}>
@@ -311,7 +325,7 @@ const TeamTimesheets = () => {
 
     const renderMonth = () => {
         if (!summary) return null;
-        if (!summary.rows.length) return <NoTeamEmpty />;
+        if (!summary.rows.length) return empty ?? <NoTeamEmpty />;
         if (stacked) {
             return (
                 <Flex vertical gap={12}>

@@ -6,8 +6,8 @@ PROTOTYPE-SETUP. Run log for "Payroll admin". If a run is interrupted, continue 
 | Step | Commit | Status |
 |---|---|---|
 | Prerequisite: Leave & team finished and pushed (main = origin/main at f2b1047) | — | done |
-| Slice 1 — Navigation and clean-up (service tabs, badges, redirects, shared blocks) | (this commit) | done |
-| Slice 2 — Timesheet (Overview / Details / Requests) | — | to do |
+| Slice 1 — Navigation and clean-up (service tabs, badges, redirects, shared blocks) | 69d1fb8 | done |
+| Slice 2 — Timesheet (Overview / Details / Requests) | (this commit) | done |
 | Slice 3 — Leave | — | to do |
 | Slice 4 — Overtime and Reimbursements | — | to do |
 | Slice 5 — Admin requests list, Attendance and Employees | — | to do |
