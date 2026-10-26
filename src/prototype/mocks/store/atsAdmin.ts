@@ -222,6 +222,9 @@ const peopleIn = (mode: DataMode, department?: string) =>
 export const adminWeekGrid = (mode: DataMode, date: string, department?: string) => weekGridOf(mode, peopleIn(mode, department), date);
 export const adminMonthSummary = (mode: DataMode, month: string, department?: string) => monthSummaryOf(mode, peopleIn(mode, department), month);
 
+/** Every employee (the Details tables list everyone, with or without requests). */
+export const adminPeople = (mode: DataMode) => employeesFor(mode).map(personRef);
+
 /** The company's departments (the Details filter). */
 export const adminDepartments = (mode: DataMode) => [...new Set(employeesFor(mode).map(e => e.department))].sort();
 

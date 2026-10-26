@@ -18,7 +18,7 @@ import { useSearchParams } from 'react-router-dom';
 import { formatDuration } from '@src/prototype/rules/attendance';
 import { periodLabel } from '@src/prototype/rules/timesheetFiling';
 
-import { AdminSubTabs, AdminView, MonthSwitcher, PayrollServiceTabs, ServiceHeader, notifyAdminChanged, recentMonths, useAdminCounts, useAdminView } from './adminShared';
+import { AdminSubTabs, AdminView, CountTile, MonthSwitcher, PayrollServiceTabs, ServiceHeader, notifyAdminChanged, recentMonths, useAdminCounts, useAdminView } from './adminShared';
 import { getAdminDepartments, getAdminMonth, getAdminTimesheetOverview, getAdminWeek, getPayrollTimesheets } from '../../api';
 import { PersonCell } from '../../team/teamShared';
 import TeamTimesheets from '../../team/TeamTimesheets';
@@ -37,22 +37,6 @@ const COUNT_TILES: { key: keyof AdminTimesheetOverview['counts']; label: string;
     { key: 'sentBack', label: 'Update requested', color: '#B54708' },
     { key: 'approved', label: 'Approved', color: '#067647' },
 ];
-
-export const CountTile = ({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) => (
-    <div className="flex min-w-0 flex-col gap-0.5 rounded-[20px] border border-solid border-[#e6e6e6] bg-white px-4 py-3" data-count-tile={label}>
-        <Text type="secondary" className="text-xs">
-            {label}
-        </Text>
-        <Text className="truncate text-xl font-semibold tabular-nums" style={{ color: color ?? '#171717' }} data-count-value>
-            {value}
-        </Text>
-        {sub && (
-            <Text type="secondary" className="text-xs">
-                {sub}
-            </Text>
-        )}
-    </div>
-);
 
 const Overview = ({ month, onMonth, onSeeWho }: { month: string; onMonth: (m: string) => void; onSeeWho: () => void }) => {
     const scope = usePayrollScope();

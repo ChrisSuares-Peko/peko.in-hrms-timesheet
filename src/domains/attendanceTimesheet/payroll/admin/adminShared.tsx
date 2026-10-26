@@ -150,3 +150,20 @@ export const MonthSwitcher = ({ value, onChange }: { value: string; onChange: (m
         />
     </div>
 );
+
+/** A total: label, value, and a small line under it. */
+export const CountTile = ({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) => (
+    <div className="flex min-w-0 flex-col gap-0.5 rounded-[20px] border border-solid border-[#e6e6e6] bg-white px-4 py-3" data-count-tile={label}>
+        <Typography.Text type="secondary" className="text-xs">
+            {label}
+        </Typography.Text>
+        <Typography.Text className="truncate text-xl font-semibold tabular-nums" style={{ color: color ?? '#171717' }} data-count-value>
+            {value}
+        </Typography.Text>
+        {sub && (
+            <Typography.Text type="secondary" className="text-xs">
+                {sub}
+            </Typography.Text>
+        )}
+    </div>
+);

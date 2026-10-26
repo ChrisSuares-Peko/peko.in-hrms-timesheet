@@ -14,6 +14,7 @@ import type {
     AdminRequestRow,
     AdminRequestType,
     AdminTimesheetOverview,
+    PersonRef,
     ApprovalCounts,
     AtsOverview,
     AtsSettings,
@@ -279,6 +280,7 @@ export const payrollSendBackWeek = (s: AtsScope, employeeId: number, weekStart: 
 // The admin (Payroll module) covers all employees and is level 2 for every service.
 
 export const getAdminCounts = (s: AtsScope) => call<AdminCounts>(s, 'get', 'payroll/admin/counts');
+export const getAdminPeople = (s: AtsScope) => call<PersonRef[]>(s, 'get', 'payroll/admin/people');
 export const getAdminDepartments = (s: AtsScope) => call<string[]>(s, 'get', 'payroll/admin/departments');
 export const getAdminRequests = (s: AtsScope, type: AdminRequestType) => call<AdminRequestRow[]>(s, 'get', `payroll/admin/requests/${type}`);
 export const decideAdminRequest = (s: AtsScope, type: AdminRequestType, id: string, decision: 'approve' | 'reject' | 'update', comment?: string) =>
