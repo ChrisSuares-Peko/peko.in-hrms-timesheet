@@ -8,6 +8,12 @@ import type { ImportPreview } from '@src/prototype/rules/timesheetImport';
 import { ApiClient } from '@src/services/config';
 
 import type {
+    AdminCounts,
+    AdminLeaveRow,
+    AdminOffToday,
+    AdminRequestRow,
+    AdminRequestType,
+    AdminTimesheetOverview,
     ApprovalCounts,
     AtsOverview,
     AtsSettings,
@@ -268,3 +274,26 @@ export const payrollApproveWeek = (s: AtsScope, employeeId: number, weekStart: s
     call<TimesheetApprovalItem>(s, 'post', `payroll/timesheets/${employeeId}/${weekStart}/approve`, { body: { comment } });
 export const payrollSendBackWeek = (s: AtsScope, employeeId: number, weekStart: string, comment: string) =>
     call<TimesheetApprovalItem>(s, 'post', `payroll/timesheets/${employeeId}/${weekStart}/send-back`, { body: { comment } });
+
+// ---- Payroll admin (PROTOTYPE-SETUP: Payroll admin, Slices 1–5) ------------------------------------------------
+// The admin (Payroll module) covers all employees and is level 2 for every service.
+
+export const getAdminCounts = (s: AtsScope) => call<AdminCounts>(s, 'get', 'payroll/admin/counts');
+export const getAdminDepartments = (s: AtsScope) => call<string[]>(s, 'get', 'payroll/admin/departments');
+export const getAdminRequests = (s: AtsScope, type: AdminRequestType) => call<AdminRequestRow[]>(s, 'get', `payroll/admin/requests/${type}`);
+export const decideAdminRequest = (s: AtsScope, type: AdminRequestType, id: string, decision: 'approve' | 'reject' | 'update', comment?: string) =>
+    call<RequestItem>(s, 'post', `payroll/admin/requests/${type}/${id}/${decision === 'update' ? 'ask-for-update' : decision}`, { body: { comment } });
+export const bulkApproveAdmin = (s: AtsScope, type: AdminRequestType, ids: string[]) =>
+    call<{ approved: number; failed: { id: string; reason: string }[] }>(s, 'post', `payroll/admin/requests/${type}/bulk-approve`, { body: { ids } });
+export const remindAdminRequest = (s: AtsScope, type: AdminRequestType, id: string) =>
+    call<{ to: string; message: string }>(s, 'post', `payroll/admin/requests/${type}/${id}/remind`);
+export const getAdminTimesheetOverview = (s: AtsScope, month: string) =>
+    call<AdminTimesheetOverview>(s, 'get', 'payroll/admin/timesheet/overview', { params: { month } });
+export const getAdminWeek = (s: AtsScope, date: string, department?: string) =>
+    call<TeamWeekGrid>(s, 'get', 'payroll/admin/timesheet/week', { params: { date, ...(department ? { department } : {}) } });
+export const getAdminMonth = (s: AtsScope, month: string, department?: string) =>
+    call<TeamMonthSummary>(s, 'get', 'payroll/admin/timesheet/month', { params: { month, ...(department ? { department } : {}) } });
+export const getAdminLeaveCalendar = (s: AtsScope, month: string) => call<TeamLeaveView>(s, 'get', 'payroll/admin/leave/calendar', { params: { month } });
+export const getAdminOffToday = (s: AtsScope) => call<AdminOffToday[]>(s, 'get', 'payroll/admin/leave/off-today');
+export const getAdminLeaveBalances = (s: AtsScope) => call<AdminLeaveRow[]>(s, 'get', 'payroll/admin/leave/balances');
+export const getAdminLeaveView = (s: AtsScope, employeeId: number) => call<LeaveView>(s, 'get', `payroll/admin/leave/${employeeId}`);

@@ -547,8 +547,14 @@ export const paths = {
         employeeSalaryProfile: 'employee-salary-profile',
         payrollRecordSuccess: 'payroll-record-success',
         ctcCalculator: 'ctc-calculator',
-        approvals: 'approvals', // PROTOTYPE-SETUP: ESS Service 1 — HR / Finance level-2 queues
-        timesheets: 'timesheets', // PROTOTYPE-SETUP: ESS Service 1 — timesheet status per month (status only)
+        // PROTOTYPE-SETUP (Payroll admin, Slice 1): retired — both redirect to Payroll → Timesheet.
+        approvals: 'approvals',
+        timesheets: 'timesheets',
+        // PROTOTYPE-SETUP (Payroll admin, Slice 1): one tab per service (Attendance and Employees are the existing pages).
+        serviceTimesheet: 'services/timesheet',
+        serviceLeave: 'services/leave',
+        serviceOvertime: 'services/overtime',
+        serviceReimbursements: 'services/reimbursements',
     },
     pekoCloud: {
         index: 'hub',

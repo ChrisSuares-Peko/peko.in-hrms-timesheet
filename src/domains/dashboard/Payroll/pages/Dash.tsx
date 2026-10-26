@@ -283,7 +283,8 @@ const Dash = () => {
             icon: leaveIcon,
             title: 'Leaves',
             isActive: true,
-            link: `/${paths.payroll.index}/${paths.payroll.employeeLeave}`,
+            // PROTOTYPE-SETUP (Payroll admin, Slice 1): the Leave service tab.
+            link: `/${paths.payroll.index}/${paths.payroll.serviceLeave}`,
             ref: leavesRef,
         },
         {
@@ -297,21 +298,21 @@ const Dash = () => {
             icon: reimbursementIcon,
             title: 'Reimbursements',
             isActive: true,
-            link: `/${paths.payroll.index}/${paths.payroll.employeeReimbursement}`,
+            link: `/${paths.payroll.index}/${paths.payroll.serviceReimbursements}`,
             ref: reimbursementRef,
         },
-        // PROTOTYPE-SETUP: ESS Service 1 — Timesheet status (read-only) and the HR / Finance approval queues.
+        // PROTOTYPE-SETUP (Payroll admin, Slice 1): the Timesheet and Overtime service tabs (no combined Approvals).
         {
             icon: timesheetIcon,
             title: 'Timesheets',
             isActive: true,
-            link: `/${paths.payroll.index}/${paths.payroll.timesheets}`,
+            link: `/${paths.payroll.index}/${paths.payroll.serviceTimesheet}`,
         },
         {
-            icon: reportsIcon,
-            title: 'Approvals',
+            icon: timesheetIcon,
+            title: 'Overtime',
             isActive: true,
-            link: `/${paths.payroll.index}/${paths.payroll.approvals}`,
+            link: `/${paths.payroll.index}/${paths.payroll.serviceOvertime}`,
         },
         {
             icon: companyDocumentIcon,
@@ -354,20 +355,13 @@ const Dash = () => {
     ];
 
     // PROTOTYPE-SETUP: ESS Service 1 — hide Attendance in 'timesheet' mode and Timesheets in 'attendance' mode.
-    // Approvals (the HR / Finance level-2 queues for attendance corrections and overtime) is hidden when
-    // neither type has a level-2 approver. It doesn't depend on timesheet approval: timesheets are manager-only.
+    // PROTOTYPE-SETUP (Payroll admin, Slice 1): no Approvals tile — each service has its own tab and requests.
     const atsMode = atsSettings?.mode;
-    // PROTOTYPE-SETUP (Overview v4, Slice 5): in 'none' mode HR still approves profile updates there.
-    const hasLevel2Queue =
-        !atsSettings ||
-        atsMode === 'none' ||
-        atsSettings.level2.overtime !== 'NONE' ||
-        (atsMode !== 'timesheet' && atsSettings.level2.attendance !== 'NONE');
     const navMenuDetails = allNavMenuDetails.filter(
         item =>
             !(item.title === 'Attendance' && (atsMode === 'timesheet' || atsMode === 'none')) &&
             !(item.title === 'Timesheets' && (atsMode === 'attendance' || atsMode === 'none')) &&
-            !(item.title === 'Approvals' && !hasLevel2Queue)
+            !(item.title === 'Overtime' && atsMode === 'none')
     );
 
     const dashboardDetails = [

@@ -1,6 +1,6 @@
 import { lazy } from 'react';
 
-import { Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 
 // PROTOTYPE-SETUP: ESS Service 1 — the gate reads the new Attendance & Timesheet settings (was V1 ModeGate).
 import AtsModeGate from '@src/domains/attendanceTimesheet/payroll/AtsModeGate';
@@ -31,7 +31,6 @@ const EmployeeSalaryPage = lazy(
 );
 
 const AnnouncementsPage = lazy(() => import('@src/domains/dashboard/Payroll/pages/Announcements'));
-const EmployeeLeavePage = lazy(() => import('@src/domains/dashboard/Payroll/pages/EmployeeLeave'));
 const TimesheetPage = lazy(() => import('@src/domains/dashboard/Payroll/pages/Timesheet'));
 const EmployeeBulkUpload = lazy(
     () => import('@src/domains/dashboard/Payroll/pages/EmployeeBulkUpload')
@@ -45,14 +44,10 @@ const EmployeeOnboardSuccessPage = lazy(
 
 const WpsRegistration = lazy(() => import('@src/domains/dashboard/Payroll/pages/WpsRegistration'));
 const EmployeeDetails = lazy(() => import('@src/domains/dashboard/Payroll/pages/EmployeeDetails'));
-const EmployeeReimbursementPage = lazy(
-    () => import('@src/domains/dashboard/Payroll/pages/EmployeeReimbursement')
-);
 const ReportsPage = lazy(() => import('@src/domains/dashboard/Payroll/pages/Reports'));
 const CompanyDocumentsPage = lazy(
     () => import('@src/domains/dashboard/Payroll/pages/CompanyDocuments')
 );
-const LeaveSummaryPage = lazy(() => import('@src/domains/dashboard/Payroll/pages/LeaveSummary'));
 const EmployeeSalaryDetails = lazy(
     () => import('@src/domains/dashboard/Payroll/pages/SalaryProfileNew')
 );
@@ -94,14 +89,32 @@ const ManageBanksPage = lazy(() => import('@src/domains/dashboard/Payroll/pages/
 const ManageBankTransactionsPage = lazy(
     () => import('@src/domains/dashboard/Payroll/pages/ManageBankTransactions')
 );
-// PROTOTYPE-SETUP: ESS Service 1 — HR / Finance level-2 queues and Timesheet status. These replace the
-// Timesheet V1 pages (Payroll/pages/Level2Approvals, Payroll/pages/TimesheetSummary), now removed.
-const Level2ApprovalsPage = lazy(
-    () => import('@src/domains/attendanceTimesheet/payroll/Level2ApprovalsPage')
+// PROTOTYPE-SETUP (Payroll admin, Slice 1): one tab per service — Timesheet, Leave, Overtime, Reimbursements (new),
+// with Attendance and Employees (the existing pages). The Level 2 approvals and Timesheet status pages are retired.
+const AdminTimesheetPage = lazy(
+    () => import('@src/domains/attendanceTimesheet/payroll/admin/AdminTimesheetPage')
 );
-const TimesheetStatusPage = lazy(
-    () => import('@src/domains/attendanceTimesheet/payroll/TimesheetStatusPage')
+const AdminServicePage = lazy(
+    () => import('@src/domains/attendanceTimesheet/payroll/admin/AdminServicePage')
 );
+
+const P = (slug: string) => `/${paths.payroll.index}/${slug}`;
+
+/** A retired route → its new home, keeping the query (e.g. ?month=). */
+const Redirect = ({ to }: { to: string }) => {
+    const { search } = useLocation();
+    const [path, query] = to.split('?');
+    const merged = new URLSearchParams(search);
+    new URLSearchParams(query ?? '').forEach((v, k) => merged.set(k, v));
+    const qs = merged.toString();
+    return <Navigate to={`${path}${qs ? `?${qs}` : ''}`} replace />;
+};
+
+/** Employee leave → Leave summary/:id → that employee's balances and ledger (Leave → Details). */
+const LeaveSummaryRedirect = () => {
+    const { id } = useParams();
+    return <Navigate to={`${P(paths.payroll.serviceLeave)}?view=details${id ? `&employee=${id}` : ''}`} replace />;
+};
 const CtcCalculatorPage = lazy(
     () => import('@src/domains/dashboard/Payroll/pages/CtcCalculatorPage')
 );
@@ -158,7 +171,8 @@ export const payrollRoutes = [
     { element: <ActivityCalendarPage />, path: paths.payroll.activityCalendar },
     { element: <OrganizationSettingsPage />, path: paths.payroll.payrollSettings },
     { element: <ComplianceSettingsPage />, path: paths.payroll.complianceSettings },
-    { element: <EmployeeLeavePage />, path: paths.payroll.employeeLeave },
+    // PROTOTYPE-SETUP (Payroll admin, Slice 3): Employee leave is folded into Payroll → Leave.
+    { element: <Redirect to={P(paths.payroll.serviceLeave)} />, path: paths.payroll.employeeLeave },
     {
         // PROTOTYPE-SETUP: ESS Service 1 — check-in based Attendance screens are off in Timesheet only mode.
         element: (
@@ -175,10 +189,25 @@ export const payrollRoutes = [
     },
     { element: <ReportsPage />, path: paths.payroll.reports },
     { element: <CtcCalculatorPage />, path: paths.payroll.ctcCalculator },
-    // PROTOTYPE-SETUP: ESS Service 1 — HR / Finance level-2 queues.
-    { element: <Level2ApprovalsPage />, path: paths.payroll.approvals },
-    // PROTOTYPE-SETUP: ESS Service 1 — status only, never entries.
-    { element: <TimesheetStatusPage />, path: paths.payroll.timesheets },
+    // PROTOTYPE-SETUP (Payroll admin, Slice 1): retired pages redirect; the service tabs.
+    { element: <Redirect to={`${P(paths.payroll.serviceTimesheet)}?view=requests`} />, path: paths.payroll.approvals },
+    { element: <Redirect to={`${P(paths.payroll.serviceTimesheet)}?view=overview`} />, path: paths.payroll.timesheets },
+    {
+        element: (
+            <AtsModeGate
+                hiddenIn={['attendance', 'none']}
+                title="Timesheets are off"
+                subTitle="Your company doesn't log timesheets in its current Attendance & Timesheet mode."
+            >
+                <AdminTimesheetPage />
+            </AtsModeGate>
+        ),
+        path: paths.payroll.serviceTimesheet,
+    },
+    { element: <Navigate to={`/${paths.payroll.index}`} replace />, path: 'services' },
+    { element: <AdminServicePage key="leave" service="leave" />, path: paths.payroll.serviceLeave },
+    { element: <AdminServicePage key="overtime" service="overtime" />, path: paths.payroll.serviceOvertime },
+    { element: <AdminServicePage key="reimbursement" service="reimbursement" />, path: paths.payroll.serviceReimbursements },
 
     {
         element: <EmployeeOnboardPage />,
@@ -211,7 +240,8 @@ export const payrollRoutes = [
         element: <EmployeeDetails />,
         path: `${paths.payroll.employees}/${paths.payroll.employeeProfile}`,
     },
-    { element: <EmployeeReimbursementPage />, path: paths.payroll.employeeReimbursement },
+    // PROTOTYPE-SETUP (Payroll admin, Slice 4): Employee reimbursements is folded into Payroll → Reimbursements.
+    { element: <Redirect to={P(paths.payroll.serviceReimbursements)} />, path: paths.payroll.employeeReimbursement },
     {
         path: paths.payroll.allDocuments,
         children: [
@@ -225,7 +255,7 @@ export const payrollRoutes = [
         path: `${paths.payroll.employeesSalary}/${paths.payroll.employeeProfile}`,
     },
     {
-        element: <LeaveSummaryPage />,
+        element: <LeaveSummaryRedirect />,
         path: `${paths.payroll.employeeLeave}/${paths.payroll.leaveSummary}`,
     },
 ];

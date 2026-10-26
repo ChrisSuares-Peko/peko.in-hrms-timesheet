@@ -160,13 +160,16 @@ const markerFor = (status: string, date: string, logged: number, expected: numbe
 const combinedStatus = (statuses: TimesheetStatus[]): TimesheetStatus =>
     (['SENT_BACK', 'DRAFT', 'SUBMITTED'] as TimesheetStatus[]).find(x => statuses.includes(x)) ?? 'APPROVED';
 
-export const teamWeekGrid = (mode: DataMode, manager: MockEmployee, weekStart: string): TeamWeekGrid => {
+export const teamWeekGrid = (mode: DataMode, manager: MockEmployee, weekStart: string): TeamWeekGrid => weekGridOf(mode, teamOf(mode, manager), weekStart);
+
+/** PROTOTYPE-SETUP (Payroll admin, Slice 2): the week grid for any list of people (My team, or everyone for Payroll). */
+export const weekGridOf = (mode: DataMode, people: MockEmployee[], weekStart: string): TeamWeekGrid => {
     const ws = weekStartOf(weekStart);
     const days = weekDates(ws);
     return {
         weekStart: ws,
         days,
-        rows: teamOf(mode, manager).map(e => {
+        rows: people.map(e => {
             const periods = periodsBetween(mode, e, ws, days[6]);
             const cells = days.map(date => {
                 const d = timesheetDay(mode, e, date, entriesOn(mode, e, date));
@@ -185,12 +188,15 @@ export const teamWeekGrid = (mode: DataMode, manager: MockEmployee, weekStart: s
     };
 };
 
-export const teamMonthSummary = (mode: DataMode, manager: MockEmployee, month: string): TeamMonthSummary => {
+export const teamMonthSummary = (mode: DataMode, manager: MockEmployee, month: string): TeamMonthSummary => monthSummaryOf(mode, teamOf(mode, manager), month);
+
+/** PROTOTYPE-SETUP (Payroll admin, Slice 2): the month summary for any list of people. */
+export const monthSummaryOf = (mode: DataMode, people: MockEmployee[], month: string): TeamMonthSummary => {
     const t = today();
     return {
         month,
         monthLabel: monthLabel(month),
-        rows: teamOf(mode, manager).map(e => {
+        rows: people.map(e => {
             const days = monthDates(month).map(date => timesheetDay(mode, e, date, entriesOn(mode, e, date)));
             return {
                 employee: personRef(e),
@@ -468,7 +474,7 @@ const itemsOf = (mode: DataMode, type: RequestType, viewer: ApproverRole) => {
     return atsOvertime.get(mode).map(o => overtimeItem(mode, o, viewer));
 };
 
-const allRequests = (mode: DataMode, type: RequestType, viewer: ApproverRole): RequestItem[] =>
+export const allRequests = (mode: DataMode, type: RequestType, viewer: ApproverRole): RequestItem[] =>
     itemsOf(mode, type, viewer).filter((x): x is RequestItem => x !== null);
 
 const byWaitingThenNewest = (a: RequestItem, b: RequestItem) =>
@@ -682,7 +688,10 @@ export const teamAttendance = (mode: DataMode, manager: MockEmployee, month: str
 };
 
 /** Approved and pending leave of the direct reports that touches the month. */
-export const teamLeave = (mode: DataMode, manager: MockEmployee, month: string): TeamLeaveView => {
+export const teamLeave = (mode: DataMode, manager: MockEmployee, month: string): TeamLeaveView => leaveCalendarOf(mode, teamOf(mode, manager), month);
+
+/** PROTOTYPE-SETUP (Payroll admin, Slice 3): the leave calendar for any list of people (My team, or the company). */
+export const leaveCalendarOf = (mode: DataMode, people: MockEmployee[], month: string): TeamLeaveView => {
     const dates = monthDates(month);
     const first = dates[0];
     const last = dates[dates.length - 1];
@@ -690,7 +699,7 @@ export const teamLeave = (mode: DataMode, manager: MockEmployee, month: string):
         month,
         today: today(),
         off: offDaysOf(mode, dates),
-        rows: teamOf(mode, manager).map(e => ({
+        rows: people.map(e => ({
             employee: personRef(e),
             leave: atsLeaveRequests
                 .get(mode)

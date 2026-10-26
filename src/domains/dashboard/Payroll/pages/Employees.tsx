@@ -5,6 +5,7 @@ import { Button, Col, Flex, Row, Tabs, TabsProps, Typography, theme } from 'antd
 import { Content } from 'antd/es/layout/layout';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { PayrollServiceTabs } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
 import { useAppDispatch, useAppSelector } from '@src/hooks/store';
 import useDebounce from '@src/hooks/useDebounce';
 import { paths } from '@src/routes/paths';
@@ -234,6 +235,8 @@ function Employees() {
 
     return (
         <Content>
+            {/* PROTOTYPE-SETUP (Payroll admin, Slice 1): the service tabs on top. */}
+            <PayrollServiceTabs active="employees" />
             <PayrollAccessBanner />
             <Row className="mt-2">
                 <Col span={24}>

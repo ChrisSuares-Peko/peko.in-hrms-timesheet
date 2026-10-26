@@ -40,8 +40,8 @@ export const useAtsSettings = () => {
 /** Absolute links to the Payroll screens used from the ATS pages. */
 export const payrollLinks = {
     runPayroll: `/${paths.payroll.index}/${paths.payroll.salaryProcess}`,
+    // PROTOTYPE-SETUP (Payroll admin, Slice 1): Payroll → Timesheet → Overview (was Timesheet status).
     timesheetStatus: (month?: string) =>
-        `/${paths.payroll.index}/${paths.payroll.timesheets}${month ? `?month=${month}` : ''}`,
-    approvals: `/${paths.payroll.index}/${paths.payroll.approvals}`,
+        `/${paths.payroll.index}/${paths.payroll.serviceTimesheet}?view=overview${month ? `&month=${month}` : ''}`,
     settings: `/${paths.payroll.index}/${paths.payroll.payrollSettings}?activeTab=10`,
 };

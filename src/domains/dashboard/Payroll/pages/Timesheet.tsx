@@ -4,7 +4,9 @@ import { Button, Row, Tabs, TabsProps, Typography } from 'antd';
 
 // PROTOTYPE-SETUP: ESS Service 1 — Overtime and Attendance corrections are read-only history plus the level-2
 // (HR / Finance) decision.
+import { PayrollServiceTabs } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
 import PayrollRequestsTab from '@src/domains/attendanceTimesheet/payroll/PayrollRequestsTab';
+// PROTOTYPE-SETUP (Payroll admin, Slice 1): the service tabs on top.
 import useScreenSize from '@src/hooks/useScreenSize';
 
 import AddHolidaysModal from '../components/modals/AddHolidaysModal';
@@ -42,6 +44,7 @@ const Timesheet = () => {
 
     return (
         <>
+            <PayrollServiceTabs active="attendance" />
             <Row justify="space-between" align="middle" className="mb-4">
                 <Typography.Text className="text-xl font-medium">Attendance</Typography.Text>
                 {(activeTab === '1' || activeTab === '2') && (

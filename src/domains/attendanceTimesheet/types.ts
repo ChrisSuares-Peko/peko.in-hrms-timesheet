@@ -1169,3 +1169,74 @@ export interface LeaveView {
     /** Weekly offs and public holidays (90 days back to a year ahead), so the apply form can count working days. */
     calendar: { weeklyOff: Weekday[]; holidays: string[] };
 }
+
+// ---- Payroll admin (PROTOTYPE-SETUP: Payroll admin, Slices 1–5) ----------------------------------------------
+// The admin in the Payroll module is level 2 (and the final stop) for every employee: one tab per service.
+
+/** Where a request is, for the admin: waiting for you · with managers · update requested · approved · rejected. */
+export type AdminBucket = 'you' | 'mgr' | 'upd' | 'ok' | 'no';
+
+export type AdminRequestType = 'attendance' | 'leave' | 'overtime' | 'reimbursement' | 'profile';
+
+/** One request in the admin's list for a service. */
+export interface AdminRequestRow {
+    item: RequestItem;
+    bucket: AdminBucket;
+    department: string;
+    /** The day it's about (leave: the first day; reimbursement: the expense date; profile: when it was sent). */
+    date: string;
+    /** Overtime: minutes; reimbursement: ₹; leave: days; otherwise 1. */
+    value: number;
+    /** Reimbursements: the expense category. */
+    category?: string;
+    managerName: string | null;
+    /** Leave: other people in the same department with approved leave on any of those dates. */
+    deptClash?: { department: string; names: string[] };
+}
+
+/** The badges on the Payroll service tabs (what's waiting for the admin). */
+export interface AdminCounts {
+    timesheet: number;
+    attendance: number;
+    leave: number;
+    overtime: number;
+    reimbursement: number;
+    profile: number;
+}
+
+/** Payroll → Timesheet → Overview (one month). */
+export interface AdminTimesheetOverview {
+    month: string;
+    monthLabel: string;
+    processed: boolean;
+    approvalEnabled: boolean;
+    /** Employees with periods not yet approved (the payroll blockers). */
+    blockedEmployees: number;
+    /** Filing periods in the month: not submitted · with managers · waiting for you · update requested · approved. */
+    counts: Record<'draft' | 'submitted' | 'withYou' | 'sentBack' | 'approved', number>;
+    departments: {
+        department: string;
+        people: number;
+        loggedMinutes: number;
+        workedMinutes: number;
+        submitted: number;
+        withYou: number;
+        approved: number;
+    }[];
+}
+
+/** Payroll → Leave → Details: one row per employee. */
+export interface AdminLeaveRow {
+    employee: PersonRef;
+    available: Record<LeaveType, number>;
+    /** Late check-in deductions still standing (days). */
+    lateDeductionDays: number;
+    lossOfPayDays: number;
+}
+
+/** Payroll → Leave → Overview: who is off today. */
+export interface AdminOffToday {
+    employee: PersonRef;
+    type: LeaveType;
+    half: LeaveHalf | null;
+}

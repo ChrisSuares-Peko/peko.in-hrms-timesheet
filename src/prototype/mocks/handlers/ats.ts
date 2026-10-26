@@ -2,7 +2,7 @@
 // Stateful (store/atsStore.ts + atsEss.ts + atsTeam.ts), persisted per data mode, so ESS - Employee,
 // ESS - Manager and Payroll see the same data. ESS and manager endpoints answer as the requesting persona
 // (requester.ts); Payroll level-2 endpoints act as the role in `?role=HR|FINANCE`.
-import type { Level2Role, QueueScope } from '@src/domains/attendanceTimesheet/types';
+import type { AdminRequestType, Level2Role, QueueScope } from '@src/domains/attendanceTimesheet/types';
 import { RuleError } from '@src/prototype/rules/attendance';
 
 import { findEmployee } from '../data/employees';
@@ -10,6 +10,21 @@ import type { DataMode } from '../envelope';
 import { fail } from '../errors';
 import { essRequester } from '../requester';
 import { MockContext, MockRoute, route } from '../router';
+import {
+    adminBulkApprove,
+    adminCounts,
+    adminDecide,
+    adminDepartments,
+    adminLeaveBalances,
+    adminLeaveCalendar,
+    adminLeaveViewOf,
+    adminMonthSummary,
+    adminOffToday,
+    adminRemind,
+    adminRequests,
+    adminTimesheetOverview,
+    adminWeekGrid,
+} from '../store/atsAdmin';
 import {
     addEntry,
     attendanceMonthOf,
@@ -102,6 +117,12 @@ const roleParam = (q: MockContext['query']): Level2Role => {
 const typeParam = (p: MockContext['params']): RequestType => {
     const t = p.requestType;
     if (t === 'attendance' || t === 'overtime' || t === 'leave' || t === 'reimbursement') return t;
+    throw fail(404, 'Unknown request type');
+};
+/** PROTOTYPE-SETUP (Payroll admin, Slice 1): the admin's request types. */
+const adminTypeParam = (p: MockContext['params']): AdminRequestType => {
+    const t = p.requestType;
+    if (t === 'attendance' || t === 'overtime' || t === 'leave' || t === 'reimbursement' || t === 'profile') return t;
     throw fail(404, 'Unknown request type');
 };
 /** PROTOTYPE-SETUP (Overview, Slice 1): level 2 also handles profile updates (HR only). */
@@ -236,6 +257,22 @@ export const atsRoutes: MockRoute[] = [
     route('POST', `${A}/payroll/timesheets/:employeeId/:weekStart/approve`, ctx => run(ctx.mode, () => payrollApproveWeek(ctx.mode, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
     route('POST', `${A}/payroll/timesheets/:employeeId/:weekStart/send-back`, ctx => run(ctx.mode, () => payrollSendBackWeek(ctx.mode, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
     route('POST', `${A}/payroll/timesheets/:employeeId/:weekStart/ask-for-update`, ctx => run(ctx.mode, () => payrollSendBackWeek(ctx.mode, ctx.params.employeeId!, ctx.params.weekStart!, ctx.body?.comment))),
+    // PROTOTYPE-SETUP (Payroll admin, Slices 1–5): the admin side — one tab per service, all employees, level 2.
+    route('GET', `${A}/payroll/admin/counts`, ctx => run(ctx.mode, () => adminCounts(ctx.mode))),
+    route('GET', `${A}/payroll/admin/departments`, ctx => run(ctx.mode, () => adminDepartments(ctx.mode))),
+    route('GET', `${A}/payroll/admin/requests/:requestType`, ctx => run(ctx.mode, () => adminRequests(ctx.mode, adminTypeParam(ctx.params)))),
+    route('POST', `${A}/payroll/admin/requests/:requestType/bulk-approve`, ctx => run(ctx.mode, () => adminBulkApprove(ctx.mode, adminTypeParam(ctx.params), ctx.body))),
+    route('POST', `${A}/payroll/admin/requests/:requestType/:id/approve`, ctx => run(ctx.mode, () => adminDecide(ctx.mode, adminTypeParam(ctx.params), ctx.params.id!, 'APPROVED', ctx.body?.comment))),
+    route('POST', `${A}/payroll/admin/requests/:requestType/:id/reject`, ctx => run(ctx.mode, () => adminDecide(ctx.mode, adminTypeParam(ctx.params), ctx.params.id!, 'REJECTED', ctx.body?.comment))),
+    route('POST', `${A}/payroll/admin/requests/:requestType/:id/ask-for-update`, ctx => run(ctx.mode, () => adminDecide(ctx.mode, adminTypeParam(ctx.params), ctx.params.id!, 'UPDATE_REQUESTED', ctx.body?.comment))),
+    route('POST', `${A}/payroll/admin/requests/:requestType/:id/remind`, ctx => run(ctx.mode, () => adminRemind(ctx.mode, adminTypeParam(ctx.params), ctx.params.id!))),
+    route('GET', `${A}/payroll/admin/timesheet/overview`, ctx => run(ctx.mode, () => adminTimesheetOverview(ctx.mode, monthParam(ctx.query)))),
+    route('GET', `${A}/payroll/admin/timesheet/week`, ctx => run(ctx.mode, () => adminWeekGrid(ctx.mode, dateParam(ctx.query), String(ctx.query.department ?? '') || undefined))),
+    route('GET', `${A}/payroll/admin/timesheet/month`, ctx => run(ctx.mode, () => adminMonthSummary(ctx.mode, monthParam(ctx.query), String(ctx.query.department ?? '') || undefined))),
+    route('GET', `${A}/payroll/admin/leave/calendar`, ctx => run(ctx.mode, () => adminLeaveCalendar(ctx.mode, monthParam(ctx.query)))),
+    route('GET', `${A}/payroll/admin/leave/off-today`, ctx => run(ctx.mode, () => adminOffToday(ctx.mode))),
+    route('GET', `${A}/payroll/admin/leave/balances`, ctx => run(ctx.mode, () => adminLeaveBalances(ctx.mode))),
+    route('GET', `${A}/payroll/admin/leave/:employeeId`, ctx => run(ctx.mode, () => adminLeaveViewOf(ctx.mode, ctx.params.employeeId!))),
     route('GET', `${A}/payroll/months`, ctx => run(ctx.mode, () => payrollMonths(ctx.mode))),
     route('GET', `${A}/payroll/months/:month`, ctx => run(ctx.mode, () => payrollMonthStatus(ctx.mode, monthOrFail(ctx.params.month)))),
     route('POST', `${A}/payroll/months/:month/process`, ctx => run(ctx.mode, () => processPayrollMonth(ctx.mode, monthOrFail(ctx.params.month)))),
