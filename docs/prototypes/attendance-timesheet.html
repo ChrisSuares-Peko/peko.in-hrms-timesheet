@@ -2654,12 +2654,12 @@ function TeamToday({ mgr }) {
       </tr>`)}</tbody></table></div>
   </div>`;
 }
-function TeamTimesheets({ mgr, onReview }) {
+function TeamTimesheets({ mgr, onReview, people }) {
   const { store } = useApp();
   const [view, setView] = useState('week');
   const [cursor, setCursor] = useState(TODAY);
   const [open, setOpen] = useState(null);
-  const reports = EMP.filter(e => e.mgr === mgr.id);
+  const reports = people || EMP.filter(e => e.mgr === mgr.id);
   const ws = mondayOf(cursor), m = monthOf(cursor);
   const appr = approvalOn(store);
   const step = n => setCursor(view === 'week' ? addDays(cursor, 7 * n) : firstOf(addMonths(m, n)));
@@ -2779,12 +2779,12 @@ function TeamAttendance({ mgr }) {
     ${cell && html`<${TeamDayModal} emp=${cell.e} k=${cell.k} onClose=${() => setCell(null)} />`}
   </div>`;
 }
-function TeamLeaveCal({ mgr }) {
+function TeamLeaveCal({ mgr, people, level }) {
   const { store } = useApp();
   const [month, setMonth] = useState(monthOf(TODAY));
-  const reports = EMP.filter(e => e.mgr === mgr.id).map(e => e.id);
+  const reports = people ? people.map(e => e.id) : EMP.filter(e => e.mgr === mgr.id).map(e => e.id);
   const lv = store.requests.filter(r => r.type === 'leave' && reports.includes(r.empId) && ['approved', 'pending_l1', 'pending_l2'].includes(r.status));
-  const pendL = lv.filter(r => r.status === 'pending_l1').sort((a, b) => a.data.from < b.data.from ? -1 : 1);
+  const pendL = lv.filter(r => r.status === (level === 2 ? 'pending_l2' : 'pending_l1')).sort((a, b) => a.data.from < b.data.from ? -1 : 1);
   const cell = k => { const on = lv.filter(r => r.data.from <= k && r.data.to >= k && !isOff(k)); return [on.length ? html`<span key="n" className="cv">${on.length} off</span>` : null, ...on.map(r => html`<span key=${r.id} className=${'mini ' + (r.status === 'approved' ? 'leave' : 'off')} style=${{ border: r.status === 'approved' ? '' : '1px dashed var(--line-2)' }}>${first(EMAP[r.empId].name)}${r.data.half ? ' ½' : ''}</span>`)]; };
   return html`<div>
     <div className="viewbar"><button className="btn sm" aria-label="Previous month" onClick=${() => setMonth(addMonths(month, -1))}>‹</button><span className="range">${fmtMonth(month)}</span><button className="btn sm" aria-label="Next month" onClick=${() => setMonth(addMonths(month, 1))}>›</button>
@@ -2796,7 +2796,7 @@ function TeamLeaveCal({ mgr }) {
           <div className="small muted" style=${{ marginTop: '2px' }}>Check who else is off before you approve.</div></div>
         <div className="lc-list">${pendL.map(r => { const also = lv.filter(x => x.id !== r.id && x.status === 'approved' && x.data.from <= r.data.to && x.data.to >= r.data.from).map(x => first(EMAP[x.empId].name)); return html`<div key=${r.id} className="lc-item">
             <div className="row" style=${{ gap: '6px', padding: '8px 12px 0' }}>${also.length ? html`<span className="chip amber">Also off: ${Array.from(new Set(also)).join(', ')}</span>` : html`<span className="chip green">No one else off</span>`}<span className="spacer"></span><button className="btn link small" onClick=${() => setMonth(monthOf(r.data.from))}>Show on calendar</button></div>
-            <${ReqRow} r=${r} showEmp level=${1} actor=${mgr.name} /></div>`; })}
+            <${ReqRow} r=${r} showEmp level=${level || 1} actor=${level === 2 ? (store.settings.l2.leave || 'HR') + ' team' : mgr.name} /></div>`; })}
           ${pendL.length === 0 && html`<${Empty} title="Nothing to approve">New leave requests from your team show up here.<//>`}</div>
       </section></div>
     </div>
@@ -3321,7 +3321,158 @@ function Employees() {
   return html`<div className="panel scroll-x"><table><thead><tr><th>Employee</th><th>ID</th><th>Department</th><th>Designation</th><th>Reports to</th><th>Shift</th></tr></thead>
     <tbody>${EMP.map(e => html`<tr key=${e.id}><td><b style=${{ fontWeight: 500 }}>${e.name}</b>${e.id === EMPLOYEE_ID ? html` <span className="chip blue">ESS - Employee</span>` : e.id === MANAGER_ID ? html` <span className="chip blue">ESS - Manager</span>` : null}</td><td className="muted">${e.id}</td><td>${e.dept}</td><td>${e.title}</td><td>${e.mgr ? EMAP[e.mgr].name : 'None'}</td><td className="muted">${SHIFTS[e.dept].join('–')}</td></tr>`)}</tbody></table></div>`;
 }
+/* ---------------- Payroll (admin): one tab per service, each with Overview / Details / Requests ---------------- */
+// the admin is level 2 for everyone: sees items still with managers (read-only, can remind), decides once the manager has
+function AdminReqs({ type, extra }) {
+  const { store, update, notify } = useApp();
+  const [f, setF] = useState('you'); const [sel, setSel] = useState({});
+  const team = (type === 'profile' ? 'HR' : store.settings.l2[type] || 'Payroll') + ' team';
+  const all = store.requests.filter(r => r.type === type && reqVisible(store, r) && r.status !== 'withdrawn');
+  const B = { you: r => r.status === 'pending_l2', mgr: r => r.status === 'pending_l1', upd: r => r.status === 'update_requested', ok: r => r.status === 'approved', no: r => r.status === 'rejected', all: () => true };
+  const cnt = k => all.filter(B[k]).length;
+  const list = all.filter(B[f]).sort((a, b) => a.created < b.created ? 1 : -1);
+  const chosen = list.filter(r => sel[r.id] && r.status === 'pending_l2');
+  const bulk = () => { const n = chosen.length; update(s => chosen.forEach(r => decideRequest(s, r.id, 2, 'approve', '', team))); setSel({}); notify(n + ' approved'); };
+  const remind = r => { const e = EMAP[r.empId]; notify(r.status === 'pending_l1' ? 'Reminder sent to ' + (e.mgr ? EMAP[e.mgr].name : 'manager') : 'Reminder sent to ' + e.name); };
+  return html`<div>
+    <div className="row" style=${{ marginBottom: '10px' }}><${Seg} label="Status" value=${f} onChange=${v => { setF(v); setSel({}); }} options=${[['you', 'Waiting for you (' + cnt('you') + ')'], ['mgr', 'With managers (' + cnt('mgr') + ')'], ['upd', 'Update requested (' + cnt('upd') + ')'], ['ok', 'Approved (' + cnt('ok') + ')'], ['no', 'Rejected (' + cnt('no') + ')'], ['all', 'All (' + all.length + ')']]} /></div>
+    ${f === 'you' && list.length ? html`<div className="bulk-bar"><label className="row" style=${{ gap: '6px' }}><input type="checkbox" checked=${list.every(r => sel[r.id])} onChange=${e => { const n = {}; if (e.target.checked) list.forEach(r => { n[r.id] = true; }); setSel(n); }} /><span className="small">Select all</span></label><span className="spacer"></span><button className="btn sm good" disabled=${!chosen.length} onClick=${bulk}>Approve selected${chosen.length ? ' (' + chosen.length + ')' : ''}</button></div>` : null}
+    <div className="panel">${list.map(r => html`<div key=${r.id} className="ap-row">
+        ${r.status === 'pending_l2' ? html`<input type="checkbox" aria-label="Select" checked=${!!sel[r.id]} onChange=${e => setSel(Object.assign({}, sel, { [r.id]: e.target.checked }))} />` : html`<span></span>`}
+        <div>${(r.status === 'pending_l1' || r.status === 'update_requested' || extra) ? html`<div className="row" style=${{ gap: '6px', padding: '10px 14px 0' }}>${extra ? extra(r) : null}<span className="spacer"></span>${r.status === 'pending_l1' ? kids(html`<span className="small muted">Waiting for ${EMAP[r.empId].mgr ? EMAP[EMAP[r.empId].mgr].name : 'manager'}. You can decide once they approve.</span><button className="btn sm" onClick=${() => remind(r)}>Remind manager</button>`) : r.status === 'update_requested' ? html`<button className="btn sm" onClick=${() => remind(r)}>Remind employee</button>` : null}</div>` : null}
+        <${ReqRow} r=${r} showEmp level=${r.status === 'pending_l2' ? 2 : undefined} actor=${team} /></div></div>`)}
+      ${list.length === 0 && html`<${Empty} title=${f === 'you' ? 'Nothing waiting for you' : 'Nothing here'}>${f === 'you' ? 'Requests reach you after the employee\u2019s manager approves them.' : 'Try another filter.'}<//>`}</div>
+  </div>`;
+}
+function AdminSub({ tabs, value, onChange }) { return html`<div style=${{ marginBottom: '14px' }}><${Seg} label="Section" value=${value} onChange=${onChange} options=${tabs} /></div>`; }
+const monthOpts = () => [0, -1, -2].map(n => addMonths(monthOf(TODAY), n));
+function deptRows(fn) { const ds = Array.from(new Set(EMP.map(e => e.dept))); return ds.map(d => Object.assign({ d, people: EMP.filter(e => e.dept === d) }, fn(EMP.filter(e => e.dept === d)))); }
+function AdminTimesheet() {
+  const { store } = useApp();
+  const [sub, setSub] = useState('overview');
+  const [rev, setRev] = useState(null);
+  const [dept, setDept] = useState('all');
+  const [m, setM] = useState(monthOf(TODAY));
+  const waiting = payrollTimesheetItems(store);
+  const wks = weeksIn(store, m);
+  const sumLogged = people => people.reduce((t, e) => { let x = 0; for (let k = firstOf(m); monthOf(k) === m && k <= TODAY; k = addDays(k, 1)) x += sumMins((readWeek(store, e.id, mondayOf(k)).entries[k] || [])); return t + x; }, 0);
+  const sumWorked = people => people.reduce((t, e) => { let x = 0; for (let k = firstOf(m); monthOf(k) === m && k < TODAY; k = addDays(k, 1)) x += expectedFor(store, e, k); return t + x; }, 0);
+  const stat = people => { const c = { draft: 0, submitted: 0, with_payroll: 0, rejected: 0, approved: 0 }; people.forEach(e => wks.forEach(ws => { const w = store.weeks[e.id + '|' + ws]; if (w) c[w.status === 'change' ? 'submitted' : w.status] = (c[w.status] || 0) + 1; })); return c; };
+  const all = stat(EMP);
+  const blockers = payrollBlockers(store, m);
+  return html`<div>
+    <${AdminSub} value=${sub} onChange=${setSub} tabs=${[['overview', 'Overview'], ['details', 'Details'], ['requests', 'Requests (' + waiting.length + ')']]} />
+    ${sub === 'overview' && html`<div>
+      <div className="row" style=${{ marginBottom: '12px' }}><${Seg} label="Month" value=${m} onChange=${setM} options=${monthOpts().map(x => [x, fmtMonth(x)])} /></div>
+      ${m > store.settings.lastProcessed ? html`<div className=${'banner ' + (blockers.length ? 'amber' : 'blue')}><div style=${{ flex: 1 }}>${blockers.length ? html`<span><b>Payroll for ${fmtMonth(m)} is blocked</b> by ${blockers.length} employee${blockers.length === 1 ? '' : 's'} with timesheets not yet approved.</span>` : html`<span><b>${fmtMonth(m)} is ready for payroll.</b> Every timesheet is approved.</span>`}</div>${blockers.length ? html`<button className="btn sm" onClick=${() => setSub('details')}>See who</button>` : null}</div>` : html`<div className="banner blue"><div>${Icon.lock} Payroll is processed for ${fmtMonth(m)}. Timesheets are locked.</div></div>`}
+      <div className="stats" style=${{ gridTemplateColumns: 'repeat(5,minmax(0,1fr))' }}>${[['draft', 'Not submitted'], ['submitted', 'With managers'], ['with_payroll', 'Waiting for you'], ['rejected', 'Update requested'], ['approved', 'Approved']].map(([k, l]) => html`<div key=${k} className="panel stat"><div className="k">${l}</div><div className="v">${all[k] || 0}</div><div className="k">timesheet periods</div></div>`)}</div>
+      <div className="panel scroll-x"><table><thead><tr><th>Department</th><th>People</th><th>Hours logged</th><th>Hours worked</th><th>With managers</th><th>Waiting for you</th><th>Approved</th></tr></thead>
+        <tbody>${deptRows(ps => ({ c: stat(ps), lg: sumLogged(ps), wk: sumWorked(ps) })).map(r => html`<tr key=${r.d}><td><b style=${{ fontWeight: 500 }}>${r.d}</b></td><td>${r.people.length}</td><td>${dur(r.lg)}</td><td>${dur(r.wk)}</td><td>${r.c.submitted || 0}</td><td>${r.c.with_payroll ? html`<span className="chip blue">${r.c.with_payroll}</span>` : 0}</td><td>${r.c.approved || 0}</td></tr>`)}</tbody></table></div>
+    </div>`}
+    ${sub === 'details' && html`<div>
+      <div className="row" style=${{ marginBottom: '10px' }}><span className="small muted">Department</span><select className="input" style=${{ width: 'auto' }} value=${dept} onChange=${e => setDept(e.target.value)}><option value="all">All departments</option>${Array.from(new Set(EMP.map(e => e.dept))).map(d => html`<option key=${d}>${d}</option>`)}</select><span className="spacer"></span><span className="small muted">Read-only until the manager approves. Then it shows under Requests.</span></div>
+      <${TeamTimesheets} mgr=${{ id: '__all', name: 'Payroll team' }} people=${EMP.filter(e => dept === 'all' || e.dept === dept)} onReview=${it => { const w = store.weeks[it.id + '|' + it.ws]; if (w && w.status === 'with_payroll') setRev(it); }} />
+    </div>`}
+    ${sub === 'requests' && html`<div>
+      <div className="small muted" style=${{ marginBottom: '10px' }}>Timesheets approved by managers, waiting for your final approval. Ask for update sends it straight back to the employee.</div>
+      <div className="panel">${waiting.map(it => { const e = EMAP[it.id]; const w = store.weeks[it.id + '|' + it.ws]; return html`<div key=${it.id + it.ws} className="req"><div><div className="row" style=${{ gap: '8px' }}><span className="avatar" style=${{ width: '26px', height: '26px', fontSize: '11px' }}>${initials(e.name)}</span><span className="title">${e.name}, Timesheet</span><span className="muted small">Week of ${weekRange(it.ws)} \u00b7 ${e.dept}</span></div>
+          <div className="small" style=${{ color: 'var(--ink-2)', marginTop: '4px' }}>${dur(Object.values(w.entries).reduce((t, l) => t + sumMins(l), 0))} logged \u00b7 approved by ${e.mgr ? EMAP[e.mgr].name : 'no manager'}${it.kind === 'change' ? ' \u00b7 edited after approval' : ''}</div></div>
+          <div className="row" style=${{ alignItems: 'flex-start' }}>${it.kind === 'change' ? html`<span className="chip amber">Edited</span>` : null}<button className="btn sm primary" onClick=${() => setRev(it)}>Review</button></div></div>`; })}
+        ${waiting.length === 0 && html`<${Empty} title="Nothing waiting for you">Timesheets reach you after the employee\u2019s manager approves them.<//>`}</div>
+    </div>`}
+    ${rev && html`<${WeekReview} item=${rev} mgr=${{ name: 'Payroll team' }} level=${2} onClose=${() => setRev(null)} />`}
+  </div>`;
+}
+function AdminTypeStats({ type }) {
+  const { store } = useApp();
+  const [m, setM] = useState(monthOf(TODAY));
+  const money = type === 'reimbursement';
+  const val = r => money ? (+r.data.amount || 0) : type === 'overtime' ? (r.data.minutes || 0) : 1;
+  const fmt = v => money ? inr(v) : type === 'overtime' ? dur(v) : v;
+  const inM = store.requests.filter(r => r.type === type && reqVisible(store, r) && r.status !== 'withdrawn' && monthOf(r.data.date || r.data.from || r.created) === m);
+  const sum = l => l.reduce((t, r) => t + val(r), 0);
+  const by = k => inM.filter(r => r.status === k);
+  const cats = money ? Array.from(new Set(inM.map(r => r.data.category))).map(c => ({ c, l: inM.filter(r => r.data.category === c) })) : [];
+  return html`<div>
+    <div className="row" style=${{ marginBottom: '12px' }}><${Seg} label="Month" value=${m} onChange=${setM} options=${monthOpts().map(x => [x, fmtMonth(x)])} /></div>
+    <div className="stats" style=${{ gridTemplateColumns: 'repeat(4,minmax(0,1fr))' }}>${[['Requested', inM], ['With managers', by('pending_l1')], ['Waiting for you', by('pending_l2')], ['Approved', by('approved')]].map(([l, list]) => html`<div key=${l} className="panel stat"><div className="k">${l}</div><div className="v">${fmt(sum(list))}</div><div className="k">${list.length} request${list.length === 1 ? '' : 's'}</div></div>`)}</div>
+    <div className="panel scroll-x" style=${{ marginBottom: '14px' }}><table><thead><tr><th>Department</th><th>Requests</th><th>${money ? 'Claimed' : 'Hours'}</th><th>Waiting for you</th><th>Approved</th></tr></thead>
+      <tbody>${deptRows(ps => { const l = inM.filter(r => ps.some(e => e.id === r.empId)); return { n: l.length, t: sum(l), w: l.filter(r => r.status === 'pending_l2').length, a: sum(l.filter(r => r.status === 'approved')) }; }).filter(r => r.n).map(r => html`<tr key=${r.d}><td><b style=${{ fontWeight: 500 }}>${r.d}</b></td><td>${r.n}</td><td>${fmt(r.t)}</td><td>${r.w ? html`<span className="chip blue">${r.w}</span>` : 0}</td><td>${fmt(r.a)}</td></tr>`)}
+      ${inM.length === 0 ? html`<tr><td colSpan=${5}><${Empty} title="Nothing this month">Requests for ${fmtMonth(m)} show up here.<//></td></tr>` : null}</tbody></table></div>
+    ${money && cats.length ? html`<div className="panel pad"><h3 style=${{ marginBottom: '6px' }}>By category</h3>${cats.map(x => html`<div key=${x.c} className="ul-row" style=${{ cursor: 'default' }}><span>${x.c} <span className="muted small">\u00b7 ${x.l.length}</span></span><span>${inr(sum(x.l))}</span></div>`)}</div>` : null}
+  </div>`;
+}
+function AdminTypeDetails({ type }) {
+  const { store } = useApp();
+  const [m, setM] = useState(monthOf(TODAY));
+  const [open, setOpen] = useState(null);
+  const money = type === 'reimbursement';
+  const val = r => money ? (+r.data.amount || 0) : (r.data.minutes || 0);
+  const fmt = v => money ? inr(v) : dur(v);
+  const rows = EMP.map(e => { const l = store.requests.filter(r => r.type === type && r.empId === e.id && r.status !== 'withdrawn' && monthOf(r.data.date || r.created) === m); return { e, l, ap: l.filter(r => r.status === 'approved').reduce((t, r) => t + val(r), 0), pend: l.filter(r => r.status === 'pending_l1' || r.status === 'pending_l2').reduce((t, r) => t + val(r), 0) }; });
+  return html`<div>
+    <div className="row" style=${{ marginBottom: '12px' }}><${Seg} label="Month" value=${m} onChange=${setM} options=${monthOpts().map(x => [x, fmtMonth(x)])} /></div>
+    <div className="panel scroll-x"><table><thead><tr><th>Employee</th><th>Department</th><th>Requests</th><th>Approved</th><th>Pending</th></tr></thead>
+      <tbody>${rows.map(r => html`<tr key=${r.e.id} style=${{ cursor: r.l.length ? 'pointer' : 'default' }} onClick=${() => r.l.length && setOpen(r)}><td><b style=${{ fontWeight: 500 }}>${r.e.name}</b><div className="muted small">${r.e.title}</div></td><td>${r.e.dept}</td><td>${r.l.length || html`<span className="muted">0</span>`}</td><td>${r.ap ? fmt(r.ap) : html`<span className="muted">\u2014</span>`}</td><td>${r.pend ? fmt(r.pend) : html`<span className="muted">\u2014</span>`}</td></tr>`)}</tbody></table></div>
+    ${open && html`<${Modal} wide title=${open.e.name + ' \u00b7 ' + TYPE_LABEL[type] + ' \u00b7 ' + fmtMonth(m)} onClose=${() => setOpen(null)} footer=${[html`<button key="c" className="btn" onClick=${() => setOpen(null)}>Close</button>`]}><div className="panel">${open.l.map(r => html`<${ReqRow} key=${r.id} r=${r} />`)}</div><//>`}
+  </div>`;
+}
+function AdminLeaveDetails() {
+  const { store } = useApp();
+  const [open, setOpen] = useState(null);
+  return html`<div>
+    <div className="panel scroll-x"><table><thead><tr><th>Employee</th><th>Department</th>${LT.map(t => html`<th key=${t}>${t} available</th>`)}<th>Late deductions</th><th>Loss of pay</th></tr></thead>
+      <tbody>${EMP.map(e => { const b = leaveBalances(store, e); const ded = b.ded.reduce((t, d) => t + d.days, 0); return html`<tr key=${e.id} style=${{ cursor: 'pointer' }} onClick=${() => setOpen(e)}><td><b style=${{ fontWeight: 500 }}>${e.name}</b><div className="muted small">${e.title}</div></td><td>${e.dept}</td>${LT.map(t => html`<td key=${t}>${fd(b.left(t))}</td>`)}<td>${ded ? '\u2212' + fd(ded) : html`<span className="muted">0</span>`}</td><td>${b.lop ? html`<span className="chip red">${fd(b.lop)}</span>` : html`<span className="muted">0</span>`}</td></tr>`; })}</tbody></table></div>
+    <div className="small muted" style=${{ marginTop: '8px' }}>Click someone to see their balances and ledger.</div>
+    ${open && html`<${Modal} wide title=${open.name + ' \u00b7 leave'} onClose=${() => setOpen(null)} footer=${[html`<button key="c" className="btn" onClick=${() => setOpen(null)}>Close</button>`]}><${LeaveBalances} emp=${open} /><//>`}
+  </div>`;
+}
+function AdminService({ type }) {
+  const { store } = useApp();
+  const [sub, setSub] = useState('overview');
+  const waiting = store.requests.filter(r => r.type === type && r.status === 'pending_l2' && reqVisible(store, r)).length;
+  const offToday = type === 'leave' ? store.requests.filter(r => r.type === 'leave' && r.status === 'approved' && r.data.from <= TODAY && r.data.to >= TODAY) : [];
+  const clash = r => { const also = store.requests.filter(x => x.type === 'leave' && x.id !== r.id && x.status === 'approved' && EMAP[x.empId].dept === EMAP[r.empId].dept && x.data.from <= r.data.to && x.data.to >= r.data.from).map(x => first(EMAP[x.empId].name)); return also.length ? html`<span className="chip amber">Also off in ${EMAP[r.empId].dept}: ${Array.from(new Set(also)).join(', ')}</span>` : html`<span className="chip green">No one else off in ${EMAP[r.empId].dept}</span>`; };
+  return html`<div>
+    <${AdminSub} value=${sub} onChange=${setSub} tabs=${type === 'attendance' ? [['requests', 'Requests (' + waiting + ')']] : [['overview', 'Overview'], ['details', 'Details'], ['requests', 'Requests (' + waiting + ')']]} />
+    ${sub === 'overview' && type === 'leave' && html`<div>
+      <div className="panel pad" style=${{ marginBottom: '14px' }}><h3 style=${{ marginBottom: '6px' }}>Off today</h3>${offToday.length ? html`<div className="row" style=${{ gap: '6px' }}>${offToday.map(r => html`<span key=${r.id} className="chip">${EMAP[r.empId].name} \u00b7 ${r.data.leaveType}${r.data.half ? ' \u00bd' : ''}</span>`)}</div>` : html`<span className="small muted">Everyone is in today.</span>`}</div>
+      <${TeamLeaveCal} mgr=${{ id: '__all', name: 'HR team' }} people=${EMP} level=${2} /></div>`}
+    ${sub === 'overview' && type !== 'leave' && type !== 'attendance' && html`<${AdminTypeStats} type=${type} />`}
+    ${sub === 'details' && type === 'leave' && html`<${AdminLeaveDetails} />`}
+    ${sub === 'details' && type !== 'leave' && html`<${AdminTypeDetails} type=${type} />`}
+    ${(sub === 'requests' || type === 'attendance') && html`<${AdminReqs} type=${type} extra=${type === 'leave' ? clash : null} />`}
+  </div>`;
+}
+function AdminEmployees() {
+  const { store } = useApp();
+  const [sub, setSub] = useState('list');
+  const waiting = store.requests.filter(r => r.type === 'profile' && r.status === 'pending_l2').length;
+  return html`<div><${AdminSub} value=${sub} onChange=${setSub} tabs=${[['list', 'Employees'], ['profile', 'Profile updates (' + waiting + ')']]} />
+    ${sub === 'list' ? html`<${Employees} />` : html`<${AdminReqs} type="profile" />`}</div>`;
+}
 function Payroll() {
+  const { store } = useApp();
+  const [tab, setTab] = useState('timesheet');
+  const mode = store.settings.mode;
+  const w = t => store.requests.filter(r => r.type === t && r.status === 'pending_l2' && reqVisible(store, r)).length;
+  const TABS = [
+    mode !== 'attendance' && { k: 'timesheet', label: 'Timesheet', n: payrollTimesheetItems(store).length },
+    mode !== 'timesheet' && { k: 'attendance', label: 'Attendance', n: w('attendance') },
+    { k: 'leave', label: 'Leave', n: w('leave') },
+    { k: 'overtime', label: 'Overtime', n: w('overtime') },
+    { k: 'reimbursement', label: 'Reimbursements', n: w('reimbursement') },
+    { k: 'employees', label: 'Employees', n: w('profile') },
+  ].filter(Boolean);
+  const cur = TABS.find(t => t.k === tab) ? tab : TABS[0].k;
+  return html`<div><${Tabs} tabs=${TABS} value=${cur} onChange=${setTab} />
+    ${cur === 'timesheet' && html`<${AdminTimesheet} />`}
+    ${['attendance', 'leave', 'overtime', 'reimbursement'].includes(cur) && html`<${AdminService} key=${cur} type=${cur} />`}
+    ${cur === 'employees' && html`<${AdminEmployees} />`}
+    ${cur === 'settings' && html`<div><div className="small muted" style=${{ marginBottom: '12px' }}>All ESS settings live here: tracking mode, working-day rules, timesheet filing, project codes, leave policy and the approval matrix.</div><${Settings} /></div>`}
+  </div>`;
+}
+function PayrollOld() {
   const { store } = useApp();
   const [tab, setTab] = useState('approvals');
   const pending = store.requests.filter(r => r.status === 'pending_l2' && reqVisible(store, r)).length;
