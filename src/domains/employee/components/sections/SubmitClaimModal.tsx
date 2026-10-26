@@ -1,4 +1,8 @@
-import React, { useState } from 'react';
+// PROTOTYPE-SETUP (Settings, Slice 5): on the ESS pages the form follows Payroll settings → Reimbursements — the
+// categories, "Limit ₹X a month · ₹Y left for {month}" (or "No monthly limit") and "claim within N days" under the amount,
+// the receipt (required when the category says so), the approval line, and the same checks as the server (claim
+// window, monthly limit, receipt). The regular /employee portal keeps its own categories.
+import React, { useEffect, useState } from 'react';
 
 import {
     CarOutlined,
@@ -9,15 +13,21 @@ import {
     ShoppingCartOutlined,
     TagOutlined,
 } from '@ant-design/icons';
-import { Button, Form, InputNumber, Modal, Typography, Upload } from 'antd';
+import { Alert, Button, Form, InputNumber, Modal, Typography, Upload } from 'antd';
 import type { RcFile } from 'antd/es/upload';
 import dayjs from 'dayjs';
 import { Formik } from 'formik';
+import { useOutletContext } from 'react-router-dom';
 import * as Yup from 'yup';
 
 import DatePickerInput from '@components/atomic/inputs/DatePickerInput';
 import TextAreaInput from '@components/atomic/inputs/TextAreaInput';
+import { getReimbursementRules } from '@src/domains/attendanceTimesheet/api';
+import { useApprovalLine } from '@src/domains/attendanceTimesheet/components/approvalText';
+import { useAtsScope } from '@src/domains/attendanceTimesheet/hooks/useAtsScope';
+import type { EssOutletContext } from '@src/domains/dashboard/Ess/pages/EssLayout';
 import { useAppDispatch } from '@src/hooks/store';
+import { categoryOf, claimProblem, limitLine } from '@src/prototype/rules/reimbursements';
 import { showToast } from '@src/slices/apiSlice';
 
 import { RequestReimbursementBody } from '../../api/reimbursements';
@@ -33,7 +43,7 @@ interface SubmitClaimModalProps {
     onSubmit: (body: RequestReimbursementBody) => Promise<boolean>;
 }
 
-type ClaimCategory = 'Meals' | 'Transport' | 'Accommodation' | 'Supplies' | 'Others';
+type ClaimCategory = string;
 
 interface ClaimFormValues {
     category: ClaimCategory | '';
@@ -66,10 +76,28 @@ const validationSchema = Yup.object({
 // sent as {base64, format} so the backend's existing reimbursementFilesUpload
 // middleware uploads it to real storage (matching how HR-created reimbursements
 // already get a real URL, instead of persisting the raw base64 on the record).
+type Rules = Awaited<ReturnType<typeof getReimbursementRules>>;
+
 const SubmitClaimModal: React.FC<SubmitClaimModalProps> = ({ open, onClose, onSubmit }) => {
     const dispatch = useAppDispatch();
     const [receiptDoc, setReceiptDoc] = useState<{ base64: string; format: string } | null>(null);
     const [receiptName, setReceiptName] = useState('');
+    // PROTOTYPE-SETUP (Settings, Slice 5): ESS pages only (the outlet context is absent on the /employee portal).
+    const ess = Boolean(useOutletContext<EssOutletContext | undefined>());
+    const scope = useAtsScope();
+    const [rules, setRules] = useState<Rules>(false);
+    const [problem, setProblem] = useState('');
+    const approvalLine = useApprovalLine('reimbursement', ess);
+
+    useEffect(() => {
+        if (!open || !ess) return;
+        setProblem('');
+        getReimbursementRules(scope).then(setRules);
+    }, [open, ess, scope]);
+
+    const categoryList: { key: string; icon: React.ReactNode }[] = rules ? rules.categories.map(c => ({ key: c.name, icon: <TagOutlined /> })) : categories;
+    const usedIn = (category: string, date: string) =>
+        rules ? rules.usage.find(u => u.category === category.toLowerCase() && u.month === date.slice(0, 7))?.amount ?? 0 : 0;
 
     const initialValues: ClaimFormValues = {
         category: '',
@@ -89,6 +117,7 @@ const SubmitClaimModal: React.FC<SubmitClaimModalProps> = ({ open, onClose, onSu
             return Upload.LIST_IGNORE;
         }
         setReceiptName(file.name);
+        setProblem('');
         const reader = new FileReader();
         reader.onload = () => {
             if (typeof reader.result === 'string') {
@@ -106,8 +135,19 @@ const SubmitClaimModal: React.FC<SubmitClaimModalProps> = ({ open, onClose, onSu
         values: ClaimFormValues,
         { resetForm }: { resetForm: () => void }
     ) => {
-        const details = [values.category, values.description].filter(Boolean).join(' — ');
+        if (rules) {
+            const why = claimProblem(
+                { category: values.category, amount: values.amount, date: values.expenseDate, hasReceipt: Boolean(receiptName) },
+                { rules, today: rules.today, used: usedIn(values.category, values.expenseDate) }
+            );
+            if (why) {
+                setProblem(why);
+                return;
+            }
+        }
+        const details = rules ? values.description : [values.category, values.description].filter(Boolean).join(' — ');
         const ok = await onSubmit({
+            ...(rules ? { category: values.category, ...(receiptName ? { receiptName } : {}) } : {}),
             amount: values.amount as number,
             expenseDate: values.expenseDate,
             expenseDetails: details || undefined,
@@ -165,13 +205,17 @@ const SubmitClaimModal: React.FC<SubmitClaimModalProps> = ({ open, onClose, onSu
                             help={touched.category && errors.category ? errors.category : undefined}
                         >
                             <div className="flex flex-wrap gap-2">
-                                {categories.map(({ key, icon }) => {
+                                {categoryList.map(({ key, icon }) => {
                                     const selected = values.category === key;
                                     return (
                                         <button
                                             key={key}
                                             type="button"
-                                            onClick={() => setFieldValue('category', key)}
+                                            data-claim-category={key}
+                                            onClick={() => {
+                                                setFieldValue('category', key);
+                                                setProblem('');
+                                            }}
                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all cursor-pointer"
                                             style={{
                                                 borderColor: selected ? '#FF3A3A' : '#d9d9d9',
@@ -209,8 +253,19 @@ const SubmitClaimModal: React.FC<SubmitClaimModalProps> = ({ open, onClose, onSu
                                 onChange={val => {
                                     setFieldValue('amount', val);
                                     setFieldTouched('amount', true);
+                                    setProblem('');
                                 }}
                             />
+                            {rules && values.category && (
+                                <Text type="secondary" className="mt-1 block text-xs" data-claim-limit>
+                                    {limitLine(
+                                        categoryOf(rules, values.category),
+                                        usedIn(values.category, values.expenseDate),
+                                        dayjs(values.expenseDate).format('MMMM YYYY'),
+                                        rules.claimWindowDays
+                                    )}
+                                </Text>
+                            )}
                         </Form.Item>
 
                         <DatePickerInput
@@ -230,7 +285,11 @@ const SubmitClaimModal: React.FC<SubmitClaimModalProps> = ({ open, onClose, onSu
                             maxLength={300}
                         />
 
-                        <Form.Item label="Receipt">
+                        <Form.Item
+                            label={
+                                rules && values.category && !categoryOf(rules, values.category)?.receiptRequired ? 'Receipt (optional)' : 'Receipt'
+                            }
+                        >
                             <Upload.Dragger
                                 accept=".png,.jpg,.jpeg,.pdf"
                                 maxCount={1}
@@ -248,6 +307,13 @@ const SubmitClaimModal: React.FC<SubmitClaimModalProps> = ({ open, onClose, onSu
                                 </p>
                             </Upload.Dragger>
                         </Form.Item>
+
+                        {rules && approvalLine && (
+                            <Text type="secondary" className="text-xs" data-approval-line>
+                                {approvalLine}
+                            </Text>
+                        )}
+                        {problem && <Alert type="error" showIcon message={problem} data-claim-error />}
 
                         <div className="flex gap-3">
                             <Button

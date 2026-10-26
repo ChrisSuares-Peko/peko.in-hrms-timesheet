@@ -89,7 +89,11 @@ export const approvedLeaveOn = (mode: DataMode, employeeId: number, date: string
 
 // ---- reimbursements -------------------------------------------------------------------------------------------
 
-export type StoredClaim = Omit<MockReimbursement, 'employee' | 'status'> & {
+export type StoredClaim = Omit<MockReimbursement, 'employee' | 'status' | 'category'> & {
+    /** PROTOTYPE-SETUP (Settings, Slice 5): a category from Payroll settings → Reimbursements (seeds keep theirs). */
+    category: string;
+    /** PROTOTYPE-SETUP (Settings, Slice 5): a receipt was attached. */
+    receipt?: boolean;
     employeeId: number;
     trail: ApprovalTrail;
     withdrawn?: boolean;

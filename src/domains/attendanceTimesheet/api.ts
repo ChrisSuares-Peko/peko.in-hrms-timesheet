@@ -15,6 +15,7 @@ import type {
     AdminRequestType,
     AdminTimesheetOverview,
     PersonRef,
+    ReimbursementRules,
     ApprovalCounts,
     AtsOverview,
     AtsSettings,
@@ -241,6 +242,9 @@ export const processPayrollMonth = (s: AtsScope, month: string) =>
 
 /** The Leave page: leave year, balances and ledger, late deductions, probation / exit notes, requests. */
 export const getLeaveView = (s: AtsScope) => call<LeaveView>(s, 'get', 'leave');
+/** PROTOTYPE-SETUP (Settings, Slice 5): the claim form's rules and what's already claimed per category and month. */
+export const getReimbursementRules = (s: AtsScope) =>
+    call<ReimbursementRules & { today: string; usage: { category: string; month: string; amount: number }[] }>(s, 'get', 'reimbursement-rules');
 /** PROTOTYPE-SETUP (Settings, Slice 1): "Approval: Arjun Mehta (manager), then Payroll team." per request type. */
 export const getApprovalLines = (s: AtsScope) =>
     call<Record<'attendance' | 'overtime' | 'leave' | 'reimbursement' | 'timesheet', string>>(s, 'get', 'approval-lines');

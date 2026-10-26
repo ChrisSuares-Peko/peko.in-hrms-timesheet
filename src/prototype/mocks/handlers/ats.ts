@@ -57,6 +57,7 @@ import {
     timesheetNoticesOf,
     timesheetPeriodsOf,
     approvalLinesOf,
+    reimbursementRulesOf,
 } from '../store/atsEss';
 import { homeOf } from '../store/atsHome';
 import { createLeaveRequest, leaveViewOf, resubmitLeaveRequest, setEmployeeLife, withdrawLeaveRequest } from '../store/atsLeave';
@@ -212,6 +213,8 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/leave`, ess((ctx, me) => leaveViewOf(ctx.mode, me))),
     // PROTOTYPE-SETUP (Settings, Slice 1): who a new request goes to, per type.
     route('GET', `${A}/approval-lines`, ess((ctx, me) => approvalLinesOf(ctx.mode, me))),
+    // PROTOTYPE-SETUP (Settings, Slice 5): the claim form's categories, limits, receipts and window.
+    route('GET', `${A}/reimbursement-rules`, ess((ctx, me) => reimbursementRulesOf(ctx.mode, me))),
     route('POST', `${A}/leave/requests`, ess((ctx, me) => createLeaveRequest(ctx.mode, me, ctx.body))),
     route('POST', `${A}/leave/requests/:id/withdraw`, ess((ctx, me) => withdrawLeaveRequest(ctx.mode, me, ctx.params.id!))),
     route('POST', `${A}/leave/requests/:id/resubmit`, ess((ctx, me) => resubmitLeaveRequest(ctx.mode, me, ctx.params.id!, ctx.body))),

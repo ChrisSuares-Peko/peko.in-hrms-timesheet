@@ -17,10 +17,11 @@ export const approvedToast = (res: Pick<RequestItem, 'trail'> | null | undefined
 type LineType = 'attendance' | 'overtime' | 'leave' | 'reimbursement' | 'timesheet';
 
 /** "Approval: Arjun Mehta (manager), then Payroll team." for a request type ('' until loaded). */
-export const useApprovalLine = (type: LineType) => {
+export const useApprovalLine = (type: LineType, enabled = true) => {
     const scope = useAtsScope();
     const [line, setLine] = useState('');
     useEffect(() => {
+        if (!enabled) return undefined;
         let alive = true;
         getApprovalLines(scope).then(res => {
             if (alive && res) setLine(res[type]);
@@ -28,6 +29,6 @@ export const useApprovalLine = (type: LineType) => {
         return () => {
             alive = false;
         };
-    }, [scope, type]);
+    }, [scope, type, enabled]);
     return line;
 };

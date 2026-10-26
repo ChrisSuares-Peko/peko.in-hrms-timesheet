@@ -52,6 +52,7 @@ import type { AttendanceApiRecord, AttendanceMetrics } from '@domains/employee/a
 import type { AvailableLeave, HolidayDoc, LeaveDoc, ReimbursementRecord } from '@domains/employee/types';
 // PROTOTYPE-SETUP: ESS Service 1 — live Attendance & Timesheet store.
 import { RuleError, startTrail } from '@src/prototype/rules/attendance';
+import { categoryOf, claimProblem } from '@src/prototype/rules/reimbursements';
 
 import { COMPANY } from '../data/company';
 import { EMPLOYEES, ESS_EMPLOYEE, MockEmployee, PAYROLL_TOTALS, findEmployee, managerOf } from '../data/employees';
@@ -119,7 +120,11 @@ import { DataMode, ModeData, byMode, raw } from '../envelope';
 import { fail } from '../errors';
 import { essRequester } from '../requester';
 import { MockRoute, route } from '../router';
-import { checkIn as atsCheckIn, checkOut as atsCheckOut } from '../store/atsEss';
+import {
+    checkIn as atsCheckIn,
+    checkOut as atsCheckOut,
+    claimedIn,
+} from '../store/atsEss';
 import {
     findLiveAttendance,
     legacyDay,
@@ -1423,16 +1428,30 @@ const essRoutes: MockRoute[] = [
     route('POST', `${P}/reimbursement-requests`, ({ mode, body }): ReimbursementRecord => {
         const me = essEmployee();
         const at = new Date().toISOString();
+        // PROTOTYPE-SETUP (Settings, Slice 5): the category, claim window, monthly limit and receipt per Payroll settings
+        // (a claim without a category — the regular /employee portal — keeps the old behaviour).
+        const rules = getSettings(mode).reimbursements;
+        const expenseDate = toLocalIsoDate(body?.expenseDate) ?? todayIso();
+        const asked = typeof body?.category === 'string' ? body.category : '';
+        const hasReceipt = Boolean(body?.supportingDocs || body?.receiptName);
+        if (asked) {
+            const problem = claimProblem(
+                { category: asked, amount: Number(body?.amount ?? 0), date: expenseDate, hasReceipt },
+                { rules, today: todayIso(), used: claimedIn(mode, me, asked, expenseDate.slice(0, 7)) }
+            );
+            if (problem) throw fail(400, problem);
+        }
         const claim: StoredClaim = {
             id: `rb-new-${Date.now()}`,
             employeeId: me.id,
-            expenseDate: toLocalIsoDate(body?.expenseDate) ?? todayIso(),
-            category: (['Travel', 'Internet', 'Meals', 'Fuel', 'Equipment'] as const).find(c => c === body?.category) ?? 'Travel',
+            expenseDate,
+            category: (asked && categoryOf(rules, asked)?.name) || 'Travel',
             expenseDetails: String(body?.expenseDetails ?? ''),
             totalPay: Number(body?.amount ?? 0),
             transferMethod: 'With Salary',
             paymentStatus: 'UNPAID',
             supportingDocs: '',
+            ...(hasReceipt ? { receipt: true } : {}),
             createdAt: at,
             updatedAt: at,
             trail: startTrail('reimbursement', managerRefOf(me), getSettings(mode), routeContext(me)),

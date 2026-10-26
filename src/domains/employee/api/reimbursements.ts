@@ -13,6 +13,10 @@ interface ReimbursementListQuery {
 }
 
 export interface RequestReimbursementBody {
+    /** PROTOTYPE-SETUP (Settings, Slice 5): a category from Payroll settings (ESS pages). */
+    category?: string;
+    /** PROTOTYPE-SETUP (Settings, Slice 5): the attached receipt's name. */
+    receiptName?: string;
     amount: number;
     expenseDate: string;
     expenseDetails?: string;

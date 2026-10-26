@@ -7,7 +7,7 @@ import { DEFAULT_SETTINGS, approvalPathText, personApprover, routeStep, startTra
 import { atsScenario } from '../../data/ats-seed';
 import { findEmployee } from '../../data/employees';
 import { adminDecide, adminRequests } from '../atsAdmin';
-import { approvalLinesOf, createOvertime, submitWeek } from '../atsEss';
+import { approvalLinesOf, claimedIn, createOvertime, reimbursementRulesOf, submitWeek } from '../atsEss';
 import { createLeaveRequest, leaveViewOf } from '../atsLeave';
 import { employeesFor, routeContext, weekView } from '../atsStore';
 import { approveWeek, decideRequest, payrollApproveWeek, payrollTimesheetQueue, teamOf, teamReimbursements, teamRequests, teamWaiting, timesheetQueue, updateSettings } from '../atsTeam';
@@ -168,5 +168,21 @@ describe('leave request rules', () => {
         const d = nextWorking(s.today, 30);
         expect(() => createLeaveRequest(M, sneha, { type: 'CASUAL', start: d, half: 'FIRST', reason: 'x' })).toThrow('Half-day leave is turned off. Apply for full days.');
         expect(() => createLeaveRequest(M, sneha, { type: 'SICK', start: d, end: nextWorking(d, 1), reason: 'x' })).toThrow('Sick leave of more than 1 day needs a medical certificate or proof.');
+    });
+});
+
+// PROTOTYPE-SETUP (Settings, Slice 5): categories edited in settings; what's already claimed.
+describe('reimbursement settings', () => {
+    it('categories: added, edited, no duplicates; the form gets them with the claim window', () => {
+        const cats = [...DEFAULT_SETTINGS.reimbursements.categories, { name: 'Training', monthlyLimit: 5000, receiptRequired: false }];
+        updateSettings(M, { reimbursements: { categories: cats, claimWindowDays: 30 } });
+        const r = reimbursementRulesOf(M, sneha);
+        expect(r.categories.map(c => c.name)).toContain('Training');
+        expect(r.claimWindowDays).toBe(30);
+        expect(() => updateSettings(M, { reimbursements: { categories: [...cats, { name: 'training', monthlyLimit: 0, receiptRequired: true }], claimWindowDays: 30 } })).toThrow('“training” is already a category.');
+    });
+    it('already claimed counts approved, pending and update-requested claims in that category and month', () => {
+        const r = reimbursementRulesOf(M, sneha);
+        r.usage.forEach(u => expect(claimedIn(M, sneha, u.category, u.month)).toBe(u.amount));
     });
 });

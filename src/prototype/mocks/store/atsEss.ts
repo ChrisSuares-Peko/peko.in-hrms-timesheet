@@ -64,6 +64,7 @@ import {
     validateOvertimeInput,
     approvalLineFor,
 } from '@src/prototype/rules/attendance';
+import { countsAgainstLimit } from '@src/prototype/rules/reimbursements';
 import {
     EDITED_AFTER_TEXT,
     SubmissionAcknowledgement,
@@ -92,6 +93,7 @@ import {
 } from '@src/prototype/rules/timesheetImport';
 
 import { leaveViewOf } from './atsLeave';
+import { atsReimbursements } from './atsRequests';
 import {
     activeOvertimeOn,
     atsCorrections,
@@ -985,3 +987,32 @@ export const approvalLinesOf = (mode: DataMode, e: MockEmployee) =>
     Object.fromEntries(
         (['attendance', 'overtime', 'leave', 'reimbursement', 'timesheet'] as const).map(t => [t, approvalLineFor(newTrail(mode, t, e), managerRef(e)?.id ?? null)])
     ) as Record<'attendance' | 'overtime' | 'leave' | 'reimbursement' | 'timesheet', string>;
+
+/**
+ * PROTOTYPE-SETUP (Settings, Slice 5): the claim form's rules — the categories (limit, receipt), the claim window, and
+ * what this employee has already claimed per category and month (approved, pending or update requested).
+ */
+export const reimbursementRulesOf = (mode: DataMode, e: MockEmployee) => {
+    const rules = getSettings(mode).reimbursements;
+    const usage = new Map<string, number>();
+    atsReimbursements
+        .get(mode)
+        .filter(c => c.employeeId === e.id && !c.withdrawn && countsAgainstLimit(c.trail.status))
+        .forEach(c => {
+            const key = `${c.category.toLowerCase()}|${c.expenseDate.slice(0, 7)}`;
+            usage.set(key, (usage.get(key) ?? 0) + c.totalPay);
+        });
+    return {
+        ...rules,
+        today: today(),
+        usage: [...usage.entries()].map(([k, amount]) => ({ category: k.split('|')[0], month: k.split('|')[1], amount })),
+    };
+};
+
+/** Already claimed in a category and month (for the limit). */
+export const claimedIn = (mode: DataMode, e: MockEmployee, category: string, month: string) =>
+    atsReimbursements
+        .get(mode)
+        .filter(c => c.employeeId === e.id && !c.withdrawn && countsAgainstLimit(c.trail.status))
+        .filter(c => c.category.toLowerCase() === category.toLowerCase() && c.expenseDate.slice(0, 7) === month)
+        .reduce((n, c) => n + c.totalPay, 0);
