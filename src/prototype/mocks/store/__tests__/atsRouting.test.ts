@@ -159,3 +159,14 @@ describe('my team visibility', () => {
         expect(before).toBe(0);
     });
 });
+
+// PROTOTYPE-SETUP (Settings, Slice 4): the leave rules reach the employee's form and the server's checks.
+describe('leave request rules', () => {
+    it('half-day off and the proof days come from settings', () => {
+        updateSettings(M, { leaveRules: { halfDay: false, proofDays: 1 } });
+        expect(leaveViewOf(M, sneha).rules).toEqual({ halfDay: false, proofDays: 1 });
+        const d = nextWorking(s.today, 30);
+        expect(() => createLeaveRequest(M, sneha, { type: 'CASUAL', start: d, half: 'FIRST', reason: 'x' })).toThrow('Half-day leave is turned off. Apply for full days.');
+        expect(() => createLeaveRequest(M, sneha, { type: 'SICK', start: d, end: nextWorking(d, 1), reason: 'x' })).toThrow('Sick leave of more than 1 day needs a medical certificate or proof.');
+    });
+});

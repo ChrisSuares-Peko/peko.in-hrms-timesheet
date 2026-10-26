@@ -10,7 +10,7 @@ import { Alert, Button, DatePicker, Input, Modal, Segmented, Select, Typography,
 import dayjs, { type Dayjs } from 'dayjs';
 
 import { RuleError, WEEKDAYS } from '@src/prototype/rules/attendance';
-import { LEAVE_LABEL, LEAVE_TYPES, dayMonth, dayWord, fmtDays, leaveDays, validateLeaveRequest } from '@src/prototype/rules/leavePolicy';
+import { LEAVE_LABEL, LEAVE_TYPES, dayMonth, dayWord, fmtDays, leaveDays, proofRuleText, validateLeaveRequest } from '@src/prototype/rules/leavePolicy';
 
 import { applyForLeave } from '../api';
 import { useAtsScope } from '../hooks/useAtsScope';
@@ -79,7 +79,10 @@ const ApplyLeaveModal = ({
     const start = iso(from);
     const end = duration === 'half' ? start : iso(to) || start;
     const days = start && end >= start ? leaveDays(start, end, duration === 'half' ? half : null, isWorkingDay) : 0;
-    const sickProofNeeded = type === 'SICK' && days > 3;
+    // PROTOTYPE-SETUP (Settings, Slice 4): the proof threshold and half days come from Payroll settings → Leave.
+    const proofDays = view.rules?.proofDays ?? 3;
+    const halfDayOn = view.rules?.halfDay ?? true;
+    const sickProofNeeded = type === 'SICK' && days > proofDays;
 
     let countLine = '';
     if (duration === 'half') countLine = half === 'FIRST' ? 'Half a day. You’ll start work at mid-shift.' : 'Half a day. You’ll finish at mid-shift.';
@@ -99,7 +102,7 @@ const ApplyLeaveModal = ({
                         ? `${LEAVE_LABEL[l.type]} leave, ${dayMonth(l.start)} (${l.half === 'FIRST' ? 'first' : 'second'} half)`
                         : `${LEAVE_LABEL[l.type]} leave, ${dayMonth(l.start)}${l.end > l.start ? ` – ${dayMonth(l.end)}` : ''}`,
                 }));
-            validateLeaveRequest(input(), { isWorkingDay, existing, available });
+            validateLeaveRequest(input(), { isWorkingDay, existing, available, rules: view.rules });
         } catch (e) {
             setError(e instanceof RuleError ? e.message : 'Couldn’t check this request.');
             return;
@@ -151,7 +154,7 @@ const ApplyLeaveModal = ({
                         }}
                         options={[
                             { value: 'full', label: 'Full day(s)' },
-                            { value: 'half', label: 'Half day' },
+                            ...(halfDayOn ? [{ value: 'half', label: 'Half day' }] : []),
                         ]}
                         className="self-start"
                     />
@@ -214,7 +217,7 @@ const ApplyLeaveModal = ({
                             </Button>
                         </Upload>
                         <Text type="secondary" className="text-xs">
-                            {sickProofNeeded ? 'Required for sick leave of more than 3 days.' : 'Required only for more than 3 days.'}
+                            {proofRuleText(proofDays, sickProofNeeded)}
                             {proof ? ` Attached: ${proof.name}` : ''}
                         </Text>
                     </div>

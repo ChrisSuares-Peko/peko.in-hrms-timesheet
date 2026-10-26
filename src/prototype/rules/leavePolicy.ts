@@ -22,8 +22,14 @@ export const LEAVE_LABEL: Record<LeaveType, string> = { ANNUAL: 'Annual', CASUAL
 // The defaults live with DEFAULT_SETTINGS (rules/attendance.ts) — re-exported here.
 export { DEFAULT_LATE_DEDUCTION_DAYS, DEFAULT_LEAVE_POLICY } from './attendance';
 
-/** Sick leave longer than this needs proof. */
+/** Sick leave longer than this needs proof (the default; PROTOTYPE-SETUP (Settings, Slice 4): Payroll settings → Leave). */
 export const SICK_PROOF_AFTER_DAYS = 3;
+
+/** PROTOTYPE-SETUP (Settings, Slice 4): "Required for sick leave of more than 3 days." / "… for all sick leave." (0 = always). */
+export const proofRuleText = (proofDays: number, needed: boolean) => {
+    if (proofDays === 0) return 'Required for all sick leave.';
+    return needed ? `Required for sick leave of more than ${proofDays} ${dayWord(proofDays)}.` : `Required only for more than ${proofDays} ${dayWord(proofDays)}.`;
+};
 
 // ---- dates ------------------------------------------------------------------------------------------------
 
@@ -293,7 +299,10 @@ export const LEAVE_MESSAGES = {
     overlap: (summary: string) => `You already have leave on these dates (${summary}).`,
     balance: (n: number, type: LeaveType) =>
         `You have ${fmtDays(n)} ${dayWord(n)} of ${LEAVE_LABEL[type]} leave available right now. Apply for fewer days or pick another leave type.`,
-    proof: 'Sick leave of more than 3 days needs a medical certificate or proof.',
+    proof: (proofDays = SICK_PROOF_AFTER_DAYS) =>
+        proofDays === 0 ? 'Sick leave needs a medical certificate or proof.' : `Sick leave of more than ${proofDays} ${dayWord(proofDays)} needs a medical certificate or proof.`,
+    /** PROTOTYPE-SETUP (Settings, Slice 4): half-day leave turned off. */
+    halfOff: 'Half-day leave is turned off. Apply for full days.',
     reason: 'Add a short reason.',
     date: 'Pick a valid date.',
     type: 'Pick a leave type.',
@@ -325,12 +334,19 @@ const clashes = (a: { start: string; end: string; half: LeaveHalf | null }, b: {
  */
 export const validateLeaveRequest = (
     input: { type?: LeaveType; start?: string; end?: string; half?: LeaveHalf | null; reason?: string; proof?: { name: string } | null },
-    ctx: { isWorkingDay: (d: string) => boolean; existing: ExistingLeave[]; available: Record<LeaveType, number> }
+    ctx: {
+        isWorkingDay: (d: string) => boolean;
+        existing: ExistingLeave[];
+        available: Record<LeaveType, number>;
+        /** PROTOTYPE-SETUP (Settings, Slice 4): half-day leave on/off and the sick-leave proof threshold. */
+        rules?: { halfDay: boolean; proofDays: number };
+    }
 ) => {
     if (!input.type || !LEAVE_TYPES.includes(input.type)) throw new RuleError(LEAVE_MESSAGES.type, 400);
     const iso = /^\d{4}-\d{2}-\d{2}$/;
     if (!iso.test(input.start ?? '')) throw new RuleError(LEAVE_MESSAGES.date, 400);
     const half = input.half === 'FIRST' || input.half === 'SECOND' ? input.half : null;
+    if (half && ctx.rules && !ctx.rules.halfDay) throw new RuleError(LEAVE_MESSAGES.halfOff, 400);
     const start = input.start!;
     const end = half ? start : input.end || start;
     if (!iso.test(end)) throw new RuleError(LEAVE_MESSAGES.date, 400);
@@ -341,7 +357,8 @@ export const validateLeaveRequest = (
     if (clash) throw new RuleError(LEAVE_MESSAGES.overlap(clash.summary), 409);
     const available = ctx.available[input.type];
     if (days > available + 1e-9) throw new RuleError(LEAVE_MESSAGES.balance(Math.max(0, available), input.type), 409);
-    if (input.type === 'SICK' && days > SICK_PROOF_AFTER_DAYS && !input.proof?.name) throw new RuleError(LEAVE_MESSAGES.proof, 400);
+    const proofDays = ctx.rules?.proofDays ?? SICK_PROOF_AFTER_DAYS;
+    if (input.type === 'SICK' && days > proofDays && !input.proof?.name) throw new RuleError(LEAVE_MESSAGES.proof(proofDays), 400);
     const reason = input.reason?.trim() ?? '';
     if (!reason) throw new RuleError(LEAVE_MESSAGES.reason, 400);
     return { type: input.type, start, end, half, days, reason, ...(input.proof?.name ? { proof: { name: input.proof.name } } : {}) };

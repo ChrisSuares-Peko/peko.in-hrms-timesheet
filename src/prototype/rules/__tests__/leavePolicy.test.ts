@@ -14,6 +14,7 @@ import {
     fmtDays,
     leaveDays,
     leaveYearOf,
+    proofRuleText,
     validateLeaveRequest,
     lateDayDetail,
     lateLedgerText,
@@ -185,6 +186,19 @@ describe('leave requests', () => {
         expect(leaveDays('2026-11-06', '2026-11-09', null, weekday)).toBe(2); // Fri + Mon
         expect(leaveDays('2026-11-06', '2026-11-06', 'FIRST', weekday)).toBe(0.5);
     });
+    // PROTOTYPE-SETUP (Settings, Slice 4): Payroll settings → Leave → Leave requests.
+    it('half-day leave off: only full days; the proof threshold follows the setting (0 = always)', () => {
+        const off = { ...ctx, rules: { halfDay: false, proofDays: 3 } };
+        expect(err(() => validateLeaveRequest({ type: 'CASUAL', start: '2026-11-04', half: 'SECOND', reason: 'Bank' }, off))).toBe(LEAVE_MESSAGES.halfOff);
+        const one = { ...ctx, rules: { halfDay: true, proofDays: 1 } };
+        expect(err(() => validateLeaveRequest({ type: 'SICK', start: '2026-11-16', end: '2026-11-17', reason: 'x' }, one))).toBe('Sick leave of more than 1 day needs a medical certificate or proof.');
+        const always = { ...ctx, rules: { halfDay: true, proofDays: 0 } };
+        expect(err(() => validateLeaveRequest({ type: 'SICK', start: '2026-11-16', end: '2026-11-16', reason: 'x' }, always))).toBe('Sick leave needs a medical certificate or proof.');
+        const five = { ...ctx, rules: { halfDay: true, proofDays: 5 } };
+        expect(err(() => validateLeaveRequest({ type: 'SICK', start: '2026-11-16', end: '2026-11-19', reason: 'x' }, five))).toBe('no error');
+        expect(proofRuleText(3, true)).toBe('Required for sick leave of more than 3 days.');
+        expect(proofRuleText(0, true)).toBe('Required for all sick leave.');
+    });
     it('half day, first or second', () => {
         expect(validateLeaveRequest({ type: 'CASUAL', start: '2026-11-04', half: 'SECOND', reason: 'Bank' }, ctx)).toMatchObject({ end: '2026-11-04', half: 'SECOND', days: 0.5 });
     });
@@ -195,7 +209,7 @@ describe('leave requests', () => {
         expect(err(() => validateLeaveRequest({ type: 'ANNUAL', start: '2026-11-16', end: '2026-11-19', reason: 'x' }, ctx))).toBe(
             'You have 3 days of Annual leave available right now. Apply for fewer days or pick another leave type.'
         );
-        expect(err(() => validateLeaveRequest({ type: 'SICK', start: '2026-11-16', end: '2026-11-19', reason: 'x' }, ctx))).toBe(LEAVE_MESSAGES.proof);
+        expect(err(() => validateLeaveRequest({ type: 'SICK', start: '2026-11-16', end: '2026-11-19', reason: 'x' }, ctx))).toBe(LEAVE_MESSAGES.proof());
         expect(err(() => validateLeaveRequest({ type: 'SICK', start: '2026-11-16', end: '2026-11-19', reason: 'x', proof: { name: 'cert.pdf' } }, ctx))).toBe('no error');
         expect(err(() => validateLeaveRequest({ type: 'SICK', start: '2026-11-16', end: '2026-11-18', reason: ' ' }, ctx))).toBe(LEAVE_MESSAGES.reason);
     });

@@ -1217,6 +1217,8 @@ export interface LeaveView {
     employeeName: string;
     /** PROTOTYPE-SETUP (Final batch, Slice 6): "Arjun Mehta (manager), then HR team" — who approves a new request. */
     approvalPath: string;
+    /** PROTOTYPE-SETUP (Settings, Slice 4): half-day leave on/off, and sick leave over `proofDays` needs proof. */
+    rules: LeaveRequestRules;
     /** Weekly offs and public holidays (90 days back to a year ahead), so the apply form can count working days. */
     calendar: { weeklyOff: Weekday[]; holidays: string[] };
 }

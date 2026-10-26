@@ -113,6 +113,8 @@ export const leaveViewOf = (mode: DataMode, e: MockEmployee): LeaveView => {
         employeeName: e.fullName,
         // PROTOTYPE-SETUP (Settings, Slice 1): who a new request would go to, by name.
         approvalPath: approvalPathText(newTrail(mode, 'leave', e), managerRef(e)?.id ?? null),
+        // PROTOTYPE-SETUP (Settings, Slice 4): what the apply form offers (half days) and asks for (proof).
+        rules: settings.leaveRules,
         calendar: {
             weeklyOff: settings.weeklyOff,
             holidays: Array.from({ length: 456 }, (_, i) => addDays(t, i - 90)).filter(d => Boolean(publicHolidayOn(d))),
@@ -135,7 +137,7 @@ export const createLeaveRequest = (mode: DataMode, e: MockEmployee, input: Leave
     const existing = leaveRequestsOf(mode, e.id)
         .filter(l => isLive(l) || l.trail.status === 'UPDATE_REQUESTED')
         .map(l => ({ start: l.start, end: l.end, half: l.half, summary: summaryOf(l) }));
-    const clean = validateLeaveRequest(input ?? {}, { isWorkingDay: isWorkingDayFor(mode), existing, available: availableForRequest(mode, e) });
+    const clean = validateLeaveRequest(input ?? {}, { isWorkingDay: isWorkingDayFor(mode), existing, available: availableForRequest(mode, e), rules: getSettings(mode).leaveRules });
     const at = nowIso();
     const request: LeaveRequest = { id: uid(), employeeId: e.id, ...clean, trail: startTrail('leave', managerRef(e), getSettings(mode), routeContext(e)), createdAt: at, updatedAt: at };
     atsLeaveRequests.update(mode, list => [request, ...list]);
@@ -153,7 +155,7 @@ export const resubmitLeaveRequest = (mode: DataMode, e: MockEmployee, id: string
         .filter(x => x.id !== id && (isLive(x) || x.trail.status === 'UPDATE_REQUESTED'))
         .map(x => ({ start: x.start, end: x.end, half: x.half, summary: summaryOf(x) }));
     const merged = { type: l.type, start: l.start, end: l.end, half: l.half, reason: l.reason, proof: l.proof ?? null, ...(input ?? {}) };
-    const clean = validateLeaveRequest(merged, { isWorkingDay: isWorkingDayFor(mode), existing, available: availableForRequest(mode, e) });
+    const clean = validateLeaveRequest(merged, { isWorkingDay: isWorkingDayFor(mode), existing, available: availableForRequest(mode, e), rules: getSettings(mode).leaveRules });
     const at = nowIso();
     const trail = resubmitTrail(l.trail, at, e.fullName);
     atsLeaveRequests.update(mode, list => list.map(x => (x.id === id ? { ...x, ...clean, trail, updatedAt: at } : x)));
