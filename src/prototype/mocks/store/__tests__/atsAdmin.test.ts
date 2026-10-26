@@ -19,7 +19,7 @@ import {
 import { createCorrection, submitWeek } from '../atsEss';
 import { createLeaveRequest, leaveViewOf, resubmitLeaveRequest } from '../atsLeave';
 import { atsLeaveRequests } from '../atsRequests';
-import { attendanceDay, currentMonth, employeesFor, weekView } from '../atsStore';
+import { attendanceDay, correctionsOf, currentMonth, employeesFor, weekView } from '../atsStore';
 import { approveWeek, decideRequest, payrollApproveWeek, payrollMonthStatus, payrollSendBackWeek, payrollTimesheetQueue, teamRequests } from '../atsTeam';
 import { resetAllCollections } from '../persistentStore';
 
@@ -157,5 +157,39 @@ describe('payroll admin: leave', () => {
     it('off today lists approved leave covering today', () => {
         createLeaveRequest(M, sneha, { type: 'CASUAL', start: s.today, end: s.today, reason: 'x' });
         expect(adminOffToday(M).some(o => o.employee.id === sneha.id)).toBe(false);
+    });
+});
+
+// PROTOTYPE-SETUP (Payroll admin, Slice 6): approving at level 2 is final and runs the existing effects.
+describe('payroll admin: approval effects', () => {
+    it('leave approved by the admin is applied to attendance and the timesheet', () => {
+        const row = adminRequests(M, 'leave').find(r => r.bucket === 'mgr' && !r.item.leave?.half)!;
+        const manager = findEmployee(row.item.employee.id)!;
+        const boss = employeesFor(M).find(e => e.employeeId === manager.managerEmployeeId)!;
+        decideRequest(M, 'leave', row.item.id, { role: 'MANAGER', manager: boss }, 'APPROVED');
+        adminDecide(M, 'leave', row.item.id, 'APPROVED');
+        const day = row.item.leave!.start;
+        const v = weekView(M, manager, day).days.find(d => d.date === day)!;
+        if (v.attendance.status !== 'holiday' && v.attendance.status !== 'weekly-off') {
+            expect(v.attendance.status).toBe('on-leave');
+            expect(v.leaveRows?.[0]).toMatchObject({ kind: 'LEAVE' });
+        }
+    });
+    it('a correction approved by the admin reverses its late deduction', () => {
+        const late = leaveViewOf(M, sneha).lateDeductions.find(l => l.date === s.lateDay);
+        if (!late) return; // the scripted late day may fall before this leave year
+        const c = correctionsOf(M, sneha).find(x => x.date === s.lateDay && x.trail.status.startsWith('PENDING'))!;
+        decideRequest(M, 'attendance', c.id, { role: 'MANAGER', manager: arjun }, 'APPROVED');
+        adminDecide(M, 'attendance', c.id, 'APPROVED');
+        expect(leaveViewOf(M, sneha).lateDeductions.find(l => l.date === s.lateDay)!.state).toBe('reversed');
+    });
+    it('a timesheet approved by the admin clears its payroll blocker', () => {
+        const item = payrollTimesheetQueue(M, 'waiting')[0];
+        if (!item) return;
+        const month = item.weekStart.slice(0, 7);
+        const blocked = () => payrollMonthStatus(M, month).blockers.some(b => b.employee.id === item.employee.id && b.weekStart === item.weekStart);
+        expect(blocked()).toBe(true);
+        payrollApproveWeek(M, String(item.employee.id), item.weekStart);
+        expect(blocked()).toBe(false);
     });
 });

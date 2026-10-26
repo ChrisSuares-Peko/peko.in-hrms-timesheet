@@ -26,7 +26,6 @@ import type {
     LeaveRequestInput,
     LeaveHalf,
     LeaveView,
-    Level2Role,
     MyProfileView,
     OvertimeContext,
     OvertimeInput,
@@ -43,7 +42,6 @@ import type {
     TimesheetApprovalItem,
     TimesheetEntryInput,
     TimesheetMonthView,
-    TimesheetStatusView,
     TimesheetNotices,
     TimesheetWeekView,
     TeamAttendanceView,
@@ -59,8 +57,6 @@ export interface AtsScope {
 
 /** PROTOTYPE-SETUP (Final batch, Slice 1): leave (→ HR) and reimbursements (→ Admin) go to the manager first too. */
 export type AtsRequestType = 'attendance' | 'overtime' | 'leave' | 'reimbursement';
-/** PROTOTYPE-SETUP (Overview, Slice 4): level 2 (HR) also decides profile updates. */
-export type Level2RequestType = AtsRequestType | 'profile';
 
 export type CorrectionWithStatus = AttendanceCorrection & { statusLabel: string };
 
@@ -233,21 +229,8 @@ export const askForUpdateWeek = (s: AtsScope, employeeId: number, weekStart: str
 
 // ---- Payroll ----------------------------------------------------------------------------------------------
 
-export const getLevel2Counts = (s: AtsScope, role: Level2Role) =>
-    call<Record<Level2RequestType | 'timesheets', number>>(s, 'get', 'payroll/approvals/counts', { params: { role } });
-export const getLevel2Queue = (s: AtsScope, role: Level2Role, type: Level2RequestType, scope: QueueScope) =>
-    call<RequestItem[]>(s, 'get', `payroll/approvals/${type}`, { params: { role, scope } });
-export const decideLevel2 = (
-    s: AtsScope,
-    role: Level2Role,
-    type: Level2RequestType,
-    id: string,
-    decision: 'approve' | 'reject' | 'update',
-    comment?: string
-) => call<RequestItem>(s, 'post', `payroll/approvals/${type}/${id}/${decisionPath(decision)}`, { body: { comment }, params: { role } });
-
-export const getTimesheetStatus = (s: AtsScope, month?: string) =>
-    call<TimesheetStatusView>(s, 'get', 'payroll/timesheet-status', month ? { params: { month } } : {});
+// PROTOTYPE-SETUP (Payroll admin, Slice 6): the Level 2 approvals and Timesheet status calls are gone — the admin
+// side uses payroll/admin/* (below).
 export const getPayrollMonths = (s: AtsScope) => call<PayrollMonthStatus[]>(s, 'get', 'payroll/months');
 export const getPayrollMonth = (s: AtsScope, month: string) =>
     call<PayrollMonthStatus>(s, 'get', `payroll/months/${month}`);

@@ -1,47 +1,23 @@
-// PROTOTYPE-SETUP: ESS Service 1 — attendance-correction / overtime approval list with "Waiting for you" and
-// "All requests". Used by ESS - Manager (level 1) and Payroll HR / Finance (level 2). Approve takes an optional
-// comment, reject needs one; decisions are final. A request on a payroll-processed day can't be approved.
+// PROTOTYPE-SETUP: ESS Service 1 — one request card (who, what, the change, the reason, the status and its trail) and the
+// decision dialog. Approve takes an optional comment, reject needs one; decisions are final. A request on a
+// payroll-processed day can't be approved. PROTOTYPE-SETUP (Payroll admin, Slice 6): the old queue list (Waiting /
+// All, used by the retired Level 2 approvals page) is removed; the lists are the My team inbox and the admin list.
 // PROTOTYPE-SETUP (My team, Slices 3 and 5): "Ask for update" at either level (a comment required) sends it straight
 // back to the employee. RequestCard and RequestDecisionModal are shared with the My team Approvals inbox.
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment } from 'react';
 
 import { CheckOutlined, CloseOutlined, EditOutlined, LockOutlined } from '@ant-design/icons';
-import { Alert, Avatar, Button, Empty, Flex, Input, Modal, Segmented, Skeleton, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Avatar, Button, Flex, Input, Modal, Tag, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
-import { useAppDispatch } from '@src/hooks/store';
-import { showToast } from '@src/slices/apiSlice';
 
-import type { Level2RequestType } from '../api';
-import type { OvertimeContext, QueueScope, RequestItem } from '../types';
+import type { OvertimeContext, RequestItem } from '../types';
 import { displayTime, displayTimeOn, fmtDate, fmtStamp, formatDuration } from './format';
 import { RequestStatusTag } from './StatusTags';
 import TrailSteps from './TrailSteps';
 
 dayjs.extend(relativeTime);
-
-export interface RequestQueueProps {
-    type: Level2RequestType;
-    /** Load the list for a scope. */
-    load: (scope: QueueScope) => Promise<RequestItem[] | false>;
-    /** Approve / reject. Approve/Reject buttons show only on items with `waitingForYou`; reject needs a comment. */
-    decide: (item: RequestItem, decision: RequestDecision, comment?: string) => Promise<RequestItem | false>;
-    /** After a decision, e.g. to refresh tab counts. */
-    onChanged?: () => void;
-    defaultScope?: QueueScope;
-    /** Who is deciding, for copy like "Waiting for you" (default 'Manager'). */
-    actingAs?: 'Manager' | 'HR' | 'Finance' | 'Payroll' | 'Admin';
-}
-
-const TYPE_COPY: Record<Level2RequestType, { plural: string; single: string }> = {
-    attendance: { plural: 'attendance corrections', single: 'attendance correction' },
-    overtime: { plural: 'overtime requests', single: 'overtime request' },
-    profile: { plural: 'profile updates', single: 'profile update' },
-    // PROTOTYPE-SETUP (Final batch, Slice 1)
-    leave: { plural: 'leave requests', single: 'leave request' },
-    reimbursement: { plural: 'reimbursement claims', single: 'reimbursement claim' },
-};
 
 /** PROTOTYPE-SETUP (Overview, Slice 4): a profile update, field by field (old → new), with the new photo. */
 const ProfileChanges = ({ item }: { item: RequestItem }) => {
@@ -310,133 +286,3 @@ export const RequestDecisionModal = ({
     );
 };
 
-const RequestQueue = ({ type, load, decide, onChanged, defaultScope = 'waiting', actingAs = 'Manager' }: RequestQueueProps) => {
-    const dispatch = useAppDispatch();
-    const [scope, setScope] = useState<QueueScope>(defaultScope);
-    const [items, setItems] = useState<RequestItem[] | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [pending, setPending] = useState<PendingDecision | null>(null);
-    const [comment, setComment] = useState('');
-    const [commentError, setCommentError] = useState(false);
-    const [busy, setBusy] = useState(false);
-
-    const refresh = useCallback(async () => {
-        setLoading(true);
-        const res = await load(scope);
-        setItems(res === false ? [] : res);
-        setLoading(false);
-    }, [load, scope]);
-
-    useEffect(() => {
-        refresh();
-    }, [refresh]);
-
-    const open = (item: RequestItem, decision: RequestDecision) => {
-        setPending({ item, decision });
-        setComment('');
-        setCommentError(false);
-    };
-
-    const confirm = async () => {
-        if (!pending) return;
-        const note = comment.trim();
-        if (pending.decision !== 'approve' && !note) {
-            setCommentError(true);
-            return;
-        }
-        setBusy(true);
-        const res = await decide(pending.item, pending.decision, note || undefined);
-        setBusy(false);
-        if (res === false) return;
-        const done: Record<RequestDecision, string> = {
-            approve: 'Request approved',
-            reject: 'Request rejected',
-            update: `Sent back to ${pending.item.employee.name} to update`,
-        };
-        dispatch(showToast({ variant: 'success', description: done[pending.decision] }));
-        setPending(null);
-        await refresh();
-        onChanged?.();
-    };
-
-    const copy = TYPE_COPY[type];
-    const roleCopy = actingAs === 'Manager' ? 'you' : `you as ${actingAs}`;
-
-    const renderList = () => {
-        if (loading && !items) {
-            return (
-                <Flex vertical gap={12}>
-                    {[0, 1, 2].map(i => (
-                        <div key={i} className="rounded-2xl border border-solid border-[#EAECF0] p-4">
-                            <Skeleton active avatar paragraph={{ rows: 2 }} />
-                        </div>
-                    ))}
-                </Flex>
-            );
-        }
-        if (!items?.length) {
-            return (
-                <div className="rounded-2xl border border-dashed border-[#EAECF0] py-10">
-                    <Empty
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description={
-                            <Flex vertical gap={2}>
-                                <Typography.Text strong>
-                                    {scope === 'waiting' ? "You're all caught up" : `No ${copy.plural} yet`}
-                                </Typography.Text>
-                                <Typography.Text type="secondary">
-                                    {scope === 'waiting'
-                                        ? `No ${copy.plural} are waiting for ${roleCopy}.`
-                                        : `${copy.plural[0].toUpperCase()}${copy.plural.slice(1)} you can see will be listed here.`}
-                                </Typography.Text>
-                            </Flex>
-                        }
-                    />
-                </div>
-            );
-        }
-        return (
-            <Flex vertical gap={12} className={loading ? 'opacity-60 transition-opacity' : ''}>
-                {items.map(item => (
-                    <RequestCard key={item.id} item={item} onDecide={d => open(item, d)} />
-                ))}
-            </Flex>
-        );
-    };
-
-    return (
-        <Flex vertical gap={16}>
-            <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
-                <Segmented<QueueScope>
-                    value={scope}
-                    onChange={v => setScope(v)}
-                    options={[
-                        { label: 'Waiting for you', value: 'waiting' },
-                        { label: 'All requests', value: 'all' },
-                    ]}
-                />
-                {items && items.length > 0 && (
-                    <Typography.Text type="secondary" className="text-sm">
-                        {items.length} {items.length === 1 ? copy.single : copy.plural}
-                    </Typography.Text>
-                )}
-            </Flex>
-            {renderList()}
-            <RequestDecisionModal
-                pending={pending}
-                busy={busy}
-                comment={comment}
-                commentError={commentError}
-                single={copy.single}
-                onComment={c => {
-                    setComment(c);
-                    if (c.trim()) setCommentError(false);
-                }}
-                onConfirm={confirm}
-                onClose={() => setPending(null)}
-            />
-        </Flex>
-    );
-};
-
-export default RequestQueue;
