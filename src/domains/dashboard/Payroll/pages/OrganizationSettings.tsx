@@ -80,12 +80,22 @@ const OrganizationSettings = () => {
             label: 'ESS Settings',
             children: <EssSettings />,
         },
+        // PROTOTYPE-SETUP (Settings, Slices 3–5): all ESS settings, in three tabs (only the open one is mounted, so one tab's
+        // save never brings back another's old values). Run payroll isn't here: it's in Process Salary.
         {
-            // PROTOTYPE-SETUP: ESS Service 1 — mode, day rules, weekly off, timesheet approval and the approval
-            // matrix. The V1 AttendanceTimesheetSettings component is no longer rendered (left in place, isolated).
             key: '10',
-            label: 'Attendance & Timesheet',
-            children: <AtsSettingsTab />,
+            label: 'Attendance, timesheet & overtime',
+            children: activeTabKey === '10' ? <AtsSettingsTab section="ato" /> : null,
+        },
+        {
+            key: '11',
+            label: 'Leave',
+            children: activeTabKey === '11' ? <AtsSettingsTab section="leave" /> : null,
+        },
+        {
+            key: '12',
+            label: 'Reimbursements',
+            children: activeTabKey === '12' ? <AtsSettingsTab section="reimbursements" /> : null,
         },
     ];
 

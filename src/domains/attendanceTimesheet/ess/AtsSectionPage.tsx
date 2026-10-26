@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { ReloadOutlined } from '@ant-design/icons';
 import { Badge, Button, Empty, Skeleton, Tabs } from 'antd';
-import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { EssPageHeader } from '@src/components/ess/EssUi';
 
@@ -30,7 +30,7 @@ const SUBTITLE: Record<AtsMode, string> = {
     attendance: 'Check in and out, see your monthly attendance and claim overtime.',
     both: 'Check in and out, log your hours each week and claim overtime.',
     timesheet: 'Log your hours each week and claim overtime.',
-    none: '',
+    none: 'Claim overtime you worked.',
 };
 
 const AtsSectionPage = () => {
@@ -65,16 +65,14 @@ const AtsSectionPage = () => {
                 title={title}
                 subtitle={
                     overview
-                        ? `${SUBTITLE[overview.mode]} Shift ${displayTime(overview.shift.start)}–${displayTime(overview.shift.end)}.`
+                        ? `${SUBTITLE[overview.mode]}${overview.mode === 'none' ? '' : ` Shift ${displayTime(overview.shift.start)}–${displayTime(overview.shift.end)}.`}`
                         : undefined
                 }
             />
         </div>
     );
 
-    // PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' mode tracks nothing — the section is hidden; opening it
-    // directly goes back to the tab's home (the Overview on ESS - Employee).
-    if (overview?.mode === 'none') return <Navigate to={paths.home} replace />;
+    // PROTOTYPE-SETUP (Settings, Slice 3): in Neither the section is just Overtime (its subtitle has no shift).
 
     if (!overview) {
         return (

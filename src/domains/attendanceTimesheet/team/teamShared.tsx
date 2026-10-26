@@ -33,7 +33,7 @@ export const useTeamSettings = (scope: AtsScope): TeamSettings => {
             setState({
                 loaded: true,
                 mode: res.mode,
-                approvalOn: res.timesheetApproval.enabled !== false && res.mode !== 'attendance',
+                approvalOn: res.timesheetApproval.enabled !== false && hasTimesheets(res.mode),
             });
         });
         return () => {

@@ -918,8 +918,9 @@ export const overtimeViewOf = (mode: DataMode, e: MockEmployee, month: string): 
 };
 
 export const createOvertime = (mode: DataMode, e: MockEmployee, input: OvertimeInput): OvertimeRequest => {
+    // PROTOTYPE-SETUP (Settings, Slice 3): overtime works in every mode — in Neither the employee claims it by hand
+    // (there's nothing to suggest it from).
     const settings = getSettings(mode);
-    if (!hasTracking(settings.mode)) throw new RuleError(NOT_TRACKED);
     const t = today();
     validateOvertimeInput(input, t);
     if (input.date < e.dateOfJoin) throw new RuleError('That day is before your joining date.', 400);

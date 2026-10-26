@@ -585,8 +585,9 @@ describe('profile updates', () => {
 
 // PROTOTYPE-SETUP (Overview v4, Slice 5): the 'none' mode rules.
 describe("'none' mode rules", () => {
-    it('tracks nothing: no tabs, no check-in, no timesheets, no overtime, nothing expected', () => {
-        expect(tabsFor('none')).toEqual([]);
+    it('tracks nothing: only the Overtime tab, no check-in, no timesheets, no overtime, nothing expected', () => {
+        expect(tabsFor('none')).toEqual(['overtime']); // PROTOTYPE-SETUP (Settings, Slice 3): overtime by hand
+        expect(titleFor('none')).toBe('Overtime');
         expect([hasCheckIn('none'), hasTimesheets('none'), hasTracking('none')]).toEqual([false, false, false]);
         expect([hasCheckIn('both'), hasTimesheets('both'), hasTracking('both')]).toEqual([true, true, true]);
         expect(overtimeMinutes({ mode: 'none', settings: S, isOffDay: true, checkIn: '09:00', checkOut: '20:00', loggedMinutes: 600 })).toBe(0);

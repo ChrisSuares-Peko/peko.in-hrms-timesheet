@@ -4,10 +4,13 @@
 // "Timesheet approvals" (opened automatically with ?review=1). A small attendance summary for the month sits on top.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+
 import { ArrowLeftOutlined, AuditOutlined, LeftOutlined, RightOutlined } from '@ant-design/icons';
 import { Button, Flex, Result, Skeleton, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+
+import { hasCheckIn, hasTimesheets } from '@src/prototype/rules/attendance';
 
 import { getMemberAttendance, getMemberMonth, getMemberWeek } from '../api';
 import { formatDuration } from '../components/format';
@@ -207,10 +210,10 @@ const MemberTimesheetPage = () => {
                 <Skeleton active paragraph={{ rows: 8 }} />
             ) : (
                 <Flex vertical gap={16}>
-                    {settings.mode !== 'timesheet' && (
+                    {hasCheckIn(settings.mode) && (
                         <AttendanceSummary employeeId={employeeId} initialMonth={initialDate.slice(0, 7)} />
                     )}
-                    {settings.mode !== 'attendance' && (
+                    {hasTimesheets(settings.mode) && (
                         <div className="min-w-0">
                             <ManagerTimesheetViewer
                                 loadWeek={loadWeek}

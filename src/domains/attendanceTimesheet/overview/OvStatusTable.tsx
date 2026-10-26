@@ -13,12 +13,14 @@
 // Timesheet, overtime → Overtime, the date → Timesheet (Attendance in Attendance-only mode).
 import { ReactNode } from 'react';
 
+
 import { Table, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 
 import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
+import { hasCheckIn, hasTimesheets } from '@src/prototype/rules/attendance';
 
 import { displayTime, formatDuration } from '../components/format';
 import type { AtsMode, AtsTab, OverviewDay } from '../types';
@@ -124,14 +126,14 @@ const OvStatusTable = ({
                 </span>
             ),
         },
-        ...(mode !== 'timesheet'
+        ...(hasCheckIn(mode)
             ? [
                   { key: 'in', title: 'Check in', tab: 'attendance' as const, withDate: true, hint: 'Open in Attendance', cell: (d: OverviewDay) => checkInCell(d, today) },
                   { key: 'out', title: 'Check out', tab: 'attendance' as const, withDate: true, hint: 'Open in Attendance', cell: checkOutCell },
                   { key: 'worked', title: 'Hrs worked', tab: 'attendance' as const, withDate: true, hint: 'Open in Attendance', cell: (d: OverviewDay) => workedCell(d, today) },
               ]
             : []),
-        ...(mode !== 'attendance'
+        ...(hasTimesheets(mode)
             ? [{ key: 'hours', title: 'Hours logged', tab: 'timesheet' as const, withDate: true, hint: 'Open in Timesheet', cell: (d: OverviewDay) => loggedCell(d, mode, today) }]
             : []),
         { key: 'ot', title: 'Overtime', tab: 'overtime', withDate: false, hint: 'Open Overtime', cell: overtimeCell },

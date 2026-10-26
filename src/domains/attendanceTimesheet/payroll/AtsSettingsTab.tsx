@@ -1,9 +1,15 @@
-// PROTOTYPE-SETUP: ESS Service 1 — Payroll → HR Settings → "Attendance & Timesheet". The single place for the
-// full set of ATS settings. PROTOTYPE-SETUP (Final batch, Slice 7), in this order: Tracking mode · Working day rules
-// (standard day, day rules, weekly off) · Timesheet filing (frequency, task-entry fields, approval, auto-submit day and
-// time) · Project codes · Leave policy · Approvals (Payroll / HR / Admin / Finance / None) · Run payroll. Saved with
-// PUT settings (updateAtsSettings). ESS Settings still edits grace period and the default shift through the legacy
-// hr-settings endpoints, which read and write the same values.
+// PROTOTYPE-SETUP: ESS Service 1 — Payroll → Payroll settings. Saved with PUT settings (updateAtsSettings).
+// PROTOTYPE-SETUP (Settings, Slices 3–5): all ESS settings, in three tabs (the `section` prop):
+//   ato ............ Attendance, timesheet & overtime — Tracking mode (Attendance only · Timesheet only · Attendance +
+//                    timesheet · Neither) · Working day rules (shift, break, grace period, half-day threshold, weekly
+//                    off) · Timesheet filing and approval · Project codes · Overtime · Approvals (attendance corrections,
+//                    timesheets, overtime)
+//   leave .......... Leave policy · Leave requests (half-day leave, sick-leave proof) · Late check-in deduction ·
+//                    Approvals (leave)
+//   reimbursements . Categories (monthly limit, receipt) · Claim window · Approvals (reimbursements)
+// Approvals: level 1 (Reporting manager · a team · a specific person) and level 2 (a team · a specific person · None);
+// rows grey out ("Not in use") when the mode turns that function off. Run payroll isn't a setting: it stays in the
+// Payroll module (Process Salary). Each tab saves the full set, so tabs never undo each other.
 import { useEffect, useState } from 'react';
 
 import {
@@ -36,11 +42,10 @@ import { DEFAULT_FILING, PROJECT_CODE_RE, WEEKDAYS, displayTime, filingFieldsErr
 import { LEAVE_LABEL, LEAVE_TYPES, fmtDays } from '@src/prototype/rules/leavePolicy';
 import { showToast } from '@src/slices/apiSlice';
 
-import { runAutoSubmitNow, updateAtsSettings } from '../api';
-import PayrollMonthPanel from './PayrollMonthPanel';
+import { getApproverPeople, runAutoSubmitNow, updateAtsSettings } from '../api';
 import { usePayrollScope, useAtsSettings } from './usePayrollAts';
 import { fmtStamp } from '../components/format';
-import type { ApprovalType, AtsMode, AtsSettings, FilingFrequency, Level2Approver, Level2ConfigurableType, Weekday, LeavePolicy } from '../types';
+import type { AtsMode, AtsSettings, FilingFrequency, Level1Approver, Level2Approver, Level2ConfigurableType, Weekday, LeavePolicy, ReimbursementCategory } from '../types';
 
 dayjs.extend(customParseFormat);
 
@@ -63,7 +68,12 @@ interface FormValues {
     submissionWeekday: Weekday;
     /** PROTOTYPE-SETUP (Final batch, Slice 1): auto-submit time, "23:00". */
     submissionTime: string;
+    level1: Record<Level2Key, Level1Approver>;
     level2: Record<Level2Key, Level2Approver>;
+    /** PROTOTYPE-SETUP (Settings, Slice 4): half-day leave and the sick-leave proof rule. */
+    leaveRules: { halfDay: boolean; proofDays: number };
+    /** PROTOTYPE-SETUP (Settings, Slice 5): categories and the claim window. */
+    reimbursements: { categories: ReimbursementCategory[]; claimWindowDays: number };
     frequency: FilingFrequency;
     fieldStart: boolean;
     fieldEnd: boolean;
@@ -91,61 +101,52 @@ const patternText = (start: boolean, end: boolean, duration: boolean) => {
     return '';
 };
 
-const MODES: { value: AtsMode; label: string; tabs: string; overtime: string }[] = [
-    {
-        value: 'attendance',
-        label: 'Attendance only',
-        tabs: 'Employees check in and out. Tabs: Attendance, Overtime.',
-        overtime: 'Overtime is time between check-in and check-out beyond the shift.',
-    },
+// PROTOTYPE-SETUP (Settings, Slice 3): the four modes, in this order.
+const MODES: { value: AtsMode; label: string; tabs: string }[] = [
+    { value: 'attendance', label: 'Attendance only', tabs: 'Employees check in and out. No timesheets.' },
+    { value: 'timesheet', label: 'Timesheet only', tabs: 'No check-in. Each day runs on the shift times, and timesheets count as days worked.' },
     {
         value: 'both',
-        label: 'Attendance & Timesheet',
-        tabs: 'Employees check in and out, and log their work between those times. Tabs: Attendance, Timesheet, Overtime.',
-        overtime: 'Overtime is time between check-in and check-out beyond the shift.',
+        label: 'Attendance + timesheet',
+        tabs: 'Check in and out, then log what you worked on. Each day runs from check-in to check-out.',
     },
-    {
-        value: 'timesheet',
-        label: 'Timesheet only',
-        tabs: 'No check-in. Employees log their work against the shift. Tabs: Timesheet, Overtime.',
-        overtime: 'Overtime is hours logged beyond the shift.',
-    },
-    // PROTOTYPE-SETUP (Overview v4, Slice 5): the fourth mode.
-    {
-        value: 'none',
-        label: 'Neither: no attendance or timesheet tracking',
-        tabs: 'No check-in and no timesheets. The Attendance & Timesheet section is hidden.',
-        overtime: 'No overtime — there is nothing to calculate it from.',
-    },
+    { value: 'none', label: 'Neither', tabs: 'No attendance or timesheets. Leave, overtime, reimbursements and the rest still work.' },
 ];
 
-// PROTOTYPE-SETUP (Final batch, Slice 1): every request type can go to Payroll, HR, Admin or Finance at level 2 (defaults:
-// attendance, overtime and timesheets → Payroll; leave → HR; reimbursements → Admin).
-const LEVEL2_OPTIONS: { value: Level2Approver; label: string }[] = [
-    { value: 'PAYROLL', label: 'Payroll' },
-    { value: 'HR', label: 'HR' },
-    { value: 'ADMIN', label: 'Admin' },
-    { value: 'FINANCE', label: 'Finance' },
-    { value: 'NONE', label: 'None (manager is final)' },
-];
+export type SettingsSection = 'ato' | 'leave' | 'reimbursements';
+
+/** PROTOTYPE-SETUP (Settings, Slice 3): the approver dropdowns, grouped (level 1 and level 2 differ). */
+type Person = { id: number; name: string; title: string };
+const TEAMS = { label: 'Teams', options: (['PAYROLL', 'HR', 'ADMIN', 'FINANCE'] as const).map(t => ({ value: t, label: ({ PAYROLL: 'Payroll', HR: 'HR', ADMIN: 'Admin', FINANCE: 'Finance' } as const)[t] })) };
+const peopleGroup = (people: Person[]) => ({ label: 'A specific person', options: people.map(p => ({ value: `person:${p.id}`, label: `${p.name} · ${p.title}` })) });
+const level1Options = (people: Person[]) => [{ value: 'MANAGER', label: 'Reporting manager' }, TEAMS, peopleGroup(people)];
+const level2Options = (people: Person[]) => [TEAMS, peopleGroup(people), { value: 'NONE', label: 'None (level 1 is final)' }];
 
 interface MatrixRow {
-    key: ApprovalType;
+    key: Level2Key;
     label: string;
-    hint?: string;
 }
 
-const MATRIX: MatrixRow[] = [
-    { key: 'attendance', label: 'Attendance corrections' },
-    { key: 'overtime', label: 'Overtime' },
-    { key: 'timesheet', label: 'Timesheets' },
-    { key: 'leave', label: 'Leave', hint: 'Used when leave moves to this approval chain' },
-    {
-        key: 'reimbursement',
-        label: 'Reimbursement',
-        hint: 'Used when reimbursements move to this approval chain',
-    },
-];
+const ROWS: Record<SettingsSection, MatrixRow[]> = {
+    ato: [
+        { key: 'attendance', label: 'Attendance corrections' },
+        { key: 'timesheet', label: 'Timesheets' },
+        { key: 'overtime', label: 'Overtime' },
+    ],
+    leave: [{ key: 'leave', label: 'Leave' }],
+    reimbursements: [{ key: 'reimbursement', label: 'Reimbursements' }],
+};
+
+const SECTION_TITLE: Record<SettingsSection, string> = {
+    ato: 'Attendance, timesheet & overtime',
+    leave: 'Leave',
+    reimbursements: 'Reimbursements',
+};
+const SECTION_LINE: Record<SettingsSection, string> = {
+    ato: 'How employees record their day, the rules for each day, overtime, and who approves corrections, timesheets and overtime.',
+    leave: 'The leave policy, what employees can ask for, late check-in deductions, and who approves leave.',
+    reimbursements: 'What employees can claim, the limits and receipts, the claim window, and who approves claims.',
+};
 
 const dayName = (d: Weekday) => d.charAt(0) + d.slice(1).toLowerCase();
 const WEEKDAY_OPTIONS = WEEKDAYS.map(d => ({ value: d, label: dayName(d) }));
@@ -164,6 +165,7 @@ const toForm = (s: AtsSettings): FormValues => ({
     approvalEnabled: s.timesheetApproval.enabled,
     submissionWeekday: s.timesheetApproval.submissionWeekday,
     submissionTime: s.timesheetApproval.submissionTime,
+    level1: { ...s.level1 },
     level2: {
         attendance: s.level2.attendance,
         overtime: s.level2.overtime,
@@ -171,6 +173,8 @@ const toForm = (s: AtsSettings): FormValues => ({
         reimbursement: s.level2.reimbursement,
         timesheet: s.level2.timesheet,
     },
+    leaveRules: { ...s.leaveRules },
+    reimbursements: { claimWindowDays: s.reimbursements.claimWindowDays, categories: s.reimbursements.categories.map(c => ({ ...c })) },
     frequency: (s.timesheetFiling ?? DEFAULT_FILING).frequency,
     fieldStart: (s.timesheetFiling ?? DEFAULT_FILING).fields.startTime,
     fieldEnd: (s.timesheetFiling ?? DEFAULT_FILING).fields.endTime,
@@ -196,7 +200,10 @@ const fromForm = (v: FormValues): Partial<AtsSettings> => ({
     lateDeductionDays: v.lateDeductionDays ?? 0,
     weeklyOff: WEEKDAYS.filter(d => v.weeklyOff.includes(d)),
     timesheetApproval: { enabled: v.approvalEnabled, submissionWeekday: v.submissionWeekday, submissionTime: v.submissionTime || '23:00' },
+    level1: { ...v.level1 },
     level2: { ...v.level2 },
+    leaveRules: { halfDay: Boolean(v.leaveRules.halfDay), proofDays: v.leaveRules.proofDays ?? 0 },
+    reimbursements: { claimWindowDays: v.reimbursements.claimWindowDays ?? 60, categories: v.reimbursements.categories },
     timesheetFiling: {
         frequency: v.frequency,
         fields: { startTime: v.fieldStart, endTime: v.fieldEnd, duration: v.fieldDuration, projectCode: v.fieldProjectCode },
@@ -333,6 +340,142 @@ const LeavePolicyCard = () => {
 };
 
 
+/** PROTOTYPE-SETUP (Settings, Slice 4): what employees can ask for when they apply. */
+const LeaveRequestsCard = () => {
+    const form = Form.useFormInstance<FormValues>();
+    const halfDay = Form.useWatch(['leaveRules', 'halfDay'], form);
+    return (
+        <Card title="Leave requests" size="small" data-leave-requests-settings>
+            <Text type="secondary" className="mb-3 block text-xs">
+                What employees can ask for when they apply.
+            </Text>
+            <Flex align="start" gap={12} className="mb-4">
+                <Form.Item name={['leaveRules', 'halfDay']} valuePropName="checked" noStyle>
+                    <Switch aria-label="Half-day leave" />
+                </Form.Item>
+                <Flex vertical gap={2} className="min-w-0">
+                    <Text strong>Half-day leave</Text>
+                    <Text type="secondary" className="text-xs">
+                        {halfDay ? 'Employees pick the first or second half of the day.' : 'Off: the form only offers full days.'}
+                    </Text>
+                </Flex>
+            </Flex>
+            <Flex align="center" gap={8} wrap="wrap">
+                <Text className="text-sm">Sick leave needs proof when it’s longer than</Text>
+                <Form.Item name={['leaveRules', 'proofDays']} noStyle>
+                    <InputNumber min={0} max={30} className="!w-[72px]" aria-label="Proof needed after days" />
+                </Form.Item>
+                <Text type="secondary" className="text-xs">
+                    days (0 = always)
+                </Text>
+            </Flex>
+        </Card>
+    );
+};
+
+/** PROTOTYPE-SETUP (Settings, Slice 5): what employees can claim for, the monthly limit and whether a receipt is needed. */
+const CategoriesCard = () => {
+    const form = Form.useFormInstance<FormValues>();
+    const [name, setName] = useState('');
+    const [problem, setProblem] = useState('');
+    return (
+        <Card title="Categories" size="small" data-reimbursement-categories>
+            <Text type="secondary" className="mb-3 block text-xs">
+                What employees can claim for, how much per month, and whether a receipt is needed.
+            </Text>
+            <Form.List name={['reimbursements', 'categories']}>
+                {(fields, { add, remove }) => {
+                    const addOne = () => {
+                        const n = name.trim();
+                        const cats: ReimbursementCategory[] = form.getFieldValue(['reimbursements', 'categories']) ?? [];
+                        if (!n) return setProblem('Add a name.');
+                        if (cats.some(c => c.name.toLowerCase() === n.toLowerCase())) return setProblem('That category already exists.');
+                        add({ name: n, monthlyLimit: 0, receiptRequired: true });
+                        setName('');
+                        return setProblem('');
+                    };
+                    return (
+                        <Flex vertical gap={10}>
+                            <div className="overflow-x-auto">
+                                <table className="w-full min-w-[520px] border-collapse text-sm">
+                                    <thead>
+                                        <tr className="text-left text-xs text-gray-500">
+                                            <th className="py-1 pr-3 font-normal">Category</th>
+                                            <th className="py-1 pr-3 font-normal">Monthly limit per employee</th>
+                                            <th className="py-1 pr-3 font-normal">Receipt required</th>
+                                            <th className="py-1 font-normal" aria-label="Remove" />
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {fields.map(f => {
+                                            const cat: ReimbursementCategory | undefined = form.getFieldValue(['reimbursements', 'categories', f.name]);
+                                            return (
+                                                <tr key={f.key} className="border-0 border-t border-solid border-gray-100" data-category-row={cat?.name}>
+                                                    <td className="py-2 pr-3">{cat?.name}</td>
+                                                    <td className="py-2 pr-3">
+                                                        <Flex align="center" gap={6}>
+                                                            <Text className="text-sm">₹</Text>
+                                                            <Form.Item name={[f.name, 'monthlyLimit']} noStyle>
+                                                                <InputNumber min={0} step={100} className="!w-[120px]" aria-label={`${cat?.name} monthly limit`} />
+                                                            </Form.Item>
+                                                            {!cat?.monthlyLimit && (
+                                                                <Text type="secondary" className="text-xs">
+                                                                    no limit
+                                                                </Text>
+                                                            )}
+                                                        </Flex>
+                                                    </td>
+                                                    <td className="py-2 pr-3">
+                                                        <Form.Item name={[f.name, 'receiptRequired']} valuePropName="checked" noStyle>
+                                                            <Checkbox aria-label={`${cat?.name} receipt required`} />
+                                                        </Form.Item>
+                                                    </td>
+                                                    <td className="py-2 text-right">
+                                                        <Button size="small" type="text" onClick={() => remove(f.name)} disabled={fields.length === 1}>
+                                                            Remove
+                                                        </Button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <Flex gap={6} className="max-w-md">
+                                <Input
+                                    placeholder="New category, e.g. Training"
+                                    aria-label="New category"
+                                    value={name}
+                                    status={problem ? 'error' : undefined}
+                                    onChange={e => {
+                                        setName(e.target.value.slice(0, 40));
+                                        setProblem('');
+                                    }}
+                                    onPressEnter={e => {
+                                        e.preventDefault();
+                                        addOne();
+                                    }}
+                                />
+                                <Button onClick={addOne} data-add-category>
+                                    Add
+                                </Button>
+                            </Flex>
+                            {problem && (
+                                <Text type="danger" className="text-xs">
+                                    {problem}
+                                </Text>
+                            )}
+                            <Text type="secondary" className="text-xs">
+                                Monthly limit: 0 = no limit.
+                            </Text>
+                        </Flex>
+                    );
+                }}
+            </Form.List>
+        </Card>
+    );
+};
+
 const ModeCards = ({
     value,
     onChange,
@@ -356,9 +499,6 @@ const ModeCards = ({
                         </Radio>
                         <Text type="secondary" className="text-xs">
                             {m.tabs}
-                        </Text>
-                        <Text type="secondary" className="text-xs">
-                            {m.overtime}
                         </Text>
                     </Flex>
                 </label>
@@ -412,12 +552,17 @@ const ProjectCodeList = ({ value = [], onChange }: { value?: string[]; onChange?
     );
 };
 
-const AtsSettingsTab = () => {
+const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
     const dispatch = useAppDispatch();
     const scope = usePayrollScope();
     const { settings, setSettings, loading } = useAtsSettings();
     const [form] = Form.useForm<FormValues>();
     const [saving, setSaving] = useState(false);
+    const [people, setPeople] = useState<Person[]>([]);
+
+    useEffect(() => {
+        getApproverPeople(scope).then(res => setPeople(res || []));
+    }, [scope]);
 
     const mode = Form.useWatch('mode', form);
     const approvalEnabled = Form.useWatch('approvalEnabled', form);
@@ -461,9 +606,9 @@ const AtsSettingsTab = () => {
     });
     const freq = frequency ?? (settings.timesheetFiling ?? DEFAULT_FILING).frequency;
     const at = displayTime(submissionTime || settings.timesheetApproval.submissionTime);
-    let approvalLine = `Every draft week with entries is sent to the reporting manager on ${dayName(submissionWeekday ?? settings.timesheetApproval.submissionWeekday)} at ${at}.`;
-    if (freq === 'DAILY') approvalLine = `Every day’s draft timesheet is sent to the reporting manager at ${at}.`;
-    if (freq === 'MONTHLY') approvalLine = `Every month’s draft timesheet is sent to the reporting manager on its last day at ${at}.`;
+    let approvalLine = `Every draft week with entries is sent for approval on ${dayName(submissionWeekday ?? settings.timesheetApproval.submissionWeekday)} at ${at}.`;
+    if (freq === 'DAILY') approvalLine = `Every day’s draft timesheet is sent for approval at ${at}.`;
+    if (freq === 'MONTHLY') approvalLine = `Every month’s draft timesheet is sent for approval on its last day at ${at}.`;
 
     /** PROTOTYPE-SETUP (Final batch, Slice 7): the demo's auto-submit, with the saved settings. */
     const runAutoSubmit = async () => {
@@ -486,9 +631,17 @@ const AtsSettingsTab = () => {
         dispatch(
             showToast({
                 variant: 'success',
-                description: 'Attendance & Timesheet settings saved.',
+                description: `${SECTION_TITLE[section]} settings saved.`,
             })
         );
+    };
+
+    /** PROTOTYPE-SETUP (Settings, Slice 3): a function the mode (or timesheet approval) turns off is "Not in use". */
+    const notInUse = (k: Level2Key) => {
+        const m = mode ?? settings.mode;
+        if (k === 'attendance') return !(m === 'attendance' || m === 'both');
+        if (k === 'timesheet') return !(m === 'timesheet' || m === 'both') || !(approvalEnabled ?? settings.timesheetApproval.enabled);
+        return false;
     };
 
     const columns: ColumnsType<MatrixRow> = [
@@ -498,9 +651,9 @@ const AtsSettingsTab = () => {
             render: (_, row) => (
                 <Flex vertical>
                     <Text>{row.label}</Text>
-                    {row.hint && (
-                        <Text type="secondary" className="text-xs">
-                            {row.hint}
+                    {notInUse(row.key) && (
+                        <Text type="secondary" className="text-xs" data-not-in-use>
+                            Not in use
                         </Text>
                     )}
                 </Flex>
@@ -509,22 +662,50 @@ const AtsSettingsTab = () => {
         {
             title: 'Level 1',
             key: 'level1',
-            render: () => <Tag className="!m-0">Reporting manager</Tag>,
+            width: 260,
+            render: (_, row) => (
+                <Form.Item name={['level1', row.key]} noStyle>
+                    <Select options={level1Options(people)} disabled={notInUse(row.key)} className="w-full min-w-[200px]" aria-label={`Level 1 approver for ${row.label}`} popupMatchSelectWidth={false} />
+                </Form.Item>
+            ),
         },
         {
             title: 'Level 2',
             key: 'level2',
-            width: 220,
-            render: (_, row) =>
-                row.key === 'profile' ? (
-                    <Text type="secondary">HR</Text>
-                ) : (
-                    <Form.Item name={['level2', row.key]} noStyle>
-                        <Select options={LEVEL2_OPTIONS} className="w-full min-w-[140px]" aria-label={`Level 2 approver for ${row.label}`} />
-                    </Form.Item>
-                ),
+            width: 260,
+            render: (_, row) => (
+                <Form.Item name={['level2', row.key]} noStyle>
+                    <Select options={level2Options(people)} disabled={notInUse(row.key)} className="w-full min-w-[200px]" aria-label={`Level 2 approver for ${row.label}`} popupMatchSelectWidth={false} />
+                </Form.Item>
+            ),
         },
     ];
+
+    const approvals = (
+        <Card title="Approvals" size="small" data-approvals-card>
+            <Flex vertical gap={8}>
+                <Text type="secondary" className="text-xs">
+                    Level 1 is the reporting manager unless you pick a team or a specific person. Level 2 is the final approval. The CEO has no manager,
+                    so a “Reporting manager” level 1 is skipped for them. A change applies to new requests; anything already waiting stays where it is.
+                </Text>
+                <div className="w-full overflow-x-auto">
+                    <Table<MatrixRow>
+                        rowKey="key"
+                        size="small"
+                        columns={columns}
+                        dataSource={ROWS[section]}
+                        pagination={false}
+                        rowClassName={r => (notInUse(r.key) ? 'opacity-50' : '')}
+                        scroll={{ x: 600 }}
+                    />
+                </div>
+                <Text type="secondary" className="text-xs">
+                    A specific person decides in their My team → Approvals; a team decides in Payroll → Requests. Rejecting or asking for an update at any
+                    level needs a comment.
+                </Text>
+            </Flex>
+        </Card>
+    );
 
     return (
         <Form<FormValues>
@@ -537,15 +718,14 @@ const AtsSettingsTab = () => {
         >
             <Flex vertical gap={16} className="w-full min-w-0">
                 <Flex vertical gap={2}>
-                    <Text className="text-lg font-medium">Attendance &amp; Timesheet</Text>
+                    <Text className="text-lg font-medium">{SECTION_TITLE[section]}</Text>
                     <Text type="secondary" className="text-xs">
-                        How employees record their day, the rules for each day, and who approves
-                        requests. Last saved {fmtStamp(settings.updatedAt)}.
+                        {SECTION_LINE[section]} Last saved {fmtStamp(settings.updatedAt)}.
                     </Text>
                 </Flex>
 
-                {/* PROTOTYPE-SETUP (Final batch, Slice 7): the settings in groups, in this order — Tracking mode, Working day
-                    rules, Timesheet filing, Project codes, Leave policy, Approvals, Run payroll. No behaviour change. */}
+                {section === 'ato' && (
+                    <>
                 <Card title="Tracking mode" size="small">
                     <Form.Item name="mode" className="!mb-0">
                         <ModeCards />
@@ -558,8 +738,8 @@ const AtsSettingsTab = () => {
                     <Alert
                         type="info"
                         showIcon
-                        message="Nothing is tracked"
-                        description="No check-in, no timesheets and no overtime. Leave, reimbursements, payslips, documents and profile work as normal. Shift, day rules, weekly offs and timesheet approval come back when you choose another mode."
+                        message="No attendance or timesheets"
+                        description="Leave, overtime, reimbursements and the rest still work (employees claim overtime by hand). Shift, day rules, weekly offs and timesheet approval come back when you choose another mode."
                     />
                 ) : (
                     <>
@@ -618,13 +798,10 @@ const AtsSettingsTab = () => {
                             </Form.Item>
                         </Col>
                     </Row>
-                    <Text type="secondary" className="text-xs">
-                        The shift includes the break. Hours worked and overtime use the full shift, breaks included.
-                    </Text>
-                    {/* PROTOTYPE-SETUP (HR rules, Slice 5): there is no automatic check-out. */}
-                    <Text type="secondary" className="block text-xs">
-                        There’s no automatic check-out. A day stays open until the employee checks out, and they
-                        can’t check in on a new day until then.
+                    {/* PROTOTYPE-SETUP (Settings, Slice 3): no automatic check-out anywhere. */}
+                    <Text type="secondary" className="block text-xs" data-day-rules-note>
+                        A 9h shift includes the break. A check-in after shift start plus the grace period is a late mark. A day stays open until the
+                        employee checks out, and they can’t check in again until they do.
                     </Text>
                     <Divider className="!my-4" />
                     <Text strong className="mb-2 block text-sm">
@@ -649,27 +826,6 @@ const AtsSettingsTab = () => {
                                 rules={[{ required: true, message: 'Enter the threshold' }]}
                             >
                                 <InputNumber min={1} max={10} step={0.5} className="w-full" disabled={mode === 'timesheet'} />
-                            </Form.Item>
-                        </Col>
-                        <Col xs={24} sm={8}>
-                            <Form.Item
-                                name="overtimeMinimumMinutes"
-                                label="Overtime minimum (minutes)"
-                                extra="Extra time is suggested as overtime only from this much."
-                                rules={[{ required: true, message: 'Enter the minimum' }]}
-                            >
-                                <InputNumber min={0} max={600} step={5} className="w-full" />
-                            </Form.Item>
-                        </Col>
-                        {/* PROTOTYPE-SETUP (Final batch, Slice 5): late check-in deductions. */}
-                        <Col xs={24} sm={8}>
-                            <Form.Item
-                                name="lateDeductionDays"
-                                label="Leave deducted per late check-in"
-                                extra="Days (0 = off). Annual leave first, then Casual, then loss of pay. An approved correction reverses it."
-                                rules={[{ required: true, message: 'Enter the days (0 = off)' }]}
-                            >
-                                <InputNumber min={0} max={2} step={0.5} className="w-full" disabled={mode === 'timesheet'} />
                             </Form.Item>
                         </Col>
                     </Row>
@@ -817,30 +973,73 @@ const AtsSettingsTab = () => {
                     </>
                 )}
 
-                {/* Leave works in every mode, so its policy is always shown. */}
-                <LeavePolicyCard />
-
-                <Card title="Approvals" size="small">
-                    <Flex vertical gap={8}>
+                {/* PROTOTYPE-SETUP (Settings, Slice 3): overtime works in every mode. */}
+                <Card title="Overtime" size="small" data-overtime-settings>
+                    <Text type="secondary" className="mb-3 block text-xs">
+                        Overtime is time beyond the shift length, whatever time someone checks in. Weekends and public holidays count in full. Leave and
+                        holiday hours never count. Overtime is only created when the employee claims it.
+                    </Text>
+                    <Flex align="center" gap={8} wrap="wrap">
+                        <Text className="text-sm">Suggest overtime from</Text>
+                        <Form.Item name="overtimeMinimumMinutes" noStyle rules={[{ required: true, message: 'Enter the minimum' }]}>
+                            <InputNumber min={0} max={600} step={5} className="!w-[90px]" aria-label="Suggest overtime from" />
+                        </Form.Item>
                         <Text type="secondary" className="text-xs">
-                            Level 1 is always the reporting manager. The CEO has no manager, so their requests skip to level 2.
-                        </Text>
-                        <div className="w-full overflow-x-auto">
-                            <Table<MatrixRow>
-                                rowKey="key"
-                                size="small"
-                                columns={columns}
-                                dataSource={MATRIX}
-                                pagination={false}
-                                scroll={{ x: 520 }}
-                            />
-                        </div>
-                        <Text type="secondary" className="text-xs">
-                            Rejecting (or sending a timesheet back) at any level needs a comment. With &quot;None&quot;, the
-                            manager&apos;s approval is final.
+                            min extra
                         </Text>
                     </Flex>
                 </Card>
+                {approvals}
+                    </>
+                )}
+
+                {section === 'leave' && (
+                    <>
+                        <LeavePolicyCard />
+                        <LeaveRequestsCard />
+                        {/* PROTOTYPE-SETUP (Settings, Slice 4): moved here from the working day rules. */}
+                        <Card title="Late check-in deduction" size="small" data-late-deduction>
+                            <Text type="secondary" className="mb-3 block text-xs">
+                                Deducted automatically for every check-in after the grace period: Annual leave first, then Casual, then loss of pay. Reversed
+                                automatically when a correction is approved.
+                            </Text>
+                            <Flex align="center" gap={8} wrap="wrap">
+                                <Text className="text-sm">Leave deducted per late check-in</Text>
+                                <Form.Item name="lateDeductionDays" noStyle rules={[{ required: true, message: 'Enter the days (0 = off)' }]}>
+                                    <InputNumber min={0} max={2} step={0.5} className="!w-[80px]" aria-label="Leave deducted per late check-in" />
+                                </Form.Item>
+                                <Text type="secondary" className="text-xs">
+                                    days (0 = off)
+                                </Text>
+                            </Flex>
+                        </Card>
+                        {approvals}
+                    </>
+                )}
+
+                {section === 'reimbursements' && (
+                    <>
+                        <CategoriesCard />
+                        <Card title="Claim window" size="small" data-claim-window>
+                            <Text type="secondary" className="mb-3 block text-xs">
+                                How long after spending someone can still claim it.
+                            </Text>
+                            <Flex align="center" gap={8} wrap="wrap">
+                                <Text className="text-sm">Claims allowed up to</Text>
+                                <Form.Item name={['reimbursements', 'claimWindowDays']} noStyle>
+                                    <InputNumber min={1} max={365} className="!w-[80px]" aria-label="Claim window days" />
+                                </Form.Item>
+                                <Text type="secondary" className="text-xs">
+                                    days after the expense
+                                </Text>
+                            </Flex>
+                            <Text type="secondary" className="mt-2 block text-xs">
+                                Approved claims are paid with the next payroll run.
+                            </Text>
+                        </Card>
+                        {approvals}
+                    </>
+                )}
 
                 <Flex justify="end" gap={8} wrap="wrap">
                     <Button onClick={() => form.setFieldsValue(toForm(settings))} disabled={saving}>
@@ -851,10 +1050,6 @@ const AtsSettingsTab = () => {
                     </Button>
                 </Flex>
             </Flex>
-            {/* PROTOTYPE-SETUP (Final batch, Slice 7): Run payroll — the same panel as Process Salary. */}
-            <div className="mt-4" data-run-payroll>
-                <PayrollMonthPanel />
-            </div>
         </Form>
     );
 };

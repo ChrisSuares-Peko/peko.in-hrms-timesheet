@@ -12,7 +12,7 @@ import { Button, Modal, Skeleton, Typography } from 'antd';
 import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
-import { addMonths } from '@src/prototype/rules/attendance';
+import { addMonths, hasTimesheets } from '@src/prototype/rules/attendance';
 import { lateDayDetail } from '@src/prototype/rules/leavePolicy';
 
 import { getTeamAttendance } from '../api';
@@ -77,7 +77,7 @@ const TeamDayModal = ({ person, day, view, onClose }: { person: PersonRef | null
             <Row label="Check in">{day.checkIn ? displayTime(day.checkIn) : '–'}</Row>
             <Row label="Check out">{checkOutText(day)}</Row>
             <Row label="Time at work">{day.checkIn ? formatDuration(day.minutesAtWork) : '–'}</Row>
-            {view.mode !== 'attendance' && <Row label="Timesheet">{formatDuration(day.loggedMinutes)} logged</Row>}
+            {hasTimesheets(view.mode) && <Row label="Timesheet">{formatDuration(day.loggedMinutes)} logged</Row>}
             {day.breaks.length > 0 && (
                 <Row label={`Breaks · ${formatDuration(day.breakMinutes)}`}>
                     {day.breaks.map(b => `${displayTime(b.start)} – ${b.end ? displayTime(b.end) : 'now'}`).join(', ')}

@@ -266,6 +266,8 @@ export const payrollSendBackWeek = (s: AtsScope, employeeId: number, weekStart: 
 // The admin (Payroll module) covers all employees and is level 2 for every service.
 
 export const getAdminCounts = (s: AtsScope) => call<AdminCounts>(s, 'get', 'payroll/admin/counts');
+/** PROTOTYPE-SETUP (Settings, Slice 3): every manager and the CEO (and anyone already named) — "a specific person". */
+export const getApproverPeople = (s: AtsScope) => call<{ id: number; name: string; title: string }[]>(s, 'get', 'payroll/admin/approver-people');
 export const getAdminPeople = (s: AtsScope) => call<PersonRef[]>(s, 'get', 'payroll/admin/people');
 export const getAdminDepartments = (s: AtsScope) => call<string[]>(s, 'get', 'payroll/admin/departments');
 export const getAdminRequests = (s: AtsScope, type: AdminRequestType) => call<AdminRequestRow[]>(s, 'get', `payroll/admin/requests/${type}`);

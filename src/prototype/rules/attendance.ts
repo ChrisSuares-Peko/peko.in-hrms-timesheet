@@ -243,13 +243,15 @@ export const shiftMinutes = (s: Pick<AtsSettings, 'shift'>) => toMinutes(s.shift
 
 /** attendance: Attendance + Overtime. both: all three. timesheet: Timesheet + Overtime. */
 export const tabsFor = (mode: AtsMode): AtsTab[] => {
-    if (mode === 'none') return [];
+    // PROTOTYPE-SETUP (Settings, Slice 3): 'none' (Neither) — no attendance or timesheet, but overtime still works.
+    if (mode === 'none') return ['overtime'];
     if (mode === 'attendance') return ['attendance', 'overtime'];
     if (mode === 'timesheet') return ['timesheet', 'overtime'];
     return ['attendance', 'timesheet', 'overtime'];
 };
 
 export const titleFor = (mode: AtsMode) => {
+    if (mode === 'none') return 'Overtime';
     if (mode === 'attendance') return 'Attendance';
     if (mode === 'timesheet') return 'Timesheet';
     return 'Attendance & Timesheet';

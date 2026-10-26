@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Checkbox, Empty, Flex, Segmented, Skeleton, Tag, Typography } from 'antd';
 
 import { useAppDispatch } from '@src/hooks/store';
-import { hasCheckIn, hasTimesheets, hasTracking } from '@src/prototype/rules/attendance';
+import { hasCheckIn, hasTimesheets } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
 
 import { AtsRequestType, bulkApproveTeam, decideTeamRequest, getTeamRequests, getTimesheetQueue } from '../api';
@@ -61,7 +61,8 @@ export const inboxKinds = (settings: Pick<TeamSettings, 'mode' | 'approvalOn'>):
     [
         settings.approvalOn && hasTimesheets(settings.mode) && ('timesheet' as const),
         hasCheckIn(settings.mode) && ('attendance' as const),
-        hasTracking(settings.mode) && ('overtime' as const),
+        // PROTOTYPE-SETUP (Settings, Slice 3): overtime works in every mode.
+        'overtime' as const,
         'leave' as const,
         'reimbursement' as const,
     ].filter((k): k is Kind => Boolean(k));

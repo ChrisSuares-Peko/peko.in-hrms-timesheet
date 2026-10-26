@@ -18,7 +18,6 @@ import ProfileIcon from '@src/domains/employee/assets/icons/myProfile.svg';
 import TeamIcon from '@src/domains/employee/assets/icons/myTeam.svg';
 import ReimbursementIcon from '@src/domains/employee/assets/icons/reimbursement.svg';
 import ServiceShortcutCard from '@src/domains/employee/components/dashboard/ServiceShortcutCard';
-import { hasTracking } from '@src/prototype/rules/attendance';
 
 import type { AtsMode } from '../types';
 
@@ -60,8 +59,8 @@ const OvQuickActions = ({
         { key: 'profile', icon: ProfileIcon, title: 'My profile' },
         ...(myTeam ? [{ key: 'team' as const, icon: TeamIcon, title: 'My team', ...(myTeam.waiting ? { count: String(myTeam.waiting) } : {}) }] : []),
     ];
-    // PROTOTYPE-SETUP (Overview v4, Slice 5): 'none' mode tracks nothing — no section tile.
-    const tiles = hasTracking(mode) ? allTiles : allTiles.filter(t => t.key !== 'section');
+    // PROTOTYPE-SETUP (Settings, Slice 3): in Neither the section tile is Overtime (titleFor).
+    const tiles = allTiles;
     // Seven tiles (a manager) in one desktop row: 80px tiles and a 118px title box (overhanging the 80px tile), so
     // every title wraps by words to 2 lines; tablet and phone wrap as before.
     const screens = Grid.useBreakpoint();

@@ -3,9 +3,12 @@
 // today's and this week's logged time (timesheet mode); small counts that jump into the section.
 import { KeyboardEvent, MouseEvent, useCallback, useEffect, useState } from 'react';
 
+
 import { ReloadOutlined, RightOutlined } from '@ant-design/icons';
 import { Button, Progress, Skeleton, Typography } from 'antd';
 import { useNavigate } from 'react-router-dom';
+
+import { hasCheckIn } from '@src/prototype/rules/attendance';
 
 import { getOverview } from '../api';
 import TodayPunch from './TodayPunch';
@@ -109,7 +112,7 @@ const AtsDashboardCard = () => {
     }
 
     const { today, counts, mode } = overview;
-    const punchMode = mode !== 'timesheet';
+    const punchMode = hasCheckIn(mode);
     const showTag = punchMode || TIMESHEET_TAG_STATUSES.includes(today.status);
 
     const countTiles: { key: string; value: number; label: string; tab: AtsTab }[] = [

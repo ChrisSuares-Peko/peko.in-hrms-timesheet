@@ -27,6 +27,7 @@ import {
     monthLabel,
     isApproverTeam,
     pendingStep,
+    approverPersonId,
 } from '@src/prototype/rules/attendance';
 
 import { timesheetMonthOf } from './atsEss';
@@ -233,6 +234,19 @@ const peopleIn = (mode: DataMode, department?: string) =>
 /** Payroll → Timesheet → Details: everyone's week (optionally one department). */
 export const adminWeekGrid = (mode: DataMode, date: string, department?: string) => weekGridOf(mode, peopleIn(mode, department), date);
 export const adminMonthSummary = (mode: DataMode, month: string, department?: string) => monthSummaryOf(mode, peopleIn(mode, department), month);
+
+/**
+ * PROTOTYPE-SETUP (Settings, Slice 3): who can be picked as "a specific person" approver — every manager (anyone with
+ * direct reports) and the CEO, plus anyone already named in settings ("Name · Title").
+ */
+export const adminApproverPeople = (mode: DataMode) => {
+    const s = getSettings(mode);
+    const named = new Set([...Object.values(s.level1), ...Object.values(s.level2)].map(v => approverPersonId(v)).filter((x): x is number => x !== null));
+    const all = employeesFor(mode);
+    return all
+        .filter(e => named.has(e.id) || !managerOf(e) || all.some(x => x.managerEmployeeId === e.employeeId))
+        .map(e => ({ id: e.id, name: e.fullName, title: e.designation }));
+};
 
 /** Every employee (the Details tables list everyone, with or without requests). */
 export const adminPeople = (mode: DataMode) => employeesFor(mode).map(personRef);

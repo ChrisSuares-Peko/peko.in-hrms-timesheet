@@ -6,7 +6,7 @@
 // badge of what's waiting for them. Used by the desktop sidebar and the mobile drawer.
 import './essNav.css';
 import type { AtsMode } from '@src/domains/attendanceTimesheet/types';
-import { hasTracking, titleFor } from '@src/prototype/rules/attendance';
+import { titleFor } from '@src/prototype/rules/attendance';
 import { paths } from '@src/routes/paths';
 
 /** Menu keys of the ESS groups (each group's own route is its Overview child). */
@@ -37,8 +37,8 @@ export interface EssSubItem {
  */
 export const essSubItems = (atsMode: AtsMode, root: string, myTeam?: { waiting: number } | null): EssSubItem[] => [
     { key: root, text: 'Overview' },
-    // PROTOTYPE-SETUP (Overview v4, Slice 5): no Attendance & Timesheet section in 'none' mode.
-    ...(hasTracking(atsMode) ? [{ key: `${root}/attendance-timesheet`, text: titleFor(atsMode) }] : []),
+    // PROTOTYPE-SETUP (Settings, Slice 3): in Neither the section is just Overtime.
+    { key: `${root}/attendance-timesheet`, text: titleFor(atsMode) },
     { key: `${root}/leaves`, text: 'Leaves' },
     { key: `${root}/reimbursements`, text: 'Reimbursements' },
     { key: `${root}/payslips`, text: 'Payslips' },

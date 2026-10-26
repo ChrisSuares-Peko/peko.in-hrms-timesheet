@@ -3,9 +3,12 @@
 // there is no check-in, so the cards show time logged only.
 import { useEffect, useState } from 'react';
 
+
 import { Col, Flex, Row, Skeleton, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
+
+import { hasCheckIn as checkInOn } from '@src/prototype/rules/attendance';
 
 import { getTeamToday } from '../api';
 import { CountTile, NoTeamEmpty, PersonCell } from './teamShared';
@@ -82,7 +85,7 @@ const TeamToday = ({ mode }: { mode: AtsMode }) => {
     const navigate = useNavigate();
     const [data, setData] = useState<TeamTodayView | null>(null);
     const [loading, setLoading] = useState(true);
-    const hasCheckIn = mode !== 'timesheet';
+    const hasCheckIn = checkInOn(mode);
 
     useEffect(() => {
         let alive = true;
