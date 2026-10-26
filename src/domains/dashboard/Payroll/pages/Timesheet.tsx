@@ -1,12 +1,12 @@
 import { useState } from 'react';
 
 import { Button, Row, Tabs, TabsProps, Typography } from 'antd';
+import { useSearchParams } from 'react-router-dom';
 
-// PROTOTYPE-SETUP: ESS Service 1 — Overtime and Attendance corrections are read-only history plus the level-2
-// (HR / Finance) decision.
-import { PayrollServiceTabs } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
-import PayrollRequestsTab from '@src/domains/attendanceTimesheet/payroll/PayrollRequestsTab';
-// PROTOTYPE-SETUP (Payroll admin, Slice 1): the service tabs on top.
+// PROTOTYPE-SETUP (Payroll admin, Slices 1 and 5): the service tabs on top, and Requests — the admin requests list for
+// attendance corrections (was "Attendance corrections"). Overtime moved to its own service tab (Payroll → Overtime).
+import AdminRequestsList from '@src/domains/attendanceTimesheet/payroll/admin/AdminRequestsList';
+import { PayrollServiceTabs, useAdminCounts } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
 import useScreenSize from '@src/hooks/useScreenSize';
 
 import AddHolidaysModal from '../components/modals/AddHolidaysModal';
@@ -18,18 +18,19 @@ import ShiftScheduleTab from '../components/timesheet/ShiftScheduleTab';
 // PROTOTYPE-SETUP: ESS Service 1 — the old OvertimeTab (approve) and DisputeTab (review) are isolated: no longer
 // rendered here, left in place under ../components/timesheet/ until the cleanup.
 
-const tabItems: TabsProps['items'] = [
+const tabItems = (waiting: number): TabsProps['items'] => [
     { key: '1', label: 'Daily Log' },
     { key: '2', label: 'Monthly Summary' },
-    { key: '3', label: 'Overtime' },
     { key: '4', label: 'Holidays' },
     { key: '5', label: 'Shift Schedule' },
-    // PROTOTYPE-SETUP: ESS Service 1 — renamed from "Dispute".
-    { key: '6', label: 'Attendance corrections' },
+    // PROTOTYPE-SETUP: ESS Service 1 — renamed from "Dispute". (Payroll admin, Slice 5): "Requests".
+    { key: '6', label: `Requests (${waiting})` },
 ];
 
 const Timesheet = () => {
-    const [activeTab, setActiveTab] = useState('1');
+    const [params] = useSearchParams();
+    const [activeTab, setActiveTab] = useState(params.get('view') === 'requests' ? '6' : '1');
+    const counts = useAdminCounts();
     const [markAttendanceOpen, setMarkAttendanceOpen] = useState(false);
     const [addHolidayOpen, setAddHolidayOpen] = useState(false);
     const [dailyRefetchTrigger, setDailyRefetchTrigger] = useState(0);
@@ -74,16 +75,13 @@ const Timesheet = () => {
                 setHolidayData={() => {}}
             />
 
-            <Tabs activeKey={activeTab} items={tabItems} onChange={setActiveTab} />
+            <Tabs activeKey={activeTab} items={tabItems(counts?.attendance ?? 0)} onChange={setActiveTab} />
 
             {activeTab === '1' && <DailyLogTab refetchTrigger={dailyRefetchTrigger} />}
             {activeTab === '2' && <MonthlySummaryTab />}
-            {/* PROTOTYPE-SETUP: ESS Service 1 — level-2 overtime queue (Finance by default). */}
-            {activeTab === '3' && <PayrollRequestsTab type="overtime" />}
             {activeTab === '4' && <HolidaysTab refetchTrigger={dailyRefetchTrigger} />}
             {activeTab === '5' && <ShiftScheduleTab />}
-            {/* PROTOTYPE-SETUP: ESS Service 1 — level-2 attendance-correction queue (HR by default). */}
-            {activeTab === '6' && <PayrollRequestsTab type="attendance" />}
+            {activeTab === '6' && <AdminRequestsList type="attendance" />}
         </>
     );
 };

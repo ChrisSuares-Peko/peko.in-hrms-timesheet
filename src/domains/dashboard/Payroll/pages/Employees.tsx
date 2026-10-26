@@ -5,7 +5,8 @@ import { Button, Col, Flex, Row, Tabs, TabsProps, Typography, theme } from 'antd
 import { Content } from 'antd/es/layout/layout';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { PayrollServiceTabs } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
+import AdminRequestsList from '@src/domains/attendanceTimesheet/payroll/admin/AdminRequestsList';
+import { PayrollServiceTabs, useAdminCounts } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
 import { useAppDispatch, useAppSelector } from '@src/hooks/store';
 import useDebounce from '@src/hooks/useDebounce';
 import { paths } from '@src/routes/paths';
@@ -104,6 +105,7 @@ function Employees() {
         </span>
     );
 
+    const adminCounts = useAdminCounts();
     const items: TabsProps['items'] = [
         {
             key: '1',
@@ -164,6 +166,12 @@ function Employees() {
             label: tabLabel('Document Requests', documentRequestPendingCount),
             forceRender: true,
             children: <DocumentRequestsTab onPendingCountChange={setDocumentRequestPendingCount} />,
+        },
+        // PROTOTYPE-SETUP (Payroll admin, Slice 5): ESS profile updates — the admin requests list (HR, no manager step).
+        {
+            key: '7',
+            label: tabLabel('Profile updates', adminCounts?.profile ?? 0),
+            children: <AdminRequestsList type="profile" />,
         },
     ];
 

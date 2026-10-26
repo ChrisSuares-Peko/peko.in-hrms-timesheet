@@ -9,7 +9,7 @@ PROTOTYPE-SETUP. Run log for "Payroll admin". If a run is interrupted, continue 
 | Slice 1 — Navigation and clean-up (service tabs, badges, redirects, shared blocks) | 69d1fb8 | done |
 | Slice 2 — Timesheet (Overview / Details / Requests) | fa904a0 | done |
 | Slice 3 — Leave | c67433d | done |
-| Slice 4 — Overtime and Reimbursements | (this commit) | done |
-| Slice 5 — Admin requests list, Attendance and Employees | — | to do |
+| Slice 4 — Overtime and Reimbursements | adadc9f | done |
+| Slice 5 — Admin requests list, Attendance and Employees | (this commit) | done |
 | Slice 6 — Consistency and clean-up | — | to do |
 | VERIFY 1–8 (1440 / 1024 / 375), single push | — | to do |
