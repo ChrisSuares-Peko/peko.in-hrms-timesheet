@@ -864,12 +864,13 @@ export const payrollMonthStatus = (mode: DataMode, month: string): PayrollMonthS
 export const payrollMonths = (mode: DataMode) =>
     [addMonths(currentMonth(), -2), lastMonth(), currentMonth()].map(m => payrollMonthStatus(mode, m));
 
-export const processPayrollMonth = (mode: DataMode, month: string) => {
+export const processPayrollMonth = (mode: DataMode, month: string, opts: { force?: boolean } = {}) => {
     const status = payrollMonthStatus(mode, month);
     if (status.processed) throw new RuleError(`Payroll for ${status.monthLabel} has already been processed.`);
     const first = firstUnprocessedMonth(mode);
     if (month !== first) throw new RuleError(`Process ${monthLabel(first)} first.`);
-    if (status.blockers.length) {
+    // PROTOTYPE-SETUP (Settings, Slice 6): the demo's "Process anyway" overrides unapproved timesheets.
+    if (status.blockers.length && !opts.force) {
         const people = new Set(status.blockers.map(b => b.employee.name));
         throw new RuleError(
             `Payroll for ${status.monthLabel} can't be processed yet: ${status.blockers.length} timesheet${status.blockers.length === 1 ? '' : 's'} of ${people.size} employee${people.size === 1 ? '' : 's'} not approved.`
@@ -877,6 +878,37 @@ export const processPayrollMonth = (mode: DataMode, month: string) => {
     }
     atsPayroll.update(mode, p => ({ ...p, processed: { ...p.processed, [month]: nowIso() } }));
     return payrollMonthStatus(mode, month);
+};
+
+/**
+ * PROTOTYPE-SETUP (Settings, Slice 6): the Demo controls' payroll — processed up to which month, last month (the one to
+ * process), whether it's processed, and how many employees' timesheets are blocking it. Demo only (not the real UI).
+ */
+export const payrollDemoOf = (mode: DataMode) => {
+    const target = lastMonth();
+    const status = payrollMonthStatus(mode, target);
+    let processedUpTo = addMonths(target, -1);
+    if (status.processed) processedUpTo = target;
+    if (isProcessed(mode, currentMonth())) processedUpTo = currentMonth();
+    return {
+        processedUpTo,
+        processedUpToLabel: monthLabel(processedUpTo),
+        month: target,
+        monthLabel: status.monthLabel,
+        processed: status.processed,
+        blockingEmployees: new Set(status.blockers.map(b => b.employee.id)).size,
+    };
+};
+
+/** PROTOTYPE-SETUP (Settings, Slice 6): demo — undo the most recent processed month (it's editable again). */
+export const undoPayrollMonth = (mode: DataMode, month: string) => {
+    if (!atsPayroll.get(mode).processed[month]) throw new RuleError(`${monthLabel(month)} isn't processed in this demo.`);
+    atsPayroll.update(mode, p => {
+        const processed = { ...p.processed };
+        delete processed[month];
+        return { ...p, processed };
+    });
+    return payrollDemoOf(mode);
 };
 
 export const timesheetStatusView = (mode: DataMode, month: string): TimesheetStatusView => {

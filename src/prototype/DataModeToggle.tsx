@@ -2,6 +2,9 @@
 // Dummy / Empty switches the mock layer's dataset. The "Demo" menu (ESS Service 1) switches the Attendance &
 // Timesheet mode, runs the timesheet submission day now, and "Reset demo data" forgets every action taken in
 // the demo (stateful collections, both modes) and reseeds. Each reloads the page so every screen refetches.
+// PROTOTYPE-SETUP (Settings, Slice 6): "Payroll (demo)" — processed up to which month; process last month (disabled
+// while timesheets are unapproved, with how many employees block it), "Process anyway", or undo it. Processing locks
+// the month everywhere, exactly like the Payroll module's own processing. Demo only — not part of the real Payroll UI.
 import { useEffect, useState } from 'react';
 
 import { DownOutlined } from '@ant-design/icons';
@@ -9,7 +12,15 @@ import { Button, ConfigProvider, Dropdown, Flex, Modal, Segmented, Tooltip, mess
 import type { MenuProps } from 'antd';
 
 import { essTheme } from '@src/components/ess/EssThemeProvider';
-import { getAtsSettings, resetTodayCheckIn, simulateSubmissionDay, updateAtsSettings } from '@src/domains/attendanceTimesheet/api';
+import {
+    getAtsSettings,
+    getPayrollDemo,
+    processPayrollDemo,
+    resetTodayCheckIn,
+    simulateSubmissionDay,
+    undoPayrollDemo,
+    updateAtsSettings,
+} from '@src/domains/attendanceTimesheet/api';
 import type { AtsMode } from '@src/domains/attendanceTimesheet/types';
 import { useAppDispatch, useAppSelector } from '@src/hooks/store';
 import { demoDay, resetAllCollections } from '@src/prototype/mocks/store/persistentStore';
@@ -36,12 +47,16 @@ const MODE_LABEL: Record<AtsMode, string> = {
     none: 'Neither (no tracking)', // PROTOTYPE-SETUP (Overview v4, Slice 5)
 };
 
+type PayrollDemo = Exclude<Awaited<ReturnType<typeof getPayrollDemo>>, false>;
+
 const DataModeToggle = () => {
     const dispatch = useAppDispatch();
     const mode = useAppSelector(state => state.reducer.dataMode?.mode ?? 'dummy');
     const { role, id } = useAppSelector(state => state.reducer.auth);
     const scope = { userType: role || 'corporate', userId: id || 1001 };
     const [atsMode, setAtsMode] = useState<AtsMode | null>(null);
+    const [payroll, setPayroll] = useState<PayrollDemo | null>(null);
+    const loadPayroll = () => getPayrollDemo(scope).then(p => setPayroll(p || null));
 
     useEffect(() => {
         getAtsSettings(scope).then(s => s && setAtsMode(s.mode));
@@ -98,6 +113,46 @@ const DataModeToggle = () => {
         setTimeout(reloadAfterPersist, 800);
     };
 
+    const processPayroll = async (force: boolean) => {
+        if (!payroll) return;
+        const res = await processPayrollDemo(scope, payroll.month, force);
+        if (!res) return;
+        message.success(force ? `Processed ${payroll.monthLabel} anyway (demo override).` : `Payroll processed for ${payroll.monthLabel}. It’s locked now.`);
+        setTimeout(reloadAfterPersist, 800);
+    };
+
+    const undoPayroll = async () => {
+        if (!payroll) return;
+        const res = await undoPayrollDemo(scope, payroll.month);
+        if (!res) return;
+        message.success(`Undid ${payroll.monthLabel} payroll (demo).`);
+        setTimeout(reloadAfterPersist, 800);
+    };
+
+    const blocking = payroll?.blockingEmployees ?? 0;
+    const payrollItems: NonNullable<MenuProps['items']> = payroll
+        ? [
+              {
+                  key: 'payroll-info',
+                  disabled: true,
+                  label: (
+                      <span className="block max-w-[260px] whitespace-normal text-xs text-gray-500" data-payroll-demo-info>
+                          Processed up to {payroll.processedUpToLabel}. Processed months are locked everywhere.
+                          {!payroll.processed && blocking
+                              ? ` ${blocking} employee${blocking === 1 ? ' has' : 's have'} timesheets for ${payroll.monthLabel} not approved yet.`
+                              : ''}
+                      </span>
+                  ),
+              },
+              ...(payroll.processed
+                  ? [{ key: 'payroll-undo', label: `Undo ${payroll.monthLabel}` }]
+                  : [
+                        { key: 'payroll-process', label: `Process ${payroll.monthLabel} payroll`, disabled: blocking > 0 },
+                        ...(blocking ? [{ key: 'payroll-force', label: 'Process anyway' }] : []),
+                    ]),
+          ]
+        : [{ key: 'payroll-info', disabled: true, label: 'Loading…' }];
+
     const items: MenuProps['items'] = [
         {
             key: 'mode',
@@ -109,6 +164,8 @@ const DataModeToggle = () => {
             })),
         },
         { type: 'divider' },
+        { key: 'payroll', type: 'group', label: 'Payroll (demo)', children: payrollItems },
+        { type: 'divider' },
         { key: 'simulate', label: 'Simulate submission day' },
         { key: 'reset-check-in', label: 'Reset today’s check-in' },
         { key: 'reset', label: 'Reset demo data', danger: true },
@@ -119,6 +176,9 @@ const DataModeToggle = () => {
         else if (key === 'simulate') simulate();
         else if (key === 'reset-check-in') resetCheckIn();
         else if (key === 'reset') reset();
+        else if (key === 'payroll-process') processPayroll(false);
+        else if (key === 'payroll-force') processPayroll(true);
+        else if (key === 'payroll-undo') undoPayroll();
     };
 
     return (
@@ -144,7 +204,7 @@ const DataModeToggle = () => {
                     ]}
                 />
             </Tooltip>
-            <Dropdown menu={{ items, onClick }} trigger={['click']} placement="topRight">
+            <Dropdown menu={{ items, onClick }} trigger={['click']} placement="topRight" onOpenChange={open => open && loadPayroll()}>
                 <Button size="small" type="text">
                     Demo <DownOutlined />
                 </Button>

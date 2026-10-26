@@ -9,8 +9,8 @@ import { findEmployee } from '../../data/employees';
 import { adminDecide, adminRequests } from '../atsAdmin';
 import { approvalLinesOf, claimedIn, createOvertime, reimbursementRulesOf, submitWeek } from '../atsEss';
 import { createLeaveRequest, leaveViewOf } from '../atsLeave';
-import { employeesFor, routeContext, weekView } from '../atsStore';
-import { approveWeek, decideRequest, payrollApproveWeek, payrollTimesheetQueue, teamOf, teamReimbursements, teamRequests, teamWaiting, timesheetQueue, updateSettings } from '../atsTeam';
+import { employeesFor, isDayLocked, routeContext, weekView } from '../atsStore';
+import { approveWeek, decideRequest, payrollApproveWeek, payrollDemoOf, payrollTimesheetQueue, processPayrollMonth, teamOf, undoPayrollMonth, teamReimbursements, teamRequests, teamWaiting, timesheetQueue, updateSettings } from '../atsTeam';
 import { resetAllCollections } from '../persistentStore';
 
 const sneha = findEmployee('ACME-004')!;
@@ -184,5 +184,22 @@ describe('reimbursement settings', () => {
     it('already claimed counts approved, pending and update-requested claims in that category and month', () => {
         const r = reimbursementRulesOf(M, sneha);
         r.usage.forEach(u => expect(claimedIn(M, sneha, u.category, u.month)).toBe(u.amount));
+    });
+});
+
+// PROTOTYPE-SETUP (Settings, Slice 6): the Demo controls' payroll.
+describe('payroll (demo)', () => {
+    it('process last month (anyway when blocked) locks it everywhere; undo makes it editable again', () => {
+        const d = payrollDemoOf(M);
+        expect(d.processed).toBe(false);
+        const day = `${d.month}-15`;
+        expect(isDayLocked(M, day)).toBe(false);
+        if (d.blockingEmployees) expect(() => processPayrollMonth(M, d.month)).toThrow(/can’t be processed yet|can't be processed yet/);
+        processPayrollMonth(M, d.month, { force: true });
+        expect(payrollDemoOf(M)).toMatchObject({ processed: true, processedUpTo: d.month });
+        expect(isDayLocked(M, day)).toBe(true);
+        undoPayrollMonth(M, d.month);
+        expect(payrollDemoOf(M).processed).toBe(false);
+        expect(isDayLocked(M, day)).toBe(false);
     });
 });

@@ -598,12 +598,16 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
     const workMinutes =
         shiftMinutes !== undefined && shiftMinutes > 0 ? shiftMinutes - (breakMinutes ?? 0) : undefined;
     const timesheetsOff = mode === 'attendance' || mode === 'none';
-    const fieldsError = filingFieldsError({
-        startTime: Boolean(fieldStart),
-        endTime: Boolean(fieldEnd),
-        duration: Boolean(fieldDuration),
-        projectCode: Boolean(fieldProjectCode),
-    });
+    // PROTOTYPE-SETUP (Settings, Slice 4): the field switches are only on this tab (elsewhere they aren't mounted).
+    const fieldsError =
+        section === 'ato'
+            ? filingFieldsError({
+                  startTime: Boolean(fieldStart),
+                  endTime: Boolean(fieldEnd),
+                  duration: Boolean(fieldDuration),
+                  projectCode: Boolean(fieldProjectCode),
+              })
+            : '';
     const freq = frequency ?? (settings.timesheetFiling ?? DEFAULT_FILING).frequency;
     const at = displayTime(submissionTime || settings.timesheetApproval.submissionTime);
     let approvalLine = `Every draft week with entries is sent for approval on ${dayName(submissionWeekday ?? settings.timesheetApproval.submissionWeekday)} at ${at}.`;

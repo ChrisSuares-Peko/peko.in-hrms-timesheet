@@ -74,7 +74,9 @@ import {
     level2Requests,
     payrollMonthStatus,
     payrollMonths,
+    payrollDemoOf,
     processPayrollMonth,
+    undoPayrollMonth,
     runSubmissionDay,
     sendBackWeek,
     teamApprovalCounts,
@@ -286,5 +288,10 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/payroll/admin/leave/:employeeId`, ctx => run(ctx.mode, () => adminLeaveViewOf(ctx.mode, ctx.params.employeeId!))),
     route('GET', `${A}/payroll/months`, ctx => run(ctx.mode, () => payrollMonths(ctx.mode))),
     route('GET', `${A}/payroll/months/:month`, ctx => run(ctx.mode, () => payrollMonthStatus(ctx.mode, monthOrFail(ctx.params.month)))),
-    route('POST', `${A}/payroll/months/:month/process`, ctx => run(ctx.mode, () => processPayrollMonth(ctx.mode, monthOrFail(ctx.params.month)))),
+    route('POST', `${A}/payroll/months/:month/process`, ctx =>
+        run(ctx.mode, () => processPayrollMonth(ctx.mode, monthOrFail(ctx.params.month), { force: ctx.query.force === '1' || ctx.body?.force === true }))
+    ),
+    // PROTOTYPE-SETUP (Settings, Slice 6): the Demo controls' payroll (demo only).
+    route('GET', `${A}/payroll/demo`, ctx => run(ctx.mode, () => payrollDemoOf(ctx.mode))),
+    route('POST', `${A}/payroll/months/:month/undo`, ctx => run(ctx.mode, () => undoPayrollMonth(ctx.mode, monthOrFail(ctx.params.month)))),
 ];

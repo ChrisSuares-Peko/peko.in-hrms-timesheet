@@ -237,6 +237,12 @@ export const getPayrollMonth = (s: AtsScope, month: string) =>
     call<PayrollMonthStatus>(s, 'get', `payroll/months/${month}`);
 export const processPayrollMonth = (s: AtsScope, month: string) =>
     call<PayrollMonthStatus>(s, 'post', `payroll/months/${month}/process`);
+/** PROTOTYPE-SETUP (Settings, Slice 6): the Demo controls' payroll (demo only). */
+export const getPayrollDemo = (s: AtsScope) =>
+    call<{ processedUpTo: string; processedUpToLabel: string; month: string; monthLabel: string; processed: boolean; blockingEmployees: number }>(s, 'get', 'payroll/demo');
+export const processPayrollDemo = (s: AtsScope, month: string, force: boolean) =>
+    call<PayrollMonthStatus>(s, 'post', `payroll/months/${month}/process`, { body: { force } });
+export const undoPayrollDemo = (s: AtsScope, month: string) => call<unknown>(s, 'post', `payroll/months/${month}/undo`);
 
 // ---- leave (PROTOTYPE-SETUP: Final batch, Slice 1) ---------------------------------------------------------
 

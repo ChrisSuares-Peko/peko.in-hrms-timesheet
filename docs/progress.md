@@ -10,6 +10,6 @@ The previous run (Payroll admin, `69d1fb8`–`489bdb2`) is finished and pushed.
 | Slice 2 — My team visibility | 0569639 | done |
 | Slice 3 — Tab 1: Attendance, timesheet & overtime | e60cad2 | done |
 | Slice 4 — Tab 2: Leave | a45460d | done |
-| Slice 5 — Tab 3: Reimbursements | (this commit) | done |
-| Slice 6 — Demo controls: process payroll | — | to do |
-| VERIFY 1–9 (1440 / 1024 / 375), single push | — | to do |
+| Slice 5 — Tab 3: Reimbursements | e844587 | done |
+| Slice 6 — Demo controls: process payroll | (this commit) | done |
+| VERIFY 1–9 (1440 / 1024 / 375), single push | — | done (all pass; pushed after slice 6) |
