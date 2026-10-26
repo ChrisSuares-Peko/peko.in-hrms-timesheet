@@ -606,9 +606,11 @@ export const teamReimbursements = (mode: DataMode, manager: MockEmployee, month:
     if (!/^\d{4}-\d{2}$/.test(month ?? '')) throw new RuleError('Pick a month.', 400);
     const team = teamOf(mode, manager);
     const ids = new Set(team.map(e => e.id));
+    // PROTOTYPE-SETUP (Settings, Slice 2): the team's claims, plus any routed to this person.
+    const routedToMe = (c: StoredClaim) => c.trail.steps.some(st => st.role === 'MANAGER' && st.approverId === manager.id);
     const claims = atsReimbursements
         .get(mode)
-        .filter(c => ids.has(c.employeeId) && !c.withdrawn && c.expenseDate.slice(0, 7) === month)
+        .filter(c => (ids.has(c.employeeId) || routedToMe(c)) && !c.withdrawn && c.expenseDate.slice(0, 7) === month)
         .flatMap(c => {
             const mine = waitingWithPerson(c.trail, manager.id);
             const bucket = mine ? 'you' : claimBucket(c.trail.status);
@@ -623,9 +625,9 @@ export const teamReimbursements = (mode: DataMode, manager: MockEmployee, month:
         month,
         level2Label: LEVEL2_NAME[getSettings(mode).level2.reimbursement] ?? 'Admin',
         totals: { claimed: sum(claims), waiting: sum(of('you')), withLevel2: sum(of('l2')), approved: sum(of('ok')) },
-        byPerson: team
-            .map(e => ({ employee: personRef(e), ...sum(claims.filter(c => c.item.employee.id === e.id)) }))
-            .filter(p => p.count > 0),
+        byPerson: [...new Map(claims.map(c => [c.item.employee.id, c.item.employee])).values()]
+            .map(employee => ({ employee, ...sum(claims.filter(c => c.item.employee.id === employee.id)) }))
+            .sort((x, y) => x.employee.name.localeCompare(y.employee.name)),
         claims,
     };
 };
@@ -635,9 +637,18 @@ export const teamReimbursements = (mode: DataMode, manager: MockEmployee, month:
  * sidebar badge, the Overview tile and notification. null for someone without direct reports.
  */
 export const teamWaiting = (mode: DataMode, manager: MockEmployee): { waiting: number } | null => {
-    if (!teamOf(mode, manager).length) return null;
     const c = teamApprovalCounts(mode, manager);
-    return { waiting: c.timesheets + c.attendance + c.overtime + c.leave + c.reimbursement };
+    const waiting = c.timesheets + c.attendance + c.overtime + c.leave + c.reimbursement;
+    // PROTOTYPE-SETUP (Settings, Slice 2): My team is for anyone with direct reports, anyone named as a level 1 / level
+    // 2 approver in settings, or anyone with something waiting for them.
+    if (!teamOf(mode, manager).length && !namedApprover(mode, manager) && !waiting) return null;
+    return { waiting };
+};
+
+/** PROTOTYPE-SETUP (Settings, Slice 2): named as a level 1 / level 2 approver for any request type. */
+export const namedApprover = (mode: DataMode, e: Pick<MockEmployee, 'id'>) => {
+    const s = getSettings(mode);
+    return [...Object.values(s.level1), ...Object.values(s.level2)].includes(`person:${e.id}`);
 };
 
 export const teamApprovalCounts = (mode: DataMode, manager: MockEmployee): ApprovalCounts => {

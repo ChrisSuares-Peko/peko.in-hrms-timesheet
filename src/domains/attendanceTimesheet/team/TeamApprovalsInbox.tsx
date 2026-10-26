@@ -244,7 +244,7 @@ const TeamApprovalsInbox = ({ settings, onChanged }: { settings: TeamSettings; o
                 </Flex>
             )}
             <Text type="secondary" className="text-xs">
-                Approving sends it on to Payroll for level 2. “Ask for update” sends it straight back to the employee; when they resubmit, it comes back to you.
+                Approving sends it on to the next approver set in Payroll settings, if there is one. “Ask for update” sends it straight back to the employee; when they resubmit, it comes back to you.
             </Text>
             <RequestDecisionModal
                 pending={pending}

@@ -18,6 +18,7 @@ import { addDays, addMonths, monthDates } from '@src/prototype/rules/attendance'
 import { LEAVE_LABEL } from '@src/prototype/rules/leavePolicy';
 
 import { getTeamLeave, getTeamRequests } from '../api';
+import { NoTeamEmpty } from './teamShared';
 import { DecideFn, useTeamDecision } from './useTeamDecision';
 import { RequestCard } from '../components/RequestQueue';
 import { useAtsScope } from '../hooks/useAtsScope';
@@ -148,9 +149,14 @@ const TeamLeaveCalendar = ({ onChanged, loadMonth, loadPending: pendingLoader, d
                 </Text>
             </div>
             <div className="grid grid-cols-1 items-stretch gap-4 min-[1100px]:grid-cols-[minmax(0,65fr)_minmax(0,35fr)]" data-leave-grid>
-            {!view ? (
-                <Skeleton active paragraph={{ rows: 6 }} />
-            ) : (
+            {!view && <Skeleton active paragraph={{ rows: 6 }} />}
+            {/* PROTOTYPE-SETUP (Settings, Slice 2): an approver without direct reports gets the empty state here. */}
+            {view && view.rows.length === 0 && (
+                <div className={`${ESS_CARD} py-10`} data-no-team>
+                    <NoTeamEmpty />
+                </div>
+            )}
+            {view && view.rows.length > 0 && (
                 <div className={`${ESS_CARD} !p-2 overflow-x-auto`}>
                     <div className="grid min-w-[640px] grid-cols-7 gap-1">
                         {WEEKDAYS.map(d => (

@@ -6,8 +6,8 @@ The previous run (Payroll admin, `69d1fb8`–`489bdb2`) is finished and pushed.
 | Step | Commit | Status |
 |---|---|---|
 | Prerequisite: Payroll admin finished and pushed (main = origin/main at 8f1927f) | — | done |
-| Slice 1 — Approval routing engine (rules + tests) | (this commit) | done |
-| Slice 2 — My team visibility | — | to do |
+| Slice 1 — Approval routing engine (rules + tests) | 10b3f2c | done |
+| Slice 2 — My team visibility | (this commit) | done |
 | Slice 3 — Tab 1: Attendance, timesheet & overtime | — | to do |
 | Slice 4 — Tab 2: Leave | — | to do |
 | Slice 5 — Tab 3: Reimbursements | — | to do |

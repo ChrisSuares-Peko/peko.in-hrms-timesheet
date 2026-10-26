@@ -10,7 +10,7 @@ import { adminDecide, adminRequests } from '../atsAdmin';
 import { approvalLinesOf, createOvertime, submitWeek } from '../atsEss';
 import { createLeaveRequest, leaveViewOf } from '../atsLeave';
 import { employeesFor, routeContext, weekView } from '../atsStore';
-import { approveWeek, decideRequest, payrollApproveWeek, payrollTimesheetQueue, teamOf, teamRequests, timesheetQueue, updateSettings } from '../atsTeam';
+import { approveWeek, decideRequest, payrollApproveWeek, payrollTimesheetQueue, teamOf, teamReimbursements, teamRequests, teamWaiting, timesheetQueue, updateSettings } from '../atsTeam';
 import { resetAllCollections } from '../persistentStore';
 
 const sneha = findEmployee('ACME-004')!;
@@ -131,5 +131,31 @@ describe('routing in the app', () => {
     it('a routing context names people; a missing person falls back to the manager', () => {
         expect(routeContext(sneha).personName(arjun.id)).toBe(arjun.fullName);
         expect(routeStep('person:999999' as `person:${number}`, 1, { id: arjun.id, name: arjun.fullName }, routeContext(sneha))).toMatchObject({ approverId: arjun.id });
+    });
+});
+
+// PROTOTYPE-SETUP (Settings, Slice 2): My team for anyone named as an approver or with items waiting.
+describe('my team visibility', () => {
+    it('someone without direct reports gets My team once they are named as an approver', () => {
+        expect(teamOf(M, sneha)).toHaveLength(0);
+        expect(teamWaiting(M, sneha)).toBeNull();
+        updateSettings(M, { level2: { ...DEFAULT_SETTINGS.level2, reimbursement: personApprover(sneha.id) } });
+        expect(teamWaiting(M, sneha)).toEqual({ waiting: 0 });
+    });
+    it('their queue: a claim routed to them shows in Approvals and Team reimbursements', () => {
+        updateSettings(M, { level1: { ...DEFAULT_SETTINGS.level1, overtime: personApprover(sneha.id) } });
+        const colleague = employeesFor(M).find(e => e.id !== sneha.id && e.managerEmployeeId === arjun.employeeId)!;
+        const o = createOvertime(M, colleague, { kind: 'planned', date: nextWorking(s.today, 4), minutes: 60, description: 'Release' });
+        expect(teamRequests(M, sneha, 'overtime', 'waiting').map(r => r.id)).toContain(o.id);
+        expect(teamWaiting(M, sneha)!.waiting).toBeGreaterThan(0);
+        // settings change after: the item stays with Sneha, and so does My team
+        updateSettings(M, { level1: { ...DEFAULT_SETTINGS.level1 } });
+        expect(teamWaiting(M, sneha)!.waiting).toBeGreaterThan(0);
+        expect(decideRequest(M, 'overtime', o.id, { role: 'MANAGER', manager: sneha }, 'APPROVED').trail.status).toBe('PENDING_PAYROLL');
+    });
+    it('team reimbursements include claims routed to them', () => {
+        const month = s.today.slice(0, 7);
+        const before = teamReimbursements(M, sneha, month).claims.length;
+        expect(before).toBe(0);
     });
 });

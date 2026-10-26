@@ -11,13 +11,17 @@ import { Outlet, useLocation } from 'react-router-dom';
 import EssThemeProvider from '@src/components/ess/EssThemeProvider';
 import { getAtsSettings } from '@src/domains/attendanceTimesheet/api';
 import type { AtsMode } from '@src/domains/attendanceTimesheet/types';
-import { directReportsOf } from '@src/prototype/mocks/data/employees';
+import { useAppSelector } from '@src/hooks/store';
+import { teamWaiting } from '@src/prototype/mocks/store/atsTeam';
 import { ESS_TABS, essTabFor } from '@src/prototype/persona/essPersonas';
 
 /** Outlet context the ESS tab layout gives its pages. Absent on the real /employee portal. */
 export interface EssOutletContext {
     atsMode?: AtsMode;
-    /** The tab's persona has direct reports. */
+    /**
+     * The tab's persona has direct reports. PROTOTYPE-SETUP (Settings, Slice 2): or is named as an approver, or has
+     * something waiting for them — anyone who gets My team.
+     */
     isManager: boolean;
 }
 
@@ -30,7 +34,8 @@ const EssLayout = () => {
         getAtsSettings({ userType: 'user', userId: tab.persona.id }).then(s => s && setAtsMode(s.mode));
     }, [tab.persona.id]);
 
-    const isManager = directReportsOf(tab.persona.employeeId).length > 0;
+    const dataMode = useAppSelector(state => state.reducer.dataMode?.mode ?? 'dummy');
+    const isManager = teamWaiting(dataMode, tab.persona) !== null;
 
     return (
         // PROTOTYPE-SETUP (ESS design, Slice 1): every ESS page (both tabs) renders inside the ESS theme.
