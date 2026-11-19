@@ -6,8 +6,9 @@ If a run is interrupted, continue from the first step that isn't **done**. The p
 | Step | Commit | Status |
 |---|---|---|
 | 1 — Leave rules as tested pure functions (src/prototype/rules/leave.ts) + new leave types | Leave: rules engine | done |
-| 2 — Data layer: settings migration, holidays, per-employee schedule, leave / cancellation / comp off stores, routing | | next |
-| 3 — Mock endpoints + docs/api/leave.md | | |
+| 2 — Data layer: settings migration, holidays, per-employee schedule, leave / cancellation / comp off stores, routing | Leave: data layer and mock endpoints | done |
+| 3 — Mock endpoints + docs/api/leave.md | Leave: API contract | done |
+| 3b — Screens compile again (old leave screens moved onto the new view) | | next |
 | 4 — Payroll settings → Leave Policies (Leave types · Public holidays · Configuration · Approvals) | | |
 | 5 — Payroll → Employee leaves (Overview · Leaves · Requests · Balances) + HR Add leave | | |
 | 6 — ESS → Leaves (Overview · My requests · Public holidays, type pages, Apply, Cancel, Comp off) | | |
@@ -24,8 +25,17 @@ If a run is interrupted, continue from the first step that isn't **done**. The p
   The new types are in `src/domains/attendanceTimesheet/types.ts` (leave section). The code base doesn't type-check
   again until step 2 moves the stores and screens onto them.
 
+- Step 2: `atsLeave.ts` rewritten on the rules (view, apply / withdraw / resubmit, cancellation requests, comp off, HR add /
+  cancel, mark active, admin lists, Leave Policies settings); `atsHolidays.ts` (editable holidays); `atsRequests.ts` (cancel
+  and comp off collections, employee status); `atsTeam.ts` / `atsAdmin.ts` (three leave item kinds in one queue, effects
+  on final approval, balance line); `scheduleOf` / `settingsFor` (per-employee schedule) in `atsStore.ts`. Store tests:
+  `atsLeaveModule.test.ts` (14, one per VERIFY item) and the existing store tests moved to the new API.
+- Step 3: `docs/api/leave.md` (model, rules, every endpoint, effects, data mapping). Endpoints added to the mock layer:
+  see that file (ESS: cancel / comp off; Payroll: overview, leaves, add, cancel, mark active, balances, employee types;
+  settings: leave-settings, types CRUD, config, holidays).
+
 ## Next
-- Step 2.
+- 3b: move the existing leave screens onto the new view so the app type-checks, then step 4.
 
 ## Decisions
 1. **Where the screens are.** "Payroll → Employee Leaves" in this repo is already folded into Payroll → Leave
@@ -54,3 +64,18 @@ If a run is interrupted, continue from the first step that isn't **done**. The p
 6. **Probation and mid-month confirmation.** When HR marks someone Active, a month counts as a normal month if they were
    confirmed on or before the 15th (the same rule as joining). Start-of-cycle types credit the rest of the year on the
    confirmation day.
+7. **Per-employee schedule.** The employee record (MockEmployee) gets an optional `workSchedule { weeklyOff, shift }`; when
+   absent the company's Attendance & Timesheet settings apply. Every leave rule and the day derivation (late marks,
+   half days, expected hours, leave rows, comp off) reads it through `scheduleOf` / `settingsFor`. No demo employee has
+   a different schedule (so seeded attendance stays consistent); a Sunday–Thursday case is covered in the rule tests.
+8. **Public holidays are editable data** (`ats-holidays`, seeded from the calendar's public holidays for last / this /
+   next year). Before, only the current year's static list was used, so next January's Republic Day now counts as a
+   holiday in leave day counts (one store test was widened for that).
+9. **Comp off demo data.** Sneha worked last Saturday (full shift → 1 day) and the Sunday before (half a shift → 0.5);
+   Vikram's existing worked Saturday has a pending 0.5-day comp off request with Arjun.
+10. **Loss of pay is only flagged**: late deductions with nothing left (`lossOfPayDays` on the view) and leave approved
+    beyond what was left (`lossOfPayDays` on the request). No payroll calculation changes.
+11. **Persisted demo data version** bumped to v8 (shapes changed); older settings are still migrated on read.
+12. **Source documents committed**: `docs/specs/leave-module-spec.md` and `docs/prototypes/leave-prototype.html` were
+    untracked; they're committed with the API doc. The unrelated local change to `docs/prototypes/attendance-timesheet.html`
+    is left alone.

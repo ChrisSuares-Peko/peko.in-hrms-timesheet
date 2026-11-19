@@ -1,5 +1,8 @@
 # Leave policy and leave requests (ESS)
 
+> Superseded by `docs/api/leave.md` (Leave module): leave types are configured by HR, probation is a status, and leave
+> cancellations and comp off use the leave approvers.
+
 PROTOTYPE-SETUP (Final batch, Slice 1). Mock API served by `src/prototype/mocks/handlers/ats.ts` under `/api/v1/ess/ats/`. The rules are pure and tested: `src/prototype/rules/leavePolicy.ts`. The stores are `src/prototype/mocks/store/atsLeave.ts` and `atsRequests.ts`.
 
 There are three leave types: **Annual**, **Casual** and **Sick**. "Earned leave" was renamed to **Annual** and the seed data was migrated to match.
