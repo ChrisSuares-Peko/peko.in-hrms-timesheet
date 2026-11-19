@@ -67,6 +67,8 @@ import { addHoliday, holidaysOf, removeHoliday } from './atsHolidays';
 import { atsCompOffs, atsEmployeeLife, atsLeaveCancels, atsLeaveRequests, leaveRequestsOf, lifeOf, openingBalancesOf } from './atsRequests';
 import {
     activeOvertimeOn,
+    atsAttendance,
+    atsCorrections,
     atsSettings,
     attendanceDay,
     correctionsOf,
@@ -182,7 +184,40 @@ const disputeOf = (mode: DataMode, e: MockEmployee, date: string): LateDeduction
 // ---- one employee's year -----------------------------------------------------------------------------------------
 
 /** Everything the leave year needs, for one employee. `exclude` leaves one request out (when it's being resubmitted). */
+/**
+ * The year is recomputed only when something it reads changed: every collection is replaced on write, so the identities
+ * of what it reads (plus today) are the cache key. Approval lists ask for the same employees' years many times.
+ */
+const yearCache = new Map<string, ReturnType<typeof computeYear>>();
+let yearCacheDeps: unknown[] = [];
+const depsOf = (mode: DataMode) => [
+    mode,
+    today(),
+    atsSettings.get(mode),
+    atsLeaveRequests.get(mode),
+    atsCompOffs.get(mode),
+    atsEmployeeLife.get(mode),
+    atsAttendance.get(mode),
+    atsCorrections.get(mode),
+    holidaysOf(mode),
+];
+
 export const leaveYearFor = (mode: DataMode, e: MockEmployee, exclude?: string) => {
+    const deps = depsOf(mode);
+    if (deps.length !== yearCacheDeps.length || deps.some((d, i) => d !== yearCacheDeps[i])) {
+        yearCache.clear();
+        yearCacheDeps = deps;
+    }
+    const key = `${mode}:${e.id}:${exclude ?? ''}`;
+    let y = yearCache.get(key);
+    if (!y) {
+        y = computeYear(mode, e, exclude);
+        yearCache.set(key, y);
+    }
+    return y;
+};
+
+const computeYear = (mode: DataMode, e: MockEmployee, exclude?: string) => {
     const settings = getSettings(mode);
     const life = lifeOf(mode, e);
     const t = today();
