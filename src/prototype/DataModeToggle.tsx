@@ -5,6 +5,8 @@
 // PROTOTYPE-SETUP (Settings, Slice 6): "Payroll (demo)" — processed up to which month; process last month (disabled
 // while timesheets are unapproved, with how many employees block it), "Process anyway", or undo it. Processing locks
 // the month everywhere, exactly like the Payroll module's own processing. Demo only — not part of the real Payroll UI.
+// PROTOTYPE-SETUP (Leave module): "Leave (demo)" — put the ESS - Employee persona on probation, or back to Active (HR's
+// own control is Payroll → Leave → Balances → Mark active).
 import { useEffect, useState } from 'react';
 
 import { DownOutlined } from '@ant-design/icons';
@@ -14,7 +16,9 @@ import type { MenuProps } from 'antd';
 import { essTheme } from '@src/components/ess/EssThemeProvider';
 import {
     getAtsSettings,
+    getLeaveView,
     getPayrollDemo,
+    setEmployeeLife,
     processPayrollDemo,
     resetTodayCheckIn,
     simulateSubmissionDay,
@@ -56,7 +60,18 @@ const DataModeToggle = () => {
     const scope = { userType: role || 'corporate', userId: id || 1001 };
     const [atsMode, setAtsMode] = useState<AtsMode | null>(null);
     const [payroll, setPayroll] = useState<PayrollDemo | null>(null);
-    const loadPayroll = () => getPayrollDemo(scope).then(p => setPayroll(p || null));
+    const [persona, setPersona] = useState<{ name: string; status: 'PROBATION' | 'ACTIVE' } | null>(null);
+    const loadPayroll = () => {
+        getPayrollDemo(scope).then(p => setPayroll(p || null));
+        getLeaveView(scope).then(v => setPersona(v ? { name: v.employeeName.split(' ')[0], status: v.status } : null));
+    };
+    const setPersonaStatus = async (status: 'PROBATION' | 'ACTIVE') => {
+        const res = await setEmployeeLife(scope, { status });
+        if (res) {
+            message.success(`${res.employeeName.split(' ')[0]} is ${status === 'PROBATION' ? 'on probation' : 'Active'} now`);
+            await reloadAfterPersist();
+        }
+    };
 
     useEffect(() => {
         getAtsSettings(scope).then(s => s && setAtsMode(s.mode));
@@ -166,6 +181,19 @@ const DataModeToggle = () => {
         { type: 'divider' },
         { key: 'payroll', type: 'group', label: 'Payroll (demo)', children: payrollItems },
         { type: 'divider' },
+        {
+            key: 'leave',
+            type: 'group',
+            label: 'Leave (demo)',
+            children: persona
+                ? [
+                      persona.status === 'ACTIVE'
+                          ? { key: 'persona-probation', label: `Put ${persona.name} on probation` }
+                          : { key: 'persona-active', label: `Mark ${persona.name} active` },
+                  ]
+                : [{ key: 'persona-info', disabled: true, label: 'Loading…' }],
+        },
+        { type: 'divider' },
         { key: 'simulate', label: 'Simulate submission day' },
         { key: 'reset-check-in', label: 'Reset today’s check-in' },
         { key: 'reset', label: 'Reset demo data', danger: true },
@@ -179,6 +207,8 @@ const DataModeToggle = () => {
         else if (key === 'payroll-process') processPayroll(false);
         else if (key === 'payroll-force') processPayroll(true);
         else if (key === 'payroll-undo') undoPayroll();
+        else if (key === 'persona-probation') setPersonaStatus('PROBATION');
+        else if (key === 'persona-active') setPersonaStatus('ACTIVE');
     };
 
     return (

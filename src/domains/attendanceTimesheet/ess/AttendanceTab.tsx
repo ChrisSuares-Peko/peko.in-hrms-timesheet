@@ -24,6 +24,7 @@ import type { AtsOverview, AttendanceDay, AttendanceMonthView, CorrectionTimes }
 import AttendanceCalendar, { CalendarMonthNav } from './AttendanceCalendar';
 import CorrectionsList, { CorrectionsFilter, isPending } from './CorrectionsList';
 import DayDetailDrawer from './DayDetailDrawer';
+import LateNotesPanel from './LateNotesPanel';
 import { Panel, todayIso } from './ui';
 
 export interface AttendanceTabProps {
@@ -72,6 +73,8 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
     const [selected, setSelected] = useState<string | null>(initialDate ?? null);
     const [modal, setModal] = useState<ModalState | null>(null);
     const [cancelling, setCancelling] = useState(false);
+    // PROTOTYPE-SETUP (Leave module): the Notes panel reloads after a dispute is raised or cancelled.
+    const [notesKey, setNotesKey] = useState(0);
 
     const loadMonth = useCallback(
         async (m: string, quiet = false) => {
@@ -99,6 +102,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
     const refreshAll = () => {
         loadMonth(month, true);
         loadCorrections();
+        setNotesKey(k => k + 1);
         onChanged?.();
     };
 
@@ -179,6 +183,9 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                 </Button>
             </div>
 
+            {/* PROTOTYPE-SETUP (Leave module): late check-in deductions and their disputes (latest 5). */}
+            <LateNotesPanel reloadKey={notesKey} onDispute={date => setModal({ date })} />
+
             {/* PROTOTYPE-SETUP (Attendance final, Slice 1): the grid (attendance.css) — ≥1200px: [Today] [Totals] [Requests]
                 over [Calendar (columns 1–2)] [Requests, continued]; 768–1199px: Today | Totals, calendar, requests;
                 phones: one column. */}
@@ -255,6 +262,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                                 onRequest={requestCorrection}
                                 onUpdated={list => {
                                     setCorrections(list);
+                                    setNotesKey(k => k + 1);
                                     loadMonth(month, true);
                                     onChanged?.();
                                 }}

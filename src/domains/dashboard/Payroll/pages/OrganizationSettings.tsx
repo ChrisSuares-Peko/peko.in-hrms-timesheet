@@ -3,11 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { Tabs, Typography } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+// PROTOTYPE-SETUP (Leave module): Leave Policies is rebuilt as Leave types · Public holidays · Configuration · Approvals.
+import LeavePoliciesTab from '@src/domains/attendanceTimesheet/leave/settings/LeavePoliciesTab';
 // PROTOTYPE-SETUP: ESS Service 1 — the single Attendance & Timesheet settings tab (replaces the V1 one).
 import AtsSettingsTab from '@src/domains/attendanceTimesheet/payroll/AtsSettingsTab';
 
 import ComplianceSettings from './complianceSettings';
-import LeavePolicyTable from '../components/LeaveSettings/LeavePolicyTable';
 import BankDetails from '../components/organizationSettings/BankDetails/BankDetails';
 import EssSettings from '../components/organizationSettings/EssSettings';
 import PayrollCycleDetails from '../components/organizationSettings/PayrollCycleDetails';
@@ -28,6 +29,10 @@ const OrganizationSettings = () => {
             // The old standalone Deductions tab was folded into Salary Components (key '3').
             setActiveTabKey('3');
             navigate('?activeTab=3', { replace: true });
+        } else if (activeTab === '11') {
+            // PROTOTYPE-SETUP (Leave module): the Settings run's separate "Leave" tab folded into Leave Policies.
+            setActiveTabKey('5');
+            navigate('?activeTab=5&leaveTab=config', { replace: true });
         } else if (activeTab) {
             setActiveTabKey(activeTab);
         }
@@ -57,7 +62,7 @@ const OrganizationSettings = () => {
         {
             key: '5',
             label: 'Leave Policies',
-            children: <LeavePolicyTable />,
+            children: activeTabKey === '5' ? <LeavePoliciesTab /> : null,
             disabled: false,
         },
         {
@@ -86,11 +91,6 @@ const OrganizationSettings = () => {
             key: '10',
             label: 'Attendance, timesheet & overtime',
             children: activeTabKey === '10' ? <AtsSettingsTab section="ato" /> : null,
-        },
-        {
-            key: '11',
-            label: 'Leave',
-            children: activeTabKey === '11' ? <AtsSettingsTab section="leave" /> : null,
         },
         {
             key: '12',
