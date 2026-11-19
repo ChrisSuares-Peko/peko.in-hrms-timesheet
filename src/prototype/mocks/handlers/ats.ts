@@ -16,11 +16,9 @@ import {
     adminCounts,
     adminDecide,
     adminDepartments,
-    adminLeaveBalances,
     adminLeaveCalendar,
-    adminLeaveViewOf,
+    adminLeaveOverview,
     adminMonthSummary,
-    adminOffToday,
     adminPeople,
     adminRemind,
     adminRequests,
@@ -60,7 +58,36 @@ import {
     reimbursementRulesOf,
 } from '../store/atsEss';
 import { homeOf } from '../store/atsHome';
-import { createLeaveRequest, leaveViewOf, resubmitLeaveRequest, setEmployeeLife, withdrawLeaveRequest } from '../store/atsLeave';
+import {
+    addLeaveType,
+    addPublicHoliday,
+    adminEmployeeLeaveTypes,
+    adminLeaveBalances,
+    adminLeaveEntries,
+    adminLeaveViewOf,
+    adminOffToday,
+    compOffCheck,
+    createCompOff,
+    createLeaveRequest,
+    hrAddLeave,
+    hrCancelLeave,
+    leaveSettingsView,
+    leaveViewOf,
+    markActive,
+    removeLeaveType,
+    removePublicHoliday,
+    requestLeaveCancellation,
+    resubmitCompOff,
+    resubmitLeaveCancellation,
+    resubmitLeaveRequest,
+    setEmployeeLife,
+    setLeaveTypeActive,
+    updateLeaveConfig,
+    updateLeaveType,
+    withdrawCompOff,
+    withdrawLeaveCancellation,
+    withdrawLeaveRequest,
+} from '../store/atsLeave';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../store/atsProfile';
 import { currentMonth, getSettings, overtimeContext, resetTodayCheckIn, today, weekView } from '../store/atsStore';
 import {
@@ -220,6 +247,14 @@ export const atsRoutes: MockRoute[] = [
     route('POST', `${A}/leave/requests`, ess((ctx, me) => createLeaveRequest(ctx.mode, me, ctx.body))),
     route('POST', `${A}/leave/requests/:id/withdraw`, ess((ctx, me) => withdrawLeaveRequest(ctx.mode, me, ctx.params.id!))),
     route('POST', `${A}/leave/requests/:id/resubmit`, ess((ctx, me) => resubmitLeaveRequest(ctx.mode, me, ctx.params.id!, ctx.body))),
+    // PROTOTYPE-SETUP (Leave module): cancel approved leave (a cancellation request), and comp off.
+    route('POST', `${A}/leave/requests/:id/cancel`, ess((ctx, me) => requestLeaveCancellation(ctx.mode, me, ctx.params.id!, ctx.body))),
+    route('POST', `${A}/leave/cancellations/:id/withdraw`, ess((ctx, me) => withdrawLeaveCancellation(ctx.mode, me, ctx.params.id!))),
+    route('POST', `${A}/leave/cancellations/:id/resubmit`, ess((ctx, me) => resubmitLeaveCancellation(ctx.mode, me, ctx.params.id!, ctx.body))),
+    route('GET', `${A}/leave/comp-off/check`, ess((ctx, me) => compOffCheck(ctx.mode, me, String(ctx.query.date ?? '')))),
+    route('POST', `${A}/leave/comp-off`, ess((ctx, me) => createCompOff(ctx.mode, me, ctx.body))),
+    route('POST', `${A}/leave/comp-off/:id/withdraw`, ess((ctx, me) => withdrawCompOff(ctx.mode, me, ctx.params.id!))),
+    route('POST', `${A}/leave/comp-off/:id/resubmit`, ess((ctx, me) => resubmitCompOff(ctx.mode, me, ctx.params.id!, ctx.body))),
 
     // ---- ESS: overtime ------------------------------------------------------------------------------------
     route('GET', `${A}/overtime`, ess((ctx, me) => overtimeViewOf(ctx.mode, me, monthParam(ctx.query)))),
@@ -284,8 +319,24 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/payroll/admin/timesheet/month`, ctx => run(ctx.mode, () => adminMonthSummary(ctx.mode, monthParam(ctx.query), String(ctx.query.department ?? '') || undefined))),
     route('GET', `${A}/payroll/admin/leave/calendar`, ctx => run(ctx.mode, () => adminLeaveCalendar(ctx.mode, monthParam(ctx.query)))),
     route('GET', `${A}/payroll/admin/leave/off-today`, ctx => run(ctx.mode, () => adminOffToday(ctx.mode))),
+    // PROTOTYPE-SETUP (Leave module): Payroll → Leave (Overview, Leaves, Balances, Add leave, Cancel, Mark active).
+    route('GET', `${A}/payroll/admin/leave/overview`, ctx => run(ctx.mode, () => adminLeaveOverview(ctx.mode))),
+    route('GET', `${A}/payroll/admin/leave/leaves`, ctx => run(ctx.mode, () => adminLeaveEntries(ctx.mode))),
+    route('POST', `${A}/payroll/admin/leave/leaves`, ctx => run(ctx.mode, () => hrAddLeave(ctx.mode, ctx.body))),
+    route('POST', `${A}/payroll/admin/leave/leaves/:id/cancel`, ctx => run(ctx.mode, () => hrCancelLeave(ctx.mode, ctx.params.id!, ctx.body))),
     route('GET', `${A}/payroll/admin/leave/balances`, ctx => run(ctx.mode, () => adminLeaveBalances(ctx.mode))),
+    route('POST', `${A}/payroll/admin/leave/employees/:employeeId/mark-active`, ctx => run(ctx.mode, () => markActive(ctx.mode, ctx.params.employeeId!))),
+    route('GET', `${A}/payroll/admin/leave/employees/:employeeId/types`, ctx => run(ctx.mode, () => adminEmployeeLeaveTypes(ctx.mode, ctx.params.employeeId!))),
     route('GET', `${A}/payroll/admin/leave/:employeeId`, ctx => run(ctx.mode, () => adminLeaveViewOf(ctx.mode, ctx.params.employeeId!))),
+    // PROTOTYPE-SETUP (Leave module): Payroll settings → Leave Policies.
+    route('GET', `${A}/leave-settings`, ctx => run(ctx.mode, () => leaveSettingsView(ctx.mode))),
+    route('PUT', `${A}/leave-settings/config`, ctx => run(ctx.mode, () => updateLeaveConfig(ctx.mode, ctx.body))),
+    route('POST', `${A}/leave-settings/types`, ctx => run(ctx.mode, () => addLeaveType(ctx.mode, ctx.body))),
+    route('PUT', `${A}/leave-settings/types/:id`, ctx => run(ctx.mode, () => updateLeaveType(ctx.mode, ctx.params.id!, ctx.body))),
+    route('POST', `${A}/leave-settings/types/:id/active`, ctx => run(ctx.mode, () => setLeaveTypeActive(ctx.mode, ctx.params.id!, ctx.body))),
+    route('DELETE', `${A}/leave-settings/types/:id`, ctx => run(ctx.mode, () => removeLeaveType(ctx.mode, ctx.params.id!))),
+    route('POST', `${A}/leave-settings/holidays`, ctx => run(ctx.mode, () => addPublicHoliday(ctx.mode, ctx.body))),
+    route('DELETE', `${A}/leave-settings/holidays/:date`, ctx => run(ctx.mode, () => removePublicHoliday(ctx.mode, ctx.params.date!))),
     route('GET', `${A}/payroll/months`, ctx => run(ctx.mode, () => payrollMonths(ctx.mode))),
     route('GET', `${A}/payroll/months/:month`, ctx => run(ctx.mode, () => payrollMonthStatus(ctx.mode, monthOrFail(ctx.params.month)))),
     route('POST', `${A}/payroll/months/:month/process`, ctx =>

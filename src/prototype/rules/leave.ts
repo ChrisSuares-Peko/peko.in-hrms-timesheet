@@ -38,34 +38,16 @@ import type {
     Weekday,
 } from '@src/domains/attendanceTimesheet/types';
 
-import { RuleError, addDays, approverPersonId, weekdayOf } from './attendance';
+import { DEFAULT_LEAVE_POLICY, DEFAULT_LEAVE_TYPES, RuleError, addDays, approverPersonId, weekdayOf } from './attendance';
 
 // ---- defaults --------------------------------------------------------------------------------------------------
 
 export const COMP_OFF = 'COMP_OFF';
 export const COMP_OFF_NAME = 'Comp off';
 
-/**
- * The default leave types. Annual / Casual / Sick are the live policy the ESS balances already used (Final batch);
- * Maternity and Paternity come from the original Payroll leave policies (the legacy leave components), so nothing
- * from either list is lost. Every type is paid.
- */
-export const DEFAULT_LEAVE_TYPES: LeaveTypeConfig[] = [
-    { id: 'ANNUAL', name: 'Annual', daysPerYear: 12, credit: 'MONTHLY', probation: 'MONTHLY', carryForward: 30, encashOnExit: true, proofAfterDays: null, appliesTo: 'ALL', active: true },
-    { id: 'CASUAL', name: 'Casual', daysPerYear: 8, credit: 'CYCLE_START', probation: 'MONTHLY', carryForward: 0, encashOnExit: false, proofAfterDays: null, appliesTo: 'ALL', active: true },
-    { id: 'SICK', name: 'Sick', daysPerYear: 6, credit: 'CYCLE_START', probation: 'FULL', carryForward: 0, encashOnExit: false, proofAfterDays: 3, appliesTo: 'ALL', active: true },
-    { id: 'MATERNITY', name: 'Maternity', daysPerYear: 182, credit: 'CYCLE_START', probation: 'NONE', carryForward: 0, encashOnExit: false, proofAfterDays: 0, appliesTo: 'FEMALE', active: true },
-    { id: 'PATERNITY', name: 'Paternity', daysPerYear: 5, credit: 'CYCLE_START', probation: 'NONE', carryForward: 0, encashOnExit: false, proofAfterDays: null, appliesTo: 'MALE', active: true },
-];
-
-export const DEFAULT_POLICY: LeavePolicy = {
-    year: 'COMPANY',
-    cycleStart: '04-01',
-    types: DEFAULT_LEAVE_TYPES,
-    sandwich: 'OFF',
-    compOff: { enabled: true, expiryDays: 60 },
-    lateOrder: ['ANNUAL', 'CASUAL'],
-};
+/** The default leave types and policy live with DEFAULT_SETTINGS (rules/attendance.ts). */
+export const DEFAULT_POLICY: LeavePolicy = DEFAULT_LEAVE_POLICY;
+export { DEFAULT_LEAVE_TYPES };
 
 export const DEFAULT_LATE_DAYS = 0.5;
 
@@ -591,7 +573,7 @@ export const allocateLateDeductions = (marks: LateMark[], days: number, order: s
     let lossOfPay = 0;
     const deductions = [...marks]
         .sort((a, b) => a.date.localeCompare(b.date))
-        .map(m => {
+        .map((m): Omit<LateDeduction, 'dispute'> => {
             if (m.state === 'reversed') {
                 const from = order.find(t => leftOf(t) - (byType[t] ?? 0) >= days) ?? 'LOP';
                 return { date: m.date, lateMinutes: m.lateMinutes, days, from, fromLabel: from === 'LOP' ? 'Loss of pay' : labelOf(from), state: m.state, ...(m.reversedOn ? { reversedOn: m.reversedOn } : {}) };

@@ -170,7 +170,7 @@ const withLateDeduction =
     (late: Map<string, LateDeduction>) =>
     <D extends AttendanceDay>(d: D): D => {
         const x = late.get(d.date);
-        return x ? { ...d, lateDeduction: { days: x.days, from: x.from, state: x.state, ...(x.reversedOn ? { reversedOn: x.reversedOn } : {}) } } : d;
+        return x ? { ...d, lateDeduction: { days: x.days, from: x.from, fromLabel: x.fromLabel, state: x.state, ...(x.reversedOn ? { reversedOn: x.reversedOn } : {}) } } : d;
     };
 
 export const overviewOf = (mode: DataMode, e: MockEmployee): AtsOverview => {

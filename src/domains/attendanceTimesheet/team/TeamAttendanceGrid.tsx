@@ -13,7 +13,7 @@ import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
 import { addMonths, hasTimesheets } from '@src/prototype/rules/attendance';
-import { lateDayDetail } from '@src/prototype/rules/leavePolicy';
+import { lateDayDetail } from '@src/prototype/rules/leave';
 
 import { getTeamAttendance } from '../api';
 import { displayTime, displayTimeOn, formatDuration } from '../components/format';

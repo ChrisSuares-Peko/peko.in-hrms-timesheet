@@ -8,7 +8,7 @@ import { atsScenario } from '../../data/ats-seed';
 import { findEmployee } from '../../data/employees';
 import { adminDecide, adminRequests } from '../atsAdmin';
 import { approvalLinesOf, claimedIn, createOvertime, reimbursementRulesOf, submitWeek } from '../atsEss';
-import { createLeaveRequest, leaveViewOf } from '../atsLeave';
+import { createLeaveRequest, leaveViewOf, updateLeaveType } from '../atsLeave';
 import { employeesFor, isDayLocked, routeContext, weekView } from '../atsStore';
 import { approveWeek, decideRequest, payrollApproveWeek, payrollDemoOf, payrollTimesheetQueue, processPayrollMonth, teamOf, undoPayrollMonth, teamReimbursements, teamRequests, teamWaiting, timesheetQueue, updateSettings } from '../atsTeam';
 import { resetAllCollections } from '../persistentStore';
@@ -162,12 +162,13 @@ describe('my team visibility', () => {
 
 // PROTOTYPE-SETUP (Settings, Slice 4): the leave rules reach the employee's form and the server's checks.
 describe('leave request rules', () => {
-    it('half-day off and the proof days come from settings', () => {
-        updateSettings(M, { leaveRules: { halfDay: false, proofDays: 1 } });
-        expect(leaveViewOf(M, sneha).rules).toEqual({ halfDay: false, proofDays: 1 });
+    it('half-day off comes from settings; the document rule from the leave type', () => {
+        updateSettings(M, { leaveRules: { halfDay: false } });
+        expect(leaveViewOf(M, sneha).rules.halfDay).toBe(false);
         const d = nextWorking(s.today, 30);
         expect(() => createLeaveRequest(M, sneha, { type: 'CASUAL', start: d, half: 'FIRST', reason: 'x' })).toThrow('Half-day leave is turned off. Apply for full days.');
-        expect(() => createLeaveRequest(M, sneha, { type: 'SICK', start: d, end: nextWorking(d, 1), reason: 'x' })).toThrow('Sick leave of more than 1 day needs a medical certificate or proof.');
+        updateLeaveType(M, 'SICK', { proofAfterDays: 1 });
+        expect(() => createLeaveRequest(M, sneha, { type: 'SICK', start: d, end: nextWorking(d, 1), reason: 'x' })).toThrow('Sick leave of more than 1 day needs a supporting document.');
     });
 });
 

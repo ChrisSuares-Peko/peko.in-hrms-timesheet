@@ -11,7 +11,7 @@ import { Alert, Button, Drawer, Popconfirm, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 
 import { locationDetailText } from '@src/prototype/rules/attendance';
-import { lateDayDetail } from '@src/prototype/rules/leavePolicy';
+import { lateDayDetail } from '@src/prototype/rules/leave';
 
 import type { CorrectionWithStatus } from '../api';
 import { BEFORE_JOINING } from './AttendanceCalendar';

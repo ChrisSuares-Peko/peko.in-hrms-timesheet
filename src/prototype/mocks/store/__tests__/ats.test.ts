@@ -40,7 +40,7 @@ import {
     updateTodayBreaks,
 } from '../atsEss';
 import { homeOf } from '../atsHome';
-import { createLeaveRequest, leaveViewOf, resubmitLeaveRequest, setEmployeeLife, withdrawLeaveRequest } from '../atsLeave';
+import { createLeaveRequest, leaveViewOf, resubmitLeaveRequest, setEmployeeLife, updateLeaveConfig, updateLeaveType, withdrawLeaveRequest } from '../atsLeave';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../atsProfile';
 import { atsLeaveRequests, atsReimbursements, resubmitClaim } from '../atsRequests';
 import { atsAttendance, attendanceDay, correctionsOf, currentMonth, getSettings, lastMonth, publicHolidayOn, recordOf, resetTodayCheckIn, weekView } from '../atsStore';
@@ -853,12 +853,12 @@ describe('final batch: leave requests and the leave page', () => {
         expect(withdrawLeaveRequest(M, sneha, req.id).requests.find(r => r.id === req.id)).toMatchObject({ withdrawn: true, statusLabel: 'Withdrawn' });
         const far = nextWorking(s.today, 45);
         // More sick days than the persona has: the balance check comes first.
-        expect(() => createLeaveRequest(M, sneha, { type: 'SICK', start: far, end: nextWorking(far, 3), reason: 'Flu' })).toThrow(/available right now/);
-        const policy = getSettings(M).leavePolicy;
-        updateSettings(M, { leavePolicy: { ...policy, types: { ...policy.types, SICK: { ...policy.types.SICK, daysPerYear: 12 } } } });
-        expect(() => createLeaveRequest(M, sneha, { type: 'SICK', start: far, end: nextWorking(far, 3), reason: 'Flu' })).toThrow('Sick leave of more than 3 days needs a medical certificate or proof.');
-        expect(() => createLeaveRequest(M, sneha, { type: 'SICK', start: far, end: nextWorking(far, 3), reason: 'Flu', proof: { name: 'certificate.pdf' } })).not.toThrow();
-        expect(() => createLeaveRequest(M, sneha, { type: 'ANNUAL', start: nextWorking(far, 10), end: nextWorking(far, 50), reason: 'Long trip' })).toThrow(/available right now/);
+        expect(() => createLeaveRequest(M, sneha, { type: 'SICK', start: far, end: nextWorking(far, 5), reason: 'Flu' })).toThrow(/available/);
+        // PROTOTYPE-SETUP (Leave module): leave types are edited through their own endpoint; the document rule is per type.
+        updateLeaveType(M, 'SICK', { daysPerYear: 12 });
+        expect(() => createLeaveRequest(M, sneha, { type: 'SICK', start: far, end: nextWorking(far, 5), reason: 'Flu' })).toThrow('Sick leave of more than 3 days needs a supporting document.');
+        expect(() => createLeaveRequest(M, sneha, { type: 'SICK', start: far, end: nextWorking(far, 5), reason: 'Flu', proof: { name: 'certificate.pdf' } })).not.toThrow();
+        expect(() => createLeaveRequest(M, sneha, { type: 'ANNUAL', start: nextWorking(far, 10), end: nextWorking(far, 50), reason: 'Long trip' })).toThrow(/available/);
     });
     it('manager → HR; approved leave shows in attendance and the timesheet (full and half day)', () => {
         const full = nextWorking(s.today, 25);
@@ -900,7 +900,8 @@ describe('final batch: leave requests and the leave page', () => {
         const v = setEmployeeLife(M, sneha, { dateOfJoin: join, exitDate: exit });
         expect(v.dateOfJoin).toBe(join);
         expect(v.exit?.date).toBe(exit);
-        expect(v.exit?.settlement.map(x => x.type)).toEqual(['ANNUAL', 'CASUAL', 'SICK']);
+        // Sneha is female: Maternity applies to her (Paternity doesn't).
+        expect(v.exit?.settlement.map(x => x.type)).toEqual(['ANNUAL', 'CASUAL', 'SICK', 'MATERNITY']);
     });
 });
 
@@ -910,13 +911,14 @@ describe('final batch: late check-in deductions', () => {
         const late = v.lateDeductions.find(l => l.date === s.lateDay);
         if (!late) return; // the scripted late day may fall before this leave year
         expect(late.state).toBe('pending'); // its correction is waiting
-        expect(late.from[0].type).toBe('ANNUAL');
+        expect(late.from).toBe('ANNUAL');
         const c = correctionsOf(M, sneha).find(x => x.date === s.lateDay && x.trail.status.startsWith('PENDING'))!;
         decideRequest(M, 'attendance', c.id, { role: 'MANAGER', manager: arjun }, 'APPROVED');
         decideRequest(M, 'attendance', c.id, { role: 'PAYROLL' }, 'APPROVED');
         const after = leaveViewOf(M, sneha).lateDeductions.find(l => l.date === s.lateDay)!;
         expect(after.state).toBe('reversed');
         expect(leaveViewOf(M, sneha).balances.find(b => b.type === 'ANNUAL')!.ledger.some(e => e.kind === 'LATE_REVERSED')).toBe(true);
+        expect(after.dispute).toBeUndefined();
     });
     it('0 days per late check-in turns it off', () => {
         updateSettings(M, { lateDeductionDays: 0 });
@@ -1034,7 +1036,7 @@ describe('final batch: leave page and policy settings', () => {
         expect(v.employeeName).toBe('Sneha Iyer');
         expect(v.approvalPath).toBe('Arjun Mehta (manager), then HR team');
         expect(v.calendar.weeklyOff).toEqual(getSettings(M).weeklyOff);
-        expect(v.calendar.holidays.every(d => /^\d{4}-\d{2}-\d{2}$/.test(d))).toBe(true);
+        expect(v.calendar.holidays.every(d => /^\d{4}-\d{2}-\d{2}$/.test(d.date) && d.name)).toBe(true);
         expect(leaveViewOf(M, findEmployee('ACME-021')!).approvalPath).toBe('HR team');
         updateSettings(M, { level2: { ...getSettings(M).level2, leave: 'NONE' } });
         expect(leaveViewOf(M, sneha).approvalPath).toBe('Arjun Mehta (manager)');
@@ -1043,15 +1045,16 @@ describe('final batch: leave page and policy settings', () => {
     it('a policy change applies straight away (joining-date year, Casual monthly)', () => {
         const before = leaveViewOf(M, sneha);
         const policy = getSettings(M).leavePolicy;
-        updateSettings(M, { leavePolicy: { ...policy, year: 'JOINING', types: { ...policy.types, CASUAL: { ...policy.types.CASUAL, credit: 'MONTHLY' } } } });
+        updateLeaveConfig(M, { year: 'JOINING' });
+        updateLeaveType(M, 'CASUAL', { credit: 'MONTHLY' });
         const after = leaveViewOf(M, sneha);
         expect(after.year.basis).toBe('JOINING');
         expect(after.year.start.slice(5)).toBe(sneha.dateOfJoin.slice(5));
         expect(after.balances.find(b => b.type === 'CASUAL')!.ledger.some(x => x.kind === 'MONTHLY')).toBe(true);
         expect(before.year.basis).toBe('COMPANY');
         // invalid values are ignored
-        updateSettings(M, { leavePolicy: { ...policy, cycleStart: '02-30', probationMonths: 99 } });
-        expect(getSettings(M).leavePolicy).toMatchObject({ cycleStart: policy.cycleStart, probationMonths: policy.probationMonths });
+        updateLeaveConfig(M, { cycleStart: '02-30', sandwich: 'SOMETIMES' as never });
+        expect(getSettings(M).leavePolicy).toMatchObject({ cycleStart: policy.cycleStart, sandwich: policy.sandwich });
     });
 });
 
@@ -1158,7 +1161,7 @@ describe('my team: ask for update', () => {
             },
             ...list,
         ]);
-        const waiting = teamRequests(M, arjun, 'leave', 'waiting');
+        const waiting = teamRequests(M, arjun, 'leave', 'waiting').filter(r => r.leaveKind === 'leave');
         const day = far(30);
         const {id} = (createLeaveRequest(M, sneha, { type: 'CASUAL', start: day, reason: 'Trip' }).requests.find(r => r.start === day)!);
         expect(teamRequests(M, arjun, 'leave', 'waiting').map(r => r.id)).toEqual(expect.arrayContaining([...waiting.map(r => r.id), id]));
@@ -1335,7 +1338,7 @@ describe('leave & team: leave and holiday rows', () => {
     };
     /** A weekday public holiday in the last 120 days. */
     const holiday = () =>
-        Array.from({ length: 120 }, (_, i) => addDays(s.today, -(i + 1))).find(d => publicHolidayOn(d) && ![0, 6].includes(new Date(`${d}T00:00:00Z`).getUTCDay()))!;
+        Array.from({ length: 120 }, (_, i) => addDays(s.today, -(i + 1))).find(d => publicHolidayOn(M, d) && ![0, 6].includes(new Date(`${d}T00:00:00Z`).getUTCDay()))!;
 
     it('a full-day leave row blocks overlapping entries, is not an entry, and never counts as overtime', () => {
         const d = nextWorking(s.today, 15);
@@ -1360,7 +1363,7 @@ describe('leave & team: leave and holiday rows', () => {
         const h = holiday();
         expect(h).toBeTruthy();
         const day = weekView(M, sneha, h).days.find(x => x.date === h)!;
-        expect(day.leaveRows).toEqual([expect.objectContaining({ kind: 'HOLIDAY', tag: 'Public holiday', start: '09:30', end: '18:30', description: publicHolidayOn(h) })]);
+        expect(day.leaveRows).toEqual([expect.objectContaining({ kind: 'HOLIDAY', tag: 'Public holiday', start: '09:30', end: '18:30', description: publicHolidayOn(M, h) })]);
         expect(day).toMatchObject({ expectedMinutes: 540, loggedMinutes: 540 + day.entries.reduce((n, x) => n + x.mins, 0) });
         expect(attendanceDay(M, sneha, h).overtimeMinutes).toBe(0);
         atsAttendance.update(M, all => ({ ...all, [`${sneha.id}:${h}`]: { employeeId: sneha.id, date: h, checkIn: '10:00', checkOut: '14:00', outDays: 0, breaks: [] } as never }));
@@ -1400,7 +1403,7 @@ describe('leave & team: team reimbursements and leave to approve', () => {
         expect(() => teamReimbursements(M, arjun, 'bad')).toThrow('Pick a month.');
     });
     it('pending leave carries its dates and who else is off; approving keeps it pending (level 2)', () => {
-        const waiting = teamRequests(M, arjun, 'leave', 'waiting');
+        const waiting = teamRequests(M, arjun, 'leave', 'waiting').filter(r => r.leaveKind === 'leave');
         expect(waiting.length).toBeGreaterThan(0);
         waiting.forEach(r => expect(r.leave).toMatchObject({ start: expect.any(String), end: expect.any(String), alsoOff: expect.any(Array) }));
         const r = waiting[0];

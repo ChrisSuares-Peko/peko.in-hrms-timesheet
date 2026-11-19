@@ -214,7 +214,7 @@ export interface AttendanceDay {
     /** PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — the day's location timeline (default Office). */
     locations?: LocationStamp[];
     /** PROTOTYPE-SETUP (Final batch, Slice 5): leave deducted for a late check-in (see docs/api/leave-policy.md). */
-    lateDeduction?: Pick<LateDeduction, 'days' | 'from' | 'state' | 'reversedOn'>;
+    lateDeduction?: Pick<LateDeduction, 'days' | 'from' | 'fromLabel' | 'state' | 'reversedOn'>;
     /** Extra time per the overtime rule for the current mode (0 if none). */
     overtimeMinutes: number;
     /** Holiday name, leave type, "Weekly off", … */

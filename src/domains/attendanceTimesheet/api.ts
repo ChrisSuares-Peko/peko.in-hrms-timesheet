@@ -9,8 +9,17 @@ import { ApiClient } from '@src/services/config';
 
 import type {
     AdminCounts,
-    AdminLeaveRow,
+    AdminLeaveBalances,
+    AdminLeaveEntry,
+    AdminLeaveOverview,
     AdminOffToday,
+    CompOffCheck,
+    HrAddLeaveInput,
+    LeaveSettingsView,
+    LeaveTypeInput,
+    LeavePolicy,
+    LeaveBalance,
+    LeaveCalendarInfo,
     AdminRequestRow,
     AdminRequestType,
     AdminTimesheetOverview,
@@ -94,7 +103,7 @@ export const updateAtsSettings = (s: AtsScope, body: Partial<AtsSettings>) =>
 /** PROTOTYPE-SETUP (Final batch, Slice 1): "Run auto-submit now" (demo). */
 export const runAutoSubmitNow = (s: AtsScope) => call<SubmissionRunResult>(s, 'post', 'demo/run-auto-submit');
 /** PROTOTYPE-SETUP (Final batch, Slice 1): the persona's joining and leaving dates, for the leave demo. */
-export const setEmployeeLife = (s: AtsScope, body: { dateOfJoin?: string | null; exitDate?: string | null }) =>
+export const setEmployeeLife = (s: AtsScope, body: { dateOfJoin?: string | null; exitDate?: string | null; status?: 'PROBATION' | 'ACTIVE' }) =>
     call<LeaveView>(s, 'put', 'demo/employee-life', { body });
 export const simulateSubmissionDay = (s: AtsScope) =>
     call<SubmissionRunResult>(s, 'post', 'demo/simulate-submission-day');
@@ -256,8 +265,32 @@ export const getApprovalLines = (s: AtsScope) =>
     call<Record<'attendance' | 'overtime' | 'leave' | 'reimbursement' | 'timesheet', string>>(s, 'get', 'approval-lines');
 export const applyForLeave = (s: AtsScope, body: LeaveRequestInput) => call<LeaveView>(s, 'post', 'leave/requests', { body });
 export const withdrawLeave = (s: AtsScope, id: string) => call<LeaveView>(s, 'post', `leave/requests/${id}/withdraw`);
-export const resubmitLeave = (s: AtsScope, id: string, body: { start: string; end: string; half: LeaveHalf | null; reason: string }) =>
+export const resubmitLeave = (s: AtsScope, id: string, body: { start: string; end: string; half: LeaveHalf | null; reason: string; proof?: { name: string } | null }) =>
     call<LeaveView>(s, 'post', `leave/requests/${id}/resubmit`, { body });
+/** PROTOTYPE-SETUP (Leave module): cancel approved leave (a cancellation request that goes to the leave approvers). */
+export const cancelLeave = (s: AtsScope, id: string, reason: string) => call<LeaveView>(s, 'post', `leave/requests/${id}/cancel`, { body: { reason } });
+export const withdrawLeaveCancellation = (s: AtsScope, id: string) => call<LeaveView>(s, 'post', `leave/cancellations/${id}/withdraw`);
+export const resubmitLeaveCancellation = (s: AtsScope, id: string, reason: string) =>
+    call<LeaveView>(s, 'post', `leave/cancellations/${id}/resubmit`, { body: { reason } });
+/** PROTOTYPE-SETUP (Leave module): comp off — what a worked day earns, the request, withdraw, update and resubmit. */
+export const checkCompOff = (s: AtsScope, date: string) => call<CompOffCheck>(s, 'get', 'leave/comp-off/check', { params: { date } });
+export const requestCompOff = (s: AtsScope, body: { date: string; reason: string }) => call<LeaveView>(s, 'post', 'leave/comp-off', { body });
+export const withdrawCompOff = (s: AtsScope, id: string) => call<LeaveView>(s, 'post', `leave/comp-off/${id}/withdraw`);
+export const resubmitCompOff = (s: AtsScope, id: string, body: { date: string; reason: string }) => call<LeaveView>(s, 'post', `leave/comp-off/${id}/resubmit`, { body });
+
+// ---- Payroll settings → Leave Policies (PROTOTYPE-SETUP: Leave module) -----------------------------------------
+
+export const getLeaveSettings = (s: AtsScope) => call<LeaveSettingsView>(s, 'get', 'leave-settings');
+export const updateLeaveConfig = (
+    s: AtsScope,
+    body: Partial<Pick<LeavePolicy, 'year' | 'cycleStart' | 'sandwich' | 'lateOrder'>> & { compOff?: Partial<LeavePolicy['compOff']>; halfDay?: boolean; lateDeductionDays?: number }
+) => call<LeaveSettingsView>(s, 'put', 'leave-settings/config', { body });
+export const addLeaveType = (s: AtsScope, body: LeaveTypeInput) => call<LeaveSettingsView>(s, 'post', 'leave-settings/types', { body });
+export const updateLeaveType = (s: AtsScope, id: string, body: Partial<LeaveTypeInput>) => call<LeaveSettingsView>(s, 'put', `leave-settings/types/${id}`, { body });
+export const setLeaveTypeActive = (s: AtsScope, id: string, active: boolean) => call<LeaveSettingsView>(s, 'post', `leave-settings/types/${id}/active`, { body: { active } });
+export const removeLeaveType = (s: AtsScope, id: string) => call<LeaveSettingsView>(s, 'delete', `leave-settings/types/${id}`);
+export const addPublicHoliday = (s: AtsScope, body: { date: string; name: string }) => call<LeaveSettingsView>(s, 'post', 'leave-settings/holidays', { body });
+export const removePublicHoliday = (s: AtsScope, date: string) => call<LeaveSettingsView>(s, 'delete', `leave-settings/holidays/${date}`);
 
 // ---- timesheets at Payroll (PROTOTYPE-SETUP: Final batch, Slice 1) ---------------------------------------------
 
@@ -295,5 +328,20 @@ export const getAdminMonth = (s: AtsScope, month: string, department?: string) =
     call<TeamMonthSummary>(s, 'get', 'payroll/admin/timesheet/month', { params: { month, ...(department ? { department } : {}) } });
 export const getAdminLeaveCalendar = (s: AtsScope, month: string) => call<TeamLeaveView>(s, 'get', 'payroll/admin/leave/calendar', { params: { month } });
 export const getAdminOffToday = (s: AtsScope) => call<AdminOffToday[]>(s, 'get', 'payroll/admin/leave/off-today');
-export const getAdminLeaveBalances = (s: AtsScope) => call<AdminLeaveRow[]>(s, 'get', 'payroll/admin/leave/balances');
+export const getAdminLeaveBalances = (s: AtsScope) => call<AdminLeaveBalances>(s, 'get', 'payroll/admin/leave/balances');
 export const getAdminLeaveView = (s: AtsScope, employeeId: number) => call<LeaveView>(s, 'get', `payroll/admin/leave/${employeeId}`);
+/** PROTOTYPE-SETUP (Leave module): Payroll → Leave — Overview, Leaves (approved), Add leave, Cancel, Mark active. */
+export const getAdminLeaveOverview = (s: AtsScope) => call<AdminLeaveOverview>(s, 'get', 'payroll/admin/leave/overview');
+export const getAdminLeaveEntries = (s: AtsScope) => call<AdminLeaveEntry[]>(s, 'get', 'payroll/admin/leave/leaves');
+export const hrAddLeave = (s: AtsScope, body: HrAddLeaveInput) => call<{ id: string; message: string }>(s, 'post', 'payroll/admin/leave/leaves', { body });
+export const hrCancelLeave = (s: AtsScope, id: string, reason: string) => call<{ message: string }>(s, 'post', `payroll/admin/leave/leaves/${id}/cancel`, { body: { reason } });
+export const markEmployeeActive = (s: AtsScope, employeeId: number) => call<{ message: string }>(s, 'post', `payroll/admin/leave/employees/${employeeId}/mark-active`);
+export const getEmployeeLeaveTypes = (s: AtsScope, employeeId: number) =>
+    call<{
+        employeeId: number;
+        status: 'PROBATION' | 'ACTIVE';
+        calendar: LeaveCalendarInfo;
+        rules: LeaveView['rules'];
+        balances: LeaveBalance[];
+        existing: { start: string; end: string; half: LeaveHalf | null; summary: string }[];
+    }>(s, 'get', `payroll/admin/leave/employees/${employeeId}/types`);

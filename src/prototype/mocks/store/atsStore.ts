@@ -53,7 +53,7 @@ import {
     type RouteContext,
     stepName,
 } from '@src/prototype/rules/attendance';
-import { LEAVE_LABEL } from '@src/prototype/rules/leavePolicy';
+import { COMP_OFF, COMP_OFF_NAME, migrateLeavePolicy, typeLabel } from '@src/prototype/rules/leave';
 import {
     autoSubmitDateFor,
     canSubmitPeriod,
@@ -65,12 +65,13 @@ import {
 } from '@src/prototype/rules/timesheetFiling';
 
 
+import { holidayNameOn } from './atsHolidays';
 import { approvedLeaveOn } from './atsRequests';
 import { createCollection } from './persistentStore';
 import { buildAtsSeed, recordKey, weekId } from '../data/ats-seed';
 import { isoDateTime, monthsAgo, toIsoDate } from '../data/dates';
 import { EMPLOYEES, ESS_EMPLOYEE, ESS_MANAGER, MockEmployee, findEmployee, managerOf } from '../data/employees';
-import { holidayOn, todayIso } from '../data/time-calendar';
+import { todayIso } from '../data/time-calendar';
 import type { DataMode } from '../envelope';
 
 // ---- collections --------------------------------------------------------------------------------------
@@ -127,9 +128,11 @@ export const getSettings = (mode: DataMode): AtsSettings => {
         level2: { ...DEFAULT_SETTINGS.level2, ...s.level2 },
         // PROTOTYPE-SETUP (Settings, Slices 1, 4, 5): level 1 routing, leave request rules, reimbursement rules.
         level1: { ...DEFAULT_SETTINGS.level1, ...s.level1 },
-        leaveRules: { ...DEFAULT_SETTINGS.leaveRules, ...s.leaveRules },
+        // PROTOTYPE-SETUP (Leave module): half days only; the old sick-leave proof threshold moves onto Sick.
+        leaveRules: { halfDay: s.leaveRules?.halfDay ?? DEFAULT_SETTINGS.leaveRules.halfDay },
         reimbursements: { ...DEFAULT_SETTINGS.reimbursements, ...s.reimbursements },
-        leavePolicy: s.leavePolicy ?? DEFAULT_SETTINGS.leavePolicy,
+        // PROTOTYPE-SETUP (Leave module): a policy stored in the earlier shape is mapped to the current one.
+        leavePolicy: migrateLeavePolicy(s.leavePolicy, (s.leaveRules as { proofDays?: number } | undefined)?.proofDays),
         lateDeductionDays: s.lateDeductionDays ?? DEFAULT_SETTINGS.lateDeductionDays,
     };
 };
@@ -200,7 +203,30 @@ export const isDayLocked = (mode: DataMode, date: string) => isProcessed(mode, m
 export const firstUnprocessedMonth = (mode: DataMode) =>
     [lastMonth(), currentMonth()].find(m => !isProcessed(mode, m)) ?? addMonths(currentMonth(), 1);
 
-// ---- leave & holidays ---------------------------------------------------------------------------------
+// ---- leave, holidays and each employee's schedule --------------------------------------------------------------
+
+/**
+ * PROTOTYPE-SETUP (Leave module): an employee's own working days and shift — their work schedule when it differs from
+ * the company's, else the company's (Attendance & Timesheet settings). Used for late marks, hours targets, leave day
+ * counts, half days, the sandwich rule, calendars and comp off eligibility.
+ */
+export const scheduleOf = (mode: DataMode, e: Pick<MockEmployee, 'workSchedule'>) => {
+    const s = getSettings(mode);
+    return { weeklyOff: e.workSchedule?.weeklyOff ?? s.weeklyOff, shift: e.workSchedule?.shift ?? s.shift };
+};
+
+/** The settings with the employee's own weekly offs and shift — what the day rules read for them. */
+export const settingsFor = (mode: DataMode, e: Pick<MockEmployee, 'workSchedule'>): AtsSettings => ({ ...getSettings(mode), ...scheduleOf(mode, e) });
+
+/** A leave type's name ("Annual", "Comp off"; an id no longer configured shows as itself). */
+export const leaveTypeName = (mode: DataMode, id: string) =>
+    id === COMP_OFF ? COMP_OFF_NAME : getSettings(mode).leavePolicy.types.find(t => t.id === id)?.name ?? id;
+
+/** "Annual leave", "Comp off". */
+export const leaveTypeLabel = (mode: DataMode, id: string) => typeLabel(leaveTypeName(mode, id));
+
+/** PROTOTYPE-SETUP (Leave module): the company's public holiday on the date (editable in Payroll settings). */
+export const publicHolidayOn = (mode: DataMode, date: string) => holidayNameOn(mode, date);
 
 /**
  * Full-day approved leave on the date (half-day leave is a working half-day). PROTOTYPE-SETUP (Final batch, Slice 1):
@@ -208,18 +234,13 @@ export const firstUnprocessedMonth = (mode: DataMode) =>
  */
 export const leaveNameOn = (mode: DataMode, e: MockEmployee, date: string) => {
     // Weekly offs and holidays inside a leave stay what they are (they aren't counted as leave days).
-    if (isWeeklyOff(date, getSettings(mode)) || publicHolidayOn(date)) return undefined;
+    if (isWeeklyOff(date, settingsFor(mode, e)) || publicHolidayOn(mode, date)) return undefined;
     const l = approvedLeaveOn(mode, e.id, date);
-    return l && !l.half ? `${LEAVE_LABEL[l.type]} leave` : undefined;
+    return l && !l.half ? leaveTypeLabel(mode, l.type) : undefined;
 };
 
 /** PROTOTYPE-SETUP (Final batch, Slice 1): approved half-day leave on the date (first or second half). */
 export const halfLeaveOn = (mode: DataMode, e: MockEmployee, date: string) => approvedLeaveOn(mode, e.id, date)?.half ?? null;
-
-export const publicHolidayOn = (date: string) => {
-    const h = holidayOn(date);
-    return h?.category === 'public' ? h.title : undefined;
-};
 
 // ---- filing periods & entries (PROTOTYPE-SETUP: Timesheet filing) -------------------------------------------
 // A filing period is a stored record (TimesheetWeek: weekStart … periodEnd) or, where none is stored, the natural
@@ -339,15 +360,15 @@ export const breakRowsOn = (mode: DataMode, e: MockEmployee, date: string): Time
  * shift (timesheet modes only). Not part of loggedOn, so they never count as overtime.
  */
 export const leaveRowsOn = (mode: DataMode, e: MockEmployee, date: string): TimesheetLeaveRow[] => {
-    const settings = getSettings(mode);
+    const settings = settingsFor(mode, e);
     if (!hasTimesheets(settings.mode) || date < e.dateOfJoin) return [];
     const l = approvedLeaveOn(mode, e.id, date);
     return leaveRowsFor({
         date,
         shift: settings.shift,
         weeklyOff: isWeeklyOff(date, settings),
-        holidayName: publicHolidayOn(date),
-        leave: l ? { label: `${LEAVE_LABEL[l.type]} leave`, half: l.half ?? null } : null,
+        holidayName: publicHolidayOn(mode, date),
+        leave: l ? { label: leaveTypeLabel(mode, l.type), half: l.half ?? null } : null,
         checkedIn: hasCheckIn(settings.mode) && Boolean(recordOf(mode, e, date)?.checkIn),
     });
 };
@@ -403,7 +424,7 @@ const latestCorrectionOn = (mode: DataMode, e: MockEmployee, date: string) =>
 
 /** One day of attendance with status, overtime and lock — what every screen shows. */
 export const attendanceDay = (mode: DataMode, e: MockEmployee, date: string): AttendanceDay => {
-    const settings = getSettings(mode);
+    const settings = settingsFor(mode, e);
     const t = today();
     const locked = isDayLocked(mode, date);
     const lock = locked ? { locked: true, lockReason: lockReasonFor(date) } : { locked: false };
@@ -423,7 +444,7 @@ export const attendanceDay = (mode: DataMode, e: MockEmployee, date: string): At
         outDays: rec?.outDays ?? 0,
         breaks: rec?.breaks ?? [],
         settings,
-        holidayName: publicHolidayOn(date),
+        holidayName: publicHolidayOn(mode, date),
         leaveName: leaveNameOn(mode, e, date),
         halfLeave: halfLeaveOn(mode, e, date),
     });
@@ -469,7 +490,7 @@ export const attendanceDay = (mode: DataMode, e: MockEmployee, date: string): At
 // ---- timesheet days & weeks -----------------------------------------------------------------------------
 
 export const timesheetDay = (mode: DataMode, e: MockEmployee, date: string, entries: TimesheetEntry[]): TimesheetDay => {
-    const settings = getSettings(mode);
+    const settings = settingsFor(mode, e);
     const t = today();
     const attendance = attendanceDay(mode, e, date);
     const dayEntries = sortEntries(entries.filter(x => x.date === date));

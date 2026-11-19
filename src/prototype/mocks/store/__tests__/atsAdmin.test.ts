@@ -7,17 +7,14 @@ import {
     adminBulkApprove,
     adminCounts,
     adminDecide,
-    adminLeaveBalances,
-    adminLeaveViewOf,
     adminMonthSummary,
-    adminOffToday,
     adminRemind,
     adminRequests,
     adminTimesheetOverview,
     adminWeekGrid,
 } from '../atsAdmin';
 import { createCorrection, submitWeek } from '../atsEss';
-import { createLeaveRequest, leaveViewOf, resubmitLeaveRequest } from '../atsLeave';
+import { adminLeaveBalances, adminLeaveViewOf, adminOffToday, createLeaveRequest, leaveViewOf, resubmitLeaveRequest } from '../atsLeave';
 import { atsLeaveRequests } from '../atsRequests';
 import { attendanceDay, correctionsOf, currentMonth, employeesFor, weekView } from '../atsStore';
 import { approveWeek, decideRequest, payrollApproveWeek, payrollMonthStatus, payrollSendBackWeek, payrollTimesheetQueue, teamRequests } from '../atsTeam';
@@ -86,7 +83,7 @@ describe('payroll admin: requests', () => {
     });
 
     it('leave clash chips count approved leave in the same department only', () => {
-        const pending = adminRequests(M, 'leave').find(r => r.bucket === 'mgr' || r.bucket === 'you')!;
+        const pending = adminRequests(M, 'leave').find(r => (r.bucket === 'mgr' || r.bucket === 'you') && r.item.leaveKind === 'leave')!;
         const e = findEmployee(pending.item.employee.id)!;
         const colleague = employeesFor(M).find(x => x.department === e.department && x.id !== e.id)!;
         const other = employeesFor(M).find(x => x.department !== e.department)!;
@@ -146,11 +143,11 @@ describe('payroll admin: timesheet', () => {
 
 describe('payroll admin: leave', () => {
     it('balances per employee match their leave view; one employee’s ledger', () => {
-        const rows = adminLeaveBalances(M);
+        const { rows } = adminLeaveBalances(M);
         expect(rows).toHaveLength(employeesFor(M).length);
         const mine = rows.find(r => r.employee.id === sneha.id)!;
         const v = leaveViewOf(M, sneha);
-        expect(mine.available.ANNUAL).toBe(v.balances.find(b => b.type === 'ANNUAL')!.available);
+        expect(mine.types.ANNUAL!.available).toBe(v.balances.find(b => b.type === 'ANNUAL')!.available);
         expect(mine.lossOfPayDays).toBe(v.lossOfPayDays);
         expect(adminLeaveViewOf(M, sneha.id).balances[0].ledger.length).toBeGreaterThan(0);
     });
@@ -163,7 +160,7 @@ describe('payroll admin: leave', () => {
 // PROTOTYPE-SETUP (Payroll admin, Slice 6): approving at level 2 is final and runs the existing effects.
 describe('payroll admin: approval effects', () => {
     it('leave approved by the admin is applied to attendance and the timesheet', () => {
-        const row = adminRequests(M, 'leave').find(r => r.bucket === 'mgr' && !r.item.leave?.half)!;
+        const row = adminRequests(M, 'leave').find(r => r.bucket === 'mgr' && r.item.leaveKind === 'leave' && !r.item.leave?.half)!;
         const manager = findEmployee(row.item.employee.id)!;
         const boss = employeesFor(M).find(e => e.employeeId === manager.managerEmployeeId)!;
         decideRequest(M, 'leave', row.item.id, { role: 'MANAGER', manager: boss }, 'APPROVED');

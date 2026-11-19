@@ -17,6 +17,7 @@ import type {
     DayWindow,
     LeaveHalf,
     LeavePolicy,
+    LeaveTypeConfig,
     Level1Approver,
     Level2Approver,
     LocationStamp,
@@ -187,20 +188,25 @@ export const DEFAULT_FILING: TimesheetFilingSettings = {
     projectCodes: ['PAY-101', 'INV-220', 'NTF-310', 'ENG-OPS', 'SAL-120', 'OPS-210', 'FIN-300', 'HR-110', 'LDR-001'],
 };
 
-// PROTOTYPE-SETUP (Final batch, Slice 1): the leave policy defaults (rules: ./leavePolicy.ts).
-/**
- * Annual 12 a year credited monthly, carry forward up to 30, encashed on exit; Casual 8 and Sick 6 credited upfront,
- * no carry forward, not encashed. Company leave cycle from 1 April; 6 months' probation.
- */
+// PROTOTYPE-SETUP (Final batch, Slice 1): the leave policy defaults. PROTOTYPE-SETUP (Leave module): HR's leave types
+// (rules: ./leave.ts). Annual / Casual / Sick are the live policy the ESS balances already used; Maternity and Paternity
+// come from the original Payroll leave policies. Every type is paid.
+export const DEFAULT_LEAVE_TYPES: LeaveTypeConfig[] = [
+    { id: 'ANNUAL', name: 'Annual', daysPerYear: 12, credit: 'MONTHLY', probation: 'MONTHLY', carryForward: 30, encashOnExit: true, proofAfterDays: null, appliesTo: 'ALL', active: true },
+    { id: 'CASUAL', name: 'Casual', daysPerYear: 8, credit: 'CYCLE_START', probation: 'MONTHLY', carryForward: 0, encashOnExit: false, proofAfterDays: null, appliesTo: 'ALL', active: true },
+    { id: 'SICK', name: 'Sick', daysPerYear: 6, credit: 'CYCLE_START', probation: 'FULL', carryForward: 0, encashOnExit: false, proofAfterDays: 3, appliesTo: 'ALL', active: true },
+    { id: 'MATERNITY', name: 'Maternity', daysPerYear: 182, credit: 'CYCLE_START', probation: 'NONE', carryForward: 0, encashOnExit: false, proofAfterDays: 0, appliesTo: 'FEMALE', active: true },
+    { id: 'PATERNITY', name: 'Paternity', daysPerYear: 5, credit: 'CYCLE_START', probation: 'NONE', carryForward: 0, encashOnExit: false, proofAfterDays: null, appliesTo: 'MALE', active: true },
+];
+
+/** Company leave cycle from 1 April; sandwich rule off; comp off on (expires after 60 days); late deductions Annual, then Casual. */
 export const DEFAULT_LEAVE_POLICY: LeavePolicy = {
     year: 'COMPANY',
     cycleStart: '04-01',
-    probationMonths: 6,
-    types: {
-        ANNUAL: { daysPerYear: 12, credit: 'MONTHLY', carryForward: 30, encashOnExit: true },
-        CASUAL: { daysPerYear: 8, credit: 'UPFRONT', carryForward: 0, encashOnExit: false },
-        SICK: { daysPerYear: 6, credit: 'UPFRONT', carryForward: 0, encashOnExit: false },
-    },
+    types: DEFAULT_LEAVE_TYPES,
+    sandwich: 'OFF',
+    compOff: { enabled: true, expiryDays: 60 },
+    lateOrder: ['ANNUAL', 'CASUAL'],
 };
 
 /** Late check-ins deduct this many days by default (0 = off). */
@@ -232,7 +238,7 @@ export const DEFAULT_SETTINGS: AtsSettings = {
     level2: { attendance: 'PAYROLL', overtime: 'PAYROLL', timesheet: 'PAYROLL', leave: 'HR', reimbursement: 'ADMIN' },
     // PROTOTYPE-SETUP (Settings, Slice 1): level 1 is the reporting manager for everything by default.
     level1: { attendance: 'MANAGER', overtime: 'MANAGER', timesheet: 'MANAGER', leave: 'MANAGER', reimbursement: 'MANAGER' },
-    leaveRules: { halfDay: true, proofDays: 3 },
+    leaveRules: { halfDay: true },
     reimbursements: { categories: DEFAULT_REIMBURSEMENT_CATEGORIES, claimWindowDays: 60 },
     timesheetFiling: DEFAULT_FILING,
     updatedAt: '',

@@ -19,6 +19,8 @@ import type {
     TeamTodayView,
     LeavePolicy,
     LeaveRequest,
+    LeaveCancellation,
+    CompOffRequest,
     TeamWeekGrid,
     TimesheetApprovalItem,
     TimesheetFilingSettings,
@@ -69,12 +71,13 @@ import {
     approverPersonId,
     isApproverTeam,
 } from '@src/prototype/rules/attendance';
-import { LEAVE_LABEL, LEAVE_TYPES } from '@src/prototype/rules/leavePolicy';
+import { daysText, shortDate, typeLabel } from '@src/prototype/rules/leave';
 import { isAutoSubmitDue, periodEndOf, periodsDueForSubmission } from '@src/prototype/rules/timesheetFiling';
 
 import { attendanceMonthOf, autoSubmitNote, submitWeekRecord, timesheetMonthOf } from './atsEss';
 import { applyApprovedProfile, atsProfileRequests } from './atsProfile';
-import { StoredClaim, atsLeaveRequests, atsReimbursements } from './atsRequests';
+import { applyLeaveDecision, leaveBalanceLine } from './atsLeave';
+import { StoredClaim, atsCompOffs, atsLeaveCancels, atsLeaveRequests, atsReimbursements } from './atsRequests';
 import {
     atsCorrections,
     atsOvertime,
@@ -111,6 +114,7 @@ import {
     weekOf,
     weeksSummary,
     publicHolidayOn,
+    leaveTypeName,
     openSessionBefore,
     weekRoute,
     weekWaitingWith,
@@ -496,24 +500,79 @@ const profileItem = (p: ProfileUpdateRequest, viewer: ApproverRole): RequestItem
     };
 };
 
-const leaveItem = (l: LeaveRequest, viewer: ApproverRole): RequestItem | null => {
+const halfText = (half: LeaveRequest['half'], multi: boolean) => (half ? ` (${half === 'FIRST' ? 'first' : 'second'} half${multi ? ' of each day' : ''})` : '');
+
+/** PROTOTYPE-SETUP (Leave module): a leave request; while it waits, the balance line ("Annual: 7 available now · 6.5 after this"). */
+const leaveItem = (mode: DataMode, l: LeaveRequest, viewer: ApproverRole, cache?: Parameters<typeof leaveBalanceLine>[2]): RequestItem | null => {
     const e = findEmployee(l.employeeId);
     if (!e) return null;
-    let when = l.end > l.start ? `${dayLabel(l.start)} – ${dayLabel(l.end)}` : dayLabel(l.start);
-    if (l.half) when = `${dayLabel(l.start)} (${l.half === 'FIRST' ? 'first' : 'second'} half)`;
+    const when = `${l.end > l.start ? `${dayLabel(l.start)} – ${dayLabel(l.end)}` : dayLabel(l.start)}${halfText(l.half, l.end > l.start)}`;
+    const balance = l.trail.status.startsWith('PENDING') ? leaveBalanceLine(mode, l, cache) : undefined;
     return {
         type: 'leave',
+        leaveKind: 'leave',
         id: l.id,
         employee: personRef(e),
         manager: managerRef(e),
-        title: `${LEAVE_LABEL[l.type]} leave · ${when}`,
-        detail: `${l.half ? 'Half a day' : `${l.days} working day${l.days === 1 ? '' : 's'}`}${l.proof ? ` · Proof attached: ${l.proof.name}` : ''}`,
+        title: `${typeLabel(leaveTypeName(mode, l.type))} · ${when}`,
+        detail: [
+            `${daysText(l.days)} of leave${l.half ? ' (half days)' : ''}`,
+            l.proof ? `Document attached: ${l.proof.name}` : '',
+            l.addedByHr ? 'Added by HR' : '',
+            l.lossOfPayDays ? `${daysText(l.lossOfPayDays)} loss of pay` : '',
+        ]
+            .filter(Boolean)
+            .join(' · '),
         leave: { start: l.start, end: l.end, half: l.half ?? null },
+        ...(balance ? { leaveBalance: balance } : {}),
         notes: l.reason,
         at: l.createdAt,
         trail: l.trail,
-        statusLabel: l.withdrawn ? 'Withdrawn' : trailLabel(l.trail),
+        statusLabel: l.withdrawn ? 'Withdrawn' : l.cancellation && l.trail.status === 'CANCELLED' ? 'Cancelled' : trailLabel(l.trail),
         waitingForYou: awaiting(l.trail) === viewer,
+    };
+};
+
+/** PROTOTYPE-SETUP (Leave module): a request to cancel approved leave (same approvers as leave). */
+const cancelItem = (mode: DataMode, c: LeaveCancellation, viewer: ApproverRole): RequestItem | null => {
+    const e = findEmployee(c.employeeId);
+    if (!e) return null;
+    const original = atsLeaveRequests.get(mode).find(l => l.id === c.leaveId);
+    const started = Boolean(original && original.start < c.from);
+    return {
+        type: 'leave',
+        leaveKind: 'cancel',
+        id: c.id,
+        employee: personRef(e),
+        manager: managerRef(e),
+        title: `Leave cancellation · ${typeLabel(leaveTypeName(mode, c.type))}, ${c.to > c.from ? `${dayLabel(c.from)} – ${dayLabel(c.to)}` : dayLabel(c.from)}`,
+        detail: `${daysText(c.days)} back to the balance${started ? ` · the days before ${dayLabel(c.from)} stay as leave` : ''}`,
+        notes: c.reason,
+        at: c.createdAt,
+        trail: c.trail,
+        statusLabel: c.withdrawn ? 'Withdrawn' : trailLabel(c.trail),
+        waitingForYou: awaiting(c.trail) === viewer,
+    };
+};
+
+/** PROTOTYPE-SETUP (Leave module): comp off for a worked weekly off or public holiday (same approvers as leave). */
+const compOffItem = (mode: DataMode, c: CompOffRequest, viewer: ApproverRole): RequestItem | null => {
+    const e = findEmployee(c.employeeId);
+    if (!e) return null;
+    const day = publicHolidayOn(mode, c.date) ?? 'weekly off';
+    return {
+        type: 'leave',
+        leaveKind: 'compoff',
+        id: c.id,
+        employee: personRef(e),
+        manager: managerRef(e),
+        title: `Comp off · worked ${shortDate(c.date)} (${day})`,
+        detail: `${formatDuration(c.workedMinutes)} worked → ${daysText(c.days)} of comp off`,
+        notes: c.reason,
+        at: c.createdAt,
+        trail: c.trail,
+        statusLabel: c.withdrawn ? 'Withdrawn' : trailLabel(c.trail),
+        waitingForYou: awaiting(c.trail) === viewer,
     };
 };
 
@@ -537,7 +596,15 @@ const claimItem = (c: StoredClaim, viewer: ApproverRole): RequestItem | null => 
 const itemsOf = (mode: DataMode, type: RequestType, viewer: ApproverRole) => {
     if (type === 'attendance') return atsCorrections.get(mode).map(c => correctionItem(mode, c, viewer));
     if (type === 'profile') return atsProfileRequests.get(mode).map(p => profileItem(p, viewer));
-    if (type === 'leave') return atsLeaveRequests.get(mode).map(l => leaveItem(l, viewer));
+    if (type === 'leave') {
+        // PROTOTYPE-SETUP (Leave module): leave, leave cancellations and comp off share the leave approvers and queues.
+        const cache = new Map();
+        return [
+            ...atsLeaveRequests.get(mode).map(l => leaveItem(mode, l, viewer, cache)),
+            ...atsLeaveCancels.get(mode).filter(c => !c.withdrawn).map(c => cancelItem(mode, c, viewer)),
+            ...atsCompOffs.get(mode).filter(c => !c.withdrawn).map(c => compOffItem(mode, c, viewer)),
+        ];
+    }
     if (type === 'reimbursement') return atsReimbursements.get(mode).map(c => claimItem(c, viewer));
     return atsOvertime.get(mode).map(o => overtimeItem(mode, o, viewer));
 };
@@ -703,11 +770,29 @@ export const decideRequest = (
     if (type === 'leave') {
         // PROTOTYPE-SETUP (Final batch, Slice 1): manager → HR; approved leave updates attendance and the timesheet
         // straight away (they read the live requests).
+        // PROTOTYPE-SETUP (Leave module): or a leave cancellation, or comp off. A final approval runs the effects (loss of
+        // pay flagged when approved beyond the balance; a cancellation gives the days back; comp off becomes a credit).
+        const by = actorName(actor);
+        const who = actor.role === 'MANAGER' ? actor.manager.id : undefined;
         const l = atsLeaveRequests.get(mode).find(x => x.id === id);
-        if (!l) throw new RuleError('Request not found.', 404);
-        const trail = decide(l.trail, actor.role, decision, comment, at, actorName(actor), actor.role === 'MANAGER' ? actor.manager.id : undefined);
-        atsLeaveRequests.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
-        return leaveItem({ ...l, trail }, actor.role)!;
+        if (l) {
+            const trail = decide(l.trail, actor.role, decision, comment, at, by, who);
+            atsLeaveRequests.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
+            if (trail.status === 'APPROVED') applyLeaveDecision(mode, 'leave', id);
+            return leaveItem(mode, atsLeaveRequests.get(mode).find(x => x.id === id)!, actor.role)!;
+        }
+        const c = atsLeaveCancels.get(mode).find(x => x.id === id);
+        if (c) {
+            const trail = decide(c.trail, actor.role, decision, comment, at, by, who);
+            atsLeaveCancels.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
+            if (trail.status === 'APPROVED') applyLeaveDecision(mode, 'cancel', id);
+            return cancelItem(mode, { ...c, trail }, actor.role)!;
+        }
+        const co = atsCompOffs.get(mode).find(x => x.id === id);
+        if (!co) throw new RuleError('Request not found.', 404);
+        const trail = decide(co.trail, actor.role, decision, comment, at, by, who);
+        atsCompOffs.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
+        return compOffItem(mode, { ...co, trail }, actor.role)!;
     }
     if (type === 'reimbursement') {
         // PROTOTYPE-SETUP (Final batch, Slice 1): manager → Admin.
@@ -759,7 +844,7 @@ export const decideRequest = (
 
 const offDaysOf = (mode: DataMode, dates: string[]) => {
     const settings = getSettings(mode);
-    return dates.filter(d => isWeeklyOff(d, settings) || Boolean(publicHolidayOn(d)));
+    return dates.filter(d => isWeeklyOff(d, settings) || Boolean(publicHolidayOn(mode, d)));
 };
 
 /** Every direct report's month: each day's status (as the employee sees it), hours logged, and the late count. */
@@ -799,7 +884,7 @@ export const leaveCalendarOf = (mode: DataMode, people: MockEmployee[], month: s
                 .get(mode)
                 .filter(l => l.employeeId === e.id && !l.withdrawn && l.start <= last && l.end >= first)
                 .filter(l => l.trail.status === 'APPROVED' || l.trail.status.startsWith('PENDING'))
-                .map(l => ({ id: l.id, type: l.type, start: l.start, end: l.end, half: l.half, state: l.trail.status === 'APPROVED' ? ('approved' as const) : ('pending' as const) })),
+                .map(l => ({ id: l.id, type: l.type, typeName: leaveTypeName(mode, l.type), start: l.start, end: l.end, half: l.half, state: l.trail.status === 'APPROVED' ? ('approved' as const) : ('pending' as const) })),
         })),
     };
 };
@@ -1025,33 +1110,26 @@ const int = (v: unknown, min: number, max: number, fallback: number) => {
 
 const FREQUENCIES = ['DAILY', 'WEEKLY', 'MONTHLY'] as const;
 
-/** PROTOTYPE-SETUP (Final batch, Slice 1): the leave policy — invalid values keep the current ones. */
+/**
+ * PROTOTYPE-SETUP (Final batch, Slice 1): the leave policy — invalid values keep the current ones. PROTOTYPE-SETUP
+ * (Leave module): leave types are edited through their own endpoints (leave-settings/types); here only the year, cycle,
+ * sandwich rule, comp off and late order are taken, with the same checks.
+ */
 const leavePolicyFrom = (b: Partial<LeavePolicy> | undefined, cur: LeavePolicy): LeavePolicy => {
-    const num = (v: unknown, min: number, max: number, fallback: number) => {
-        const n = Number(v);
-        return v !== undefined && v !== null && v !== '' && Number.isFinite(n) && n >= min && n <= max ? n : fallback;
-    };
+    if (!b) return cur;
     const mmdd = /^(0[1-9]|1[0-2])-(0[1-9]|1\d|2[0-8])$/;
-    const types = Object.fromEntries(
-        LEAVE_TYPES.map(t => {
-            const c = cur.types[t];
-            const x = b?.types?.[t];
-            return [
-                t,
-                {
-                    daysPerYear: num(x?.daysPerYear, 0, 60, c.daysPerYear),
-                    credit: x?.credit === 'UPFRONT' || x?.credit === 'MONTHLY' ? x.credit : c.credit,
-                    carryForward: num(x?.carryForward, 0, 120, c.carryForward),
-                    encashOnExit: typeof x?.encashOnExit === 'boolean' ? x.encashOnExit : c.encashOnExit,
-                },
-            ];
-        })
-    ) as LeavePolicy['types'];
+    const expiry = Number(b.compOff?.expiryDays);
+    const ids = cur.types.map(t => t.id);
     return {
-        year: b?.year === 'COMPANY' || b?.year === 'JOINING' ? b.year : cur.year,
-        cycleStart: mmdd.test(b?.cycleStart ?? '') ? b!.cycleStart! : cur.cycleStart,
-        probationMonths: Math.round(num(b?.probationMonths, 0, 24, cur.probationMonths)),
-        types,
+        ...cur,
+        year: b.year === 'COMPANY' || b.year === 'JOINING' ? b.year : cur.year,
+        cycleStart: mmdd.test(b.cycleStart ?? '') ? b.cycleStart! : cur.cycleStart,
+        sandwich: b.sandwich === 'OFF' || b.sandwich === 'WEEKLY_OFFS' || b.sandwich === 'WEEKLY_OFFS_AND_HOLIDAYS' ? b.sandwich : cur.sandwich,
+        compOff: {
+            enabled: typeof b.compOff?.enabled === 'boolean' ? b.compOff.enabled : cur.compOff.enabled,
+            expiryDays: Number.isFinite(expiry) && expiry >= 0 && expiry <= 365 ? Math.round(expiry) : cur.compOff.expiryDays,
+        },
+        lateOrder: Array.isArray(b.lateOrder) && b.lateOrder.some(x => ids.includes(x)) ? [...new Set(b.lateOrder.filter(x => ids.includes(x)))] : cur.lateOrder,
     };
 };
 
@@ -1103,10 +1181,7 @@ export const updateSettings = (mode: DataMode, body: Partial<AtsSettings> | unde
         },
         level2: { attendance: l2('attendance'), overtime: l2('overtime'), leave: l2('leave'), reimbursement: l2('reimbursement'), timesheet: l2('timesheet') },
         level1: { attendance: l1('attendance'), overtime: l1('overtime'), leave: l1('leave'), reimbursement: l1('reimbursement'), timesheet: l1('timesheet') },
-        leaveRules: {
-            halfDay: typeof b.leaveRules?.halfDay === 'boolean' ? b.leaveRules.halfDay : cur.leaveRules.halfDay,
-            proofDays: int(b.leaveRules?.proofDays, 0, 30, cur.leaveRules.proofDays),
-        },
+        leaveRules: { halfDay: typeof b.leaveRules?.halfDay === 'boolean' ? b.leaveRules.halfDay : cur.leaveRules.halfDay },
         reimbursements: reimbursementsFrom(b.reimbursements, cur.reimbursements),
         // PROTOTYPE-SETUP (Final batch, Slice 1): leave deducted per late check-in (0 = off), and the leave policy.
         lateDeductionDays: Number.isFinite(Number(b.lateDeductionDays)) && Number(b.lateDeductionDays) >= 0 && Number(b.lateDeductionDays) <= 5

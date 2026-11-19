@@ -16,7 +16,8 @@ const PREFIX = 'prototype:';
 // PROTOTYPE-SETUP (Timesheet filing): v6 — filing settings (frequency, fields) and project codes on entries.
 // PROTOTYPE-SETUP (Final batch, Slice 1): v7 — period statuses With Payroll / baselines, locations, leave policy,
 // live leave requests and reimbursements.
-const VERSION = 'v7';
+// PROTOTYPE-SETUP (Leave module): v8 — leave types as a list, comp off, cancellations, holidays, employee status.
+const VERSION = 'v8';
 
 /** The day the demo data is built for — the real current date. */
 export const demoDay = () => toIsoDate(new Date());

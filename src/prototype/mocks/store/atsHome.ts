@@ -27,7 +27,7 @@ import {
     trailLabel,
     weekStartOf,
 } from '@src/prototype/rules/attendance';
-import { lateNotification } from '@src/prototype/rules/leavePolicy';
+import { lateNotification } from '@src/prototype/rules/leave';
 import { periodEndOf, periodLabel } from '@src/prototype/rules/timesheetFiling';
 
 import { lateDeductionsByDate, overtimeViewOf } from './atsEss';
@@ -159,7 +159,7 @@ const actionsOf = (mode: DataMode, e: MockEmployee): OverviewAction[] => {
             actions.push({
                 kind: 'late',
                 ...lateNotification(d, dayjs(d.date).format('ddd D MMM')),
-                button: 'Request correction',
+                button: 'Raise dispute',
                 link: { tab: 'attendance', date: d.date },
                 tone: 'amber',
             })

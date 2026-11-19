@@ -1,15 +1,18 @@
 // PROTOTYPE-SETUP (Final batch, Slice 1): live leave requests and reimbursement claims, each with an approval trail
 // in the current shape (manager → level 2 per settings: leave → HR, reimbursements → Admin), plus each employee's
 // joining / leaving date overrides for the leave demo. Seeded from the original static data (data/time-leaves.ts,
-// data/time-requests.ts — "Earned" leave migrated to "Annual"). Maternity / paternity seeds aren't carried over: the
-// ESS leave policy has three types (Annual, Casual, Sick). This module only depends on the rules and the seeds, so
-// the attendance store can read approved leave from it.
-import type { ApprovalTrail, LeaveRequest, LeaveType } from '@src/domains/attendanceTimesheet/types';
-import { DEFAULT_SETTINGS, RuleError, decide, resubmitTrail, startTrail } from '@src/prototype/rules/attendance';
+// data/time-requests.ts — "Earned" leave migrated to "Annual"). This module only depends on the rules and the seeds,
+// so the attendance store can read approved leave from it.
+// PROTOTYPE-SETUP (Leave module): HR's leave types (Maternity / Paternity too), leave cancellation requests, comp off
+// requests, and each employee's status (Probation until HR marks them Active).
+import type { ApprovalTrail, CompOffRequest, EmployeeLeaveStatus, LeaveCancellation, LeaveRequest, LeaveType } from '@src/domains/attendanceTimesheet/types';
+import { DEFAULT_SETTINGS, RuleError, addDays, decide, resubmitTrail, startTrail } from '@src/prototype/rules/attendance';
+import { addMonthsTo } from '@src/prototype/rules/leave';
 
 
 import { createCollection } from './persistentStore';
-import { MockEmployee, managerOf } from '../data/employees';
+import { atsScenario } from '../data/ats-seed';
+import { MockEmployee, findEmployee, managerOf } from '../data/employees';
 import { todayIso } from '../data/time-calendar';
 import { LEAVES, MockLeave } from '../data/time-leaves';
 import { MockReimbursement, REIMBURSEMENTS } from '../data/time-requests';
@@ -52,7 +55,7 @@ const seededTrail = (
 
 // ---- leave requests -----------------------------------------------------------------------------------------
 
-const LEAVE_TYPE_OF: Partial<Record<MockLeave['type']['key'], LeaveType>> = { annual: 'ANNUAL', casual: 'CASUAL', sick: 'SICK' };
+const LEAVE_TYPE_OF: Partial<Record<MockLeave['type']['key'], LeaveType>> = { annual: 'ANNUAL', casual: 'CASUAL', sick: 'SICK', maternity: 'MATERNITY', paternity: 'PATERNITY' };
 
 const HALF_OF = { FIRST_HALF: 'FIRST', SECOND_HALF: 'SECOND' } as const;
 
@@ -86,6 +89,33 @@ export const leaveRequestsOf = (mode: DataMode, employeeId: number) =>
 /** Approved leave covering the date (full day or half), if any. */
 export const approvedLeaveOn = (mode: DataMode, employeeId: number, date: string) =>
     leaveRequestsOf(mode, employeeId).find(l => l.trail.status === 'APPROVED' && l.start <= date && l.end >= date);
+
+// ---- leave cancellations and comp off (PROTOTYPE-SETUP: Leave module) ------------------------------------------------
+
+export const atsLeaveCancels = createCollection<LeaveCancellation[]>('ats-leave-cancels', () => []);
+
+/** Seeded: Vikram's half day of comp off for the Saturday he worked (waiting for his manager). */
+export const atsCompOffs = createCollection<CompOffRequest[]>('ats-comp-offs', mode => {
+    if (mode === 'empty') return [];
+    const vikram = findEmployee('ACME-007');
+    if (!vikram) return [];
+    const at = `${addDays(todayIso(), -1)}T11:20:00.000Z`;
+    const worked = atsScenario().workedSaturday;
+    if (worked >= todayIso()) return [];
+    return [
+        {
+            id: 'co-001',
+            employeeId: vikram.id,
+            date: worked,
+            days: 0.5,
+            workedMinutes: 270,
+            reason: 'Production release support over the weekend',
+            trail: startTrail('leave', managerOfRef(vikram), DEFAULT_SETTINGS),
+            createdAt: at,
+            updatedAt: at,
+        },
+    ];
+});
 
 // ---- reimbursements -------------------------------------------------------------------------------------------
 
@@ -152,19 +182,39 @@ export const legacyClaimStatus = (c: StoredClaim): MockReimbursement['status'] =
     return 'requestedByEmployee';
 };
 
-// ---- joining / leaving dates (the leave demo) -------------------------------------------------------------
+// ---- joining / leaving dates and status (the leave demo) ------------------------------------------------------------
 
-export const atsEmployeeLife = createCollection<Record<number, { dateOfJoin?: string; exitDate?: string | null }>>('ats-employee-life', () => ({}));
+export interface EmployeeLife {
+    dateOfJoin?: string;
+    exitDate?: string | null;
+    /** PROTOTYPE-SETUP (Leave module): Probation until HR marks them Active (confirmedOn = that day). */
+    status?: EmployeeLeaveStatus;
+    confirmedOn?: string | null;
+}
 
-/** Joining and leaving dates: the demo override, else the employee's own (someone on notice leaves on their last day). */
+export const atsEmployeeLife = createCollection<Record<number, EmployeeLife>>('ats-employee-life', () => ({}));
+
+/**
+ * Seeded on probation (HR hasn't marked them Active yet): the new joiner (ACME-015) and Farah Khan (ACME-020, six months
+ * in). Everyone else was confirmed six months after joining.
+ */
+const PROBATION_SEED = new Set(['ACME-020']);
+
+/** Joining and leaving dates and status: the demo override, else the employee's own (someone on notice leaves on their last day). */
 export const lifeOf = (mode: DataMode, e: MockEmployee) => {
     const o = atsEmployeeLife.get(mode)[e.id] ?? {};
+    const dateOfJoin = o.dateOfJoin ?? e.dateOfJoin;
+    const seededProbation = !e.probationEnded || PROBATION_SEED.has(e.employeeId);
+    const status: EmployeeLeaveStatus = o.status ?? (seededProbation ? 'PROBATION' : 'ACTIVE');
+    const confirmedOn = o.confirmedOn !== undefined ? o.confirmedOn : status === 'ACTIVE' && !seededProbation ? addMonthsTo(dateOfJoin, 6) : null;
     return {
-        dateOfJoin: o.dateOfJoin ?? e.dateOfJoin,
+        dateOfJoin,
         exitDate: o.exitDate !== undefined ? o.exitDate : e.lastWorkingDay ?? null,
+        status,
+        confirmedOn: status === 'ACTIVE' ? confirmedOn : null,
     };
 };
 
 /** Last year's closing balances (the persona: Annual 5 carried; Casual 2 and Sick 1 lapse). */
-export const openingBalancesOf = (e: MockEmployee): Partial<Record<LeaveType, number>> =>
+export const openingBalancesOf = (e: MockEmployee): Record<string, number> =>
     e.employeeId === 'ACME-004' ? { ANNUAL: 5, CASUAL: 2, SICK: 1 } : { ANNUAL: 3 + (e.id % 7), CASUAL: e.id % 3, SICK: e.id % 2 };

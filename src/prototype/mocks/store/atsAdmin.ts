@@ -12,8 +12,7 @@
 import type {
     AdminBucket,
     AdminCounts,
-    AdminLeaveRow,
-    AdminOffToday,
+    AdminLeaveOverview,
     AdminRequestRow,
     AdminRequestType,
     AdminTimesheetOverview,
@@ -31,9 +30,9 @@ import {
 } from '@src/prototype/rules/attendance';
 
 import { timesheetMonthOf } from './atsEss';
-import { leaveViewOf } from './atsLeave';
+import { adminLeaveNumbers } from './atsLeave';
 import { atsProfileRequests } from './atsProfile';
-import { atsLeaveRequests, atsReimbursements } from './atsRequests';
+import { atsCompOffs, atsLeaveCancels, atsLeaveRequests, atsReimbursements } from './atsRequests';
 import { atsCorrections, atsOvertime, employeesFor, getSettings, isProcessed, personRef, today, weeksSummary } from './atsStore';
 import {
     allRequests,
@@ -69,8 +68,13 @@ const bucketOf = (item: RequestItem): AdminBucket | null => {
 /** The raw record behind an item: the day it's about, its value, category, and whether it was withdrawn. */
 const rawOf = (mode: DataMode, type: AdminRequestType, id: string) => {
     if (type === 'leave') {
+        // PROTOTYPE-SETUP (Leave module): a leave request, a cancellation of approved leave, or comp off.
         const l = atsLeaveRequests.get(mode).find(x => x.id === id);
-        return l && { date: l.start, value: l.days, withdrawn: Boolean(l.withdrawn), leave: l };
+        if (l) return { date: l.start, value: l.days, withdrawn: Boolean(l.withdrawn) || (l.trail.status === 'CANCELLED' && !l.cancellation), leave: l };
+        const c = atsLeaveCancels.get(mode).find(x => x.id === id);
+        if (c) return { date: c.from, value: c.days, withdrawn: Boolean(c.withdrawn) };
+        const co = atsCompOffs.get(mode).find(x => x.id === id);
+        return co && { date: co.date, value: co.days, withdrawn: Boolean(co.withdrawn) };
     }
     if (type === 'reimbursement') {
         const c = atsReimbursements.get(mode).find(x => x.id === id);
@@ -258,35 +262,6 @@ export const adminDepartments = (mode: DataMode) => [...new Set(employeesFor(mod
 
 export const adminLeaveCalendar = (mode: DataMode, month: string) => leaveCalendarOf(mode, employeesFor(mode), month);
 
-/** Approved leave covering today (half days marked). */
-export const adminOffToday = (mode: DataMode): AdminOffToday[] => {
-    const t = today();
-    return atsLeaveRequests
-        .get(mode)
-        .filter(l => l.trail.status === 'APPROVED' && !l.withdrawn && l.start <= t && l.end >= t)
-        .flatMap(l => {
-            const e = findEmployee(l.employeeId);
-            return e ? [{ employee: personRef(e), type: l.type, half: l.half ?? null }] : [];
-        });
-};
+/** PROTOTYPE-SETUP (Leave module): Payroll → Leave → Overview's tiles and the Off today strip. */
+export const adminLeaveOverview = (mode: DataMode): AdminLeaveOverview => ({ ...adminLeaveNumbers(mode), waitingForYou: waiting(mode, 'leave') });
 
-/** Every employee's available Annual / Casual / Sick, late deductions and loss of pay. */
-export const adminLeaveBalances = (mode: DataMode): AdminLeaveRow[] =>
-    employeesFor(mode).map(e => {
-        const v = leaveViewOf(mode, e);
-        const avail = (t: 'ANNUAL' | 'CASUAL' | 'SICK') => v.balances.find(b => b.type === t)?.available ?? 0;
-        return {
-            employee: personRef(e),
-            available: { ANNUAL: avail('ANNUAL'), CASUAL: avail('CASUAL'), SICK: avail('SICK') },
-            taken: v.balances.reduce((n, b) => n + b.taken, 0),
-            lateDeductionDays: v.balances.reduce((n, b) => n + b.late, 0),
-            lossOfPayDays: v.lossOfPayDays,
-        };
-    });
-
-/** One employee's balance cards and ledger (read-only). */
-export const adminLeaveViewOf = (mode: DataMode, employeeId: string | number) => {
-    const e = findEmployee(employeeId);
-    if (!e) throw new RuleError('Employee not found.', 404);
-    return leaveViewOf(mode, e);
-};

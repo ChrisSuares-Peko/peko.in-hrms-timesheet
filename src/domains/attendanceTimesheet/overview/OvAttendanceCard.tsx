@@ -20,7 +20,7 @@ import { ESS_BUTTON, ESS_CAPTION } from '@src/components/ess/essTokens';
 import { EssCard, EssSectionHeading, EssStatusBlock, EssStatusTone } from '@src/components/ess/EssUi';
 import { useAppDispatch } from '@src/hooks/store';
 import { REMEMBER_CHECK_OUT_NOTE } from '@src/prototype/rules/attendance';
-import { lateTodayNote } from '@src/prototype/rules/leavePolicy';
+import { lateTodayNote } from '@src/prototype/rules/leave';
 import { showToast } from '@src/slices/apiSlice';
 
 import { checkIn, checkOut, checkOutPrevious, endBreak, startBreak } from '../api';

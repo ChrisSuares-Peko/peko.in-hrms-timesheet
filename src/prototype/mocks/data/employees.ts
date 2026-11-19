@@ -14,6 +14,8 @@
 //   ESS - Employee persona: ACME-004 Sneha Iyer — marked with `persona: 'ESS_EMPLOYEE'` below.
 //   ESS - Manager  persona: NOT marked — always the ESS employee's reporting manager, resolved from her
 //                  `managerEmployeeId` (today ACME-001 Arjun Mehta, Engineering Manager, 6 direct reports).
+import type { Weekday } from '@src/domains/attendanceTimesheet/types';
+
 import { COMPANY, OfficeLocation } from './company';
 import { daysFromToday, monthsAgo, startOfThisMonth } from './dates';
 
@@ -102,6 +104,11 @@ export interface MockEmployee {
     aadhaarLast4: string;
     emergencyContact: { name: string; relation: string; mobileNo: string };
     persona?: Persona;
+    /**
+     * PROTOTYPE-SETUP (Leave module): the employee's own working days and shift when they differ from the company's
+     * (Attendance & Timesheet settings). None of the demo employees has one; the leave and attendance rules read it.
+     */
+    workSchedule?: { weeklyOff: Weekday[]; shift: { start: string; end: string } };
 }
 
 // ---------------------------------------------------------------------------------------------------------

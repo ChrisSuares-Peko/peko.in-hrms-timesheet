@@ -114,6 +114,9 @@ export const atsScenario = () => {
         plannedDay: next,
         /** Vikram worked the Saturday of crWeek. */
         workedSaturday: addDays(crWeek, 5),
+        /** PROTOTYPE-SETUP (Leave module): Sneha worked last Saturday (a full shift) and the Sunday before (half a shift) — comp off. */
+        snehaWorkedSaturday: addDays(w0, -2),
+        snehaWorkedSunday: addDays(w0, -8),
         /** Vikram's day with a pending correction (he left later than he checked out). */
         vikramCorrectionDay: workingDayOffset(today, -4),
         karthikCorrectionDay: workingDayOffset(today, -10),
@@ -186,6 +189,8 @@ const seedAttendance = (s: ReturnType<typeof atsScenario>): Record<string, Atten
         put(emp('ACME-007'), s.today, '09:27', null);
     }
     put(emp('ACME-007'), s.workedSaturday, '10:00', '14:30');
+    put(sneha, s.snehaWorkedSaturday, '09:45', '18:50');
+    put(sneha, s.snehaWorkedSunday, '10:00', '14:45');
     put(emp('ACME-007'), s.vikramCorrectionDay, '09:26', '18:31');
     put(emp('ACME-005'), s.karthikCorrectionDay, '10:15', '18:40');
 
