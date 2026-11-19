@@ -36,12 +36,13 @@ export type Level2Approver = ApproverTeam | PersonApprover | 'NONE';
 /** PROTOTYPE-SETUP (Settings, Slice 1): level 1 — the reporting manager (default), a team or a specific person. */
 export type Level1Approver = 'MANAGER' | ApproverTeam | PersonApprover;
 
-/** PROTOTYPE-SETUP (Settings, Slice 4): what employees can ask for when they apply for leave. */
+/**
+ * PROTOTYPE-SETUP (Settings, Slice 4): what employees can ask for when they apply for leave.
+ * PROTOTYPE-SETUP (Leave module): the supporting-document rule moved onto each leave type (proofAfterDays).
+ */
 export interface LeaveRequestRules {
     /** Off = the form only offers full days. */
     halfDay: boolean;
-    /** Sick leave longer than this many days needs proof (0 = always). */
-    proofDays: number;
 }
 
 /** PROTOTYPE-SETUP (Settings, Slice 5): one reimbursement category. */
@@ -107,7 +108,10 @@ export interface AtsSettings {
     };
     /** PROTOTYPE-SETUP (Final batch, Slice 1): leave deducted per late check-in, in days (0 = off). */
     lateDeductionDays: number;
-    /** PROTOTYPE-SETUP (Final batch, Slice 1): how leave is credited, reset and pro-rated. */
+    /**
+     * PROTOTYPE-SETUP (Final batch, Slice 1): how leave is credited, reset and pro-rated. PROTOTYPE-SETUP (Leave
+     * module): HR's leave types, the sandwich rule, comp off and the late-deduction order.
+     */
     leavePolicy: LeavePolicy;
     /** PROTOTYPE-SETUP (Timesheet filing): filing frequency and the task-entry fields. */
     timesheetFiling: TimesheetFilingSettings;
@@ -115,7 +119,7 @@ export interface AtsSettings {
     level1: Record<Level2ConfigurableType, Level1Approver>;
     /** Level 2 per request type. */
     level2: Record<Level2ConfigurableType, Level2Approver>;
-    /** PROTOTYPE-SETUP (Settings, Slice 4): half-day leave, sick-leave proof. */
+    /** PROTOTYPE-SETUP (Settings, Slice 4): half-day leave on/off. */
     leaveRules: LeaveRequestRules;
     /** PROTOTYPE-SETUP (Settings, Slice 5): reimbursement categories and the claim window. */
     reimbursements: ReimbursementRules;
@@ -788,7 +792,7 @@ export interface TeamLeaveView {
     off: string[];
     rows: {
         employee: PersonRef;
-        leave: { id: string; type: LeaveType; start: string; end: string; half: LeaveHalf | null; state: 'approved' | 'pending' }[];
+        leave: { id: string; type: LeaveType; typeName: string; start: string; end: string; half: LeaveHalf | null; state: 'approved' | 'pending' }[];
     }[];
 }
 
@@ -905,6 +909,12 @@ export interface RequestItem {
      * names of other direct reports with approved leave on any of those dates.
      */
     leave?: { start: string; end: string; half: LeaveHalf | null; alsoOff?: string[] };
+    /**
+     * PROTOTYPE-SETUP (Leave module): which leave item it is (a leave request, a cancellation of approved leave, or a
+     * comp off claim), and for a leave request the type's balance: "Annual: 7 available now · 6.5 after this".
+     */
+    leaveKind?: 'leave' | 'cancel' | 'compoff';
+    leaveBalance?: { typeName: string; availableNow: number; after: number; days: number };
     waitingForYou: boolean;
 }
 
@@ -1087,33 +1097,56 @@ export interface SubmissionRunResult {
     submitted: { employeeId: number; name: string; weekStart: string; periodEnd: string; autoApproved?: boolean }[];
 }
 
-// ---- leave (PROTOTYPE-SETUP: Final batch, Slice 1) ---------------------------------------------------------
-// Leave types, the company's leave policy, requests with their approval trail (manager → HR), and the per-type ledger.
-// Rules: src/prototype/rules/leavePolicy.ts. Contract: docs/api/leave-policy.md.
+// ---- leave (PROTOTYPE-SETUP: Leave module) -------------------------------------------------------------------
+// Leave types are configured by HR (Payroll settings → Leave Policies) and are all paid: loss of pay only happens when
+// a balance runs out. Probation is a status (HR marks the employee Active), not a length. Leave cancellations and comp
+// off requests use the leave approvers. Rules: src/prototype/rules/leave.ts. Contract: docs/api/leave.md.
 
-export type LeaveType = 'ANNUAL' | 'CASUAL' | 'SICK';
+/** A leave type's id: 'ANNUAL', 'CASUAL', 'SICK', 'MATERNITY', 'PATERNITY', 'LT-…' for types HR adds, 'COMP_OFF'. */
+export type LeaveType = string;
 
-export interface LeaveTypePolicy {
+/** When the days land in the balance. */
+export type LeaveCredit = 'CYCLE_START' | 'MONTHLY' | 'DAILY';
+/** While the employee's status is Probation: credited monthly · the full entitlement · not available until confirmed. */
+export type LeaveProbationRule = 'MONTHLY' | 'FULL' | 'NONE';
+export type LeaveAppliesTo = 'ALL' | 'FEMALE' | 'MALE';
+
+export interface LeaveTypeConfig {
+    id: LeaveType;
+    /** "Annual", "Sick", "Bereavement leave" — what employees see. */
+    name: string;
     daysPerYear: number;
-    /** UPFRONT = all at the start of the year; MONTHLY = daysPerYear ÷ 12 each month (not rounded). */
-    credit: 'UPFRONT' | 'MONTHLY';
-    /** Days carried into the next year; anything above lapses at reset. */
+    credit: LeaveCredit;
+    probation: LeaveProbationRule;
+    /** Unused days carried into the next cycle, up to this (0 = none); the rest lapses. */
     carryForward: number;
-    /** Unused leave is paid out on exit. */
     encashOnExit: boolean;
+    /** A request longer than this many days needs a supporting document (null = never, 0 = always). */
+    proofAfterDays: number | null;
+    appliesTo: LeaveAppliesTo;
+    /** Inactive types are hidden from the leave forms; their history stays. */
+    active: boolean;
 }
+
+/** Days off between two leave days of the same request: never · weekly offs · weekly offs and public holidays. */
+export type SandwichRule = 'OFF' | 'WEEKLY_OFFS' | 'WEEKLY_OFFS_AND_HOLIDAYS';
 
 export interface LeavePolicy {
     /** COMPANY = one leave year for everyone starting on `cycleStart`; JOINING = each employee's joining anniversary. */
     year: 'COMPANY' | 'JOINING';
     /** "MM-DD" (day 1–28). */
     cycleStart: string;
-    /** 0 = none. During probation every type is credited monthly; the rest lands when it ends. */
-    probationMonths: number;
-    types: Record<LeaveType, LeaveTypePolicy>;
+    types: LeaveTypeConfig[];
+    sandwich: SandwichRule;
+    compOff: { enabled: boolean; /** Unused comp off expires this many days after the day worked (0 = never). */ expiryDays: number };
+    /** Late check-in deductions come from these types in order, then loss of pay. */
+    lateOrder: LeaveType[];
 }
 
 export type LeaveHalf = 'FIRST' | 'SECOND';
+
+/** Probation until HR marks the employee Active (confirmedOn = that day). */
+export type EmployeeLeaveStatus = 'PROBATION' | 'ACTIVE';
 
 export interface LeaveRequest {
     id: string;
@@ -1121,16 +1154,22 @@ export interface LeaveRequest {
     type: LeaveType;
     start: string;
     end: string;
-    /** A half day (start = end), or null for full days. */
+    /** Half days: that half of every working day from start to end. null = full days. */
     half: LeaveHalf | null;
-    /** Working days (0.5 for a half day). */
+    /** Leave days counted (working days, 0.5 each for half days, plus sandwiched days off). */
     days: number;
     reason: string;
-    /** Sick leave of more than 3 days needs proof. */
+    /** A supporting document, when the type's rule needs one. */
     proof?: { name: string };
     trail: ApprovalTrail;
     /** Withdrawn by the employee while pending. */
     withdrawn?: boolean;
+    /** Added by HR (approved straight away). */
+    addedByHr?: boolean;
+    /** Approved leave that was cancelled: whole (trail CANCELLED) or from a date (end moved back). */
+    cancellation?: { from: string; at: string; by: string; reason: string; originalEnd: string; originalDays: number };
+    /** Days approved beyond the balance at the time (an approver approved anyway): flagged as loss of pay. */
+    lossOfPayDays?: number;
     createdAt: string;
     updatedAt: string;
 }
@@ -1144,6 +1183,37 @@ export interface LeaveRequestInput {
     proof?: { name: string } | null;
 }
 
+/** A request to cancel approved leave (whole, or the days from today if it has started). Same approvers as leave. */
+export interface LeaveCancellation {
+    id: string;
+    employeeId: number;
+    leaveId: string;
+    type: LeaveType;
+    from: string;
+    to: string;
+    days: number;
+    reason: string;
+    trail: ApprovalTrail;
+    withdrawn?: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+/** Comp off for a weekly off or public holiday actually worked. Same approvers as leave. */
+export interface CompOffRequest {
+    id: string;
+    employeeId: number;
+    /** The day worked. */
+    date: string;
+    days: 0.5 | 1;
+    workedMinutes: number;
+    reason: string;
+    trail: ApprovalTrail;
+    withdrawn?: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
 export type LedgerKind =
     | 'CARRIED'
     | 'LAPSED'
@@ -1153,6 +1223,9 @@ export type LedgerKind =
     | 'PRORATED_JOIN'
     | 'PRORATED_EXIT'
     | 'YEARLY'
+    | 'DAILY'
+    | 'COMP_OFF_EARNED'
+    | 'COMP_OFF_EXPIRED'
     | 'TAKEN'
     | 'LATE'
     | 'LATE_REVERSED';
@@ -1165,20 +1238,36 @@ export interface LedgerEntry {
     text: string;
 }
 
+/** One leave type's balance for an employee this leave year. */
 export interface LeaveBalance {
     type: LeaveType;
+    name: string;
+    /** "Annual leave", "Comp off". */
     label: string;
-    available: number;
-    /** Credited so far this year, carried forward included. */
-    creditedSoFar: number;
-    /** This year's pro-rated entitlement plus what was carried forward. */
-    totalThisYear: number;
-    carried: number;
-    taken: number;
-    /** Late check-in deductions still standing (reversals netted). */
+    credit: LeaveCredit | 'COMP_OFF';
+    probation: LeaveProbationRule;
+    proofAfterDays: number | null;
+    /** Credited so far (carried forward included). */
+    credited: number;
+    /** Approved leave this year (taken or booked). */
+    approved: number;
+    /** Late check-in deductions still standing. */
     late: number;
+    /** Leave still in request (pending or update requested). */
+    inRequest: number;
+    /** credited − approved − late − in request. */
+    available: number;
+    /** credited − approved − late: what an approver sees as "available now". */
+    left: number;
+    /** This year's entitlement plus what was carried forward. */
+    allocated: number;
+    carried: number;
     next: { date: string; amount: number } | null;
-    /** Newest first. */
+    /** Comp off: the next unused credit to expire. */
+    expiring: { date: string; amount: number } | null;
+    /** On probation and the type is "Not available" during probation. */
+    notAvailable: boolean;
+    /** Credits and deductions this year, newest first. */
     ledger: LedgerEntry[];
 }
 
@@ -1186,41 +1275,84 @@ export interface LateDeduction {
     date: string;
     lateMinutes: number;
     days: number;
-    /** Where it was taken from, in order (Annual first, then Casual, then loss of pay). */
-    from: { type: LeaveType | 'LOP'; days: number }[];
+    /** The leave type it came from, or loss of pay when no type in the order had enough left. */
+    from: LeaveType | 'LOP';
+    fromLabel: string;
     state: 'deducted' | 'pending' | 'reversed';
-    /** When the correction that reversed it was approved. */
+    /** When the dispute (correction) that reversed it was approved. */
     reversedOn?: string;
+    /** The latest dispute for the day: pending (with whom), rejected (who and why), update requested. */
+    dispute?: { state: 'pending' | 'rejected' | 'update_requested'; with?: string; by?: string; comment?: string };
 }
 
 export interface LeaveSettlement {
     type: LeaveType;
+    name: string;
     /** Unused days paid out (encashable types). */
     encash: number;
-    /** Days taken beyond what was earned, recovered as loss of pay. */
+    /** Days taken beyond what was earned, recovered in the final settlement. */
     recover: number;
 }
 
+/** A leave request as the employee sees it. */
+export type LeaveRequestRow = LeaveRequest & {
+    typeName: string;
+    statusLabel: string;
+    /** 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'cancelled' | 'update_requested' */
+    state: 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'cancelled' | 'update_requested';
+    /** A cancellation request is waiting for approval. */
+    cancellationPending?: boolean;
+    /** Approved and not finished: it can be cancelled (from `cancelFrom`, with `cancelDays` going back). */
+    cancelFrom?: string;
+    cancelDays?: number;
+};
+
+export type LeaveCancellationRow = LeaveCancellation & { typeName: string; statusLabel: string };
+export type CompOffRow = CompOffRequest & { statusLabel: string; holidayName?: string };
+
+export interface LeaveCalendarInfo {
+    /** The employee's own weekly offs and shift. */
+    weeklyOff: Weekday[];
+    shift: { start: string; end: string };
+    /** Public holidays, about a year either side of today. */
+    holidays: { date: string; name: string }[];
+}
+
 export interface LeaveView {
+    employeeId: number;
+    employeeName: string;
+    gender: 'Male' | 'Female';
+    status: EmployeeLeaveStatus;
+    confirmedOn: string | null;
     year: { start: string; end: string; basis: LeavePolicy['year'] };
     dateOfJoin: string;
-    probationUntil: string | null;
     exit: { date: string; settlement: LeaveSettlement[] } | null;
+    /** The types that apply to the employee (active, their gender), Comp off last when it's on. */
     balances: LeaveBalance[];
     lateDeductions: LateDeduction[];
     /** Late-deduction days that ran past every balance. */
     lossOfPayDays: number;
     lateDeductionDays: number;
-    requests: (LeaveRequest & { statusLabel: string })[];
+    lateOrder: LeaveType[];
+    requests: LeaveRequestRow[];
+    cancellations: LeaveCancellationRow[];
+    compOffs: CompOffRow[];
     managerName: string | null;
-    /** PROTOTYPE-SETUP (Final batch, Slice 6): whose leave it is. */
-    employeeName: string;
-    /** PROTOTYPE-SETUP (Final batch, Slice 6): "Arjun Mehta (manager), then HR team" — who approves a new request. */
+    /** "Arjun Mehta (manager), then HR team" — who approves a new leave, cancellation or comp off request. */
     approvalPath: string;
-    /** PROTOTYPE-SETUP (Settings, Slice 4): half-day leave on/off, and sick leave over `proofDays` needs proof. */
-    rules: LeaveRequestRules;
-    /** Weekly offs and public holidays (90 days back to a year ahead), so the apply form can count working days. */
-    calendar: { weeklyOff: Weekday[]; holidays: string[] };
+    rules: { halfDay: boolean; sandwich: SandwichRule; compOff: { enabled: boolean; expiryDays: number } };
+    calendar: LeaveCalendarInfo;
+    /** Public holidays this calendar year. */
+    holidays: { date: string; name: string; weeklyOff: boolean }[];
+}
+
+/** Comp off: what a worked day earns, or why it can't be claimed. */
+export interface CompOffCheck {
+    date: string;
+    days: 0 | 0.5 | 1;
+    workedMinutes: number;
+    dayName: string;
+    problem: string | null;
 }
 
 // ---- Payroll admin (PROTOTYPE-SETUP: Payroll admin, Slices 1–5) ----------------------------------------------
@@ -1281,20 +1413,90 @@ export interface AdminTimesheetOverview {
     }[];
 }
 
-/** Payroll → Leave → Details: one row per employee. */
+/** Payroll → Leave → Balances: one row per employee. PROTOTYPE-SETUP (Leave module). */
 export interface AdminLeaveRow {
-    employee: PersonRef;
-    available: Record<LeaveType, number>;
-    /** Leave taken this leave year, all types (kept from the former Employee leave page). */
-    taken: number;
+    employee: PersonRef & { email: string; gender: 'Male' | 'Female' };
+    status: EmployeeLeaveStatus;
+    confirmedOn: string | null;
+    /** Per type: available / allocated (null = the type doesn't apply to them). */
+    types: Record<LeaveType, { available: number; allocated: number; inRequest: number } | null>;
     /** Late check-in deductions still standing (days). */
     lateDeductionDays: number;
     lossOfPayDays: number;
+}
+
+export interface AdminLeaveBalances {
+    /** The columns: every active type (Comp off last when it's on). */
+    types: { id: LeaveType; name: string }[];
+    rows: AdminLeaveRow[];
 }
 
 /** Payroll → Leave → Overview: who is off today. */
 export interface AdminOffToday {
     employee: PersonRef;
     type: LeaveType;
+    typeName: string;
     half: LeaveHalf | null;
 }
+
+/** Payroll → Leave → Overview's tiles. */
+export interface AdminLeaveOverview {
+    offToday: AdminOffToday[];
+    employees: number;
+    offThisWeek: number;
+    waitingForYou: number;
+    takenThisMonth: number;
+    monthLabel: string;
+    onProbation: number;
+}
+
+/** Payroll → Leave → Leaves: approved leave. */
+export interface AdminLeaveEntry {
+    id: string;
+    employee: PersonRef & { email: string };
+    type: LeaveType;
+    typeName: string;
+    start: string;
+    end: string;
+    half: LeaveHalf | null;
+    days: number;
+    reason: string;
+    createdAt: string;
+    addedBy: 'HR' | 'Employee';
+    /** Upcoming / On leave now / Taken. */
+    state: 'upcoming' | 'now' | 'taken';
+    /** Cancel from this date (today if it has started), with these days going back; null once it's over. */
+    cancelFrom: string | null;
+    cancelDays: number;
+    lossOfPayDays?: number;
+}
+
+/** HR → Add leave. */
+export interface HrAddLeaveInput {
+    employeeId: number;
+    type: LeaveType;
+    start: string;
+    end: string;
+    half?: LeaveHalf | null;
+    note: string;
+    attachment?: { name: string } | null;
+}
+
+/** Payroll settings → Leave Policies: everything the four sub-tabs show. */
+export interface LeaveSettingsView {
+    policy: LeavePolicy;
+    halfDay: boolean;
+    lateDeductionDays: number;
+    level1: Level1Approver;
+    level2: Level2Approver;
+    /** Per type: requests so far (used = can't be removed or renamed) and employees it applies to. */
+    usage: Record<LeaveType, { requests: number; employees: number }>;
+    holidays: { date: string; name: string }[];
+    /** When balances next roll forward: the last working day of the current company cycle. */
+    nextRollForward: string | null;
+    /** Where the original leave policy records went (shown once in the Leave types sub-tab's help). */
+    migrationNote: string;
+}
+
+/** Add / edit a leave type (the id is generated for a new one). */
+export type LeaveTypeInput = Omit<LeaveTypeConfig, 'id' | 'active'> & { active?: boolean };
