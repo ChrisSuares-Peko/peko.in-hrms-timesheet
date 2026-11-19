@@ -9,6 +9,8 @@
 //                   settings; a team at level 1 is "Waiting for you" (Payroll decides).
 //   update asked .. Remind employee (mocked)
 // `extra` adds a chip per row (Leave: the department clash chip).
+// PROTOTYPE-SETUP (Leave module): `views` replaces the filter list (Leave: the views the approval setup needs, no
+// Approved view — that's the Leaves sub-tab); "All" then leaves approved items out.
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -46,7 +48,18 @@ const SINGLE: Record<AdminRequestType, string> = {
     profile: 'profile update',
 };
 
-const AdminRequestsList = ({ type, extra, onChanged }: { type: AdminRequestType; extra?: (row: AdminRequestRow) => ReactNode; onChanged?: () => void }) => {
+const AdminRequestsList = ({
+    type,
+    extra,
+    onChanged,
+    views,
+}: {
+    type: AdminRequestType;
+    extra?: (row: AdminRequestRow) => ReactNode;
+    onChanged?: () => void;
+    /** The views to offer (default: all six), worked out from the rows' counts. */
+    views?: (counts: { you: number; mgr: number }) => { key: Filter; label: string }[];
+}) => {
     const scope = usePayrollScope();
     const dispatch = useAppDispatch();
     const [rows, setRows] = useState<AdminRequestRow[] | null>(null);
@@ -73,8 +86,12 @@ const AdminRequestsList = ({ type, extra, onChanged }: { type: AdminRequestType;
         onChanged?.();
     };
 
-    const count = (f: Filter) => (rows ?? []).filter(r => f === 'all' || r.bucket === f).length;
-    const list = (rows ?? []).filter(r => filter === 'all' || r.bucket === filter);
+    const noApproved = Boolean(views);
+    const inAll = (r: AdminRequestRow) => !(noApproved && r.bucket === 'ok');
+    const count = (f: Filter) => (rows ?? []).filter(r => (f === 'all' ? inAll(r) : r.bucket === f)).length;
+    const options = views ? views({ you: count('you'), mgr: count('mgr') }) : FILTERS;
+    const current: Filter = options.some(o => o.key === filter) ? filter : options[0].key;
+    const list = (rows ?? []).filter(r => (current === 'all' ? inAll(r) : r.bucket === current));
     const waiting = list.filter(r => r.bucket === 'you');
     const chosen = waiting.filter(r => sel[r.item.id]);
     const allOn = waiting.length > 0 && waiting.every(r => sel[r.item.id]);
@@ -121,16 +138,16 @@ const AdminRequestsList = ({ type, extra, onChanged }: { type: AdminRequestType;
         <Flex vertical gap={12} className="min-w-0" data-admin-requests={type}>
             <div className="max-w-full overflow-x-auto">
                 <Segmented<Filter>
-                    value={filter}
+                    value={current}
                     onChange={f => {
                         setFilter(f);
                         setSel({});
                     }}
-                    options={FILTERS.map(f => ({ value: f.key, label: `${f.label} (${count(f.key)})` }))}
+                    options={options.map(f => ({ value: f.key, label: `${f.label} (${count(f.key)})` }))}
                     data-admin-filter
                 />
             </div>
-            {filter === 'you' && waiting.length > 0 && (
+            {current === 'you' && waiting.length > 0 && (
                 <Flex align="center" gap={10} wrap="wrap" className="rounded-xl border border-solid border-[#EAECF0] bg-[#F9FAFB] px-3 py-2" data-bulk-bar>
                     <Checkbox
                         checked={allOn}
@@ -151,8 +168,8 @@ const AdminRequestsList = ({ type, extra, onChanged }: { type: AdminRequestType;
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description={
                             <Flex vertical gap={2}>
-                                <Text strong>{filter === 'you' ? 'Nothing waiting for you' : 'Nothing here'}</Text>
-                                <Text type="secondary">{filter === 'you' ? 'Requests reach you after the employee’s manager approves them.' : 'Try another filter.'}</Text>
+                                <Text strong>{current === 'you' ? 'Nothing waiting for you' : 'Nothing here'}</Text>
+                                <Text type="secondary">{current === 'you' ? 'Requests that need your team’s decision show up here.' : 'Try another filter.'}</Text>
                             </Flex>
                         }
                     />

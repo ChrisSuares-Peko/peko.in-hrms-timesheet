@@ -265,7 +265,7 @@ export const getApprovalLines = (s: AtsScope) =>
     call<Record<'attendance' | 'overtime' | 'leave' | 'reimbursement' | 'timesheet', string>>(s, 'get', 'approval-lines');
 export const applyForLeave = (s: AtsScope, body: LeaveRequestInput) => call<LeaveView>(s, 'post', 'leave/requests', { body });
 export const withdrawLeave = (s: AtsScope, id: string) => call<LeaveView>(s, 'post', `leave/requests/${id}/withdraw`);
-export const resubmitLeave = (s: AtsScope, id: string, body: { start: string; end: string; half: LeaveHalf | null; reason: string; proof?: { name: string } | null }) =>
+export const resubmitLeave = (s: AtsScope, id: string, body: { type?: string; start: string; end: string; half: LeaveHalf | null; reason: string; proof?: { name: string } | null }) =>
     call<LeaveView>(s, 'post', `leave/requests/${id}/resubmit`, { body });
 /** PROTOTYPE-SETUP (Leave module): cancel approved leave (a cancellation request that goes to the leave approvers). */
 export const cancelLeave = (s: AtsScope, id: string, reason: string) => call<LeaveView>(s, 'post', `leave/requests/${id}/cancel`, { body: { reason } });

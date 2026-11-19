@@ -15,7 +15,7 @@ import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
 import { addDays, addMonths, monthDates } from '@src/prototype/rules/attendance';
-import { LEAVE_LABEL } from '@src/prototype/rules/leavePolicy';
+import { typeLabel } from '@src/prototype/rules/leave';
 
 import { getTeamLeave, getTeamRequests } from '../api';
 import { NoTeamEmpty } from './teamShared';
@@ -114,7 +114,7 @@ const TeamLeaveCalendar = ({ onChanged, loadMonth, loadPending: pendingLoader, d
 
     const loadPending = useCallback(async () => {
         const res = await (pendingLoader ? pendingLoader() : getTeamRequests(scope, 'leave', 'waiting'));
-        if (res) setPending([...res].sort((a, b) => (a.leave?.start ?? '').localeCompare(b.leave?.start ?? '')));
+        if (res) setPending(res.filter(r => r.leave && r.leaveKind !== 'cancel' && r.leaveKind !== 'compoff').sort((a, b) => (a.leave?.start ?? '').localeCompare(b.leave?.start ?? '')));
     }, [scope, pendingLoader]);
 
     useEffect(() => {
@@ -179,7 +179,7 @@ const TeamLeaveCalendar = ({ onChanged, loadMonth, loadPending: pendingLoader, d
                                         {off.length > 0 && <span className="text-[10px] font-medium text-[#5925DC]" data-off-count>{off.length} off</span>}
                                     </div>
                                     {off.map(({ person, leave }) => (
-                                        <Tooltip key={`${leave.id}-${d}`} title={`${person.name} · ${LEAVE_LABEL[leave.type]} leave${leave.half ? ` (${leave.half === 'FIRST' ? 'first' : 'second'} half)` : ''} · ${leave.state === 'approved' ? 'approved' : 'waiting for approval'}`}>
+                                        <Tooltip key={`${leave.id}-${d}`} title={`${person.name} · ${typeLabel(leave.typeName)}${leave.half ? ` (${leave.half === 'FIRST' ? 'first' : 'second'} half)` : ''} · ${leave.state === 'approved' ? 'approved' : 'waiting for approval'}`}>
                                             <span
                                                 className={`truncate rounded px-1.5 py-0.5 text-[11px] ${leave.state === 'approved' ? 'bg-[#F4F3FF] text-[#5925DC]' : 'border border-dashed border-[#B2B7C2] bg-white text-gray-600'}`}
                                                 data-leave-chip={leave.state}

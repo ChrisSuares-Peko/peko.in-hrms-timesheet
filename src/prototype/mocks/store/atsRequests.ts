@@ -206,7 +206,8 @@ export const lifeOf = (mode: DataMode, e: MockEmployee) => {
     const dateOfJoin = o.dateOfJoin ?? e.dateOfJoin;
     const seededProbation = !e.probationEnded || PROBATION_SEED.has(e.employeeId);
     const status: EmployeeLeaveStatus = o.status ?? (seededProbation ? 'PROBATION' : 'ACTIVE');
-    const confirmedOn = o.confirmedOn !== undefined ? o.confirmedOn : status === 'ACTIVE' && !seededProbation ? addMonthsTo(dateOfJoin, 6) : null;
+    const seededConfirmation = status === 'ACTIVE' && !seededProbation ? addMonthsTo(dateOfJoin, 6) : null;
+    const confirmedOn = o.confirmedOn !== undefined ? o.confirmedOn : seededConfirmation;
     return {
         dateOfJoin,
         exitDate: o.exitDate !== undefined ? o.exitDate : e.lastWorkingDay ?? null,

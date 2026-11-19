@@ -609,15 +609,20 @@ export const setEmployeeLife = (
     const iso = /^\d{4}-\d{2}-\d{2}$/;
     const cur = atsEmployeeLife.get(mode)[e.id] ?? {};
     const dateOfJoin = body?.dateOfJoin && iso.test(body.dateOfJoin) ? body.dateOfJoin : cur.dateOfJoin;
-    const exitDate = body && 'exitDate' in body ? (body.exitDate && iso.test(body.exitDate) ? body.exitDate : null) : cur.exitDate;
+    const asked = body?.exitDate && iso.test(body.exitDate) ? body.exitDate : null;
+    const exitDate = body && 'exitDate' in body ? asked : cur.exitDate;
     if (dateOfJoin && exitDate && exitDate < dateOfJoin) throw new RuleError('The leaving date is before the joining date.', 400);
     const status = body?.status === 'PROBATION' || body?.status === 'ACTIVE' ? body.status : cur.status;
+    const confirmedOnFor = (st: 'PROBATION' | 'ACTIVE') => {
+        if (st !== 'ACTIVE') return null;
+        return body?.status === 'ACTIVE' ? today() : cur.confirmedOn ?? null;
+    };
     atsEmployeeLife.update(mode, all => ({
         ...all,
         [e.id]: {
             ...(dateOfJoin ? { dateOfJoin } : {}),
             ...(exitDate !== undefined ? { exitDate } : {}),
-            ...(status ? { status, confirmedOn: status === 'ACTIVE' ? (body?.status === 'ACTIVE' ? today() : cur.confirmedOn ?? null) : null } : {}),
+            ...(status ? { status, confirmedOn: confirmedOnFor(status) } : {}),
         },
     }));
     return leaveViewOf(mode, e);
@@ -658,6 +663,11 @@ export const adminLeaveNumbers = (mode: DataMode) => {
     };
 };
 
+const entryState = (l: { start: string; end: string }, t: string): AdminLeaveEntry['state'] => {
+    if (l.end < t) return 'taken';
+    return l.start <= t ? 'now' : 'upcoming';
+};
+
 /** Payroll → Leave → Leaves: approved leave (cancelled-in-part leave keeps the days still taken), newest first. */
 export const adminLeaveEntries = (mode: DataMode): AdminLeaveEntry[] => {
     const t = today();
@@ -681,7 +691,7 @@ export const adminLeaveEntries = (mode: DataMode): AdminLeaveEntry[] => {
                     reason: l.reason,
                     createdAt: l.createdAt,
                     addedBy: l.addedByHr ? ('HR' as const) : ('Employee' as const),
-                    state: l.end < t ? ('taken' as const) : l.start <= t ? ('now' as const) : ('upcoming' as const),
+                    state: entryState(l, t),
                     cancelFrom: range?.from ?? null,
                     cancelDays: range ? recountFor(mode, e)(range.from, range.to, l.half) : 0,
                     ...(l.lossOfPayDays ? { lossOfPayDays: l.lossOfPayDays } : {}),
@@ -802,7 +812,7 @@ const usedCount = (mode: DataMode, id: string) => atsLeaveRequests.get(mode).fil
 
 export const addLeaveType = (mode: DataMode, body: Partial<LeaveTypeInput> | undefined) => {
     const t = cleanType(body);
-    const types = getSettings(mode).leavePolicy.types;
+    const {types} = getSettings(mode).leavePolicy;
     if (types.some(x => x.name.toLowerCase() === t.name.toLowerCase())) throw new RuleError(TYPE_MESSAGES.duplicate, 409);
     const id = newTypeId(t.name, types.map(x => x.id));
     savePolicy(mode, p => ({ ...p, types: [...p.types, { id, ...t }] }));
@@ -810,7 +820,7 @@ export const addLeaveType = (mode: DataMode, body: Partial<LeaveTypeInput> | und
 };
 
 export const updateLeaveType = (mode: DataMode, id: string, body: Partial<LeaveTypeInput> | undefined) => {
-    const types = getSettings(mode).leavePolicy.types;
+    const {types} = getSettings(mode).leavePolicy;
     const cur = types.find(x => x.id === id);
     if (!cur) throw new RuleError(TYPE_MESSAGES.notFound, 404);
     const t = cleanType(body, cur);
@@ -829,7 +839,7 @@ export const setLeaveTypeActive = (mode: DataMode, id: string, body: { active?: 
 };
 
 export const removeLeaveType = (mode: DataMode, id: string) => {
-    const types = getSettings(mode).leavePolicy.types;
+    const {types} = getSettings(mode).leavePolicy;
     if (!types.some(x => x.id === id)) throw new RuleError(TYPE_MESSAGES.notFound, 404);
     if (usedCount(mode, id) > 0) throw new RuleError(TYPE_MESSAGES.removeUsed, 409);
     if (types.length <= 1) throw new RuleError(TYPE_MESSAGES.last, 400);

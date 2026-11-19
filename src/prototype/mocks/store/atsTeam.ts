@@ -75,8 +75,8 @@ import { daysText, shortDate, typeLabel } from '@src/prototype/rules/leave';
 import { isAutoSubmitDue, periodEndOf, periodsDueForSubmission } from '@src/prototype/rules/timesheetFiling';
 
 import { attendanceMonthOf, autoSubmitNote, submitWeekRecord, timesheetMonthOf } from './atsEss';
-import { applyApprovedProfile, atsProfileRequests } from './atsProfile';
 import { applyLeaveDecision, leaveBalanceLine } from './atsLeave';
+import { applyApprovedProfile, atsProfileRequests } from './atsProfile';
 import { StoredClaim, atsCompOffs, atsLeaveCancels, atsLeaveRequests, atsReimbursements } from './atsRequests';
 import {
     atsCorrections,
@@ -502,6 +502,11 @@ const profileItem = (p: ProfileUpdateRequest, viewer: ApproverRole): RequestItem
 
 const halfText = (half: LeaveRequest['half'], multi: boolean) => (half ? ` (${half === 'FIRST' ? 'first' : 'second'} half${multi ? ' of each day' : ''})` : '');
 
+const leaveStatusLabel = (l: LeaveRequest) => {
+    if (l.withdrawn) return 'Withdrawn';
+    return l.cancellation && l.trail.status === 'CANCELLED' ? 'Cancelled' : trailLabel(l.trail);
+};
+
 /** PROTOTYPE-SETUP (Leave module): a leave request; while it waits, the balance line ("Annual: 7 available now · 6.5 after this"). */
 const leaveItem = (mode: DataMode, l: LeaveRequest, viewer: ApproverRole, cache?: Parameters<typeof leaveBalanceLine>[2]): RequestItem | null => {
     const e = findEmployee(l.employeeId);
@@ -528,7 +533,7 @@ const leaveItem = (mode: DataMode, l: LeaveRequest, viewer: ApproverRole, cache?
         notes: l.reason,
         at: l.createdAt,
         trail: l.trail,
-        statusLabel: l.withdrawn ? 'Withdrawn' : l.cancellation && l.trail.status === 'CANCELLED' ? 'Cancelled' : trailLabel(l.trail),
+        statusLabel: leaveStatusLabel(l),
         waitingForYou: awaiting(l.trail) === viewer,
     };
 };

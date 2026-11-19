@@ -4,8 +4,9 @@
 //                    timesheet · Neither) · Working day rules (shift, break, grace period, half-day threshold, weekly
 //                    off) · Timesheet filing and approval · Project codes · Overtime · Approvals (attendance corrections,
 //                    timesheets, overtime)
-//   leave .......... Leave policy · Leave requests (half-day leave, sick-leave proof) · Late check-in deduction ·
-//                    Approvals (leave)
+//   leave .......... Approvals (leave) only — PROTOTYPE-SETUP (Leave module): the rest of the leave settings live in
+//                    Payroll settings → Leave Policies (Leave types · Public holidays · Configuration), which shows
+//                    this as its Approvals sub-tab
 //   reimbursements . Categories (monthly limit, receipt) · Claim window · Approvals (reimbursements)
 // Approvals: level 1 (Reporting manager · a team · a specific person) and level 2 (a team · a specific person · None);
 // rows grey out ("Not in use") when the mode turns that function off. Run payroll isn't a setting: it stays in the
@@ -39,13 +40,12 @@ import customParseFormat from 'dayjs/plugin/customParseFormat';
 
 import { useAppDispatch } from '@src/hooks/store';
 import { DEFAULT_FILING, PROJECT_CODE_RE, WEEKDAYS, displayTime, filingFieldsError, formatDuration } from '@src/prototype/rules/attendance';
-import { LEAVE_LABEL, LEAVE_TYPES, fmtDays } from '@src/prototype/rules/leavePolicy';
 import { showToast } from '@src/slices/apiSlice';
 
 import { getApproverPeople, runAutoSubmitNow, updateAtsSettings } from '../api';
 import { usePayrollScope, useAtsSettings } from './usePayrollAts';
 import { fmtStamp } from '../components/format';
-import type { AtsMode, AtsSettings, FilingFrequency, Level1Approver, Level2Approver, Level2ConfigurableType, Weekday, LeavePolicy, ReimbursementCategory } from '../types';
+import type { AtsMode, AtsSettings, FilingFrequency, Level1Approver, Level2Approver, Level2ConfigurableType, Weekday, ReimbursementCategory } from '../types';
 
 dayjs.extend(customParseFormat);
 
@@ -70,8 +70,8 @@ interface FormValues {
     submissionTime: string;
     level1: Record<Level2Key, Level1Approver>;
     level2: Record<Level2Key, Level2Approver>;
-    /** PROTOTYPE-SETUP (Settings, Slice 4): half-day leave and the sick-leave proof rule. */
-    leaveRules: { halfDay: boolean; proofDays: number };
+    /** PROTOTYPE-SETUP (Settings, Slice 4): half-day leave (edited in Leave Policies → Configuration). */
+    leaveRules: { halfDay: boolean };
     /** PROTOTYPE-SETUP (Settings, Slice 5): categories and the claim window. */
     reimbursements: { categories: ReimbursementCategory[]; claimWindowDays: number };
     frequency: FilingFrequency;
@@ -80,8 +80,6 @@ interface FormValues {
     fieldDuration: boolean;
     fieldProjectCode: boolean;
     projectCodes: string[];
-    /** PROTOTYPE-SETUP (Final batch, Slice 6): the leave policy ("MM-DD" split into day and month). */
-    leavePolicy: { year: LeavePolicy['year']; cycleDay: number; cycleMonth: number; probationMonths: number; types: LeavePolicy['types'] };
 }
 
 const FREQUENCY_OPTIONS: { value: FilingFrequency; label: string }[] = [
@@ -139,12 +137,12 @@ const ROWS: Record<SettingsSection, MatrixRow[]> = {
 
 const SECTION_TITLE: Record<SettingsSection, string> = {
     ato: 'Attendance, timesheet & overtime',
-    leave: 'Leave',
+    leave: 'Leave approvals',
     reimbursements: 'Reimbursements',
 };
 const SECTION_LINE: Record<SettingsSection, string> = {
     ato: 'How employees record their day, the rules for each day, overtime, and who approves corrections, timesheets and overtime.',
-    leave: 'The leave policy, what employees can ask for, late check-in deductions, and who approves leave.',
+    leave: 'Who approves leave. Leave cancellations and comp off requests use the same approvers.',
     reimbursements: 'What employees can claim, the limits and receipts, the claim window, and who approves claims.',
 };
 
@@ -181,13 +179,6 @@ const toForm = (s: AtsSettings): FormValues => ({
     fieldDuration: (s.timesheetFiling ?? DEFAULT_FILING).fields.duration,
     fieldProjectCode: (s.timesheetFiling ?? DEFAULT_FILING).fields.projectCode,
     projectCodes: (s.timesheetFiling ?? DEFAULT_FILING).projectCodes,
-    leavePolicy: {
-        year: s.leavePolicy.year,
-        cycleMonth: Number(s.leavePolicy.cycleStart.slice(0, 2)),
-        cycleDay: Number(s.leavePolicy.cycleStart.slice(3, 5)),
-        probationMonths: s.leavePolicy.probationMonths,
-        types: s.leavePolicy.types,
-    },
 });
 
 const fromForm = (v: FormValues): Partial<AtsSettings> => ({
@@ -202,178 +193,15 @@ const fromForm = (v: FormValues): Partial<AtsSettings> => ({
     timesheetApproval: { enabled: v.approvalEnabled, submissionWeekday: v.submissionWeekday, submissionTime: v.submissionTime || '23:00' },
     level1: { ...v.level1 },
     level2: { ...v.level2 },
-    leaveRules: { halfDay: Boolean(v.leaveRules.halfDay), proofDays: v.leaveRules.proofDays ?? 0 },
+    leaveRules: { halfDay: Boolean(v.leaveRules.halfDay) },
     reimbursements: { claimWindowDays: v.reimbursements.claimWindowDays ?? 60, categories: v.reimbursements.categories },
     timesheetFiling: {
         frequency: v.frequency,
         fields: { startTime: v.fieldStart, endTime: v.fieldEnd, duration: v.fieldDuration, projectCode: v.fieldProjectCode },
         projectCodes: v.projectCodes.map(c => c.trim().toUpperCase()).filter(Boolean),
     },
-    leavePolicy: {
-        year: v.leavePolicy.year,
-        cycleStart: `${String(v.leavePolicy.cycleMonth).padStart(2, '0')}-${String(v.leavePolicy.cycleDay).padStart(2, '0')}`,
-        probationMonths: v.leavePolicy.probationMonths ?? 0,
-        types: v.leavePolicy.types,
-    },
 });
 
-const MONTH_OPTIONS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((label, i) => ({
-    value: i + 1,
-    label,
-}));
-
-/**
- * PROTOTYPE-SETUP (Final batch, Slice 6): "Leave policy" — the leave year (company cycle or each employee's joining
- * date), probation, and per type: days a year, how they're credited, the carry-forward limit and encashment on exit.
- * Rules: src/prototype/rules/leavePolicy.ts.
- */
-const LeavePolicyCard = () => {
-    const form = Form.useFormInstance<FormValues>();
-    const year = Form.useWatch(['leavePolicy', 'year'], form);
-    const types = Form.useWatch(['leavePolicy', 'types'], form) as LeavePolicy['types'] | undefined;
-    return (
-        <Card title="Leave policy" size="small" data-leave-policy>
-            <Text type="secondary" className="mb-3 block text-xs">
-                How leave is credited, reset and pro-rated. Changes apply to everyone straight away.
-            </Text>
-            <Form.Item name={['leavePolicy', 'year']} label="Leave year" className="!mb-2">
-                <Radio.Group
-                    options={[
-                        { value: 'COMPANY', label: 'Company leave cycle' },
-                        { value: 'JOINING', label: 'Each employee’s joining date' },
-                    ]}
-                />
-            </Form.Item>
-            {year === 'COMPANY' ? (
-                <Flex align="center" gap={8} wrap="wrap" className="mb-3">
-                    <Text className="text-sm">Leave year starts on</Text>
-                    <Form.Item name={['leavePolicy', 'cycleDay']} noStyle>
-                        <InputNumber min={1} max={28} className="!w-[72px]" aria-label="Leave year start day" />
-                    </Form.Item>
-                    <Form.Item name={['leavePolicy', 'cycleMonth']} noStyle>
-                        <Select options={MONTH_OPTIONS} className="!w-[140px]" aria-label="Leave year start month" />
-                    </Form.Item>
-                    <Text type="secondary" className="text-xs">
-                        Everyone’s leave resets the day before.
-                    </Text>
-                </Flex>
-            ) : (
-                <Text type="secondary" className="mb-3 block text-xs">
-                    Each employee’s leave resets on their joining anniversary.
-                </Text>
-            )}
-            <Flex align="center" gap={8} wrap="wrap" className="mb-3">
-                <Text className="text-sm">Probation</Text>
-                <Form.Item name={['leavePolicy', 'probationMonths']} noStyle>
-                    <InputNumber min={0} max={24} className="!w-[72px]" aria-label="Probation months" />
-                </Form.Item>
-                <Text type="secondary" className="text-xs">
-                    months (0 = none). During probation every leave type is credited monthly; the rest of the year lands when probation ends.
-                </Text>
-            </Flex>
-            <div className="overflow-x-auto">
-                <table className="w-full min-w-[560px] border-collapse text-sm" data-leave-types>
-                    <thead>
-                        <tr className="text-left text-xs text-gray-500">
-                            <th className="py-1 pr-3 font-normal">Leave type</th>
-                            <th className="py-1 pr-3 font-normal">Days per year</th>
-                            <th className="py-1 pr-3 font-normal">Credited</th>
-                            <th className="py-1 pr-3 font-normal">Carry forward up to</th>
-                            <th className="py-1 font-normal">Encash on exit</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {LEAVE_TYPES.map(t => (
-                            <tr key={t} className="border-0 border-t border-solid border-gray-100">
-                                <td className="py-2 pr-3">{LEAVE_LABEL[t]}</td>
-                                <td className="py-2 pr-3">
-                                    <Flex align="center" gap={6}>
-                                        <Form.Item name={['leavePolicy', 'types', t, 'daysPerYear']} noStyle>
-                                            <InputNumber min={0} max={60} className="!w-[72px]" aria-label={`${LEAVE_LABEL[t]} days per year`} />
-                                        </Form.Item>
-                                        {types?.[t]?.credit === 'MONTHLY' && (
-                                            <Text type="secondary" className="whitespace-nowrap text-xs">
-                                                {fmtDays((types[t].daysPerYear ?? 0) / 12)} a month
-                                            </Text>
-                                        )}
-                                    </Flex>
-                                </td>
-                                <td className="py-2 pr-3">
-                                    <Form.Item name={['leavePolicy', 'types', t, 'credit']} noStyle>
-                                        <Select
-                                            className="!w-[210px]"
-                                            aria-label={`${LEAVE_LABEL[t]} credited`}
-                                            options={[
-                                                { value: 'UPFRONT', label: 'All at the start of the year' },
-                                                { value: 'MONTHLY', label: 'Monthly' },
-                                            ]}
-                                        />
-                                    </Form.Item>
-                                </td>
-                                <td className="py-2 pr-3">
-                                    <Flex align="center" gap={6}>
-                                        <Form.Item name={['leavePolicy', 'types', t, 'carryForward']} noStyle>
-                                            <InputNumber min={0} max={120} className="!w-[72px]" aria-label={`${LEAVE_LABEL[t]} carry forward`} />
-                                        </Form.Item>
-                                        <Text type="secondary" className="text-xs">
-                                            days
-                                        </Text>
-                                    </Flex>
-                                </td>
-                                <td className="py-2">
-                                    <Form.Item name={['leavePolicy', 'types', t, 'encashOnExit']} valuePropName="checked" noStyle>
-                                        <Checkbox aria-label={`${LEAVE_LABEL[t]} encash on exit`} />
-                                    </Form.Item>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-            <Text type="secondary" className="mt-2 block text-xs">
-                Pro-rating: a month counts if someone joins on or before the 15th, or leaves on or after the 15th. Credits aren’t rounded (13 days a year =
-                1.08 a month). Unused leave above the carry-forward limit lapses at reset. Extra leave taken before leaving is recovered in the final
-                settlement.
-            </Text>
-        </Card>
-    );
-};
-
-
-/** PROTOTYPE-SETUP (Settings, Slice 4): what employees can ask for when they apply. */
-const LeaveRequestsCard = () => {
-    const form = Form.useFormInstance<FormValues>();
-    const halfDay = Form.useWatch(['leaveRules', 'halfDay'], form);
-    return (
-        <Card title="Leave requests" size="small" data-leave-requests-settings>
-            <Text type="secondary" className="mb-3 block text-xs">
-                What employees can ask for when they apply.
-            </Text>
-            <Flex align="start" gap={12} className="mb-4">
-                <Form.Item name={['leaveRules', 'halfDay']} valuePropName="checked" noStyle>
-                    <Switch aria-label="Half-day leave" />
-                </Form.Item>
-                <Flex vertical gap={2} className="min-w-0">
-                    <Text strong>Half-day leave</Text>
-                    <Text type="secondary" className="text-xs">
-                        {halfDay ? 'Employees pick the first or second half of the day.' : 'Off: the form only offers full days.'}
-                    </Text>
-                </Flex>
-            </Flex>
-            <Flex align="center" gap={8} wrap="wrap">
-                <Text className="text-sm">Sick leave needs proof when it’s longer than</Text>
-                <Form.Item name={['leaveRules', 'proofDays']} noStyle>
-                    <InputNumber min={0} max={30} className="!w-[72px]" aria-label="Proof needed after days" />
-                </Form.Item>
-                <Text type="secondary" className="text-xs">
-                    days (0 = always)
-                </Text>
-            </Flex>
-        </Card>
-    );
-};
-
-/** PROTOTYPE-SETUP (Settings, Slice 5): what employees can claim for, the monthly limit and whether a receipt is needed. */
 const CategoriesCard = () => {
     const form = Form.useFormInstance<FormValues>();
     const [name, setName] = useState('');
@@ -997,29 +825,7 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
                     </>
                 )}
 
-                {section === 'leave' && (
-                    <>
-                        <LeavePolicyCard />
-                        <LeaveRequestsCard />
-                        {/* PROTOTYPE-SETUP (Settings, Slice 4): moved here from the working day rules. */}
-                        <Card title="Late check-in deduction" size="small" data-late-deduction>
-                            <Text type="secondary" className="mb-3 block text-xs">
-                                Deducted automatically for every check-in after the grace period: Annual leave first, then Casual, then loss of pay. Reversed
-                                automatically when a correction is approved.
-                            </Text>
-                            <Flex align="center" gap={8} wrap="wrap">
-                                <Text className="text-sm">Leave deducted per late check-in</Text>
-                                <Form.Item name="lateDeductionDays" noStyle rules={[{ required: true, message: 'Enter the days (0 = off)' }]}>
-                                    <InputNumber min={0} max={2} step={0.5} className="!w-[80px]" aria-label="Leave deducted per late check-in" />
-                                </Form.Item>
-                                <Text type="secondary" className="text-xs">
-                                    days (0 = off)
-                                </Text>
-                            </Flex>
-                        </Card>
-                        {approvals}
-                    </>
-                )}
+                {section === 'leave' && approvals}
 
                 {section === 'reimbursements' && (
                     <>

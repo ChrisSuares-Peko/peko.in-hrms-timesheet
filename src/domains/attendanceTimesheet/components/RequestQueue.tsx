@@ -4,7 +4,7 @@
 // All, used by the retired Level 2 approvals page) is removed; the lists are the My team inbox and the admin list.
 // PROTOTYPE-SETUP (My team, Slices 3 and 5): "Ask for update" at either level (a comment required) sends it straight
 // back to the employee. RequestCard and RequestDecisionModal are shared with the My team Approvals inbox.
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 
 import { CheckOutlined, CloseOutlined, EditOutlined, LockOutlined } from '@ant-design/icons';
 import { Alert, Avatar, Button, Flex, Input, Modal, Tag, Tooltip, Typography } from 'antd';
@@ -124,7 +124,15 @@ export type RequestDecision = 'approve' | 'reject' | 'update';
  * PROTOTYPE-SETUP (My team, Slice 3): one request — who, what, the change, the reason, the status and its trail — with
  * Reject / Ask for update / Approve while it's waiting for the viewer. Shared by the queues and the My team inbox.
  */
-export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (d: RequestDecision) => void }) => (
+export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (d: RequestDecision) => void }) => {
+    // PROTOTYPE-SETUP (Leave module): approving leave beyond what's available asks first ("Not enough leave").
+    const [short, setShort] = useState(false);
+    const lb = item.leaveBalance;
+    const approve = () => {
+        if (lb && lb.after < 0) setShort(true);
+        else onDecide('approve');
+    };
+    return (
         <div
                         className={`rounded-2xl border border-solid bg-white p-4 ${
                 item.waitingForYou ? 'border-[#FECDCA]' : 'border-[#EAECF0]'
@@ -151,6 +159,7 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
                         {item.correction && <CorrectionTimes item={item} />}
                         {item.profile && <ProfileChanges item={item} />}
                         {!item.correction && !item.profile && item.detail && <Typography.Text>{item.detail}</Typography.Text>}
+                        {lb && <LeaveBalanceLine b={lb} />}
                         {item.overtimeContext && (
                             <Typography.Text
                                 type="secondary"
@@ -201,7 +210,7 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
                                     type="primary"
                                     icon={<CheckOutlined />}
                                     disabled={Boolean(item.blockedReason)}
-                                    onClick={() => onDecide('approve')}
+                                    onClick={approve}
                                 >
                                     Approve
                                 </Button>
@@ -210,7 +219,77 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
                     )}
                 </Flex>
             </Flex>
+            {lb && (
+                <NotEnoughLeaveModal
+                    open={short}
+                    name={item.employee.name.split(' ')[0]}
+                    b={lb}
+                    onClose={() => setShort(false)}
+                    onApprove={() => {
+                        setShort(false);
+                        onDecide('approve');
+                    }}
+                    onAsk={() => {
+                        setShort(false);
+                        onDecide('update');
+                    }}
+                />
+            )}
         </div>
+    );
+};
+
+type LeaveBalanceInfo = NonNullable<RequestItem['leaveBalance']>;
+const days = (n: number) => `${Math.round(n * 100) / 100} day${Math.abs(n) <= 1 ? '' : 's'}`;
+const num = (n: number) => String(Math.round(n * 100) / 100);
+
+/** "Annual: 7 available now · 6.5 after this" (red when short: "short by 1.5 (would be loss of pay)"). */
+export const LeaveBalanceLine = ({ b }: { b: LeaveBalanceInfo }) => (
+    <Typography.Text className={`text-sm ${b.after < 0 ? '!text-[#B42318]' : '!text-[#475467]'}`} data-leave-balance-line={b.after < 0 ? 'short' : 'ok'}>
+        {b.typeName}: {num(b.availableNow)} available now · {b.after < 0 ? `short by ${num(-b.after)} (would be loss of pay)` : `${num(b.after)} after this`}
+    </Typography.Text>
+);
+
+/** "Not enough leave": the loss-of-pay amount, Approve anyway or Ask for update. */
+export const NotEnoughLeaveModal = ({
+    open,
+    name,
+    b,
+    onClose,
+    onApprove,
+    onAsk,
+}: {
+    open: boolean;
+    name: string;
+    b: LeaveBalanceInfo;
+    onClose: () => void;
+    onApprove: () => void;
+    onAsk: () => void;
+}) => (
+    <Modal
+        open={open}
+        title="Not enough leave"
+        onCancel={onClose}
+        destroyOnHidden
+        footer={[
+            <Button key="u" onClick={onAsk} data-not-enough-ask>
+                Ask for update
+            </Button>,
+            <Button key="a" type="primary" onClick={onApprove} data-not-enough-approve>
+                Approve anyway
+            </Button>,
+        ]}
+    >
+        <Flex vertical gap={8} data-not-enough-leave>
+            <Typography.Text>
+                {name} has only <b className="font-medium">{days(Math.max(0, b.availableNow))}</b> of {b.typeName} leave available. This request is {days(b.days)}, so
+                approving it makes <b className="font-medium">{days(-b.after)}</b> loss of pay.
+            </Typography.Text>
+            <Typography.Text type="secondary" className="text-xs">
+                The balance may have changed since the request was raised (other leave approved, or late check-in deductions).
+            </Typography.Text>
+        </Flex>
+    </Modal>
 );
 
 const DECISION_COPY: Record<RequestDecision, { title: (single: string, first: string) => string; ok: string; placeholder: string; error: string }> = {

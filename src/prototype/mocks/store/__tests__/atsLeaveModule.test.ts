@@ -77,7 +77,7 @@ describe('1 · leave types', () => {
         expect(v.usage.ANNUAL.requests).toBeGreaterThan(0);
         expect(v.usage.MATERNITY.employees).toBeGreaterThan(0);
         expect(() => updateLeaveType(M, 'ANNUAL', { name: 'Vacation' })).toThrow('This leave type has been used, so its name can’t change.');
-        setLeaveTypeActive(M, 'CASUAL', false);
+        setLeaveTypeActive(M, 'CASUAL', { active: false });
         expect(balance('CASUAL')).toBeUndefined();
         expect(leaveViewOf(M, sneha).requests.some(r => r.type === 'CASUAL')).toBe(true);
     });
@@ -209,7 +209,7 @@ describe('9 · Requests views and the approver line', () => {
     it('leave items carry “X available now · Y after this”; approving beyond it flags loss of pay', () => {
         const item = teamRequests(M, arjun, 'leave', 'waiting').find(x => x.leaveKind === 'leave')!;
         expect(item.leaveBalance).toMatchObject({ availableNow: expect.any(Number), after: expect.any(Number) });
-        const id = item.id;
+        const {id} = item;
         const l = atsLeaveRequests.get(M).find(x => x.id === id)!;
         atsLeaveRequests.update(M, list => list.map(x => (x.id === id ? { ...x, days: 40 } : x)));
         approve(id);

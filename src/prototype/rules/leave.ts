@@ -23,7 +23,6 @@
 //                       cancellations and comp off use the leave approvers (routeTypeOf)
 import type {
     ApprovalType,
-    CompOffCheck,
     LateDeduction,
     LeaveAppliesTo,
     LeaveCredit,
@@ -685,7 +684,7 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
         let carried = 0;
         if (facts.dateOfJoin < year.start) {
             const cf = carryForward(input.opening[t.id] ?? 0, t.carryForward);
-            carried = cf.carried;
+            ({ carried } = cf);
             if (cf.carried > 0) ledger.push({ date: year.start, kind: 'CARRIED', amount: cf.carried, text: 'Carried forward from last year' });
             if (cf.lapsed > 0)
                 ledger.push({
