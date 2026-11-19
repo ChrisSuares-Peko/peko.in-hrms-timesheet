@@ -8,13 +8,13 @@ If a run is interrupted, continue from the first step that isn't **done**. The p
 | 1 — Leave rules as tested pure functions (src/prototype/rules/leave.ts) + new leave types | Leave: rules engine | done |
 | 2 — Data layer: settings migration, holidays, per-employee schedule, leave / cancellation / comp off stores, routing | Leave: data layer and mock endpoints | done |
 | 3 — Mock endpoints + docs/api/leave.md | Leave: API contract | done |
-| 3b — Screens compile again (old leave screens moved onto the new view) | | next |
-| 4 — Payroll settings → Leave Policies (Leave types · Public holidays · Configuration · Approvals) | | |
-| 5 — Payroll → Employee leaves (Overview · Leaves · Requests · Balances) + HR Add leave | | |
-| 6 — ESS → Leaves (Overview · My requests · Public holidays, type pages, Apply, Cancel, Comp off) | | |
-| 7 — Approver view (balance line, Not enough leave, Leave calendar panel) | | |
-| 8 — Attendance Notes panel (late deductions + disputes); attendance / timesheet effects | | |
-| VERIFY 1–10 (desktop / tablet / phone), production build, single push | | |
+| 4 — Payroll settings → Leave Policies (Leave types · Public holidays · Configuration · Approvals) | Leave: Leave Policies settings, Attendance notes, demo probation toggle | done |
+| 5 — Payroll → Employee leaves (Overview · Leaves · Requests · Balances) + HR Add leave | Leave: ESS Leaves, Payroll Leave and the approver line | done |
+| 6 — ESS → Leaves (Overview · My requests · Public holidays, type pages, Apply, Cancel, Comp off) | Leave: ESS Leaves, Payroll Leave and the approver line | done |
+| 7 — Approver view (balance line, Not enough leave, Leave calendar panel) | Leave: ESS Leaves, Payroll Leave and the approver line | done |
+| 8 — Attendance Notes panel (late deductions + disputes); attendance / timesheet effects | Leave: Leave Policies settings, … | done |
+| Performance: each employee's year cached until its data changes | Leave: cache each employee's leave year … | done |
+| VERIFY 1–10 (desktop / tablet / phone), production build, single push | Leave: verification log | done |
 
 ## Done
 - Step 1: `src/prototype/rules/leave.ts` (leave year, credits start-of-cycle / monthly / daily, 15th pro-rata, status-based
@@ -34,8 +34,44 @@ If a run is interrupted, continue from the first step that isn't **done**. The p
   see that file (ESS: cancel / comp off; Payroll: overview, leaves, add, cancel, mark active, balances, employee types;
   settings: leave-settings, types CRUD, config, holidays).
 
+- Steps 4–8: `leave/settings/LeavePoliciesTab.tsx` + `LeaveTypeDrawer.tsx` (Payroll settings → Leave Policies);
+  `payroll/admin/AdminLeavePage.tsx` + `HrAddLeaveDrawer.tsx` (Payroll → Leave); `leave/EssLeavePage.tsx`,
+  `ApplyLeaveModal.tsx`, `LeaveActionModals.tsx`, `leaveUi.tsx` (ESS → Leaves); `components/RequestQueue.tsx` (balance
+  line + Not enough leave, everywhere a leave request is decided), `team/TeamLeaveCalendar.tsx` (Leave to approve: leave
+  requests only, type names); `payroll/admin/AdminRequestsList.tsx` (views from the approval setup, no Approved view for
+  leave); `ess/LateNotesPanel.tsx` (Attendance → Notes); `prototype/DataModeToggle.tsx` (Leave (demo): persona on
+  probation / Active). Old `leave/LateDeductions.tsx` and the Settings run's leave cards in `AtsSettingsTab.tsx` removed.
+
+## VERIFY (checked in Chrome via a scripted browser at 1440 / 1024 / 375 and with the store tests)
+1. Pass — added a daily type (store test) and "Menstrual leave" (female) in the UI: Sneha sees it, Arjun doesn't; editing
+   Annual's days asked "This changes Annual balances for 21 employees from today…".
+2. Pass — 10 / 4 / 2 → 4 in the rule test; Sneha's Annual 6.5 and Casual 4 match on the cards, the Apply form, HR's
+   drawer (store test) and Balances.
+3. Pass — Mon–Fri first halves showed "5 half days = 2.5 days of leave"; after approval each day is "Half-day leave
+   (first half)" in attendance and has an "Annual leave (first half)" timesheet row (store test).
+4. Pass — Fri + Mon: "4 days: 2 working days + 2 days off in between (sandwich rule)" with the rule on, "2 working days"
+   off (UI).
+5. Pass — employee: Cancel leave → "Send for approval", "Cancellation requested" chip; days come back after approval
+   (store test). HR: applies at once; started leave cancels from today only (store test).
+6. Pass — last Saturday: "1 day of comp off · weekly off, 9h 5m worked"; refused once overtime is claimed; approved →
+   Comp off balance; expires after the setting (store tests).
+7. Pass — HR adding Maternity for Kavya (Probation): "Maternity leave isn’t available while Kavya is on probation.";
+   Mark active → Active, Maternity 60.67 available.
+8. Pass — Notes panel shows Raise dispute / waiting for Arjun Mehta / rejected with the comment + Dispute again; an
+   approved dispute reverses (store test).
+9. Pass — rule test (team at both levels → no With managers view); UI with the default setup shows Waiting for you ·
+   With managers · Update requested · Rejected · All.
+10. See the report: no console errors from the new screens (only pre-existing sidebar / font / antd warnings).
+
+## Checks at the end
+- Type-check: clean. ESLint: 3 errors, all pre-existing in `src/prototype/mocks/store/requestStores.ts` (untouched).
+- Tests: 5673 passed, 366 failed in 166 files (baseline before this run: 370 failed in 170 files, all in unrelated
+  domains). The one failure in this area, "timesheet v6: Excel round trip", already failed in the baseline (last week
+  holds the Balipadyami holiday row).
+- Production build (`vite build`): passes.
+
 ## Next
-- 3b: move the existing leave screens onto the new view so the app type-checks, then step 4.
+- Nothing left in scope. Leftovers for the backend team are in the run report.
 
 ## Decisions
 1. **Where the screens are.** "Payroll → Employee Leaves" in this repo is already folded into Payroll → Leave
@@ -79,3 +115,13 @@ If a run is interrupted, continue from the first step that isn't **done**. The p
 12. **Source documents committed**: `docs/specs/leave-module-spec.md` and `docs/prototypes/leave-prototype.html` were
     untracked; they're committed with the API doc. The unrelated local change to `docs/prototypes/attendance-timesheet.html`
     is left alone.
+13. **Requests views with a team at level 1.** Items waiting on a team at either level are "Waiting for you" in Payroll
+    (the admin is every team in this prototype), so Approve / Ask for update / Reject work at level 1 too.
+14. **Leave calendar side panel** lists leave requests only (cancellations and comp off have no dates to show on it; they
+    stay in Approvals / Requests).
+15. **Demo controls.** The ESS Leave page's old "dates for the leave demo" panel is gone (prototype-only per the spec);
+    the global prototype "Demo" menu gains "Put Sneha on probation / Mark Sneha active" so VERIFY 7 can be run from ESS.
+16. **Employee details → Leave Policies** (the per-employee legacy tab) still reads the legacy `leave-component` mock data;
+    it's outside this scope and needs the backend to serve the new leave types.
+17. **Bulk approve** skips the "Not enough leave" question (each item is approved as a single approval would be; days
+    beyond the balance are still flagged as loss of pay).
