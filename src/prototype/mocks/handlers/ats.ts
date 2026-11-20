@@ -77,6 +77,10 @@ import {
     removeLeaveType,
     removePublicHoliday,
     requestLeaveCancellation,
+    leaveCancelCheck,
+    requestLeaveChange,
+    withdrawLeaveChange,
+    resubmitLeaveChange,
     resubmitCompOff,
     resubmitLeaveCancellation,
     resubmitLeaveRequest,
@@ -248,7 +252,13 @@ export const atsRoutes: MockRoute[] = [
     route('POST', `${A}/leave/requests/:id/withdraw`, ess((ctx, me) => withdrawLeaveRequest(ctx.mode, me, ctx.params.id!))),
     route('POST', `${A}/leave/requests/:id/resubmit`, ess((ctx, me) => resubmitLeaveRequest(ctx.mode, me, ctx.params.id!, ctx.body))),
     // PROTOTYPE-SETUP (Leave module): cancel approved leave (a cancellation request), and comp off.
+    // PROTOTYPE-SETUP (Leave module): "Cancel from" — what goes back, or why past days can't be cancelled (dry run).
+    route('GET', `${A}/leave/requests/:id/cancel-check`, ess((ctx, me) => leaveCancelCheck(ctx.mode, me, ctx.params.id!, String(ctx.query.from ?? '')))),
     route('POST', `${A}/leave/requests/:id/cancel`, ess((ctx, me) => requestLeaveCancellation(ctx.mode, me, ctx.params.id!, ctx.body))),
+    // PROTOTYPE-SETUP (Leave module): change approved leave (a change request; the original stays until approved).
+    route('POST', `${A}/leave/requests/:id/change`, ess((ctx, me) => requestLeaveChange(ctx.mode, me, ctx.params.id!, ctx.body))),
+    route('POST', `${A}/leave/changes/:id/withdraw`, ess((ctx, me) => withdrawLeaveChange(ctx.mode, me, ctx.params.id!))),
+    route('POST', `${A}/leave/changes/:id/resubmit`, ess((ctx, me) => resubmitLeaveChange(ctx.mode, me, ctx.params.id!, ctx.body))),
     route('POST', `${A}/leave/cancellations/:id/withdraw`, ess((ctx, me) => withdrawLeaveCancellation(ctx.mode, me, ctx.params.id!))),
     route('POST', `${A}/leave/cancellations/:id/resubmit`, ess((ctx, me) => resubmitLeaveCancellation(ctx.mode, me, ctx.params.id!, ctx.body))),
     route('GET', `${A}/leave/comp-off/check`, ess((ctx, me) => compOffCheck(ctx.mode, me, String(ctx.query.date ?? '')))),

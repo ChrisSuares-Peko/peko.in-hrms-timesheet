@@ -33,6 +33,7 @@ import type {
     AttendanceMonthView,
     CorrectionInput,
     EssHomeView,
+    LeaveCancelCheck,
     LeaveRequestInput,
     LeaveHalf,
     LeaveView,
@@ -268,7 +269,14 @@ export const withdrawLeave = (s: AtsScope, id: string) => call<LeaveView>(s, 'po
 export const resubmitLeave = (s: AtsScope, id: string, body: { type?: string; start: string; end: string; half: LeaveHalf | null; reason: string; proof?: { name: string } | null }) =>
     call<LeaveView>(s, 'post', `leave/requests/${id}/resubmit`, { body });
 /** PROTOTYPE-SETUP (Leave module): cancel approved leave (a cancellation request that goes to the leave approvers). */
-export const cancelLeave = (s: AtsScope, id: string, reason: string) => call<LeaveView>(s, 'post', `leave/requests/${id}/cancel`, { body: { reason } });
+export const cancelLeave = (s: AtsScope, id: string, reason: string, from?: string) =>
+    call<LeaveView>(s, 'post', `leave/requests/${id}/cancel`, { body: { reason, ...(from ? { from } : {}) } });
+/** PROTOTYPE-SETUP (Leave module): "Cancel from" a date — the days going back, or why past days can't be cancelled. */
+export const checkLeaveCancel = (s: AtsScope, id: string, from: string) => call<LeaveCancelCheck>(s, 'get', `leave/requests/${id}/cancel-check`, { params: { from } });
+/** PROTOTYPE-SETUP (Leave module): change approved leave — a change request; the original stays until it's approved. */
+export const changeLeave = (s: AtsScope, id: string, body: LeaveRequestInput) => call<LeaveView>(s, 'post', `leave/requests/${id}/change`, { body });
+export const withdrawLeaveChange = (s: AtsScope, id: string) => call<LeaveView>(s, 'post', `leave/changes/${id}/withdraw`);
+export const resubmitLeaveChange = (s: AtsScope, id: string, body: LeaveRequestInput) => call<LeaveView>(s, 'post', `leave/changes/${id}/resubmit`, { body });
 export const withdrawLeaveCancellation = (s: AtsScope, id: string) => call<LeaveView>(s, 'post', `leave/cancellations/${id}/withdraw`);
 export const resubmitLeaveCancellation = (s: AtsScope, id: string, reason: string) =>
     call<LeaveView>(s, 'post', `leave/cancellations/${id}/resubmit`, { body: { reason } });

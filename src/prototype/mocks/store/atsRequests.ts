@@ -5,7 +5,7 @@
 // so the attendance store can read approved leave from it.
 // PROTOTYPE-SETUP (Leave module): HR's leave types (Maternity / Paternity too), leave cancellation requests, comp off
 // requests, and each employee's status (Probation until HR marks them Active).
-import type { ApprovalTrail, CompOffRequest, EmployeeLeaveStatus, LeaveCancellation, LeaveRequest, LeaveType } from '@src/domains/attendanceTimesheet/types';
+import type { ApprovalTrail, CompOffRequest, EmployeeLeaveStatus, LeaveCancellation, LeaveChange, LeaveRequest, LeaveType } from '@src/domains/attendanceTimesheet/types';
 import { DEFAULT_SETTINGS, RuleError, addDays, decide, resubmitTrail, startTrail } from '@src/prototype/rules/attendance';
 import { addMonthsTo } from '@src/prototype/rules/leave';
 
@@ -93,6 +93,9 @@ export const approvedLeaveOn = (mode: DataMode, employeeId: number, date: string
 // ---- leave cancellations and comp off (PROTOTYPE-SETUP: Leave module) ------------------------------------------------
 
 export const atsLeaveCancels = createCollection<LeaveCancellation[]>('ats-leave-cancels', () => []);
+
+/** PROTOTYPE-SETUP (Leave module): requests to change approved leave (the original stays until one is approved). */
+export const atsLeaveChanges = createCollection<LeaveChange[]>('ats-leave-changes', () => []);
 
 /** Seeded: Vikram's half day of comp off for the Saturday he worked (waiting for his manager). */
 export const atsCompOffs = createCollection<CompOffRequest[]>('ats-comp-offs', mode => {

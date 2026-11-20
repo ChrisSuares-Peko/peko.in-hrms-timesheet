@@ -12,7 +12,9 @@ import type {
     CompOffRequest,
     HrAddLeaveInput,
     LateDeduction,
+    LeaveCancelCheck,
     LeaveCancellation,
+    LeaveChange,
     LeavePolicy,
     LeaveRequest,
     LeaveRequestInput,
@@ -31,7 +33,7 @@ import {
     hasCheckIn,
     hasTimesheets,
     pendingStep,
-    resubmitTrail,
+    restartTrail,
     stepName,
     toMinutes,
     trailLabel,
@@ -39,6 +41,7 @@ import {
 } from '@src/prototype/rules/attendance';
 import {
     COMP_OFF,
+    CANCEL_FROM_MESSAGES,
     COMP_OFF_MESSAGES,
     LEAVE_MESSAGES,
     LEAVE_ROUTE,
@@ -56,15 +59,18 @@ import {
     leaveYearOf,
     lossOfPayOnApproval,
     newTypeId,
+    pastLeaveProblem,
+    removedPastDays,
     rollForwardDay,
     shortDate,
     typeLabel,
     validateLeave,
     type LateMark,
+    type WorkEvidence,
 } from '@src/prototype/rules/leave';
 
 import { addHoliday, holidaysOf, removeHoliday } from './atsHolidays';
-import { atsCompOffs, atsEmployeeLife, atsLeaveCancels, atsLeaveRequests, leaveRequestsOf, lifeOf, openingBalancesOf } from './atsRequests';
+import { atsCompOffs, atsEmployeeLife, atsLeaveCancels, atsLeaveChanges, atsLeaveRequests, leaveRequestsOf, lifeOf, openingBalancesOf } from './atsRequests';
 import {
     activeOvertimeOn,
     atsAttendance,
@@ -105,6 +111,8 @@ const recountFor = (mode: DataMode, e: MockEmployee) => (start: string, end: str
 // ---- request states --------------------------------------------------------------------------------------------
 
 const isPending = (t: ApprovalTrail) => t.status.startsWith('PENDING');
+/** Waiting for a decision, or sent back for an update. */
+const isOpenItem = (x: { withdrawn?: boolean; trail: ApprovalTrail }) => !x.withdrawn && (isPending(x.trail) || x.trail.status === 'UPDATE_REQUESTED');
 /** Leave that counts against a balance: approved, or in request (pending / update requested). */
 const leaveState = (l: LeaveRequest): 'approved' | 'in_request' | null => {
     if (l.withdrawn) return null;
@@ -283,12 +291,16 @@ export const leaveViewOf = (mode: DataMode, e: MockEmployee): LeaveView => {
     const y = leaveYearFor(mode, e);
     const cal = calendarOf(mode, e);
     const cancels = atsLeaveCancels.get(mode).filter(c => c.employeeId === e.id);
-    const openCancel = (leaveId: string) => cancels.some(c => c.leaveId === leaveId && !c.withdrawn && (isPending(c.trail) || c.trail.status === 'UPDATE_REQUESTED'));
+    const changes = atsLeaveChanges.get(mode).filter(c => c.employeeId === e.id);
+    const openCancel = (leaveId: string) => cancels.some(c => c.leaveId === leaveId && isOpenItem(c));
+    const openChange = (leaveId: string) => changes.some(c => c.leaveId === leaveId && isOpenItem(c));
     const requests: LeaveRequestRow[] = [...leaveRequestsOf(mode, e.id)]
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .map(l => {
             const state = rowState(l);
-            const range = state === 'approved' ? cancellationRange(l, t) : null;
+            // PROTOTYPE-SETUP (Leave module): approved leave can be changed or cancelled (from any of its days, past
+            // ones only if worked) while no cancellation or change is waiting on it.
+            const free = state === 'approved' && !openCancel(l.id) && !openChange(l.id);
             let statusLabel = trailLabel(l.trail);
             if (state === 'withdrawn') statusLabel = 'Withdrawn';
             if (state === 'cancelled') statusLabel = 'Cancelled';
@@ -299,7 +311,9 @@ export const leaveViewOf = (mode: DataMode, e: MockEmployee): LeaveView => {
                 statusLabel,
                 state,
                 ...(openCancel(l.id) ? { cancellationPending: true } : {}),
-                ...(range && !openCancel(l.id) ? { cancelFrom: range.from, cancelDays: recountFor(mode, e)(range.from, range.to, l.half) } : {}),
+                ...(openChange(l.id) ? { changePending: true } : {}),
+                ...(free ? { cancelFrom: l.start, cancelDays: l.days, canChange: true } : {}),
+                ...(l.changedFrom ? { changedFromTypeName: leaveTypeName(mode, l.changedFrom.type) } : {}),
             };
         });
     const year = t.slice(0, 4);
@@ -326,6 +340,9 @@ export const leaveViewOf = (mode: DataMode, e: MockEmployee): LeaveView => {
         cancellations: [...cancels]
             .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
             .map(c => ({ ...c, typeName: leaveTypeName(mode, c.type), statusLabel: c.withdrawn ? 'Withdrawn' : trailLabel(c.trail) })),
+        changes: [...changes]
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+            .map(c => ({ ...c, typeName: leaveTypeName(mode, c.type), wasTypeName: leaveTypeName(mode, c.was.type), statusLabel: c.withdrawn ? 'Withdrawn' : trailLabel(c.trail) })),
         compOffs: atsCompOffs
             .get(mode)
             .filter(c => c.employeeId === e.id)
@@ -369,14 +386,18 @@ export const createLeaveRequest = (mode: DataMode, e: MockEmployee, input: Leave
     return leaveViewOf(mode, e);
 };
 
-/** Update a request that was sent back and send it again: the same checks, then it starts again at level 1. */
+/**
+ * Edit a request that is still open (pending at either level), or update one that was sent back: saved in place with
+ * the same checks, then it starts again at level 1.
+ */
 export const resubmitLeaveRequest = (mode: DataMode, e: MockEmployee, id: string, input: Partial<LeaveRequestInput> | undefined) => {
     const l = leaveRequestsOf(mode, e.id).find(x => x.id === id);
     if (!l) throw new RuleError('Leave request not found.', 404);
+    if (!isOpenItem(l)) throw new RuleError('Only an open request can be edited.');
     const merged = { type: l.type, start: l.start, end: l.end, half: l.half, reason: l.reason, proof: l.proof ?? null, ...(input ?? {}) };
     const clean = checkLeave(mode, e, merged, id);
     const at = nowIso();
-    const trail = resubmitTrail(l.trail, at, e.fullName);
+    const trail = restartTrail(l.trail, at, e.fullName);
     atsLeaveRequests.update(mode, list => list.map(x => (x.id === id ? { ...x, ...clean, trail, updatedAt: at } : x)));
     return leaveViewOf(mode, e);
 };
@@ -415,22 +436,55 @@ const CANCEL_MESSAGES = {
     notFound: 'Leave not found.',
     notApproved: 'Only approved leave can be cancelled.',
     over: 'This leave is already over, so there’s nothing to cancel.',
-    pending: 'A cancellation for this leave is already waiting for approval.',
+    pending: 'A cancellation or change for this leave is already waiting for approval.',
     reason: 'Add a short reason.',
 } as const;
 
+/** How the company records work: check-ins (attendance modes), timesheets (timesheet-only), or neither. */
+const evidenceOf = (mode: DataMode): WorkEvidence => {
+    const m = getSettings(mode).mode;
+    if (hasCheckIn(m)) return 'attendance';
+    return hasTimesheets(m) ? 'timesheet' : 'none';
+};
+
+/** Did the employee work that day: a check-in (attendance modes), or timesheet entries (timesheet-only)? */
+const workedDay = (mode: DataMode, e: MockEmployee) => (date: string) =>
+    evidenceOf(mode) === 'attendance' ? Boolean(recordOf(mode, e, date)?.checkIn) : entriesOn(mode, e, date).length > 0;
+
+/** Past days of approved leave that a cancellation / change would take off must have been worked. */
+const pastProblem = (mode: DataMode, e: MockEmployee, original: LeaveRequest, next: { start: string; end: string; half: LeaveRequest['half'] } | null) =>
+    pastLeaveProblem(removedPastDays(original, next, today(), calendarOf(mode, e)), workedDay(mode, e), evidenceOf(mode));
+
+const hasOpenFollowUp = (mode: DataMode, leaveId: string) =>
+    atsLeaveCancels.get(mode).some(c => c.leaveId === leaveId && isOpenItem(c)) || atsLeaveChanges.get(mode).some(c => c.leaveId === leaveId && isOpenItem(c));
+
 /**
- * The employee cancels approved leave: a cancellation request (reason, same approvers as leave). The leave stays booked
- * until it's approved; then the days go back to the balance. If the leave has started, only the days from today.
+ * Cancelling approved leave from `from` (default: the whole leave): what goes back to the balance, or why it can't.
+ * Days before today can only be cancelled if the employee worked them.
  */
-export const requestLeaveCancellation = (mode: DataMode, e: MockEmployee, leaveId: string, body: { reason?: string } | undefined) => {
+export const leaveCancelCheck = (mode: DataMode, e: MockEmployee, leaveId: string, fromAsked?: string): LeaveCancelCheck => {
     const l = leaveRequestsOf(mode, e.id).find(x => x.id === leaveId);
     if (!l) throw new RuleError(CANCEL_MESSAGES.notFound, 404);
     if (l.trail.status !== 'APPROVED') throw new RuleError(CANCEL_MESSAGES.notApproved);
-    const range = cancellationRange(l, today());
-    if (!range) throw new RuleError(CANCEL_MESSAGES.over);
-    if (atsLeaveCancels.get(mode).some(c => c.leaveId === leaveId && !c.withdrawn && (isPending(c.trail) || c.trail.status === 'UPDATE_REQUESTED')))
-        throw new RuleError(CANCEL_MESSAGES.pending, 409);
+    const from = fromAsked && /^\d{4}-\d{2}-\d{2}$/.test(fromAsked) ? fromAsked : l.start;
+    if (from < l.start || from > l.end) return { from, to: l.end, whole: false, days: 0, problem: CANCEL_FROM_MESSAGES.outside };
+    const whole = from <= l.start;
+    const days = recountFor(mode, e)(from, l.end, l.half);
+    if (days <= 0) return { from, to: l.end, whole, days: 0, problem: CANCEL_FROM_MESSAGES.nothing };
+    const problem = pastProblem(mode, e, l, whole ? null : { start: l.start, end: addDays(from, -1), half: l.half });
+    return { from, to: l.end, whole, days, problem };
+};
+
+/**
+ * The employee cancels approved leave: a cancellation request (reason, same approvers as leave) for the whole leave or
+ * from a date they pick ("Cancel from"). The leave stays booked until it's approved; then those days go back to the
+ * balance and attendance / timesheet update. Past days need a check-in (or timesheet entries) on each of them.
+ */
+export const requestLeaveCancellation = (mode: DataMode, e: MockEmployee, leaveId: string, body: { reason?: string; from?: string } | undefined) => {
+    const check = leaveCancelCheck(mode, e, leaveId, body?.from);
+    if (check.problem) throw new RuleError(check.problem, 409);
+    if (hasOpenFollowUp(mode, leaveId)) throw new RuleError(CANCEL_MESSAGES.pending, 409);
+    const l = leaveRequestsOf(mode, e.id).find(x => x.id === leaveId)!;
     const reason = body?.reason?.trim() ?? '';
     if (!reason) throw new RuleError(CANCEL_MESSAGES.reason, 400);
     const at = nowIso();
@@ -439,9 +493,9 @@ export const requestLeaveCancellation = (mode: DataMode, e: MockEmployee, leaveI
         employeeId: e.id,
         leaveId,
         type: l.type,
-        from: range.from,
-        to: range.to,
-        days: recountFor(mode, e)(range.from, range.to, l.half),
+        from: check.from,
+        to: check.to,
+        days: check.days,
         reason,
         trail: newTrail(mode, LEAVE_ROUTE, e),
         createdAt: at,
@@ -465,9 +519,115 @@ export const resubmitLeaveCancellation = (mode: DataMode, e: MockEmployee, id: s
     const reason = (body?.reason ?? c.reason).trim();
     if (!reason) throw new RuleError(CANCEL_MESSAGES.reason, 400);
     const at = nowIso();
-    const trail = resubmitTrail(c.trail, at, e.fullName);
+    const trail = restartTrail(c.trail, at, e.fullName);
     atsLeaveCancels.update(mode, list => list.map(x => (x.id === id ? { ...x, reason, trail, updatedAt: at } : x)));
     return leaveViewOf(mode, e);
+};
+
+// ---- changing approved leave -----------------------------------------------------------------------------------------
+
+const CHANGE_MESSAGES = {
+    notFound: 'Change request not found.',
+    notApproved: 'Only approved leave can be changed.',
+    same: 'Nothing has changed. Pick new dates, a different type or a different half.',
+} as const;
+
+/** A change, checked like a new request with the original left out (its days count as free again). */
+const checkChange = (mode: DataMode, e: MockEmployee, l: LeaveRequest, input: Partial<LeaveRequestInput> | undefined) => {
+    const merged = { type: l.type, start: l.start, end: l.end, half: l.half, reason: '', proof: l.proof ?? null, ...(input ?? {}) };
+    const clean = checkLeave(mode, e, merged, l.id);
+    if (clean.type === l.type && clean.start === l.start && clean.end === l.end && clean.half === l.half) throw new RuleError(CHANGE_MESSAGES.same, 400);
+    const problem = pastProblem(mode, e, l, clean);
+    if (problem) throw new RuleError(problem, 409);
+    return clean;
+};
+
+/**
+ * The employee changes approved leave (new dates, type or half, and a reason): a change request with the leave
+ * approvers. The original leave stays as it is until the change is approved; then it is replaced.
+ */
+export const requestLeaveChange = (mode: DataMode, e: MockEmployee, leaveId: string, input: Partial<LeaveRequestInput> | undefined) => {
+    const l = leaveRequestsOf(mode, e.id).find(x => x.id === leaveId);
+    if (!l) throw new RuleError(CANCEL_MESSAGES.notFound, 404);
+    if (l.trail.status !== 'APPROVED') throw new RuleError(CHANGE_MESSAGES.notApproved);
+    if (hasOpenFollowUp(mode, leaveId)) throw new RuleError(CANCEL_MESSAGES.pending, 409);
+    const clean = checkChange(mode, e, l, input);
+    const at = nowIso();
+    const c: LeaveChange = {
+        id: uid('lch'),
+        employeeId: e.id,
+        leaveId,
+        ...clean,
+        was: { type: l.type, start: l.start, end: l.end, half: l.half, days: l.days },
+        trail: newTrail(mode, LEAVE_ROUTE, e),
+        createdAt: at,
+        updatedAt: at,
+    };
+    atsLeaveChanges.update(mode, list => [c, ...list]);
+    return leaveViewOf(mode, e);
+};
+
+export const withdrawLeaveChange = (mode: DataMode, e: MockEmployee, id: string) => {
+    const c = atsLeaveChanges.get(mode).find(x => x.id === id && x.employeeId === e.id);
+    if (!c) throw new RuleError(CHANGE_MESSAGES.notFound, 404);
+    if (!isOpenItem(c)) throw new RuleError('Only a pending request can be withdrawn.');
+    const at = nowIso();
+    atsLeaveChanges.update(mode, list => list.map(x => (x.id === id ? { ...x, trail: cancelTrail(x.trail), withdrawn: true, updatedAt: at } : x)));
+    return leaveViewOf(mode, e);
+};
+
+/** Edit an open change request (or update one sent back): checked again, then it starts again at level 1. */
+export const resubmitLeaveChange = (mode: DataMode, e: MockEmployee, id: string, input: Partial<LeaveRequestInput> | undefined) => {
+    const c = atsLeaveChanges.get(mode).find(x => x.id === id && x.employeeId === e.id);
+    if (!c) throw new RuleError(CHANGE_MESSAGES.notFound, 404);
+    if (!isOpenItem(c)) throw new RuleError('Only an open request can be edited.');
+    const l = leaveRequestsOf(mode, e.id).find(x => x.id === c.leaveId);
+    if (!l || l.trail.status !== 'APPROVED') throw new RuleError(CHANGE_MESSAGES.notApproved);
+    const clean = checkChange(mode, e, l, { type: c.type, start: c.start, end: c.end, half: c.half, reason: c.reason, proof: c.proof ?? null, ...(input ?? {}) });
+    const at = nowIso();
+    const trail = restartTrail(c.trail, at, e.fullName);
+    atsLeaveChanges.update(mode, list => list.map(x => (x.id === id ? { ...x, ...clean, trail, updatedAt: at } : x)));
+    return leaveViewOf(mode, e);
+};
+
+/** An approved change replaces the leave (the old one kept as "Was"); days beyond what's left are flagged as loss of pay. */
+const applyChange = (mode: DataMode, id: string) => {
+    const c = atsLeaveChanges.get(mode).find(x => x.id === id);
+    if (!c || c.trail.status !== 'APPROVED') return;
+    const l = atsLeaveRequests.get(mode).find(x => x.id === c.leaveId);
+    const e = findEmployee(c.employeeId);
+    if (!l || !e || l.trail.status !== 'APPROVED') return;
+    const left = balancesFor(mode, e, l.id).left[c.type] ?? 0;
+    const lop = lossOfPayOnApproval(left, c.days);
+    const at = nowIso();
+    atsLeaveRequests.update(mode, list =>
+        list.map(x => {
+            if (x.id !== l.id) return x;
+            const rest = { ...x };
+            delete rest.lossOfPayDays;
+            return {
+                ...rest,
+                type: c.type,
+                start: c.start,
+                end: c.end,
+                half: c.half,
+                days: c.days,
+                ...(c.proof ? { proof: c.proof } : {}),
+                ...(lop > 0 ? { lossOfPayDays: lop } : {}),
+                changedFrom: { ...c.was, at, changeId: c.id },
+                updatedAt: at,
+            };
+        })
+    );
+};
+
+/** "Annual: 7 available now · 6.5 after this" for a change request: the original's days count as free again. */
+export const changeBalanceLine = (mode: DataMode, c: LeaveChange) => {
+    const e = findEmployee(c.employeeId);
+    if (!e) return undefined;
+    const now = balancesFor(mode, e, c.leaveId).left[c.type];
+    if (now === undefined) return undefined;
+    return { typeName: leaveTypeName(mode, c.type), availableNow: now, after: Math.round((now - c.days) * 100) / 100, days: c.days };
 };
 
 // ---- comp off ---------------------------------------------------------------------------------------------------------
@@ -539,7 +699,7 @@ export const resubmitCompOff = (mode: DataMode, e: MockEmployee, id: string, bod
     const reason = (body?.reason ?? c.reason).trim();
     if (!reason) throw new RuleError(COMP_OFF_MESSAGES.reason, 400);
     const at = nowIso();
-    const trail = resubmitTrail(c.trail, at, e.fullName);
+    const trail = restartTrail(c.trail, at, e.fullName);
     atsCompOffs.update(mode, list => list.map(x => (x.id === id ? { ...x, date, days: check.days as 0.5 | 1, workedMinutes: check.workedMinutes, reason, trail, updatedAt: at } : x)));
     return leaveViewOf(mode, e);
 };
@@ -551,7 +711,11 @@ export const resubmitCompOff = (mode: DataMode, e: MockEmployee, id: string, bod
  * approver approved anyway). An approved cancellation cancels the leave (the days go back to the balance). An approved
  * comp off becomes a credit (read from the store).
  */
-export const applyLeaveDecision = (mode: DataMode, kind: 'leave' | 'cancel' | 'compoff', id: string) => {
+export const applyLeaveDecision = (mode: DataMode, kind: 'leave' | 'cancel' | 'compoff' | 'change', id: string) => {
+    if (kind === 'change') {
+        applyChange(mode, id);
+        return;
+    }
     if (kind === 'cancel') {
         const c = atsLeaveCancels.get(mode).find(x => x.id === id);
         if (!c || c.trail.status !== 'APPROVED') return;
@@ -620,7 +784,8 @@ export const hrCancelLeave = (mode: DataMode, leaveId: string, body: { reason?: 
     const days = recountFor(mode, e)(range.from, range.to, l.half);
     applyCancel(mode, leaveId, range.from, 'HR team', reason);
     // Any cancellation the employee had asked for is now moot.
-    atsLeaveCancels.update(mode, list => list.map(c => (c.leaveId === leaveId && isPending(c.trail) ? { ...c, trail: cancelTrail(c.trail), withdrawn: true } : c)));
+    atsLeaveCancels.update(mode, list => list.map(c => (c.leaveId === leaveId && isOpenItem(c) ? { ...c, trail: cancelTrail(c.trail), withdrawn: true } : c)));
+    atsLeaveChanges.update(mode, list => list.map(c => (c.leaveId === leaveId && isOpenItem(c) ? { ...c, trail: cancelTrail(c.trail), withdrawn: true } : c)));
     return {
         message: `${e.fullName}’s leave cancelled${range.whole ? '' : ` from ${dayMonth(range.from)}`}. ${days} day${days === 1 ? '' : 's'} back to the balance.`,
     };

@@ -17,7 +17,8 @@ const PREFIX = 'prototype:';
 // PROTOTYPE-SETUP (Final batch, Slice 1): v7 — period statuses With Payroll / baselines, locations, leave policy,
 // live leave requests and reimbursements.
 // PROTOTYPE-SETUP (Leave module): v8 — leave types as a list, comp off, cancellations, holidays, employee status.
-const VERSION = 'v8';
+// PROTOTYPE-SETUP (Leave module, update): v9 — leave change requests, cancel from a date, past leave partly worked.
+const VERSION = 'v9';
 
 /** The day the demo data is built for — the real current date. */
 export const demoDay = () => toIsoDate(new Date());

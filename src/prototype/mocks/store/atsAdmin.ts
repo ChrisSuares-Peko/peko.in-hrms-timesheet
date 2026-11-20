@@ -32,7 +32,7 @@ import {
 import { timesheetMonthOf } from './atsEss';
 import { adminLeaveNumbers } from './atsLeave';
 import { atsProfileRequests } from './atsProfile';
-import { atsCompOffs, atsLeaveCancels, atsLeaveRequests, atsReimbursements } from './atsRequests';
+import { atsCompOffs, atsLeaveCancels, atsLeaveChanges, atsLeaveRequests, atsReimbursements } from './atsRequests';
 import { atsCorrections, atsOvertime, employeesFor, getSettings, isProcessed, personRef, today, weeksSummary } from './atsStore';
 import {
     allRequests,
@@ -73,6 +73,8 @@ const rawOf = (mode: DataMode, type: AdminRequestType, id: string) => {
         if (l) return { date: l.start, value: l.days, withdrawn: Boolean(l.withdrawn) || (l.trail.status === 'CANCELLED' && !l.cancellation), leave: l };
         const c = atsLeaveCancels.get(mode).find(x => x.id === id);
         if (c) return { date: c.from, value: c.days, withdrawn: Boolean(c.withdrawn) };
+        const ch = atsLeaveChanges.get(mode).find(x => x.id === id);
+        if (ch) return { date: ch.start, value: ch.days, withdrawn: Boolean(ch.withdrawn) };
         const co = atsCompOffs.get(mode).find(x => x.id === id);
         return co && { date: co.date, value: co.days, withdrawn: Boolean(co.withdrawn) };
     }

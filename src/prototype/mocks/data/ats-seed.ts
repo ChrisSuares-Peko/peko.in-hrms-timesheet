@@ -46,6 +46,7 @@ import { isoDateTime, monthsAgo } from './dates';
 import { CEO_CODE, DepartmentName, EMPLOYEES, MockEmployee, findEmployee, managerOf } from './employees';
 import { ATTENDANCE, ATTENDANCE_FROM } from './time-attendance';
 import { isWorkingDay, monthBounds, seeded, todayIso, workingDayOffset } from './time-calendar';
+import { LEAVES, SNEHA_WORKED_LEAVE_REASON } from './time-leaves';
 import { OVERTIME } from './time-overtime';
 
 export const recordKey = (employeeId: number, date: string) => `${employeeId}:${date}`;
@@ -191,6 +192,10 @@ const seedAttendance = (s: ReturnType<typeof atsScenario>): Record<string, Atten
     put(emp('ACME-007'), s.workedSaturday, '10:00', '14:30');
     put(sneha, s.snehaWorkedSaturday, '09:45', '18:50');
     put(sneha, s.snehaWorkedSunday, '10:00', '14:45');
+    // PROTOTYPE-SETUP (Leave module): Sneha came in on the second day of her past casual leave (data/time-leaves.ts),
+    // so that day can be cancelled; the first day (no check-in) can't.
+    const worked = LEAVES.find(l => l.employee.employeeId === SNEHA && l.reason === SNEHA_WORKED_LEAVE_REASON);
+    if (worked && worked.days[1]) put(sneha, worked.days[1], '10:05', '19:02');
     put(emp('ACME-007'), s.vikramCorrectionDay, '09:26', '18:31');
     put(emp('ACME-005'), s.karthikCorrectionDay, '10:15', '18:40');
 

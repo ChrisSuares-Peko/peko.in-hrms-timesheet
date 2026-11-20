@@ -20,6 +20,7 @@ import type {
     LeavePolicy,
     LeaveRequest,
     LeaveCancellation,
+    LeaveChange,
     CompOffRequest,
     TeamWeekGrid,
     TimesheetApprovalItem,
@@ -75,9 +76,9 @@ import { daysText, shortDate, typeLabel } from '@src/prototype/rules/leave';
 import { isAutoSubmitDue, periodEndOf, periodsDueForSubmission } from '@src/prototype/rules/timesheetFiling';
 
 import { attendanceMonthOf, autoSubmitNote, submitWeekRecord, timesheetMonthOf } from './atsEss';
-import { applyLeaveDecision, leaveBalanceLine } from './atsLeave';
+import { applyLeaveDecision, changeBalanceLine, leaveBalanceLine } from './atsLeave';
 import { applyApprovedProfile, atsProfileRequests } from './atsProfile';
-import { StoredClaim, atsCompOffs, atsLeaveCancels, atsLeaveRequests, atsReimbursements } from './atsRequests';
+import { StoredClaim, atsCompOffs, atsLeaveCancels, atsLeaveChanges, atsLeaveRequests, atsReimbursements } from './atsRequests';
 import {
     atsCorrections,
     atsOvertime,
@@ -560,6 +561,33 @@ const cancelItem = (mode: DataMode, c: LeaveCancellation, viewer: ApproverRole):
     };
 };
 
+/**
+ * PROTOTYPE-SETUP (Leave module): a request to change approved leave (same approvers as leave). The title is the new
+ * leave, the detail says what it was; the original stays until this is approved. While it waits, the balance line.
+ */
+const changeItem = (mode: DataMode, c: LeaveChange, viewer: ApproverRole): RequestItem | null => {
+    const e = findEmployee(c.employeeId);
+    if (!e) return null;
+    const range = (start: string, end: string, half: LeaveChange['half']) => `${end > start ? `${dayLabel(start)} – ${dayLabel(end)}` : dayLabel(start)}${halfText(half, end > start)}`;
+    const balance = c.trail.status.startsWith('PENDING') ? changeBalanceLine(mode, c) : undefined;
+    return {
+        type: 'leave',
+        leaveKind: 'change',
+        id: c.id,
+        employee: personRef(e),
+        manager: managerRef(e),
+        title: `Leave change · ${typeLabel(leaveTypeName(mode, c.type))} · ${range(c.start, c.end, c.half)}`,
+        detail: `${daysText(c.days)} of leave · was ${typeLabel(leaveTypeName(mode, c.was.type))}, ${range(c.was.start, c.was.end, c.was.half)} (${daysText(c.was.days)}) · the approved leave stays until this is approved`,
+        leave: { start: c.start, end: c.end, half: c.half ?? null },
+        ...(balance ? { leaveBalance: balance } : {}),
+        notes: c.reason,
+        at: c.createdAt,
+        trail: c.trail,
+        statusLabel: c.withdrawn ? 'Withdrawn' : trailLabel(c.trail),
+        waitingForYou: awaiting(c.trail) === viewer,
+    };
+};
+
 /** PROTOTYPE-SETUP (Leave module): comp off for a worked weekly off or public holiday (same approvers as leave). */
 const compOffItem = (mode: DataMode, c: CompOffRequest, viewer: ApproverRole): RequestItem | null => {
     const e = findEmployee(c.employeeId);
@@ -607,6 +635,7 @@ const itemsOf = (mode: DataMode, type: RequestType, viewer: ApproverRole) => {
         return [
             ...atsLeaveRequests.get(mode).map(l => leaveItem(mode, l, viewer, cache)),
             ...atsLeaveCancels.get(mode).filter(c => !c.withdrawn).map(c => cancelItem(mode, c, viewer)),
+            ...atsLeaveChanges.get(mode).filter(c => !c.withdrawn).map(c => changeItem(mode, c, viewer)),
             ...atsCompOffs.get(mode).filter(c => !c.withdrawn).map(c => compOffItem(mode, c, viewer)),
         ];
     }
@@ -792,6 +821,13 @@ export const decideRequest = (
             atsLeaveCancels.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
             if (trail.status === 'APPROVED') applyLeaveDecision(mode, 'cancel', id);
             return cancelItem(mode, { ...c, trail }, actor.role)!;
+        }
+        const ch = atsLeaveChanges.get(mode).find(x => x.id === id);
+        if (ch) {
+            const trail = decide(ch.trail, actor.role, decision, comment, at, by, who);
+            atsLeaveChanges.update(mode, list => list.map(x => (x.id === id ? { ...x, trail, updatedAt: at } : x)));
+            if (trail.status === 'APPROVED') applyLeaveDecision(mode, 'change', id);
+            return changeItem(mode, { ...ch, trail }, actor.role)!;
         }
         const co = atsCompOffs.get(mode).find(x => x.id === id);
         if (!co) throw new RuleError('Request not found.', 404);

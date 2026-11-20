@@ -88,6 +88,9 @@ interface LeaveSeed {
 // Story: Sneha (ESS persona) has a pending casual leave plus a history; Arjun's Engineering team has a
 // couple more requests waiting for him. Approved leaves inside the last two months show up as on-leave
 // days in attendance.
+/** PROTOTYPE-SETUP (Leave module): the reason of Sneha's past leave whose second day she worked anyway. */
+export const SNEHA_WORKED_LEAVE_REASON = 'Plumbing work at home';
+
 const SEEDS: LeaveSeed[] = [
     // ---- pending approval ----
     { code: 'ACME-004', type: 'casual', offset: 6, days: 2, status: 'applied', reason: "Cousin's wedding in Chennai" },
@@ -130,6 +133,9 @@ const SEEDS: LeaveSeed[] = [
     // ---- rejected ----
     { code: 'ACME-005', type: 'casual', offset: -18, days: 1, status: 'rejected', reason: 'Personal work', note: 'Release week – please pick another date.' },
     { code: 'ACME-011', type: 'annual', offset: -25, days: 2, status: 'rejected', reason: 'Short break', note: 'Quarter-end targets – can we move this to next month?' },
+    // PROTOTYPE-SETUP (Leave module): past leave Sneha partly worked — no check-in on the first day, a check-in on the
+    // second (she came in after all; data/ats-seed.ts). Cancelling the whole leave is refused; from the second day works.
+    { code: 'ACME-004', type: 'casual', offset: -50, days: 2, status: 'approved', reason: SNEHA_WORKED_LEAVE_REASON },
 ];
 
 const isoTimestamp = (iso: string, time = '10:15:00') => `${iso}T${time}.000Z`;
