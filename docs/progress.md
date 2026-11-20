@@ -12,7 +12,7 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
 | 3 — Source docs: developer notes committed, old leave spec deleted, this log | Leave: developer notes replace the leave spec | done |
 | 4 — ESS Leave: compact cards, Recent activity, type page (4 cards, one log), My requests table, request drawer | Leave: ESS overview, type log, My requests and the request drawer | done |
 | 5 — Payroll navigation: no service tabs; Quick actions with waiting counts; breadcrumb + back link; redirects | Leave: Payroll services from Quick actions | done |
-| 6 — API doc (`docs/api/leave.md`) for the new endpoints | Leave: API contract for changes and cancel from | next |
+| 6 — API doc (`docs/api/leave.md`) for the new endpoints | Leave: API contract for changes and cancel from | done |
 | 7 — Developer notes panel (prototype flag), README + docs/dev-notes/README.md | Dev notes: … | |
 | 8 — VERIFY 1–8 at 1440 / 1024 / 375, type-check, lint, tests, production build, one push | Leave: verification log | |
 
@@ -39,8 +39,11 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
   `Dash.tsx` + `NavigationCards.tsx` (Quick actions heading, waiting badge and "N waiting" per tile, Payroll settings
   tile), `routes/sections/payroll.tsx` (redirects).
 
+- Step 6: `docs/api/leave.md` — `LeaveChange`, `changedFrom`, the new endpoints (`cancel-check`, `change`,
+  `changes/:id/withdraw|resubmit`), `cancel` with `from`, `resubmit` while pending, `leaveKind = change`, the effects.
+
 ## Next
-- Step 6.
+- Step 7 (Developer notes panel).
 
 ## Decisions
 1. **Spec.** `docs/dev-notes/developer-notes.md` is the spec; `docs/specs/leave-module-spec.md` is deleted. The notes'
