@@ -2,7 +2,7 @@
 
 PROTOTYPE-SETUP (Leave module). Mock API served by `src/prototype/mocks/handlers/ats.ts` under
 `{userType}/{userId}/payroll/ats/`, every response wrapped in `SuccessGenericResponse<T>`. Rule breaks come back as
-4xx with the message (the API client's interceptor shows it as a toast). Spec: `docs/dev-notes/developer-notes.md` (Leave module + Shared platform).
+4xx with the message (the API client's interceptor shows it as a toast). Spec: the Leave pages of `docs/dev-notes/dev-notes.json` (`ess:leave:*`, `pay:leave:*`, `pay:settings:leave:*`) and its shared rules.
 
 - Rules: `src/prototype/rules/leave.ts` (pure, tested in `rules/__tests__/leave.test.ts`).
 - Stores: `src/prototype/mocks/store/atsLeave.ts` (views and actions), `atsRequests.ts` (collections),

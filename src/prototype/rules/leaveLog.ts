@@ -1,5 +1,5 @@
-// PROTOTYPE-SETUP (Leave module): the employee's leave log, built from their leave view (docs/dev-notes/developer-notes.md,
-// Leave module → ESS · Layout).
+// PROTOTYPE-SETUP (Leave module): the employee's leave log, built from their leave view (docs/dev-notes/dev-notes.json,
+// ess:leave:overview and ess:leave:type).
 //   typeLog ........ ONE table per leave type: leave requests (and their cancellation / change requests), credits,
 //                    carry forward, lapses and expiries, late deductions and reversals. Filters: Show (All / Leave /
 //                    Credits / Deductions), status, date range.

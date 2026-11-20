@@ -1,7 +1,7 @@
 // PROTOTYPE-SETUP (Leave module, update — Payroll navigation): the Payroll side has no service tabs. Admins open each
 // service from Quick actions on the Payroll dashboard; a service page shows the breadcrumb
 // "Payroll › Services › {service}" (rendered by the layout's CustomBreadcrumb) and a way back to the dashboard.
-// Spec: docs/dev-notes/developer-notes.md → Shared platform → Payroll navigation.
+// Spec: docs/dev-notes/dev-notes.json (pay:dashboard, and guide.shared).
 import { Typography } from 'antd';
 import { Link } from 'react-router-dom';
 

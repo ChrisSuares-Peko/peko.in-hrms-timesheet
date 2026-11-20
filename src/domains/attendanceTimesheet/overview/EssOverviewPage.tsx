@@ -13,6 +13,7 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { Button, Empty, Skeleton } from 'antd';
 
 import './overview.css';
+import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { hasCheckIn, hasTimesheets, hasTracking } from '@src/prototype/rules/attendance';
 
 import OvAttendanceCard from './OvAttendanceCard';
@@ -32,6 +33,8 @@ const RD_CHROME = 148;
 const RD_ROW = 70;
 
 const EssOverviewPage = () => {
+    // PROTOTYPE-SETUP (Developer notes): the ESS Overview.
+    useDevPage('ess:home');
     const scope = useAtsScope();
     const paths = useAtsPaths();
     const today = todayIso();

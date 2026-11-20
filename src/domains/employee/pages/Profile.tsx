@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 
 import ProfilePhoto from '@src/domains/attendanceTimesheet/overview/ProfilePhoto';
 import EssProfileEditor from '@src/domains/attendanceTimesheet/profile/EssProfileEditor';
+import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { essTabFor } from '@src/prototype/persona/essPersonas';
 import { useEssPersonaPhoto } from '@src/prototype/persona/useEssPersonaPhoto';
 import { paths } from '@src/routes/paths';
@@ -51,6 +52,8 @@ const ProfileStat = ({ label, value }: { label: string; value: string }) => (
 const StatDivider = () => <div className="hidden h-12 w-px bg-[#e5e5e5] sm:block" />;
 
 const Profile = () => {
+    // PROTOTYPE-SETUP (Developer notes): ESS → My profile.
+    useDevPage('ess:profile');
     const { profile, loading, reload } = useEmployeeProfile();
     // PROTOTYPE-SETUP (Overview, Slice 4): on ESS - Employee the personal details are edited here and sent to HR
     // for approval (EssProfileEditor), and the photo is the approved one. Elsewhere the page is unchanged.

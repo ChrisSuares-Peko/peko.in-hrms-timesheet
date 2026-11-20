@@ -10,6 +10,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Badge, Flex, Skeleton, Tabs, Typography } from 'antd';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import { useDevPage } from '@src/prototype/devNotes/devPage';
+
 import { getTeamApprovalCounts } from '../api';
 import { useAtsPaths } from '../hooks/useAtsPaths';
 import type { MyTeamTab } from '../hooks/useAtsPaths';
@@ -67,6 +69,8 @@ const MyTeamPage = () => {
     const legacy = Boolean(tabParam && LEGACY_APPROVAL_TABS.includes(tabParam));
     let active: MyTeamTab = requested && tabs.includes(requested) ? requested : tabs[0];
     if (legacy) active = 'approvals';
+    // PROTOTYPE-SETUP (Developer notes): Approvals → ess:team:approvals, Leave calendar → ess:team:leavecal, other tabs → ess:team:<tab>.
+    useDevPage(active === 'leave-calendar' ? 'ess:team:leavecal' : `ess:team:${active}`);
 
     // Unknown or hidden tab in the URL → the first visible tab.
     useEffect(() => {

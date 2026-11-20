@@ -9,6 +9,7 @@ import { Badge, Button, Empty, Skeleton, Tabs } from 'antd';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { EssPageHeader } from '@src/components/ess/EssUi';
+import { useDevPage } from '@src/prototype/devNotes/devPage';
 
 import { getOverview } from '../api';
 import { displayTime } from '../components/format';
@@ -73,6 +74,11 @@ const AtsSectionPage = () => {
     );
 
     // PROTOTYPE-SETUP (Settings, Slice 3): in Neither the section is just Overtime (its subtitle has no shift).
+
+    // PROTOTYPE-SETUP (Developer notes): the tab on screen (Attendance · Timesheet · Overtime).
+    let devTab = tabParam;
+    if (overview) devTab = overview.tabs.includes(tabParam as AtsTab) ? tabParam : overview.tabs[0];
+    useDevPage(devTab ? `ess:time:${devTab}` : 'ess:time');
 
     if (!overview) {
         return (

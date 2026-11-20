@@ -41,6 +41,7 @@ import { useAppDispatch, useAppSelector } from '@src/hooks/store';
 import useScreenSize from '@src/hooks/useScreenSize';
 import { useScrollToTop } from '@src/hooks/useScrollToTop';
 import useGetAddonDetails from '@src/hooks/useSubscriptionAddons';
+import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { QUICK_ACTIONS_ID, type PayrollService, serviceLinks } from '@src/prototype/persona/payrollServices';
 import { paths } from '@src/routes/paths';
 import { alterProductTour } from '@src/slices/userSlice';
@@ -269,6 +270,8 @@ const Dash = () => {
     // PROTOTYPE-SETUP (Leave module, update — Payroll navigation): no service tabs. Each service is opened from these
     // Quick actions, and its tile shows what's waiting for the admin.
     const adminCounts = useAdminCounts();
+    // PROTOTYPE-SETUP (Developer notes): the Payroll dashboard.
+    useDevPage('pay:dashboard');
     const waitingOn = (s: PayrollService) => badgeOf(adminCounts, s);
     const { hash } = useLocation();
     useEffect(() => {

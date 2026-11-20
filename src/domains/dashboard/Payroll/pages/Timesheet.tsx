@@ -8,6 +8,7 @@ import { useSearchParams } from 'react-router-dom';
 import AdminRequestsList from '@src/domains/attendanceTimesheet/payroll/admin/AdminRequestsList';
 import { PayrollServiceBar, useAdminCounts } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
 import useScreenSize from '@src/hooks/useScreenSize';
+import { useDevPage } from '@src/prototype/devNotes/devPage';
 
 import AddHolidaysModal from '../components/modals/AddHolidaysModal';
 import MarkAttendanceModal from '../components/modals/MarkAttendanceModal';
@@ -31,6 +32,8 @@ const Timesheet = () => {
     const [params] = useSearchParams();
     const [activeTab, setActiveTab] = useState(params.get('view') === 'requests' ? '6' : '1');
     const counts = useAdminCounts();
+    // PROTOTYPE-SETUP (Developer notes): Payroll → Attendance (its tabs fall back to pay:attendance).
+    useDevPage(`pay:attendance:${activeTab}`);
     const [markAttendanceOpen, setMarkAttendanceOpen] = useState(false);
     const [addHolidayOpen, setAddHolidayOpen] = useState(false);
     const [dailyRefetchTrigger, setDailyRefetchTrigger] = useState(0);

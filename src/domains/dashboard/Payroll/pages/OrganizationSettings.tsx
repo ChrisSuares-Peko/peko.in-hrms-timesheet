@@ -9,6 +9,7 @@ import LeavePoliciesTab from '@src/domains/attendanceTimesheet/leave/settings/Le
 import { PayrollServiceBar } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
 // PROTOTYPE-SETUP: ESS Service 1 — the single Attendance & Timesheet settings tab (replaces the V1 one).
 import AtsSettingsTab from '@src/domains/attendanceTimesheet/payroll/AtsSettingsTab';
+import { useDevPage } from '@src/prototype/devNotes/devPage';
 
 import ComplianceSettings from './complianceSettings';
 import BankDetails from '../components/organizationSettings/BankDetails/BankDetails';
@@ -18,10 +19,16 @@ import PayrollSettingsForm from '../components/organizationSettings/PayrollSetti
 import SalaryComp from '../components/organizationSettings/SalaryComponents/SalaryComp';
 import SubscriptionSettings from '../components/organizationSettings/SubscriptionSettings';
 
+/** Settings tab → notes key (null: the tab sets its own). */
+const SETTINGS_KEY: Record<string, string | null> = { '5': null, '10': 'pay:settings:ato', '12': 'pay:settings:reimb' };
+
 const OrganizationSettings = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const [activeTabKey, setActiveTabKey] = useState('1');
+    // PROTOTYPE-SETUP (Developer notes): Leave Policies sets its own sub-tab key (null here); Attendance, timesheet & overtime and
+    // Reimbursements have notes; the other settings tabs have none (empty state).
+    useDevPage(SETTINGS_KEY[activeTabKey] === undefined ? 'pay:settings:other' : SETTINGS_KEY[activeTabKey]);
 
     useEffect(() => {
         const queryParams = new URLSearchParams(location.search);

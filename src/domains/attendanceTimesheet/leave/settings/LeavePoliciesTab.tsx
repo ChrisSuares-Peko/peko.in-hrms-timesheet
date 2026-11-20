@@ -15,6 +15,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
 import { useAppDispatch } from '@src/hooks/store';
+import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { APPLIES_LABEL, CREDIT_LABEL, accrualText, carryText, fmtDays } from '@src/prototype/rules/leave';
 import { showToast } from '@src/slices/apiSlice';
 
@@ -448,6 +449,8 @@ const LeavePoliciesTab = () => {
         const t = params.get('leaveTab') as Sub | null;
         return t && ['types', 'holidays', 'config', 'approvals'].includes(t) ? t : 'types';
     }, [params]);
+    // PROTOTYPE-SETUP (Developer notes): Leave types · Public holidays · Configuration · Approvals.
+    useDevPage(`pay:settings:leave:${sub}`);
     const load = useCallback(async () => {
         const res = await getLeaveSettings(scope);
         if (res) setView(res);

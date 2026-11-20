@@ -20,6 +20,7 @@ import { useSearchParams } from 'react-router-dom';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
 import { useAppDispatch } from '@src/hooks/store';
+import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { adminRequestViews, daysText, fmtDays, typeLabel } from '@src/prototype/rules/leave';
 import { showToast } from '@src/slices/apiSlice';
 
@@ -416,6 +417,8 @@ const AdminLeavePage = () => {
     // ?view=details (the old Details sub-tab, and the old Leave summary links) opens Balances.
     const known = (['overview', 'leaves', 'requests', 'balances'] as View[]).includes(asked as View) ? (asked as View) : 'overview';
     const view: View = asked === 'details' ? 'balances' : known;
+    // PROTOTYPE-SETUP (Developer notes): Overview · Leaves · Requests · Balances (the notes call Balances "details").
+    useDevPage(`pay:leave:${view === 'balances' ? 'details' : view}`);
     const setView = (v: View) => {
         const next = new URLSearchParams(params);
         next.set('view', v);

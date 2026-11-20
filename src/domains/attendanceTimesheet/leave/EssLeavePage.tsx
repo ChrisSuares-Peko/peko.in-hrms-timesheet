@@ -1,5 +1,5 @@
 // PROTOTYPE-SETUP (Leave module): ESS → Leaves (ESS - Employee and ESS - Manager), on the live leave store (GET leave;
-// docs/api/leave.md). Spec: docs/dev-notes/developer-notes.md → Leave module → ESS · Layout.
+// docs/api/leave.md). Spec: docs/dev-notes/dev-notes.json (ess:leave:* pages).
 //   header ........ "Leave" · the leave year · "Request comp off" (when comp off is on) and "Apply for leave", pinned
 //                   top right
 //   sub-tabs ...... Overview · My requests (open ones counted) · Public holidays
@@ -23,6 +23,7 @@ import { useSearchParams } from 'react-router-dom';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
 import { useAppDispatch } from '@src/hooks/store';
+import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { COMP_OFF, daysText, fmtDays, typeLabel } from '@src/prototype/rules/leave';
 import { STATUS_FILTER_LABEL, type LogGroup, type LogItemKind, type LogStatus, filterLog, logCounts, recentActivity, typeLog } from '@src/prototype/rules/leaveLog';
 import { showToast } from '@src/slices/apiSlice';
@@ -373,6 +374,8 @@ const EssLeavePage = () => {
         else next.delete(k);
         setParams(next, { replace });
     };
+    // PROTOTYPE-SETUP (Developer notes): Overview · My requests · Public holidays, or a leave type's details page.
+    useDevPage(typePage ? 'ess:leave:type' : `ess:leave:${sub}`);
     const openItem = (it: DrawerItem) => setParam('req', `${it.kind}:${it.id}`, Boolean(drawer));
     const closeDrawer = () => setParam('req', null, true);
 

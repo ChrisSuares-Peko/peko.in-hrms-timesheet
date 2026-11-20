@@ -12,6 +12,7 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { formatDuration } from '@src/prototype/rules/attendance';
 import { typeDetails, typeOverview } from '@src/prototype/rules/payrollAdmin';
 
@@ -159,6 +160,8 @@ const Details = ({ service }: { service: Service }) => {
 
 const AdminServicePage = ({ service }: { service: Service }) => {
     const [view, setView] = useAdminView(['overview', 'details', 'requests']);
+    // PROTOTYPE-SETUP (Developer notes): Payroll → Overtime / Reimbursements (sub-tabs fall back to the service).
+    useDevPage(`pay:${service}:${view}`);
     const counts = useAdminCounts();
     return (
         <div className="w-full min-w-0" data-admin-page={service}>

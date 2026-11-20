@@ -15,6 +15,7 @@ import { Alert, Button, Empty, Flex, Select, Skeleton, Table, Tag, Typography } 
 import type { ColumnsType } from 'antd/es/table';
 import { useSearchParams } from 'react-router-dom';
 
+import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { formatDuration } from '@src/prototype/rules/attendance';
 import { periodLabel } from '@src/prototype/rules/timesheetFiling';
 
@@ -229,6 +230,8 @@ const Requests = ({ onReview, reloadKey }: { onReview: (t: ReviewTarget) => void
 
 const AdminTimesheetPage = () => {
     const [view, setView] = useAdminView(['overview', 'details', 'requests']);
+    // PROTOTYPE-SETUP (Developer notes): Payroll → Timesheet (its sub-tabs fall back to pay:timesheet).
+    useDevPage(`pay:timesheet:${view}`);
     const [params, setParams] = useSearchParams();
     const counts = useAdminCounts();
     const [review, setReview] = useState<ReviewTarget | null>(null);

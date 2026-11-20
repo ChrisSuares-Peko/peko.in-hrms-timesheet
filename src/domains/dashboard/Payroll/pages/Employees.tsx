@@ -9,6 +9,7 @@ import AdminRequestsList from '@src/domains/attendanceTimesheet/payroll/admin/Ad
 import { PayrollServiceBar, useAdminCounts } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
 import { useAppDispatch, useAppSelector } from '@src/hooks/store';
 import useDebounce from '@src/hooks/useDebounce';
+import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { paths } from '@src/routes/paths';
 
 import PayrollAccessBanner from '../components/Dashboard/PayrollAccessBanner';
@@ -27,6 +28,8 @@ import { useValidateEmployeeSubscriptionLimit } from '../hooks/employeeHooks/use
 import { resetEmployeeState } from '../slices/employeeSettings';
 
 function Employees() {
+    // PROTOTYPE-SETUP (Developer notes): Payroll → Employees.
+    useDevPage('pay:employees');
     const {
         token: { colorPrimary },
     } = theme.useToken();

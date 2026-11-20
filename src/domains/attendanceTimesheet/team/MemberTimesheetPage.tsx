@@ -10,6 +10,7 @@ import { Button, Flex, Result, Skeleton, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
+import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { hasCheckIn, hasTimesheets } from '@src/prototype/rules/attendance';
 
 import { getMemberAttendance, getMemberMonth, getMemberWeek } from '../api';
@@ -95,6 +96,8 @@ const AttendanceSummary = ({ employeeId, initialMonth }: { employeeId: number; i
 };
 
 const MemberTimesheetPage = () => {
+    // PROTOTYPE-SETUP (Developer notes): a team member's timesheets (no notes of its own: falls back to My team).
+    useDevPage('ess:team:member');
     const scope = useAtsScope();
     const paths = useAtsPaths();
     const navigate = useNavigate();
