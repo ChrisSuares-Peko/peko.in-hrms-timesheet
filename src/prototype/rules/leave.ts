@@ -471,9 +471,67 @@ export const cancellationRange = (leave: { start: string; end: string }, today: 
 /** Approved leave after a cancellation from `from`: cancelled (whole) or ending the day before (re-counted). */
 export const applyCancellation = <L extends { start: string; end: string; half: LeaveHalf | null; days: number }>(leave: L, from: string, recount: (start: string, end: string, half: LeaveHalf | null) => number) => {
     if (from <= leave.start) return { whole: true as const, leave };
-    const end = addDays(from, -1);
+    // PROTOTYPE-SETUP (Leave module, update): end on the last working day before `from` (not on a weekly off).
+    let end = addDays(from, -1);
+    while (end > leave.start && recount(end, end, leave.half) === 0) end = addDays(end, -1);
     return { whole: false as const, leave: { ...leave, end, days: recount(leave.start, end, leave.half) } };
 };
+
+// ---- past leave: cancelling or changing days already gone --------------------------------------------------------
+
+/** How a company tracks work: check-ins (attendance or both), timesheets only, or neither. */
+export type WorkEvidence = 'attendance' | 'timesheet' | 'none';
+
+/** "Tue 10 Nov", "Tue 10 Nov and Wed 11 Nov", "Mon 9 Nov, Tue 10 Nov and Wed 11 Nov" */
+export const dayList = (days: string[]) => {
+    const names = days.map(shortDate);
+    return names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+};
+
+export const PAST_LEAVE_MESSAGES = {
+    notWorked: (days: string[], evidence: WorkEvidence) => {
+        const list = dayList(days);
+        const one = days.length === 1;
+        if (evidence === 'attendance')
+            return `You didn’t check in on ${list}, so ${one ? 'it stays' : 'they stay'} as leave. If you worked ${one ? 'that day' : 'those days'}, request an attendance correction first, then try again.`;
+        if (evidence === 'timesheet')
+            return `There are no timesheet entries on ${list}, so ${one ? 'it stays' : 'they stay'} as leave. If you worked ${one ? 'that day' : 'those days'}, log your hours first, then try again.`;
+        return `${list} ${one ? 'is' : 'are'} already past and your company doesn’t track attendance, so ask HR to change it.`;
+    },
+} as const;
+
+/**
+ * The past working days (before today) of approved leave that a cancellation or change would take off. A day still
+ * fully covered by the new leave isn't taken off; a full day becoming a half day (or the other half) is.
+ */
+export const removedPastDays = (
+    original: { start: string; end: string; half: LeaveHalf | null },
+    next: { start: string; end: string; half: LeaveHalf | null } | null,
+    today: string,
+    cal: WorkCalendar
+) => {
+    const out: string[] = [];
+    for (let d = original.start; d <= original.end && d < today; d = addDays(d, 1)) {
+        const covered = Boolean(next && next.start <= d && d <= next.end && (next.half === null || next.half === original.half));
+        if (isWorkingDayFor(cal, d) && !covered) out.push(d);
+    }
+    return out;
+};
+
+/**
+ * Past leave can only be taken off for days the employee actually worked: a check-in (attendance modes) or timesheet
+ * entries (timesheet-only mode) on each past working day being removed. Returns why not, or null. HR isn't limited.
+ */
+export const pastLeaveProblem = (days: string[], worked: (date: string) => boolean, evidence: WorkEvidence) => {
+    const missing = evidence === 'none' ? days : days.filter(d => !worked(d));
+    return missing.length ? PAST_LEAVE_MESSAGES.notWorked(missing, evidence) : null;
+};
+
+/** Where a cancellation can start: any day of the leave (the whole leave = its first day). */
+export const CANCEL_FROM_MESSAGES = {
+    outside: 'Pick a date inside the leave.',
+    nothing: 'There are no working days left to cancel from that date.',
+} as const;
 
 // ---- comp off ---------------------------------------------------------------------------------------------------
 

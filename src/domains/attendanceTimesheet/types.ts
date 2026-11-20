@@ -296,7 +296,7 @@ export interface TrailEvent {
     level: 0 | 1 | 2;
     role?: ApproverRole;
     by: string;
-    action: 'Approved' | 'Rejected' | 'Update requested' | 'Updated and resubmitted';
+    action: 'Approved' | 'Rejected' | 'Update requested' | 'Updated and resubmitted' | 'Edited and resubmitted';
     comment?: string;
     at: string;
 }
@@ -913,7 +913,7 @@ export interface RequestItem {
      * PROTOTYPE-SETUP (Leave module): which leave item it is (a leave request, a cancellation of approved leave, or a
      * comp off claim), and for a leave request the type's balance: "Annual: 7 available now · 6.5 after this".
      */
-    leaveKind?: 'leave' | 'cancel' | 'compoff';
+    leaveKind?: 'leave' | 'cancel' | 'compoff' | 'change';
     leaveBalance?: { typeName: string; availableNow: number; after: number; days: number };
     waitingForYou: boolean;
 }
@@ -1170,6 +1170,40 @@ export interface LeaveRequest {
     cancellation?: { from: string; at: string; by: string; reason: string; originalEnd: string; originalDays: number };
     /** Days approved beyond the balance at the time (an approver approved anyway): flagged as loss of pay. */
     lossOfPayDays?: number;
+    /** PROTOTYPE-SETUP (Leave module): what it was before an approved change request replaced it ("Was"). */
+    changedFrom?: LeaveWas & { at: string; changeId: string };
+    createdAt: string;
+    updatedAt: string;
+}
+
+/** The dates, type and half of a leave, as it was before a change. */
+export interface LeaveWas {
+    type: LeaveType;
+    start: string;
+    end: string;
+    half: LeaveHalf | null;
+    days: number;
+}
+
+/**
+ * PROTOTYPE-SETUP (Leave module): a request to change approved leave (new dates, type or half, and a reason). Same
+ * approvers as leave. The original leave stays as it is until the change is approved; then it's replaced.
+ */
+export interface LeaveChange {
+    id: string;
+    employeeId: number;
+    leaveId: string;
+    type: LeaveType;
+    start: string;
+    end: string;
+    half: LeaveHalf | null;
+    days: number;
+    reason: string;
+    proof?: { name: string };
+    /** The approved leave as it was when the change was asked for. */
+    was: LeaveWas;
+    trail: ApprovalTrail;
+    withdrawn?: boolean;
     createdAt: string;
     updatedAt: string;
 }
@@ -1183,7 +1217,10 @@ export interface LeaveRequestInput {
     proof?: { name: string } | null;
 }
 
-/** A request to cancel approved leave (whole, or the days from today if it has started). Same approvers as leave. */
+/**
+ * A request to cancel approved leave: the whole leave, or from a date the employee picks ("Cancel from"). Past days can
+ * only be cancelled if they were actually worked. Same approvers as leave.
+ */
 export interface LeaveCancellation {
     id: string;
     employeeId: number;
@@ -1302,12 +1339,28 @@ export type LeaveRequestRow = LeaveRequest & {
     state: 'pending' | 'approved' | 'rejected' | 'withdrawn' | 'cancelled' | 'update_requested';
     /** A cancellation request is waiting for approval. */
     cancellationPending?: boolean;
-    /** Approved and not finished: it can be cancelled (from `cancelFrom`, with `cancelDays` going back). */
+    /** Approved with nothing waiting on it: it can be cancelled (the whole leave = from `cancelFrom`, `cancelDays` back). */
     cancelFrom?: string;
     cancelDays?: number;
+    /** PROTOTYPE-SETUP (Leave module): a change request is waiting for approval. */
+    changePending?: boolean;
+    /** Approved with nothing waiting on it: Change leave is offered. */
+    canChange?: boolean;
+    /** The type's name before the change ("Was"). */
+    changedFromTypeName?: string;
 };
 
 export type LeaveCancellationRow = LeaveCancellation & { typeName: string; statusLabel: string };
+export type LeaveChangeRow = LeaveChange & { typeName: string; wasTypeName: string; statusLabel: string };
+
+/** PROTOTYPE-SETUP (Leave module): cancelling approved leave from a date — what goes back, or why it can't. */
+export interface LeaveCancelCheck {
+    from: string;
+    to: string;
+    whole: boolean;
+    days: number;
+    problem: string | null;
+}
 export type CompOffRow = CompOffRequest & { statusLabel: string; holidayName?: string };
 
 export interface LeaveCalendarInfo {
@@ -1336,6 +1389,8 @@ export interface LeaveView {
     lateOrder: LeaveType[];
     requests: LeaveRequestRow[];
     cancellations: LeaveCancellationRow[];
+    /** PROTOTYPE-SETUP (Leave module): change requests for approved leave. */
+    changes: LeaveChangeRow[];
     compOffs: CompOffRow[];
     managerName: string | null;
     /** "Arjun Mehta (manager), then HR team" — who approves a new leave, cancellation or comp off request. */

@@ -415,6 +415,11 @@ export const deriveDay = (input: DayInput): DerivedDay => {
     if (input.leaveName && !input.checkIn) {
         return { ...base, status: 'on-leave', minutesAtWork: 0, lateMinutes: 0, label: input.leaveName };
     }
+    // PROTOTYPE-SETUP (Leave module, update): approved full-day leave stays the day's status even with a check-in (no
+    // late mark) until the leave is cancelled or changed — then the check-in counts as a worked day.
+    if (input.leaveName && !input.halfLeave) {
+        return { ...base, status: 'on-leave', minutesAtWork: atWork, lateMinutes: 0, label: `${input.leaveName} · checked in` };
+    }
     // PROTOTYPE-SETUP (Final batch, Slice 1): half-day leave — the other half is a working half: the late mark moves
     // to mid-shift for first-half leave, there's no "half day" status, and no check-in on a past day is "Absent
     // (other half)".
@@ -1285,6 +1290,21 @@ export const decide = (
  */
 export const resubmitTrail = (trail: ApprovalTrail, at: string, by: string): ApprovalTrail => {
     if (trail.status !== 'UPDATE_REQUESTED') throw new RuleError(UPDATE_MESSAGES.notAsked);
+    return restartRound(trail, at, by, 'Updated and resubmitted');
+};
+
+/**
+ * PROTOTYPE-SETUP (Leave module): the employee edited a request that is still open (pending at either level, or sent
+ * back). It is saved in place and starts again at level 1: this round's decisions move to the history with "Edited and
+ * resubmitted" (or "Updated and resubmitted" when an update was asked for).
+ */
+export const restartTrail = (trail: ApprovalTrail, at: string, by: string): ApprovalTrail => {
+    if (trail.status === 'UPDATE_REQUESTED') return resubmitTrail(trail, at, by);
+    if (!trail.status.startsWith('PENDING')) throw new RuleError('Only an open request can be edited.');
+    return restartRound(trail, at, by, 'Edited and resubmitted');
+};
+
+const restartRound = (trail: ApprovalTrail, at: string, by: string, action: 'Updated and resubmitted' | 'Edited and resubmitted'): ApprovalTrail => {
     const decided: TrailEvent[] = trail.steps
         .filter(s => s.decision)
         .map(s => ({
@@ -1300,7 +1320,7 @@ export const resubmitTrail = (trail: ApprovalTrail, at: string, by: string): App
         ...trail,
         status: nextStatus(steps),
         steps,
-        history: [...(trail.history ?? []), ...decided, { level: 0, by, action: 'Updated and resubmitted', at }],
+        history: [...(trail.history ?? []), ...decided, { level: 0, by, action, at }],
     };
     delete next.updateRequest;
     return next;
