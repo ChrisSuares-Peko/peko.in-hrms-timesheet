@@ -6,6 +6,7 @@ import { useLocation, Link } from 'react-router-dom';
 
 import { useAppSelector } from '@src/hooks/store';
 import { useEssBreadcrumb } from '@src/prototype/persona/essBreadcrumb';
+import { payrollServiceCrumbs } from '@src/prototype/persona/payrollServices';
 import { paths } from '@src/routes/paths';
 
 type BreadCrumbProps = object;
@@ -708,7 +709,8 @@ const CustomBreadCrumb: React.FC<BreadCrumbProps> = () => {
         });
     }
 
-    const breadcrumbs = essItems ?? [...extraBreadcrumbItems];
+    // PROTOTYPE-SETUP (Leave module, update): Payroll service pages read "Payroll › Services › {service}".
+    const breadcrumbs = essItems ?? payrollServiceCrumbs(pathname) ?? [...extraBreadcrumbItems];
 
     if (pathname.includes('/proposals/compare') && navState?.proposalId) {
         const viewPath = `/procure/proposals/${navState.proposalId}${navState.rfqId ? `?rfqId=${navState.rfqId}` : ''}`;

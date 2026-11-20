@@ -1,7 +1,8 @@
-// PROTOTYPE-SETUP (Payroll admin, Slice 1): shared building blocks for the Payroll module's service tabs.
-//   PayrollServiceTabs .... Timesheet · Attendance · Leave · Overtime · Reimbursements · Employees, each with a badge of
-//                           what's waiting for the admin (Timesheet hidden in Attendance only mode, Attendance in
-//                           Timesheet only mode; both in 'none' mode). Every service page shows it at the top.
+// PROTOTYPE-SETUP (Payroll admin, Slice 1): shared building blocks for the Payroll module's service pages.
+// PROTOTYPE-SETUP (Leave module, update — Payroll navigation): there are no service tabs any more. Admins open each
+// service from Quick actions on the Payroll dashboard (each tile with what's waiting); a service page shows the
+// breadcrumb "Payroll › Services › {service}" (src/prototype/persona/payrollServices.tsx) and PayrollServiceBar.
+//   PayrollServiceBar ..... "‹ Back to dashboard" and what's waiting in this service
 //   AdminSubTabs .......... Overview / Details / Requests (the sub-tab is in the URL: ?view=)
 //   MonthSwitcher ......... the current month and the two before it
 //   ServiceHeader ......... the page title and one line under it
@@ -9,50 +10,31 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { Badge, Flex, Segmented, Tabs, Typography } from 'antd';
+import { LeftOutlined } from '@ant-design/icons';
+import { Flex, Segmented, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
-import { paths } from '@src/routes/paths';
+import { PAYROLL_DASHBOARD, type PayrollService } from '@src/prototype/persona/payrollServices';
 
 import { getAdminCounts } from '../../api';
 import type { AdminCounts, AtsMode } from '../../types';
-import { useAtsSettings, usePayrollScope } from '../usePayrollAts';
+import { usePayrollScope } from '../usePayrollAts';
 
-export type PayrollService = 'timesheet' | 'attendance' | 'leave' | 'overtime' | 'reimbursement' | 'employees';
+export type { PayrollService } from '@src/prototype/persona/payrollServices';
 
-const P = (slug: string) => `/${paths.payroll.index}/${slug}`;
-
-/** Where each service lives (Attendance and Employees are the existing pages). */
-export const serviceLinks: Record<PayrollService, string> = {
-    timesheet: P(paths.payroll.serviceTimesheet),
-    attendance: P(paths.payroll.timesheet),
-    leave: P(paths.payroll.serviceLeave),
-    overtime: P(paths.payroll.serviceOvertime),
-    reimbursement: P(paths.payroll.serviceReimbursements),
-    employees: P(paths.payroll.employees),
-};
-
-const LABEL: Record<PayrollService, string> = {
-    timesheet: 'Timesheet',
-    attendance: 'Attendance',
-    leave: 'Leave',
-    overtime: 'Overtime',
-    reimbursement: 'Reimbursements',
-    employees: 'Employees',
-};
-
-/** The service tabs for the company's mode. */
+/** The services offered for the company's mode (Timesheet off in Attendance only, Attendance off in Timesheet only). */
 export const visibleServices = (mode: AtsMode | undefined): PayrollService[] =>
-    (['timesheet', 'attendance', 'leave', 'overtime', 'reimbursement', 'employees'] as PayrollService[]).filter(s => {
+    (['timesheet', 'attendance', 'leave', 'overtime', 'reimbursement', 'employees', 'settings'] as PayrollService[]).filter(s => {
         if (s === 'timesheet') return mode !== 'attendance' && mode !== 'none';
         if (s === 'attendance') return mode !== 'timesheet' && mode !== 'none';
+        if (s === 'overtime') return mode !== 'none';
         return true;
     });
 
-/** The badge for a service: what's waiting for the admin. */
+/** What's waiting for the admin in a service. */
 export const badgeOf = (counts: AdminCounts | null, s: PayrollService) => {
-    if (!counts) return 0;
+    if (!counts || s === 'settings') return 0;
     if (s === 'employees') return counts.profile;
     return counts[s];
 };
@@ -78,27 +60,22 @@ export const useAdminCounts = () => {
     return counts;
 };
 
-export const PayrollServiceTabs = ({ active }: { active: PayrollService }) => {
-    const navigate = useNavigate();
-    const { settings } = useAtsSettings();
+/** On every service page, under the breadcrumb: the way back to the dashboard and what's waiting here. */
+export const PayrollServiceBar = ({ active }: { active: PayrollService }) => {
     const counts = useAdminCounts();
-    const services = visibleServices(settings?.mode);
+    const waiting = badgeOf(counts, active);
     return (
-        <Tabs
-            activeKey={active}
-            onChange={key => navigate(serviceLinks[key as PayrollService])}
-            className="mb-2"
-            data-payroll-services
-            items={services.map(s => ({
-                key: s,
-                label: (
-                    <Flex gap={6} align="center" data-service-tab={s}>
-                        <span>{LABEL[s]}</span>
-                        {badgeOf(counts, s) > 0 && <Badge count={badgeOf(counts, s)} size="small" color="#FF4F4F" data-service-badge={s} />}
-                    </Flex>
-                ),
-            }))}
-        />
+        <Flex align="center" gap={8} wrap="wrap" className="mb-3" data-payroll-service-bar={active}>
+            <Link to={PAYROLL_DASHBOARD} className="inline-flex items-center gap-1 text-sm font-medium !text-[#FF4F4F]" data-back-to-dashboard>
+                <LeftOutlined className="text-xs" />
+                Back to dashboard
+            </Link>
+            {waiting > 0 && (
+                <Tag color="red" className="!m-0" data-service-waiting>
+                    {waiting} waiting for you
+                </Tag>
+            )}
+        </Flex>
     );
 };
 

@@ -1,18 +1,16 @@
 import React from 'react';
 
-import { Flex, Image, Typography } from 'antd';
+import { Badge, Flex, Image, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 
 import { CardProps } from '@domains/dashboard/Payroll/types/types';
 
-const NavigationCards = ({ icon, title, link, isActive, reference, onClick, iconWidth = 50 }: CardProps) => {
+// PROTOTYPE-SETUP (Leave module, update): a service tile shows what's waiting for the admin (red count + "N waiting").
+const NavigationCards = ({ icon, title, link, isActive, reference, onClick, iconWidth = 50, badge = 0 }: CardProps) => {
     const isActionOnly = !link && typeof onClick === 'function';
 
     const handleClick = () => {
-        if (isActionOnly) {
-            console.log('Clicked download payslip');
-            onClick?.();
-        }
+        if (isActionOnly) onClick?.();
     };
 
     const desktopCard = (
@@ -37,18 +35,25 @@ const NavigationCards = ({ icon, title, link, isActive, reference, onClick, icon
             }
             className="xs:hidden md:flex transition duration-300 transform hover:scale-110 cursor-pointer"
         >
-            <Flex
-                className="h-[90px] w-[90px] bg-[#F9F6F5] rounded-3xl"
-                align="center"
-                justify="center"
-            >
-                <Image width={iconWidth} preview={false} src={icon} />
-            </Flex>
+            <Badge count={badge} size="small" offset={[-6, 6]} color="#FF4F4F">
+                <Flex
+                    className="h-[90px] w-[90px] bg-[#F9F6F5] rounded-3xl"
+                    align="center"
+                    justify="center"
+                >
+                    <Image width={iconWidth} preview={false} src={icon} />
+                </Flex>
+            </Badge>
             <Typography.Text
                 {...(!isActive && { disabled: true })}
                 className="text-[13px] md:text-center w-24 break-normal min-h-10"
             >
                 {title}
+                {badge > 0 && (
+                    <span className="block text-[11px] font-medium text-[#FF4F4F]" data-tile-waiting>
+                        {badge} waiting
+                    </span>
+                )}
             </Typography.Text>
         </Flex>
     );
@@ -74,14 +79,17 @@ const NavigationCards = ({ icon, title, link, isActive, reference, onClick, icon
             }
             className="md:hidden xs:flex my-2 cursor-pointer"
         >
-            <Flex className="min-w-[4rem] h-14 bg-[#F9F6F5] rounded-xl justify-center">
-                <Image width={iconWidth / 2} preview={false} src={icon} className="mt-5" />
-            </Flex>
+            <Badge count={badge} size="small" offset={[-4, 4]} color="#FF4F4F">
+                <Flex className="min-w-[4rem] h-14 bg-[#F9F6F5] rounded-xl justify-center">
+                    <Image width={iconWidth / 2} preview={false} src={icon} className="mt-5" />
+                </Flex>
+            </Badge>
             <Typography.Text
                 {...(!isActive && { disabled: true })}
                 className="text-[.69rem] mt-2 w-full font-medium text-center"
             >
                 {title}
+                {badge > 0 && <span className="block text-[.65rem] text-[#FF4F4F]">{badge} waiting</span>}
             </Typography.Text>
         </Flex>
     );

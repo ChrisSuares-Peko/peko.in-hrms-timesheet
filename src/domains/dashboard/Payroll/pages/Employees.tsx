@@ -6,7 +6,7 @@ import { Content } from 'antd/es/layout/layout';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import AdminRequestsList from '@src/domains/attendanceTimesheet/payroll/admin/AdminRequestsList';
-import { PayrollServiceTabs, useAdminCounts } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
+import { PayrollServiceBar, useAdminCounts } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
 import { useAppDispatch, useAppSelector } from '@src/hooks/store';
 import useDebounce from '@src/hooks/useDebounce';
 import { paths } from '@src/routes/paths';
@@ -243,8 +243,8 @@ function Employees() {
 
     return (
         <Content>
-            {/* PROTOTYPE-SETUP (Payroll admin, Slice 1): the service tabs on top. */}
-            <PayrollServiceTabs active="employees" />
+            {/* PROTOTYPE-SETUP (Leave module, update): no service tabs — the way back to the dashboard. */}
+            <PayrollServiceBar active="employees" />
             <PayrollAccessBanner />
             <Row className="mt-2">
                 <Col span={24}>

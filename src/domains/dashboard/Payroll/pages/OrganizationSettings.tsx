@@ -5,6 +5,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 // PROTOTYPE-SETUP (Leave module): Leave Policies is rebuilt as Leave types · Public holidays · Configuration · Approvals.
 import LeavePoliciesTab from '@src/domains/attendanceTimesheet/leave/settings/LeavePoliciesTab';
+// PROTOTYPE-SETUP (Leave module, update): Payroll settings is opened from the dashboard's Quick actions too.
+import { PayrollServiceBar } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
 // PROTOTYPE-SETUP: ESS Service 1 — the single Attendance & Timesheet settings tab (replaces the V1 one).
 import AtsSettingsTab from '@src/domains/attendanceTimesheet/payroll/AtsSettingsTab';
 
@@ -101,6 +103,7 @@ const OrganizationSettings = () => {
 
     return (
         <>
+            <PayrollServiceBar active="settings" />
             <Typography.Text className="font-normal text-lg sm:text-2xl">
                 Payroll Settings
             </Typography.Text>

@@ -61,6 +61,8 @@ export interface CardProps {
     // wider than tall, a larger width keeps its rendered height comparable to
     // sibling icons instead of looking undersized. Mobile scales at half this value.
     iconWidth?: number;
+    /** PROTOTYPE-SETUP (Leave module, update): what's waiting for the admin in this service (Quick actions). */
+    badge?: number;
 }
 export type filterState = {
     searchText: string;

@@ -205,7 +205,13 @@ export const payrollRoutes = [
         ),
         path: paths.payroll.serviceTimesheet,
     },
-    { element: <Navigate to={`/${paths.payroll.index}`} replace />, path: 'services' },
+    // PROTOTYPE-SETUP (Leave module, update — Payroll navigation): no service tabs. /payroll/services goes to the
+    // dashboard's Quick actions; service URLs that never had a page of their own go to the service's page.
+    { element: <Navigate to={`/${paths.payroll.index}#quick-actions`} replace />, path: 'services' },
+    { element: <Redirect to={P(paths.payroll.timesheet)} />, path: 'services/attendance' },
+    { element: <Redirect to={P(paths.payroll.employees)} />, path: 'services/employees' },
+    { element: <Redirect to={P(paths.payroll.payrollSettings)} />, path: 'services/settings' },
+    { element: <Redirect to={P(paths.payroll.payrollSettings)} />, path: 'services/payroll-settings' },
     { element: <AdminLeavePage />, path: paths.payroll.serviceLeave },
     { element: <AdminServicePage key="overtime" service="overtime" />, path: paths.payroll.serviceOvertime },
     { element: <AdminServicePage key="reimbursement" service="reimbursement" />, path: paths.payroll.serviceReimbursements },

@@ -11,8 +11,8 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
 | 2 — Data: change requests, Cancel from a date (+ dry-run check), edit pending in place, queues, endpoints, seed | Leave: change requests, cancel from a date, edit pending requests | done |
 | 3 — Source docs: developer notes committed, old leave spec deleted, this log | Leave: developer notes replace the leave spec | done |
 | 4 — ESS Leave: compact cards, Recent activity, type page (4 cards, one log), My requests table, request drawer | Leave: ESS overview, type log, My requests and the request drawer | done |
-| 5 — Payroll navigation: no service tabs; Quick actions with waiting counts; breadcrumb + back link; redirects | Leave: Payroll services from Quick actions | next |
-| 6 — API doc (`docs/api/leave.md`) for the new endpoints | Leave: API contract for changes and cancel from | |
+| 5 — Payroll navigation: no service tabs; Quick actions with waiting counts; breadcrumb + back link; redirects | Leave: Payroll services from Quick actions | done |
+| 6 — API doc (`docs/api/leave.md`) for the new endpoints | Leave: API contract for changes and cancel from | next |
 | 7 — Developer notes panel (prototype flag), README + docs/dev-notes/README.md | Dev notes: … | |
 | 8 — VERIFY 1–8 at 1440 / 1024 / 375, type-check, lint, tests, production build, one push | Leave: verification log | |
 
@@ -33,8 +33,14 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
   `leave/ApplyLeaveModal.tsx` (Edit request, Change leave, edit a change), `leave/LeaveActionModals.tsx` (Cancel from +
   live worked-day check). Balances carry the type's carry-forward limit (`carryForward`).
 
+- Step 5: `src/prototype/persona/payrollServices.tsx` (service links, labels, "Payroll › Services › {service}"),
+  `CustomBreadcrumb.tsx` (uses it on service pages), `payroll/admin/adminShared.tsx` (`PayrollServiceBar` replaces
+  `PayrollServiceTabs`: "‹ Back to dashboard" + "N waiting for you"), the five service pages + Payroll settings,
+  `Dash.tsx` + `NavigationCards.tsx` (Quick actions heading, waiting badge and "N waiting" per tile, Payroll settings
+  tile), `routes/sections/payroll.tsx` (redirects).
+
 ## Next
-- Step 5.
+- Step 6.
 
 ## Decisions
 1. **Spec.** `docs/dev-notes/developer-notes.md` is the spec; `docs/specs/leave-module-spec.md` is deleted. The notes'
@@ -68,6 +74,8 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
    Persisted demo data bumped to v9.
 10. **Source documents.** `docs/dev-notes/developer-notes.md` and the updated `docs/prototypes/leave-prototype.html` are
     committed as sources. The unrelated local change to `docs/prototypes/attendance-timesheet.html` is left alone.
+11. **Commit hooks.** Husky hooks aren't installed in this checkout (no `.husky/_`), so commits run no hooks; the
+    commitlint config would reject the "Leave: …" format the run asks for. Lint, type-check and tests are run by hand.
 12. **ESS overview content.** Only the compact cards, Recent activity, Upcoming leave and Next public holiday. The
     old Loss of pay card is a one-line alert above the cards (only when there is loss of pay); the old "Late check-in
     deductions" panel is gone from Leave (late deductions and reversals are in Recent activity and each type's log; the
@@ -81,5 +89,17 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
     Future-dated credits aren't shown. Clicking any request row opens its drawer.
 16. **My requests** lists leave, cancellation, change and comp off requests in one table (newest first); "Rejected or
     withdrawn" also holds cancelled leave. A pending cancellation / change shows under the leave's status.
-11. **Commit hooks.** Husky hooks aren't installed in this checkout (no `.husky/_`), so commits run no hooks; the
-    commitlint config would reject the "Leave: …" format the run asks for. Lint, type-check and tests are run by hand.
+17. **Payroll navigation.** The service tabs component is gone; every service page has the breadcrumb
+    "Payroll › Services › {service}" ("Services" links to the dashboard's Quick actions) and "‹ Back to dashboard"
+    with "N waiting for you". Quick actions tiles: Employees & Departments (profile updates waiting), Salary, Leave,
+    Attendance, Reimbursements, Timesheet, Overtime (each with what's waiting) and a new Payroll settings tile, then
+    the existing Company documents, Reports, Announcements, Payslip and CTC tiles. "Leaves" / "Timesheets" tiles are
+    renamed "Leave" / "Timesheet" (the service names). Tiles still follow the tracking mode (no Timesheet in
+    attendance-only, no Attendance in timesheet-only, neither + no Overtime in "neither").
+18. **Redirects.** Already in place and kept: `/payroll/approvals` → Timesheet › Requests, `/payroll/timesheets` →
+    Timesheet › Overview, `/payroll/employee-Leaves` → Leave, `/payroll/leave-summary/:id` → Leave (that employee),
+    Payroll settings tab 11 → Leave Policies. New: `/payroll/services` → dashboard Quick actions;
+    `/payroll/services/attendance` → Attendance; `/payroll/services/employees` → Employees;
+    `/payroll/services/settings` and `/payroll/services/payroll-settings` → Payroll settings. The service pages keep
+    their URLs (`/payroll/services/timesheet|leave|overtime|reimbursements`, `/payroll/timesheet`, `/payroll/employees`,
+    `/payroll/HR-settings`), so bookmarks keep working.

@@ -224,7 +224,7 @@ describe('Dash page', () => {
         [
             'Employees & Departments',
             'Salary',
-            'Leaves',
+            'Leave',
             'Attendance',
             'Reimbursements',
             'Company Documents',

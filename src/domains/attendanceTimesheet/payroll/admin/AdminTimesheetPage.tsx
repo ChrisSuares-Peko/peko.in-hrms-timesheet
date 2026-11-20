@@ -18,7 +18,7 @@ import { useSearchParams } from 'react-router-dom';
 import { formatDuration } from '@src/prototype/rules/attendance';
 import { periodLabel } from '@src/prototype/rules/timesheetFiling';
 
-import { AdminSubTabs, AdminView, CountTile, MonthSwitcher, PayrollServiceTabs, ServiceHeader, notifyAdminChanged, recentMonths, useAdminCounts, useAdminView } from './adminShared';
+import { AdminSubTabs, AdminView, CountTile, MonthSwitcher, PayrollServiceBar, ServiceHeader, notifyAdminChanged, recentMonths, useAdminCounts, useAdminView } from './adminShared';
 import { getAdminDepartments, getAdminMonth, getAdminTimesheetOverview, getAdminWeek, getPayrollTimesheets } from '../../api';
 import { PersonCell } from '../../team/teamShared';
 import TeamTimesheets from '../../team/TeamTimesheets';
@@ -247,7 +247,7 @@ const AdminTimesheetPage = () => {
     ];
     return (
         <div className="w-full min-w-0" data-admin-page="timesheet">
-            <PayrollServiceTabs active="timesheet" />
+            <PayrollServiceBar active="timesheet" />
             <ServiceHeader title="Timesheet" line="Every employee’s timesheets. You give the final approval once their manager has approved." />
             <AdminSubTabs value={view} onChange={setView} options={options} />
             {view === 'overview' && <Overview month={month} onMonth={setMonth} onSeeWho={() => setView('details')} />}

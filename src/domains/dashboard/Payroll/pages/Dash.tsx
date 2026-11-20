@@ -13,7 +13,7 @@ import {
     theme,
 } from 'antd';
 import { TourProps } from 'antd/lib';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 import announcementIcon from '@domains/dashboard/Payroll/assets/icons/AnnouncementsNew.svg';
 import companyDocumentIcon from '@domains/dashboard/Payroll/assets/icons/CompanyDocumentsNew.svg';
@@ -27,6 +27,7 @@ import nextMonthSalaryIcon from '@domains/dashboard/Payroll/assets/icons/next-mo
 import reimbursementIcon from '@domains/dashboard/Payroll/assets/icons/ReimbursementsNew.svg';
 import reportsIcon from '@domains/dashboard/Payroll/assets/icons/Reports_FormsNew.svg';
 import salaryIcon from '@domains/dashboard/Payroll/assets/icons/SalaryNew.svg';
+import settingsIcon from '@domains/dashboard/Payroll/assets/icons/settings.svg';
 import timesheetIcon from '@domains/dashboard/Payroll/assets/icons/timesheetIcon.svg';
 import ActivityList from '@domains/dashboard/Payroll/components/Dashboard/ActivityList';
 import DashboardHeader from '@domains/dashboard/Payroll/components/Dashboard/DashboardHeader';
@@ -34,11 +35,13 @@ import InfoCard from '@domains/dashboard/Payroll/components/Dashboard/InfoCard';
 import NavigationCards from '@domains/dashboard/Payroll/components/Dashboard/NavigationCards';
 import UpcomingActivityCard from '@domains/dashboard/Payroll/components/Dashboard/UpcomingActivityCard';
 // PROTOTYPE-SETUP: ESS Service 1 — tiles follow the new Attendance & Timesheet settings (was V1 settings).
+import { badgeOf, useAdminCounts } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
 import { useAtsSettings } from '@src/domains/attendanceTimesheet/payroll/usePayrollAts';
 import { useAppDispatch, useAppSelector } from '@src/hooks/store';
 import useScreenSize from '@src/hooks/useScreenSize';
 import { useScrollToTop } from '@src/hooks/useScrollToTop';
 import useGetAddonDetails from '@src/hooks/useSubscriptionAddons';
+import { QUICK_ACTIONS_ID, type PayrollService, serviceLinks } from '@src/prototype/persona/payrollServices';
 import { paths } from '@src/routes/paths';
 import { alterProductTour } from '@src/slices/userSlice';
 import { accessKeys } from '@utils/accessKeys';
@@ -263,14 +266,23 @@ const Dash = () => {
 
     // PROTOTYPE-SETUP: ESS Service 1 — Attendance & Timesheet settings for the tile filter below.
     const { settings: atsSettings } = useAtsSettings();
+    // PROTOTYPE-SETUP (Leave module, update — Payroll navigation): no service tabs. Each service is opened from these
+    // Quick actions, and its tile shows what's waiting for the admin.
+    const adminCounts = useAdminCounts();
+    const waitingOn = (s: PayrollService) => badgeOf(adminCounts, s);
+    const { hash } = useLocation();
+    useEffect(() => {
+        if (hash === `#${QUICK_ACTIONS_ID}`) document.getElementById(QUICK_ACTIONS_ID)?.scrollIntoView({ block: 'start' });
+    }, [hash]);
 
     const allNavMenuDetails = [
         {
             icon: employee,
             title: 'Employees & Departments',
             isActive: true,
-            link: `/${paths.payroll.index}/${paths.payroll.employees}`,
+            link: serviceLinks.employees,
             ref: employeesRef,
+            badge: waitingOn('employees'),
         },
         {
             icon: salaryIcon,
@@ -281,38 +293,51 @@ const Dash = () => {
         },
         {
             icon: leaveIcon,
-            title: 'Leaves',
+            title: 'Leave',
             isActive: true,
-            // PROTOTYPE-SETUP (Payroll admin, Slice 1): the Leave service tab.
-            link: `/${paths.payroll.index}/${paths.payroll.serviceLeave}`,
+            // PROTOTYPE-SETUP (Payroll admin, Slice 1): the Leave service.
+            link: serviceLinks.leave,
             ref: leavesRef,
+            badge: waitingOn('leave'),
         },
         {
             icon: timesheetIcon,
             title: 'Attendance',
             isActive: true,
-            link: `/${paths.payroll.index}/${paths.payroll.timesheet}`,
+            link: serviceLinks.attendance,
             ref: timesheetRef,
+            badge: waitingOn('attendance'),
         },
         {
             icon: reimbursementIcon,
             title: 'Reimbursements',
             isActive: true,
-            link: `/${paths.payroll.index}/${paths.payroll.serviceReimbursements}`,
+            link: serviceLinks.reimbursement,
             ref: reimbursementRef,
+            badge: waitingOn('reimbursement'),
         },
-        // PROTOTYPE-SETUP (Payroll admin, Slice 1): the Timesheet and Overtime service tabs (no combined Approvals).
+        // PROTOTYPE-SETUP (Payroll admin, Slice 1): the Timesheet and Overtime services (no combined Approvals).
         {
             icon: timesheetIcon,
-            title: 'Timesheets',
+            title: 'Timesheet',
             isActive: true,
-            link: `/${paths.payroll.index}/${paths.payroll.serviceTimesheet}`,
+            link: serviceLinks.timesheet,
+            badge: waitingOn('timesheet'),
         },
         {
             icon: timesheetIcon,
             title: 'Overtime',
             isActive: true,
-            link: `/${paths.payroll.index}/${paths.payroll.serviceOvertime}`,
+            link: serviceLinks.overtime,
+            badge: waitingOn('overtime'),
+        },
+        // PROTOTYPE-SETUP (Leave module, update): Payroll settings is one of the services opened from here.
+        {
+            icon: settingsIcon,
+            title: 'Payroll settings',
+            isActive: true,
+            link: serviceLinks.settings,
+            iconWidth: 44,
         },
         {
             icon: companyDocumentIcon,
@@ -360,7 +385,7 @@ const Dash = () => {
     const navMenuDetails = allNavMenuDetails.filter(
         item =>
             !(item.title === 'Attendance' && (atsMode === 'timesheet' || atsMode === 'none')) &&
-            !(item.title === 'Timesheets' && (atsMode === 'attendance' || atsMode === 'none')) &&
+            !(item.title === 'Timesheet' && (atsMode === 'attendance' || atsMode === 'none')) &&
             !(item.title === 'Overtime' && atsMode === 'none')
     );
 
@@ -443,10 +468,14 @@ const Dash = () => {
                             </Col>
                         ))}
 
+                        {/* PROTOTYPE-SETUP (Leave module, update): Quick actions — every Payroll service opens from here. */}
+                        <div id={QUICK_ACTIONS_ID} className="w-full scroll-mt-4" data-quick-actions>
+                            <Typography.Text className="mb-2 block text-base font-medium">Quick actions</Typography.Text>
+                        </div>
                         {md ? (
                             <div className="w-full flex flex-col gap-4">
-                                <Row className="w-full" gutter={[8, 0]}>
-                                    {navMenuDetails.slice(0, 6).map((item, i) => (
+                                <Row className="w-full" gutter={[8, 16]}>
+                                    {navMenuDetails.map((item, i) => (
                                         <Col
                                             key={i}
                                             span={4}
@@ -460,25 +489,7 @@ const Dash = () => {
                                                 reference={item.ref}
                                                 onClick={item.onClick}
                                                 iconWidth={item.iconWidth}
-                                            />
-                                        </Col>
-                                    ))}
-                                </Row>
-                                <Row className="w-full" gutter={[8, 0]}>
-                                    {navMenuDetails.slice(6).map((item, i) => (
-                                        <Col
-                                            key={i}
-                                            span={4}
-                                            className="flex justify-center p-1 lg:p-1"
-                                        >
-                                            <NavigationCards
-                                                icon={item.icon}
-                                                title={item.title}
-                                                isActive={item.isActive}
-                                                link={item.link}
-                                                reference={item.ref}
-                                                onClick={item.onClick}
-                                                iconWidth={item.iconWidth}
+                                                badge={item.badge}
                                             />
                                         </Col>
                                     ))}
@@ -496,6 +507,7 @@ const Dash = () => {
                                                 link={item.link}
                                                 onClick={item.onClick}
                                                 iconWidth={item.iconWidth}
+                                                badge={item.badge}
                                             />
                                         </Col>
                                     ))}

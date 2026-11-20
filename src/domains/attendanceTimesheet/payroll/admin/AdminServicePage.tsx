@@ -16,7 +16,7 @@ import { formatDuration } from '@src/prototype/rules/attendance';
 import { typeDetails, typeOverview } from '@src/prototype/rules/payrollAdmin';
 
 import AdminRequestsList from './AdminRequestsList';
-import { AdminSubTabs, CountTile, MonthSwitcher, PayrollServiceTabs, ServiceHeader, recentMonths, useAdminCounts, useAdminView } from './adminShared';
+import { AdminSubTabs, CountTile, MonthSwitcher, PayrollServiceBar, ServiceHeader, recentMonths, useAdminCounts, useAdminView } from './adminShared';
 import { getAdminPeople, getAdminRequests } from '../../api';
 import { RequestCard } from '../../components/RequestQueue';
 import { PersonCell } from '../../team/teamShared';
@@ -162,7 +162,7 @@ const AdminServicePage = ({ service }: { service: Service }) => {
     const counts = useAdminCounts();
     return (
         <div className="w-full min-w-0" data-admin-page={service}>
-            <PayrollServiceTabs active={service} />
+            <PayrollServiceBar active={service} />
             <ServiceHeader title={COPY[service].title} line={COPY[service].line} />
             <AdminSubTabs
                 value={view}

@@ -23,7 +23,7 @@ import { useAppDispatch } from '@src/hooks/store';
 import { adminRequestViews, daysText, fmtDays, typeLabel } from '@src/prototype/rules/leave';
 import { showToast } from '@src/slices/apiSlice';
 
-import { CountTile, PayrollServiceTabs, ServiceHeader, notifyAdminChanged, useAdminCounts } from './adminShared';
+import { CountTile, PayrollServiceBar, ServiceHeader, notifyAdminChanged, useAdminCounts } from './adminShared';
 import { decideAdminRequest, getAdminLeaveBalances, getAdminLeaveCalendar, getAdminLeaveEntries, getAdminLeaveOverview, getAdminLeaveView, getAdminRequests, hrCancelLeave, markEmployeeActive } from '../../api';
 import { CancelLeaveModal, CancelTarget } from '../../leave/LeaveActionModals';
 import { BalanceCard, ExitBanner, LateDeductionsPanel, LossOfPayCard, ProbationBanner, leaveYearLine } from '../../leave/leaveUi';
@@ -429,7 +429,7 @@ const AdminLeavePage = () => {
     const views = settings ? (c: { you: number; mgr: number }) => adminRequestViews(settings.level1.leave, settings.level2.leave, c) : undefined;
     return (
         <div className="w-full min-w-0" data-admin-page="leave">
-            <PayrollServiceTabs active="leave" />
+            <PayrollServiceBar active="leave" />
             <ServiceHeader
                 title="Leave"
                 line="Everyone’s leave and balances. Approve requests that reach your team, add leave, and cancel it."

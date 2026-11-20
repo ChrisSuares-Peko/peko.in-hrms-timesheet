@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 // PROTOTYPE-SETUP (Payroll admin, Slices 1 and 5): the service tabs on top, and Requests — the admin requests list for
 // attendance corrections (was "Attendance corrections"). Overtime moved to its own service tab (Payroll → Overtime).
 import AdminRequestsList from '@src/domains/attendanceTimesheet/payroll/admin/AdminRequestsList';
-import { PayrollServiceTabs, useAdminCounts } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
+import { PayrollServiceBar, useAdminCounts } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
 import useScreenSize from '@src/hooks/useScreenSize';
 
 import AddHolidaysModal from '../components/modals/AddHolidaysModal';
@@ -45,7 +45,7 @@ const Timesheet = () => {
 
     return (
         <>
-            <PayrollServiceTabs active="attendance" />
+            <PayrollServiceBar active="attendance" />
             <Row justify="space-between" align="middle" className="mb-4">
                 <Typography.Text className="text-xl font-medium">Attendance</Typography.Text>
                 {(activeTab === '1' || activeTab === '2') && (
