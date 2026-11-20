@@ -14,7 +14,7 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
 | 5 — Payroll navigation: no service tabs; Quick actions with waiting counts; breadcrumb + back link; redirects | Leave: Payroll services from Quick actions | done |
 | 6 — API doc (`docs/api/leave.md`) for the new endpoints | Leave: API contract for changes and cancel from | done |
 | 7 — Developer notes panel (prototype flag), README + docs/dev-notes/README.md | Dev notes: panel in the prototype build | done |
-| 8 — VERIFY 1–8 at 1440 / 1024 / 375, type-check, lint, tests, production build, one push | Leave: verification log | next |
+| 8 — VERIFY 1–8 at 1440 / 1024 / 375, type-check, lint, tests, production build, one push | Leave: verification log | done |
 
 ## Done
 - Step 1: `src/prototype/rules/leave.ts` (`removedPastDays`, `pastLeaveProblem`, `PAST_LEAVE_MESSAGES`, the shortened
@@ -26,6 +26,8 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
   in place via `restartTrail`), `atsRequests.ts` (`atsLeaveChanges`), `atsTeam.ts` / `atsAdmin.ts` (change items in
   every leave queue), `handlers/ats.ts` + `api.ts` (endpoints), seed (`time-leaves.ts`, `ats-seed.ts`), data v9.
   Tests: `src/prototype/mocks/store/__tests__/atsLeaveUpdates.test.ts` (12).
+- Step 3: `docs/dev-notes/developer-notes.md` and the updated `docs/prototypes/leave-prototype.html` committed;
+  `docs/specs/leave-module-spec.md` deleted; this log restarted.
 
 - Step 4: `leave/EssLeavePage.tsx` (overview cards 2 / 4 a row, Recent activity, Upcoming leave, Next public holiday;
   type page with 4 cards + summary + one log with Show / status / date filters; My requests table with status filters;
@@ -48,8 +50,36 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
   `src/prototype/devNotes/__tests__/devNotes.test.tsx` (25). Docs: `README.md` (Prototype flag),
   `docs/dev-notes/README.md` (How to update the notes), `vercel.json` (`build.env.VITE_PROTOTYPE`).
 
+## VERIFY (Chrome via a scripted browser at 1440 / 1024 / 375, plus the store and rule tests)
+1. Pass — no service tabs on any Payroll page; every service page (Timesheet, Attendance, Leave, Overtime,
+   Reimbursements, Employees, Payroll settings) shows "Payroll › Services › {service}" and "‹ Back to dashboard"; the
+   dashboard's Quick actions open each one, tiles show "N waiting"; `/payroll/services/*` aliases and the older
+   retired routes redirect. No horizontal overflow at any width.
+2. Pass — cards show only "{type}", "available / total days", View details; 4 per row at 1440 / 1024, 2 at 375;
+   Recent activity lists 10 rows newest first; a leave row opens the drawer.
+3. Pass — 4 cards, a one-line summary, one log table; Show (All / Leave / Credits / Deductions with counts), status
+   and date filters work; no "credits and deductions" button.
+4. Pass — edited a pending request (saved in place, "Edited and resubmitted", back with Arjun at Level 1; store test
+   covers the restart from Level 2); changed approved Annual leave 2 → 1 day: "Change requested" under the status,
+   the original stayed until Arjun and HR approved, then it was replaced with "Was … 2 days"; cancelled from a chosen
+   date; withdrew a cancellation.
+5. Pass — cancelling the whole past "Plumbing work at home" leave is refused ("You didn’t check in on Mon 7 Sep … request
+   an attendance correction first"), Send disabled; cancelling from the day with a check-in worked; after approval the
+   leave is 1 day, that day shows the check-in in attendance and the timesheet's leave row is gone (store test).
+6. Pass — `atsLeaveModule.test.ts` (balances incl. in-request, half days over a range, sandwich rule, comp off incl.
+   the overtime clash, probation, late deduction and reversal, Requests views) all pass; in the browser the Apply form
+   shows "2 days waiting for approval are already taken off" and "5 half days = 2.5 days of leave".
+7. Pass — opens on the right module on all 14 mapped pages ("(this page's module)"), switches modules, Copy / Copy all
+   (25,133 chars) and the Shared platform link work at all widths; headings / bullets / bold render with no raw
+   markdown. Production build without the flag: no panel or notes text in `dist`; with `VITE_PROTOTYPE=true`: one lazy
+   chunk.
+8. Pass — no console errors from the new code (remaining messages are pre-existing: the sidebar's `stringLabel` prop,
+   external font lookups, antd deprecations on older pages). Type-check clean; ESLint 3 errors, all pre-existing in
+   `src/prototype/mocks/store/requestStores.ts`; tests 5725 passed, 366 failed in 166 files (baseline 366 / 166, all
+   unrelated; the one in this area, "timesheet v6: Excel round trip", failed before); production build passes.
+
 ## Next
-- Step 8 (VERIFY, build, push).
+- Nothing left in scope.
 
 ## Decisions
 1. **Spec.** `docs/dev-notes/developer-notes.md` is the spec; `docs/specs/leave-module-spec.md` is deleted. The notes'
