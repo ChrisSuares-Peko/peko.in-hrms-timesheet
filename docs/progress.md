@@ -5,6 +5,73 @@ PROTOTYPE-SETUP. Run log. Sources: `docs/dev-notes/dev-notes.json` (the notes) a
 that isn't **done**. The previous run (Leave module updates + module-grouped notes panel, `c34e05f`–`9b91229`) is
 finished and pushed; its log is in git history (`git show 9b91229:docs/progress.md`).
 
+## Leave settings + comp off calendar + approvers — done
+
+| Step | Commit | Status |
+|---|---|---|
+| 1 — Leave types: Action column (View · Edit · Delete), drawer sections, unused leave on leaving, Show to employees | Leave: leave types Action column, drawer sections, … | done |
+| 2 — ESS comp off: month calendar of weekly offs and holidays | Leave: comp off day picker is a calendar of weekly offs and holidays | done |
+| 3 — Approvers: Reporting manager · Admin / HR · a person at both levels; manager at level 2 | Approvers: Reporting manager, Admin / HR or a person … | done |
+| 4 — Late check-in deduction only under Attendance, timesheet & overtime | (previous run, `2fe83d7`; checked again) | done |
+
+Decisions:
+1. **Unused leave on leaving** is a new field, `onLeaving: 'ENCASH' | 'BRING_FORWARD'`, which replaces `encashOnExit`.
+   - Stored policies map on read (`migrateLeavePolicy` → `onLeavingOf`): true → ENCASH, false → BRING_FORWARD. The store
+     also accepts the old flag on write.
+   - Only the choice is stored. The settlement adds a display-only `bringForward` amount, and the ESS leaving banner says
+     "Casual: 2 days can be used to bring your last working day forward." No F&F or payroll change.
+   - The defaults keep Annual on encash; the others bring the last working day forward (the old `false`).
+2. **Show to employees** is the existing `active` flag, now edited in the drawer and saved with the type (no confirmation:
+   it doesn't change balances). The table's Deactivate/Activate button is gone. The `PATCH …/active` endpoint stays for
+   older callers.
+3. **Delete** (renamed from Remove) is disabled for used types. The tooltip sits on a wrapper, because a disabled button
+   doesn't fire hover events. Delete still asks for confirmation.
+4. **Drawer order** follows the notes: Carry forward is under "Other". In the prototype it sits under "When an employee
+   joins", but the notes are the spec.
+5. **Comp off calendar** gets its data from a new endpoint, `GET leave/comp-off/calendar?month=` (`compOffCalendar`). The rule
+   is the pure `compOffDayAvailable`.
+   - Pickable: a weekly off or public holiday on the employee's own schedule, not in the future, inside the expiry window
+     and not already claimed. Resubmitting keeps the request's own day open (`exclude`).
+   - Hours worked are still checked after picking, so an off day with no work can be picked and is refused with the
+     reason. This matches the prototype, which disables only working, future, expired and claimed days.
+   - Next month is disabled after the current one. The calendar opens on the request's day when resubmitting, otherwise
+     on this month.
+6. **Admin / HR** is one choice, stored as `HR`.
+   - Older team values (Payroll, HR, Admin, Finance) keep routing to the Payroll queues exactly as before. Every screen
+     shows them as "Admin / HR", and the settings form saves them as `HR` on the next save.
+   - The team names in trails, statuses, the activity log and Home ("HR team", "Payroll team"…) now read "Admin / HR".
+     Profile updates still say "HR team" in the trail steps.
+7. **Reporting manager at level 2** resolves to the employee's manager when the request is submitted (approvers are fixed
+   on each request).
+   - If level 1 is the same person, level 2 is dropped and level 1 is final (`samePerson`). This also applies to a
+     specific person who is the manager, and to timesheet periods.
+   - Level 1 is resolved at submit too, so "the person who approved level 1" is the resolved level-1 person. A team at
+     level 1 is never the same as a manager at level 2.
+8. **Help text**: the approvals card is shared by Attendance, timesheet & overtime, Leave → Approvals and
+   Reimbursements, so one change updates all three tables.
+
+Checks (Chrome, scripted, 1440 and 375):
+- **Leave types table:** the headers end in "Action". There's no Deactivate/Activate button. Delete is disabled for
+  Annual, Casual and Sick (used) and enabled for Maternity and Paternity. The tooltip text matches the notes.
+- **Drawer:** it shows the three section headings. Casual is set to "Use it to bring the last working day forward"
+  (mapped from `false`). Turning "Show to employees" off and saving marks Casual Inactive.
+- **ESS after deactivating Casual:** the leave cards and the Apply leave types no longer include Casual.
+- **Comp off calendar (November 2026):**
+  - Working days available: 0. Available: weekly offs and holidays only (no future days). Dots on worked days 8 and 14.
+  - Legend: Public holiday · Weekly off · You worked · Not available. Next month is disabled.
+  - Picking 8 Nov shows "0.5 day of comp off · Deepavali, 4h 45m worked".
+- **Approvers:** Level 1 offers Reporting manager · Admin / HR (approved in Payroll) · a specific person; Level 2 offers
+  the same plus None. The leave Level 2 that was stored as `HR` shows as Admin / HR.
+- **Routing** (store tests): manager → Admin / HR; Admin / HR → manager at level 2; manager at both levels approves once;
+  older team values still route; the leaving banner wording.
+- **Leave → Configuration:** only Leave year, Leave requests, Sandwich rule and Comp off; no late check-in panel. No page
+  overflow at 375 and no console errors.
+- **Pre-existing failures:** "payroll admin: leave › off today" fails on the previous commit too, because today
+  (21 Nov 2026) is a Saturday. The known "Excel round trip" test also still fails.
+- **Type-check:** clean. **Lint:** only the 3 existing errors in `requestStores.ts`. **Build:** passes. **Tests:** no new
+  failures. The only failures in prototype code are the two above; the rest are the unrelated domain files that already
+  failed.
+
 ## Small update: Leave configuration (commit "Settings: move late check-in deduction to attendance") — done
 
 - **Leave → Configuration** now has four panels: Leave year (with the roll-forward note), Leave requests, Sandwich rule, Comp off.
