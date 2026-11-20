@@ -10,7 +10,7 @@ finished and pushed; its log is in git history (`git show 9b91229:docs/progress.
 | 1 — Remove the module-grouped panel; page-key context + `useDevPage`; new docked panel on `dev-notes.json` | Dev notes: page-by-page panel replaces the module notes | done |
 | 2 — Every mapped screen and sub-tab reports its key | Dev notes: pages report their notes key | done |
 | 3 — README flag section, `docs/dev-notes/README.md` (how to update, key list) | Dev notes: how to update the notes and the key list | done |
-| 4 — VERIFY 1–5 at 1440 / 1024 / 375, type-check, lint, tests, production build, one push | Dev notes: verification log | next |
+| 4 — VERIFY 1–5 at 1440 / 1024 / 375, type-check, lint, tests, production build, one push | Dev notes: verification log | done |
 
 ## Done
 - Step 1: removed `src/prototype/devNotes/devNotes.tsx` (markdown loader, module map, renderer), its tests and
@@ -22,8 +22,32 @@ finished and pushed; its log is in git history (`git show 9b91229:docs/progress.
   its Leave Policies sub-tabs.
 - Step 3: `README.md`, `docs/dev-notes/README.md`; references to the old notes file now point at `dev-notes.json`.
 
+- Polish (`7e6148c`): copy feedback on the Copy button instead of a toast; a new page starts scrolled to the top.
+
+## VERIFY (Chrome via a scripted browser at 1440 / 1024 / 375; the panel stayed open while clicking on desktop and
+tablet; on phones, where it is full width, it was closed, the page changed, and it was reopened)
+1. Pass — 33 steps: ESS Overview → Leave (sidebar) → My requests → Public holidays → Overview → a type's details →
+   Attendance → Timesheet → My team (Approvals, Today → falls back to My team, Leave calendar) → Reimbursements →
+   Profile → Payslips (empty state) → Payroll dashboard → Leave tile → Leaves → Requests → Balances → Overview →
+   Timesheet / Attendance / Overtime / Reimbursements / Employees → Payroll settings → Leave Policies → all four
+   sub-tabs → Attendance, timesheet & overtime → Reimbursements. The title changed on every step with the panel
+   open; the clicks on the page (sidebar, sub-tabs, cards, the dashboard tile, settings tabs) worked with it open.
+   No overlay; 460px on desktop and tablet, full width on phones; no horizontal overflow.
+2. Pass — Copy prompt copies the page's prompt (button shows "Copied"); How to use these notes shows the intro,
+   Reading the prototype, Build order, Shared rules and the kickoff prompt; its Copy works; "‹ Back to this page’s
+   notes" returns to the page.
+3. Pass — `ess:team:today`, `pay:timesheet:requests`, `pay:attendance:1`, `pay:overtime:overview` show their parent's
+   notes; Payslips and the other Payroll settings tabs show "No notes for this page yet".
+4. Pass — production build (no flag): no panel code or notes text in `dist`; served, it shows the demo pill without
+   the Developer notes button. With `VITE_PROTOTYPE=true`: the notes are one lazy chunk.
+5. Pass — no console errors from the new code (remaining messages are pre-existing: the sidebar's `stringLabel` prop,
+   external font lookups, antd deprecations on older pages). Type-check clean; ESLint 3 errors, all pre-existing in
+   `src/prototype/mocks/store/requestStores.ts`; tests 5713 passed, 359 failed in 161 files, all in unrelated files
+   that also fail on `9b91229` (e.g. `src/domains/employee/__tests__/…`, checked) plus the known "timesheet v6: Excel
+   round trip"; production build passes.
+
 ## Next
-- Step 4.
+- Nothing left in scope.
 
 ## Decisions
 1. **One panel.** The module-grouped panel, its markdown loader, renderer, tests and `developer-notes.md` are removed.
@@ -47,3 +71,5 @@ finished and pushed; its log is in git history (`git show 9b91229:docs/progress.
 7. **Leave calendar** tab id is `leave-calendar` in code; it reports `ess:team:leavecal`.
 8. **Copy feedback** is on the Copy button itself ("Copied" for 2 s), not a toast: on phones a toast covered the panel's Back button. A new page or the guide starts scrolled to the top. The page view's empty state shows "No
    notes for this page yet" with the "How to use these notes" button and a one-line hint, as in the prototype.
+9. **Source prototype.** Your updated `docs/prototypes/leave-prototype.html` (the panel's reference) is committed with
+   the verification log, as the source for this run.
