@@ -45,5 +45,5 @@ finished and pushed; its log is in git history (`git show 9b91229:docs/progress.
    (no notes: empty state). ESS Payslips and Documents and the Payroll Salary pages report nothing (empty state).
 6. **Payroll → Leave → Balances** reports `pay:leave:details` (the notes' name for it).
 7. **Leave calendar** tab id is `leave-calendar` in code; it reports `ess:team:leavecal`.
-8. **Copy feedback** uses antd's message hook (no static-message warning). The page view's empty state shows "No
+8. **Copy feedback** is on the Copy button itself ("Copied" for 2 s), not a toast: on phones a toast covered the panel's Back button. A new page or the guide starts scrolled to the top. The page view's empty state shows "No
    notes for this page yet" with the "How to use these notes" button and a one-line hint, as in the prototype.

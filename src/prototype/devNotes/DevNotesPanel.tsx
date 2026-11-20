@@ -5,11 +5,11 @@
 //                 section as a heading + bullets, then "Build it with Claude" (Copy prompt + the prompt)
 //   guide view .. intro, Reading the prototype, Build order, Shared rules, "Kickoff prompt for Claude Code" (Copy)
 // Notes: docs/dev-notes/dev-notes.json. Prototype build only (VITE_PROTOTYPE, see README); never in production.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { CloseOutlined, ReadOutlined } from '@ant-design/icons';
-import { Button, message as antdMessage } from 'antd';
+import { CheckOutlined, CloseOutlined, ReadOutlined } from '@ant-design/icons';
+import { Button } from 'antd';
 import { createPortal } from 'react-dom';
 
 import { useCurrentDevPage } from './devPage';
@@ -51,12 +51,31 @@ const Section = ({ title, children }: { title?: string; children: ReactNode }) =
     </section>
 );
 
-const PromptBox = ({ title, note, button, text, onCopy, data }: { title: string; note: string; button: string; text: string; onCopy: () => void; data: string }) => (
+/** A prompt with its Copy button. Feedback stays on the button ("Copied"), so no toast covers the panel on phones. */
+const PromptBox = ({ title, note, button, text, data }: { title: string; note: string; button: string; text: string; data: string }) => {
+    const [copied, setCopied] = useState<'ok' | 'failed' | null>(null);
+    useEffect(() => {
+        if (!copied) return undefined;
+        const t = window.setTimeout(() => setCopied(null), 2000);
+        return () => window.clearTimeout(t);
+    }, [copied]);
+    useEffect(() => setCopied(null), [text]);
+    let label = button;
+    if (copied === 'ok') label = 'Copied';
+    if (copied === 'failed') label = 'Couldn’t copy: select the text';
+    return (
     <section className="mt-1.5 rounded-[10px] border border-solid border-[#EAECF0] bg-[#F9FAFB] p-3" data-dev-notes-prompt={data}>
         <div className="mb-1 flex items-center gap-2">
             <h4 className="m-0 flex-1 text-[13px] font-medium text-[#101828]">{title}</h4>
-            <Button size="small" type="primary" onClick={onCopy} data-dev-notes-copy={data}>
-                {button}
+            <Button
+                size="small"
+                type="primary"
+                icon={copied === 'ok' ? <CheckOutlined /> : undefined}
+                onClick={async () => setCopied((await copyText(text)) ? 'ok' : 'failed')}
+                aria-live="polite"
+                data-dev-notes-copy={data}
+            >
+                {label}
             </Button>
         </div>
         <div className="mb-1.5 text-xs text-[#667085]">{note}</div>
@@ -64,7 +83,8 @@ const PromptBox = ({ title, note, button, text, onCopy, data }: { title: string;
             {text}
         </pre>
     </section>
-);
+    );
+};
 
 const SharedRules = ({ shared }: { shared: NotesSection[] }) => (
     <Section title="Shared rules (apply to every module)">
@@ -79,17 +99,11 @@ const SharedRules = ({ shared }: { shared: NotesSection[] }) => (
 
 const DevNotesPanel = () => {
     const pageKey = useCurrentDevPage();
-    const [message, messageHolder] = antdMessage.useMessage();
     const [open, setOpen] = useState(false);
     const [guide, setGuide] = useState(false);
     const found = notesFor(pageKey);
     const n = found?.notes ?? null;
     const { guide: G } = DEV_NOTES;
-
-    const copy = async (text: string, done: string) => {
-        if (await copyText(text)) message.success(done);
-        else message.error('Couldn’t copy. Select the text instead.');
-    };
 
     let label = 'Developer notes · this page';
     if (guide) label = 'Developer notes';
@@ -121,7 +135,12 @@ const DevNotesPanel = () => {
                     {guide ? '‹ Back to this page’s notes' : 'How to use these notes'}
                 </Button>
             </div>
-            <div className="flex-1 overflow-y-auto px-[18px] pb-[90px] pt-3" data-dev-notes-body={guide ? 'guide' : found?.key ?? 'empty'}>
+            <div
+                // A new page (or the guide) starts at the top.
+                key={guide ? 'guide' : found?.key ?? 'empty'}
+                className="flex-1 overflow-y-auto px-[18px] pb-[90px] pt-3"
+                data-dev-notes-body={guide ? 'guide' : found?.key ?? 'empty'}
+            >
                 {guide && (
                     <>
                         <Section>
@@ -139,7 +158,6 @@ const DevNotesPanel = () => {
                             note="Use this once, at the start of a module, before the page prompts."
                             button="Copy"
                             text={G.kickoff}
-                            onCopy={() => copy(G.kickoff, 'Kickoff prompt copied')}
                             data="kickoff"
                         />
                     </>
@@ -159,7 +177,6 @@ const DevNotesPanel = () => {
                             note="Paste into Claude Code in the real code base."
                             button="Copy prompt"
                             text={n.prompt}
-                            onCopy={() => copy(n.prompt, 'Prompt for this page copied')}
                             data="page"
                         />
                     </>
@@ -175,7 +192,6 @@ const DevNotesPanel = () => {
 
     return (
         <>
-            {messageHolder}
             <Button size="small" type={open ? 'primary' : 'text'} icon={<ReadOutlined />} onClick={() => setOpen(o => !o)} aria-expanded={open} data-dev-notes-button>
                 {open ? 'Close notes' : 'Developer notes'}
             </Button>
