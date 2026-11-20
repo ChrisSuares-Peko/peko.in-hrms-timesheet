@@ -5,6 +5,7 @@ import PrivacyPolicyGate from './components/molecular/modals/PrivacyPolicyGate';
 import useCustomNotification from './hooks/useCustomNotification';
 import { useScrollToTop } from './hooks/useScrollToTop';
 import DataModeToggle from './prototype/DataModeToggle';
+import { DevPageProvider } from './prototype/devNotes/devPage';
 import Router from './routes/sections';
 import { clearData } from './services/handleLogout';
 import { TAB_ID } from './utils/tabId';
@@ -40,10 +41,13 @@ function App() {
     return (
         <AntdConfig>
             {contextHolder}
-            <Router />
-            <PrivacyPolicyGate />
-            {/* PROTOTYPE-SETUP: Dummy/Empty data toggle + Reset demo data (bottom-right) */}
-            <DataModeToggle />
+            {/* PROTOTYPE-SETUP (Developer notes): pages report their notes key; the panel (prototype build) reads it. */}
+            <DevPageProvider>
+                <Router />
+                <PrivacyPolicyGate />
+                {/* PROTOTYPE-SETUP: Dummy/Empty data toggle + Reset demo data (bottom-right) */}
+                <DataModeToggle />
+            </DevPageProvider>
         </AntdConfig>
     );
 }
