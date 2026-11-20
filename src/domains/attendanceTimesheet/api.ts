@@ -98,7 +98,7 @@ const call = async <T>(
 // ---- settings & demo ----------------------------------------------------------------------------------
 
 export const getAtsSettings = (s: AtsScope) => call<AtsSettings>(s, 'get', 'settings');
-export const updateAtsSettings = (s: AtsScope, body: Partial<AtsSettings>) =>
+export const updateAtsSettings = (s: AtsScope, body: Omit<Partial<AtsSettings>, 'leavePolicy'> & { leavePolicy?: Partial<LeavePolicy> }) =>
     call<AtsSettings>(s, 'put', 'settings', { body });
 /** Demo control: every open week goes to the manager now, as if today were the submission day. */
 /** PROTOTYPE-SETUP (Final batch, Slice 1): "Run auto-submit now" (demo). */

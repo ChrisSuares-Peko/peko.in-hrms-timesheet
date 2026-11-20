@@ -61,6 +61,9 @@ A balance (`LeaveBalance`) has these fields:
 - An approved correction that removes the late mark reverses the deduction. Its state becomes `reversed`, with `reversedOn` set to the approval date, and a `LATE_REVERSED` credit is added to the ledger.
 - Deductions become final when payroll is processed for the month.
 - Deductions apply only in modes that track check-in.
+- **Where it's set.** Payroll settings → Attendance, timesheet & overtime, in the "Late check-in deduction" panel. The panel appears only when check-in is tracked.
+  - It's saved with `PUT settings` as `lateDeductionDays` plus a partial `leavePolicy: { lateOrder }`.
+  - It's not a Leave → Configuration setting.
 
 ### Where deductions show (Slice 5)
 

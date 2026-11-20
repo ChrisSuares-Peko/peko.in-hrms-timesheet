@@ -3,7 +3,7 @@
 //   ato ............ Attendance, timesheet & overtime — Tracking mode (Attendance only · Timesheet only · Attendance +
 //                    timesheet · Neither) · Working day rules (shift, break, grace period, half-day threshold, weekly
 //                    off) · Timesheet filing and approval · Project codes · Overtime · Approvals (attendance corrections,
-//                    timesheets, overtime)
+//                    timesheets, overtime) · Late check-in deduction (only when check-in is tracked)
 //   leave .......... Approvals (leave) only — PROTOTYPE-SETUP (Leave module): the rest of the leave settings live in
 //                    Payroll settings → Leave Policies (Leave types · Public holidays · Configuration), which shows
 //                    this as its Approvals sub-tab
@@ -39,13 +39,13 @@ import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 
 import { useAppDispatch } from '@src/hooks/store';
-import { DEFAULT_FILING, PROJECT_CODE_RE, WEEKDAYS, displayTime, filingFieldsError, formatDuration } from '@src/prototype/rules/attendance';
+import { DEFAULT_FILING, PROJECT_CODE_RE, WEEKDAYS, displayTime, filingFieldsError, formatDuration, hasCheckIn } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
 
 import { getApproverPeople, runAutoSubmitNow, updateAtsSettings } from '../api';
 import { usePayrollScope, useAtsSettings } from './usePayrollAts';
 import { fmtStamp } from '../components/format';
-import type { AtsMode, AtsSettings, FilingFrequency, Level1Approver, Level2Approver, Level2ConfigurableType, Weekday, ReimbursementCategory } from '../types';
+import type { AtsMode, AtsSettings, FilingFrequency, LeavePolicy, LeaveTypeConfig, Level1Approver, Level2Approver, Level2ConfigurableType, Weekday, ReimbursementCategory } from '../types';
 
 dayjs.extend(customParseFormat);
 
@@ -63,6 +63,9 @@ interface FormValues {
     overtimeMinimumMinutes: number;
     /** PROTOTYPE-SETUP (Final batch, Slice 5): leave deducted per late check-in (0 = off). */
     lateDeductionDays: number;
+    /** PROTOTYPE-SETUP (Settings: late check-in deduction moved here from Leave → Configuration): the leave types the
+     *  deduction comes from, in order, then loss of pay. Stored in the leave policy (leavePolicy.lateOrder). */
+    lateOrder: string[];
     weeklyOff: Weekday[];
     approvalEnabled: boolean;
     submissionWeekday: Weekday;
@@ -159,6 +162,7 @@ const toForm = (s: AtsSettings): FormValues => ({
     halfDayHours: s.halfDayThresholdMinutes / 60,
     overtimeMinimumMinutes: s.overtimeMinimumMinutes,
     lateDeductionDays: s.lateDeductionDays,
+    lateOrder: [...s.leavePolicy.lateOrder],
     weeklyOff: s.weeklyOff,
     approvalEnabled: s.timesheetApproval.enabled,
     submissionWeekday: s.timesheetApproval.submissionWeekday,
@@ -181,7 +185,10 @@ const toForm = (s: AtsSettings): FormValues => ({
     projectCodes: (s.timesheetFiling ?? DEFAULT_FILING).projectCodes,
 });
 
-const fromForm = (v: FormValues): Partial<AtsSettings> => ({
+/** The settings body: the leave policy is sent partly (only the late deduction order), the rest is kept server-side. */
+type SettingsBody = Omit<Partial<AtsSettings>, 'leavePolicy'> & { leavePolicy?: Partial<LeavePolicy> };
+
+const fromForm = (v: FormValues): SettingsBody => ({
     mode: v.mode,
     shift: { start: v.shiftStart.format(HHMM), end: v.shiftEnd.format(HHMM) },
     breakMinutes: v.breakMinutes,
@@ -189,6 +196,7 @@ const fromForm = (v: FormValues): Partial<AtsSettings> => ({
     halfDayThresholdMinutes: Math.round(v.halfDayHours * 60),
     overtimeMinimumMinutes: v.overtimeMinimumMinutes,
     lateDeductionDays: v.lateDeductionDays ?? 0,
+    ...(v.lateOrder?.filter(Boolean).length ? { leavePolicy: { lateOrder: v.lateOrder.filter(Boolean) } } : {}),
     weeklyOff: WEEKDAYS.filter(d => v.weeklyOff.includes(d)),
     timesheetApproval: { enabled: v.approvalEnabled, submissionWeekday: v.submissionWeekday, submissionTime: v.submissionTime || '23:00' },
     level1: { ...v.level1 },
@@ -334,6 +342,34 @@ const ModeCards = ({
         </div>
     </Radio.Group>
 );
+
+/** PROTOTYPE-SETUP (Settings): "Deduct from {type} then {type} then loss of pay" (active leave types only). */
+const LateOrderField = ({ value = [], onChange, types }: { value?: string[]; onChange?: (next: string[]) => void; types: LeaveTypeConfig[] }) => {
+    const active = types.filter(t => t.active);
+    return (
+        <Flex align="center" gap={8} wrap="wrap" className="mt-3" data-late-order>
+            <Text className="text-sm">Deduct from</Text>
+            <Select
+                value={value[0]}
+                onChange={v => onChange?.([v, ...value.slice(1).filter(x => x !== v)])}
+                options={active.map(t => ({ value: t.id, label: t.name }))}
+                className="!w-[150px]"
+                aria-label="Deduct first from"
+            />
+            <Text className="text-sm">then</Text>
+            <Select
+                value={value[1] ?? ''}
+                onChange={v => onChange?.([value[0], ...(v ? [v] : [])])}
+                options={[{ value: '', label: 'Nothing else' }, ...active.filter(t => t.id !== value[0]).map(t => ({ value: t.id, label: t.name }))]}
+                className="!w-[150px]"
+                aria-label="Deduct next from"
+            />
+            <Text type="secondary" className="text-xs">
+                then loss of pay
+            </Text>
+        </Flex>
+    );
+};
 
 /** PROTOTYPE-SETUP (Final batch, Slice 2): the company's project codes — add (Enter or Add) and remove. */
 const ProjectCodeList = ({ value = [], onChange }: { value?: string[]; onChange?: (next: string[]) => void }) => {
@@ -821,6 +857,27 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
                         </Text>
                     </Flex>
                 </Card>
+                {/* PROTOTYPE-SETUP (Settings): the late check-in deduction is an attendance setting (moved from Leave →
+                    Configuration). Only when check-in is tracked; hidden values stay saved. */}
+                {hasCheckIn(mode ?? settings.mode) && (
+                    <Card title="Late check-in deduction" size="small" data-late-deduction-settings>
+                        <Text type="secondary" className="mb-3 block text-xs">
+                            Deducted automatically for every check-in after the grace period. Reversed automatically if a correction is approved.
+                        </Text>
+                        <Flex align="center" gap={8} wrap="wrap">
+                            <Text className="text-sm">Leave deducted per late check-in</Text>
+                            <Form.Item name="lateDeductionDays" noStyle>
+                                <InputNumber min={0} max={2} step={0.5} className="!w-[80px]" aria-label="Leave deducted per late check-in" />
+                            </Form.Item>
+                            <Text type="secondary" className="text-xs">
+                                days (0 = off)
+                            </Text>
+                        </Flex>
+                        <Form.Item name="lateOrder" noStyle>
+                            <LateOrderField types={settings.leavePolicy.types} />
+                        </Form.Item>
+                    </Card>
+                )}
                 {approvals}
                     </>
                 )}

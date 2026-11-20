@@ -5,6 +5,33 @@ PROTOTYPE-SETUP. Run log. Sources: `docs/dev-notes/dev-notes.json` (the notes) a
 that isn't **done**. The previous run (Leave module updates + module-grouped notes panel, `c34e05f`–`9b91229`) is
 finished and pushed; its log is in git history (`git show 9b91229:docs/progress.md`).
 
+## Small update: Leave configuration (commit "Settings: move late check-in deduction to attendance") — done
+
+- **Leave → Configuration** now has four panels: Leave year (with the roll-forward note), Leave requests, Sandwich rule, Comp off.
+  The "Probation and pro-rating" panel is gone. Its rules are unchanged: they stay in the leave engine (status-based probation,
+  15th-of-the-month pro-rating). The "Late check-in deduction" panel is gone from this page too.
+- **Attendance, timesheet & overtime**: the "Late check-in deduction" panel sits below Overtime, with the same fields (days per late
+  mark, 0 = off; deduct from {type} then {type} then loss of pay). It's shown only when check-in is tracked
+  (Attendance only, Attendance + timesheet), using `hasCheckIn`.
+- Decisions:
+  1. **One save.** The panel is part of the page's form and is saved with **Save settings** (PUT settings). The days go
+     in `lateDeductionDays`; the order goes in a *partial* `leavePolicy: { lateOrder }`. The store already merged a partial
+     policy, so the rest of the policy is kept. `updateAtsSettings` now types its body that way. No new endpoint.
+     `PUT leave-settings/config` still accepts the two fields, but the UI no longer sends them.
+  2. **Hidden values are kept.** In Timesheet only or Neither mode the panel is hidden. Saving keeps the stored values,
+     and deductions don't run anyway, because they need check-in.
+  3. **Existing values are kept.** Nothing is migrated: both pages read and write the same stored settings.
+  4. **The copy says "a correction is approved"**, matching the updated prototype (before, it said "a dispute is approved").
+- Checks:
+  - Leave → Configuration lists exactly the four cards.
+  - The new card appears under Overtime, hides in Timesheet only mode and comes back afterwards.
+  - Changing the settings to 1 day with Casual first and saving holds after a reload. Sneha's late check-ins then show
+    −1 under Casual (before the change: −0.5 under Annual).
+  - The Developer notes panel shows the new content for `pay:settings:leave:config` (the panel list plus "Not settings")
+    and for `pay:settings:ato` (the "Late check-in deduction (attendance setting)" section).
+  - A new store test covers the save path.
+  - Type-check, lint, tests and build: see the commit.
+
 | Step | Commit | Status |
 |---|---|---|
 | 1 — Remove the module-grouped panel; page-key context + `useDevPage`; new docked panel on `dev-notes.json` | Dev notes: page-by-page panel replaces the module notes | done |

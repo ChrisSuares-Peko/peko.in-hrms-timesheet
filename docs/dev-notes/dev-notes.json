@@ -343,16 +343,22 @@
     [
      "Panels",
      [
-      "Leave year: company cycle (start day + month) or each employee’s joining date. Note: balances roll forward automatically on the last working day of the cycle (carry forward up to each type’s limit, rest lapses). No manual action.",
-      "Probation and pro-rating: explains status-based probation; a month counts if someone joins on/before the 15th or leaves on/after the 15th; credits aren’t rounded.",
+      "Leave year: company cycle (start day + month) or each employee’s joining date. Note: balances roll forward automatically on the last working day of the cycle (carry forward up to each type’s limit, the rest lapses). No manual action.",
       "Leave requests: Half-day leave on/off.",
       "Sandwich rule: Off / Weekly offs count / Weekly offs and holidays count (days off strictly between two leave days in the same request).",
-      "Comp off: on/off + expires after N days (0 = never). Half a shift = 0.5 day, full shift = 1 day; a day can be overtime or comp off, not both.",
-      "Late check-in deduction: days per late mark (0 = off) and the deduct-from order (first type, then second, then loss of pay)."
+      "Comp off: on/off + expires after N days (0 = never). Half a shift = 0.5 day, full shift = 1 day; a day can be overtime or comp off, not both."
+     ]
+    ],
+    [
+     "Not settings (fixed rules, documented in the leave engine, not shown here)",
+     [
+      "Probation: employees on Probation follow each leave type’s probation rule until HR marks them Active (Payroll → Leave → Balances). There is no probation length to set.",
+      "Pro-rating: a month counts if someone joins on or before the 15th, or leaves on or after the 15th. Credits aren’t rounded.",
+      "Late check-in deduction is an Attendance setting (Payroll settings → Attendance, timesheet & overtime), not a Leave one."
      ]
     ]
    ],
-   "prompt": "Build: Payroll settings → Leave → Configuration\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Leave module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: Company-wide leave rules.\n\nBuild or change:\n- The Configuration sub-tab with all panels, wired to the leave rules.\n- The automatic year-end roll-forward job (last working day of the cycle).\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Each setting changes ESS behaviour as described (half day option, sandwich count, comp off button, deduction order).\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
+   "prompt": "Build: Payroll settings → Leave → Configuration\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Leave module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: Company-wide leave rules.\n\nBuild or change:\n- The Configuration sub-tab with the Leave year, Leave requests, Sandwich rule and Comp off panels, wired to the leave rules. No probation/pro-rating panel and no late check-in panel here.\n- The automatic year-end roll-forward job (last working day of the cycle).\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Each setting changes ESS behaviour as described (half day option, sandwich count, comp off button, deduction order).\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
   },
   "pay:settings:leave:approvals": {
    "title": "Payroll settings → Leave → Approvals",
@@ -643,6 +649,12 @@
      "Attendance, timesheet & overtime",
      [
       "Tracking mode (4 options), working day rules (grace, half-day threshold, break), timesheet approval + auto-submit day/time, project codes (on/off + list), overtime minimum, approvals table (Level 1 / Level 2 dropdowns for attendance corrections, timesheets, overtime; rows greyed when the mode turns them off)."
+     ]
+    ],
+    [
+     "Late check-in deduction (attendance setting)",
+     [
+      "Days of leave deducted per late check-in (0 = off) and the deduct-from order (first leave type, then second, then loss of pay). Shown only when attendance is tracked. Deductions are reversed automatically when a dispute is approved."
      ]
     ]
    ],

@@ -2,8 +2,9 @@
 //   Leave types ....... search, "Add leave type"; the table (leave type, days per year, credited, accrual rate, carry
 //                       forward, applies to, status) with View / Edit / Deactivate (used) or Remove (never used)
 //   Public holidays ... a dated list per year: add a date and a name, remove
-//   Configuration ..... leave year (+ the automatic roll-forward), probation (status-based, explained), half-day leave,
-//                       sandwich rule, comp off + expiry, late check-in deduction (days per late mark + the order)
+//   Configuration ..... leave year (+ the automatic roll-forward), half-day leave, sandwich rule, comp off + expiry.
+//                       Probation and pro-rating are fixed rules, not settings; the late check-in deduction is an
+//                       attendance setting (Payroll settings → Attendance, timesheet & overtime, see AtsSettingsTab)
 //   Approvals ......... Level 1 / Level 2 for leave (leave cancellations and comp off use the same approvers)
 // Every type is paid: there's no unpaid option. Loss of pay only happens when a balance runs out.
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -256,8 +257,6 @@ interface Config {
     sandwich: SandwichRule;
     compOn: boolean;
     expiry: number;
-    lateDays: number;
-    order: string[];
 }
 
 const configOf = (v: LeaveSettingsView): Config => ({
@@ -268,8 +267,6 @@ const configOf = (v: LeaveSettingsView): Config => ({
     sandwich: v.policy.sandwich,
     compOn: v.policy.compOff.enabled,
     expiry: v.policy.compOff.expiryDays,
-    lateDays: v.lateDeductionDays,
-    order: v.policy.lateOrder,
 });
 
 const Configuration = ({ view, onView }: { view: LeaveSettingsView; onView: (v: LeaveSettingsView | false, msg?: string) => boolean }) => {
@@ -278,7 +275,6 @@ const Configuration = ({ view, onView }: { view: LeaveSettingsView; onView: (v: 
     const [busy, setBusy] = useState(false);
     useEffect(() => setC(configOf(view)), [view]);
     const set = <K extends keyof Config>(k: K, v: Config[K]) => setC(cur => ({ ...cur, [k]: v }));
-    const active = view.policy.types.filter(t => t.active);
     const dirty = JSON.stringify(c) !== JSON.stringify(configOf(view));
     const save = async () => {
         setBusy(true);
@@ -288,8 +284,6 @@ const Configuration = ({ view, onView }: { view: LeaveSettingsView; onView: (v: 
             halfDay: c.halfDay,
             sandwich: c.sandwich,
             compOff: { enabled: c.compOn, expiryDays: c.expiry },
-            lateDeductionDays: c.lateDays,
-            lateOrder: c.order.filter(Boolean),
         });
         setBusy(false);
         onView(res, 'Leave configuration saved.');
@@ -328,17 +322,6 @@ const Configuration = ({ view, onView }: { view: LeaveSettingsView; onView: (v: 
                     Balances roll forward automatically on the last working day of each leave cycle
                     {view.nextRollForward && view.policy.year === 'COMPANY' ? ` (next: ${dayjs(view.nextRollForward).format('ddd D MMM YYYY')})` : ''}: unused days carry forward
                     up to each type’s limit, and the rest lapses. Nothing to run by hand.
-                </Text>
-            </Card>
-            <Card title="Probation and pro-rating" size="small">
-                <Text className="block text-sm">
-                    Employees on <b className="font-medium">Probation</b> follow each leave type’s probation rule until HR changes their status to{' '}
-                    <b className="font-medium">Active</b> (Payroll → Leave → Balances → Mark active). From that day they’re treated as full employees. There’s no
-                    probation length to set.
-                </Text>
-                <Text type="secondary" className="mt-2 block text-xs">
-                    Joining or leaving mid-year: a month counts if someone joins on or before the 15th, or leaves on or after the 15th. Credits aren’t rounded (13
-                    days a year = 1.08 a month).
                 </Text>
             </Card>
             <Card title="Leave requests" size="small">
@@ -391,39 +374,6 @@ const Configuration = ({ view, onView }: { view: LeaveSettingsView; onView: (v: 
                         </Text>
                     </Flex>
                 )}
-            </Card>
-            <Card title="Late check-in deduction" size="small">
-                <Text type="secondary" className="mb-3 block text-xs">
-                    Deducted automatically for every check-in after the grace period. Reversed automatically if a dispute is approved.
-                </Text>
-                <Flex align="center" gap={8} wrap="wrap">
-                    <Text className="text-sm">Leave deducted per late check-in</Text>
-                    <InputNumber min={0} max={2} step={0.5} value={c.lateDays} onChange={n => set('lateDays', Number(n ?? 0))} className="!w-[80px]" aria-label="Leave deducted per late check-in" />
-                    <Text type="secondary" className="text-xs">
-                        days (0 = off)
-                    </Text>
-                </Flex>
-                <Flex align="center" gap={8} wrap="wrap" className="mt-3">
-                    <Text className="text-sm">Deduct from</Text>
-                    <Select
-                        value={c.order[0]}
-                        onChange={v => set('order', [v, ...c.order.slice(1).filter(x => x !== v)])}
-                        options={active.map(t => ({ value: t.id, label: t.name }))}
-                        className="!w-[150px]"
-                        aria-label="Deduct first from"
-                    />
-                    <Text className="text-sm">then</Text>
-                    <Select
-                        value={c.order[1] ?? ''}
-                        onChange={v => set('order', [c.order[0], ...(v ? [v] : [])])}
-                        options={[{ value: '', label: 'Nothing else' }, ...active.filter(t => t.id !== c.order[0]).map(t => ({ value: t.id, label: t.name }))]}
-                        className="!w-[150px]"
-                        aria-label="Deduct next from"
-                    />
-                    <Text type="secondary" className="text-xs">
-                        then loss of pay
-                    </Text>
-                </Flex>
             </Card>
             <Flex justify="end" gap={8} wrap="wrap">
                 <Button onClick={() => setC(configOf(view))} disabled={!dirty || busy}>

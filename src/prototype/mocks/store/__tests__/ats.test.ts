@@ -920,6 +920,21 @@ describe('final batch: late check-in deductions', () => {
         expect(leaveViewOf(M, sneha).balances.find(b => b.type === 'ANNUAL')!.ledger.some(e => e.kind === 'LATE_REVERSED')).toBe(true);
         expect(after.dispute).toBeUndefined();
     });
+    // PROTOTYPE-SETUP (Settings): the deduction is saved from Attendance, timesheet & overtime (PUT settings), with
+    // the order inside a partial leave policy. A late check-in then deducts the new amount from the new first type.
+    it('saved from the attendance settings: the new amount and order apply to late check-ins', () => {
+        const before = leaveViewOf(M, sneha).lateDeductions;
+        if (!before.length) return; // no late check-ins this leave year
+        const saved = updateSettings(M, { lateDeductionDays: 1, leavePolicy: { lateOrder: ['CASUAL', 'ANNUAL'] } } as Parameters<typeof updateSettings>[1]);
+        expect(saved.lateDeductionDays).toBe(1);
+        expect(saved.leavePolicy.lateOrder).toEqual(['CASUAL', 'ANNUAL']);
+        expect(saved.leavePolicy.types.length).toBeGreaterThan(0); // the rest of the policy is kept
+        const after = leaveViewOf(M, sneha);
+        expect(after.lateDeductionDays).toBe(1);
+        expect(after.lateDeductions.length).toBe(before.length);
+        after.lateDeductions.filter(d => d.state !== 'reversed').forEach(d => expect(d.days).toBe(1));
+        expect(after.lateDeductions[0].from).toBe('CASUAL');
+    });
     it('0 days per late check-in turns it off', () => {
         updateSettings(M, { lateDeductionDays: 0 });
         expect(leaveViewOf(M, sneha).lateDeductions).toEqual([]);
