@@ -30,7 +30,9 @@ finished and pushed; its log is in git history (`git show 9b91229:docs/progress.
   - The Developer notes panel shows the new content for `pay:settings:leave:config` (the panel list plus "Not settings")
     and for `pay:settings:ato` (the "Late check-in deduction (attendance setting)" section).
   - A new store test covers the save path.
-  - Type-check, lint, tests and build: see the commit.
+  - Type-check: clean. Lint: only the 3 existing errors in `requestStores.ts`. Build: passes. Tests: in prototype code
+    only the known "Excel round trip" test fails. The other failing files are unrelated (WhatsApp, PekoCloud, eSign,
+    user management) and failed before this change too.
 
 | Step | Commit | Status |
 |---|---|---|
