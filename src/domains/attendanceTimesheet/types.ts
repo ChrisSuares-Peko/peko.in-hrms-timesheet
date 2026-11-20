@@ -1299,6 +1299,8 @@ export interface LeaveBalance {
     /** This year's entitlement plus what was carried forward. */
     allocated: number;
     carried: number;
+    /** PROTOTYPE-SETUP (Leave module, update): the type's carry-forward limit (0 = none). */
+    carryForward: number;
     next: { date: string; amount: number } | null;
     /** Comp off: the next unused credit to expire. */
     expiring: { date: string; amount: number } | null;

@@ -1,13 +1,13 @@
 // PROTOTYPE-SETUP (Leave module): the leave actions that open a small dialog.
-//   CancelLeaveModal ... cancel approved leave: "Cancelling the rest of this leave" (once started: only the days from
-//                        today), the days going back, a reason. The employee's goes for approval (the leave stays booked
-//                        until then); HR's applies straight away.
+//   CancelLeaveModal ... cancel approved leave. The employee picks "Cancel from" (whole leave, or from a date); past days
+//                        are checked as they pick (only days they worked can be cancelled) and it goes for approval
+//                        (the leave stays booked until then). HR's applies straight away, from today once started.
 //   CompOffModal ....... "Request comp off": the day worked → what it earns (0.5 / 1 day) or why it can't be claimed,
 //                        what was worked on. Also updates a request that was sent back.
 //   ReasonModal ........ update and resubmit a leave cancellation (a new reason).
 import { useEffect, useState } from 'react';
 
-import { Alert, DatePicker, Input, Modal, Typography } from 'antd';
+import { Alert, DatePicker, Input, Modal, Radio, Typography } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 
 import { formatDuration } from '@src/prototype/rules/attendance';
@@ -17,7 +17,7 @@ import { checkCompOff, requestCompOff, resubmitCompOff } from '../api';
 import { DATE_FORMATS } from './ApplyLeaveModal';
 import { fmtDay } from './leaveUi';
 import { useAtsScope } from '../hooks/useAtsScope';
-import type { CompOffCheck, CompOffRow, LeaveHalf, LeaveView } from '../types';
+import type { CompOffCheck, CompOffRow, LeaveCancelCheck, LeaveHalf, LeaveView } from '../types';
 
 const { Text } = Typography;
 
@@ -38,30 +38,60 @@ export const CancelLeaveModal = ({
     approvalPath,
     onClose,
     onConfirm,
+    onCheck,
 }: {
     target: CancelTarget | null;
-    /** HR cancels straight away; the employee's goes for approval. */
+    /** HR cancels straight away (from today once started); the employee's goes for approval. */
     hr?: boolean;
     approvalPath?: string;
     onClose: () => void;
-    onConfirm: (reason: string) => Promise<boolean>;
+    onConfirm: (reason: string, from?: string) => Promise<boolean>;
+    /** The employee: what cancelling from a date gives back, or why past days can't be cancelled. */
+    onCheck?: (from: string) => Promise<LeaveCancelCheck | false>;
 }) => {
     const [reason, setReason] = useState('');
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
+    const [scopeOf, setScopeOf] = useState<'whole' | 'from'>('whole');
+    const [fromDay, setFromDay] = useState<Dayjs | null>(null);
+    const [check, setCheck] = useState<LeaveCancelCheck | null>(null);
     useEffect(() => {
         setReason('');
         setError('');
+        setScopeOf('whole');
+        setFromDay(null);
+        setCheck(null);
     }, [target]);
+    const from = target && scopeOf === 'from' && fromDay ? fromDay.format('YYYY-MM-DD') : target?.cancelFrom;
+    useEffect(() => {
+        if (!target || hr || !onCheck || !from) return undefined;
+        let live = true;
+        onCheck(from).then(res => {
+            if (live) setCheck(res || null);
+        });
+        return () => {
+            live = false;
+        };
+    }, [target, hr, onCheck, from]);
     if (!target) return null;
     const started = target.cancelFrom > target.start;
+    const multiDay = target.end > target.start;
+    const days = !hr && check && check.from === from ? check.days : target.cancelDays;
     const go = async () => {
+        if (!hr && scopeOf === 'from' && !fromDay) {
+            setError('Pick the date to cancel from.');
+            return;
+        }
+        if (!hr && check?.problem) {
+            setError(check.problem);
+            return;
+        }
         if (!reason.trim()) {
             setError('Add a short reason.');
             return;
         }
         setBusy(true);
-        const ok = await onConfirm(reason.trim());
+        const ok = await onConfirm(reason.trim(), hr ? undefined : from);
         setBusy(false);
         if (ok) onClose();
     };
@@ -71,26 +101,62 @@ export const CancelLeaveModal = ({
             title={hr ? `Cancel ${target.who.split(' ')[0]}’s leave` : 'Cancel leave'}
             okText={hr ? 'Cancel leave' : 'Send for approval'}
             cancelText="Keep leave"
-            okButtonProps={{ danger: hr, loading: busy }}
+            okButtonProps={{ danger: hr, loading: busy, disabled: Boolean(!hr && check?.problem) }}
             onOk={go}
             onCancel={onClose}
             destroyOnHidden
         >
             <div className="flex flex-col gap-3" data-cancel-leave>
+                {!hr && multiDay && (
+                    <div className="flex flex-col gap-1">
+                        <Text strong className="text-sm">
+                            Cancel from
+                        </Text>
+                        <Radio.Group
+                            optionType="button"
+                            value={scopeOf}
+                            onChange={e => {
+                                setScopeOf(e.target.value);
+                                setError('');
+                            }}
+                            options={[
+                                { value: 'whole', label: 'Whole leave' },
+                                { value: 'from', label: 'From a date' },
+                            ]}
+                            aria-label="Cancel from"
+                            data-cancel-scope
+                        />
+                        {scopeOf === 'from' && (
+                            <DatePicker
+                                value={fromDay}
+                                format={DATE_FORMATS}
+                                aria-label="Cancel from date"
+                                className="mt-1 w-full min-[420px]:w-60"
+                                disabledDate={d => d.isBefore(dayjs(target.start).add(1, 'day'), 'day') || d.isAfter(dayjs(target.end), 'day')}
+                                onChange={d => {
+                                    setFromDay(d);
+                                    setError('');
+                                }}
+                                data-cancel-from
+                            />
+                        )}
+                    </div>
+                )}
                 <div className="rounded-xl bg-[#F9FAFB] px-3 py-2">
                     <Text type="secondary" className="block text-xs">
-                        {started ? 'Cancelling the rest of this leave' : 'Cancelling'}
+                        {hr && started ? 'Cancelling the rest of this leave' : 'Cancelling'}
                     </Text>
-                    <Text className="text-sm font-medium">
-                        {typeLabel(target.typeName)}, {target.end > target.cancelFrom ? `${fmtDay(target.cancelFrom)} – ${fmtDay(target.end)}` : fmtDay(target.cancelFrom)}
-                        {target.half ? ` (${target.half === 'FIRST' ? 'first' : 'second'} half)` : ''} · {daysText(target.cancelDays)} back to the balance
+                    <Text className="text-sm font-medium" data-cancel-summary>
+                        {typeLabel(target.typeName)}, {from && target.end > from ? `${fmtDay(from)} – ${fmtDay(target.end)}` : fmtDay(from ?? target.start)}
+                        {target.half ? ` (${target.half === 'FIRST' ? 'first' : 'second'} half)` : ''} · {daysText(days)} back to the balance
                     </Text>
                 </div>
-                {started && (
+                {from && from > target.start && (
                     <Text type="secondary" className="text-xs">
-                        Days already taken ({dayjs(target.start).format('D MMM')} to {dayjs(target.cancelFrom).subtract(1, 'day').format('D MMM')}) stay as leave.
+                        Days before {dayjs(from).format('D MMM')} stay as leave.
                     </Text>
                 )}
+                {!hr && check?.problem && <Alert type="warning" showIcon message={check.problem} data-cancel-problem />}
                 <div className="flex flex-col gap-1">
                     <Text strong className="text-sm">
                         Reason
@@ -109,9 +175,9 @@ export const CancelLeaveModal = ({
                 <Text type="secondary" className="text-xs">
                     {hr
                         ? 'This applies straight away, and the employee sees it in their requests. Their attendance and timesheet update too.'
-                        : `Approval: ${approvalPath}. The leave stays booked until the cancellation is approved.`}
+                        : `Approval: ${approvalPath}. The leave stays booked until the cancellation is approved; then your attendance and timesheet update. Past days can only be cancelled if you worked them.`}
                 </Text>
-                {error && <Alert type="error" showIcon message={error} />}
+                {error && error !== check?.problem && <Alert type="error" showIcon message={error} />}
             </div>
         </Modal>
     );

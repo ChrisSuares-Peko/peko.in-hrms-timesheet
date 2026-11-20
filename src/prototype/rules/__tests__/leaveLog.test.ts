@@ -85,6 +85,7 @@ const bal = (over: Partial<LeaveBalance>): LeaveBalance => ({
     left: 5.5,
     allocated: 18,
     carried: 2,
+    carryForward: 30,
     next: null,
     expiring: null,
     notAvailable: false,

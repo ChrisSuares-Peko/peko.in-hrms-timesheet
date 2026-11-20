@@ -48,6 +48,8 @@ export interface LeaveLogRow {
     status: string;
     statusKind: LogStatus;
     reason: string;
+    /** An approver's comment on this event (history). */
+    comment?: string;
     /** Leave rows open the request drawer. */
     open?: { kind: LogItemKind; id: string };
 }
@@ -250,26 +252,22 @@ const eventsOf = (
     noun: string,
     r: { createdAt: string; updatedAt: string; withdrawn?: boolean; trail: ApprovalTrail }
 ): LeaveLogRow[] => {
-    const row = (at: string, what: string, i: number): LeaveLogRow => ({ ...base, key: `${id}-${i}`, at, date: at.slice(0, 10), what });
+    const row = (at: string, what: string, i: number, comment?: string): LeaveLogRow => ({ ...base, key: `${id}-${i}`, at, date: at.slice(0, 10), what, ...(comment ? { comment } : {}) });
     const out: LeaveLogRow[] = [row(r.createdAt, `${noun} sent`, 0)];
     (r.trail.history ?? []).forEach((h, i) => {
         const what = h.action === 'Approved' || h.action === 'Rejected' || h.action === 'Update requested' ? `${noun} ${h.action.toLowerCase()} by ${h.by}` : `${noun} ${h.action.toLowerCase()}`;
-        out.push(row(h.at, what, i + 1));
+        out.push(row(h.at, what, i + 1, h.comment));
     });
     r.trail.steps.forEach((s, i) => {
         if (!s.decision || !s.at) return;
         const by = s.approverName ?? TEAM_OF[s.role];
-        out.push(row(s.at, `${noun} ${DECISION_WHAT[s.decision]} by ${by}`, 100 + i));
+        out.push(row(s.at, `${noun} ${DECISION_WHAT[s.decision]} by ${by}`, 100 + i, s.comment));
     });
     if (r.withdrawn) out.push(row(r.updatedAt, `${noun} withdrawn`, 200));
     return out;
 };
 
-/**
- * The last `limit` changes across all the employee's leave types, newest change first: requests and their decisions,
- * cancellations and changes, comp off, credits, late deductions, reversals, lapses and expiries.
- */
-export const recentActivity = (view: Pick<LeaveView, 'balances' | 'requests' | 'cancellations' | 'changes' | 'compOffs'>, today: string, limit = 10): LeaveLogRow[] => {
+const allEvents = (view: Pick<LeaveView, 'balances' | 'requests' | 'cancellations' | 'changes' | 'compOffs'>, today: string): LeaveLogRow[] => {
     const rows: LeaveLogRow[] = [];
     view.requests.forEach(r => {
         const base = leaveRow(r);
@@ -289,5 +287,18 @@ export const recentActivity = (view: Pick<LeaveView, 'balances' | 'requests' | '
     view.changes.forEach(c => rows.push(...eventsOf(changeRow(c), c.id, 'Change request', c)));
     view.compOffs.forEach(c => rows.push(...eventsOf(compOffRow(c), c.id, 'Comp off request', c)));
     view.balances.forEach(b => rows.push(...ledgerRows(b, today)));
-    return rows.filter(r => r.date <= today).sort(byNewest).slice(0, limit);
+    return rows.filter(r => r.date <= today).sort(byNewest);
 };
+
+/**
+ * The last `limit` changes across all the employee's leave types, newest change first: requests and their decisions,
+ * cancellations and changes, comp off, credits, late deductions, reversals, lapses and expiries.
+ */
+export const recentActivity = (view: Pick<LeaveView, 'balances' | 'requests' | 'cancellations' | 'changes' | 'compOffs'>, today: string, limit = 10): LeaveLogRow[] =>
+    allEvents(view, today).slice(0, limit);
+
+/** One request's history for its drawer, oldest first (sent, decisions with comments, edits, cancellations). */
+export const requestHistory = (view: Pick<LeaveView, 'balances' | 'requests' | 'cancellations' | 'changes' | 'compOffs'>, kind: LogItemKind, id: string) =>
+    allEvents({ ...view, balances: [] }, '9999-12-31')
+        .filter(r => r.open?.kind === kind && r.open.id === id)
+        .reverse();

@@ -7,6 +7,9 @@
 //                      rule)", "5 half days = 2.5 days of leave. You start work at mid-shift each day.")
 //   Document ......... only when the type's rule needs one for that duration
 //   Reason, then who approves it. Checked here with the same rules as the server (validateLeave).
+// PROTOTYPE-SETUP (Leave module, update): the same form edits an open request (saved in place, back to Level 1),
+// changes approved leave ("Change leave": a change request; the original stays until it's approved, shown as "Was")
+// and edits an open change request. Past days a change would remove are checked by the server (worked days only).
 import { useEffect, useMemo, useState } from 'react';
 
 import { UploadOutlined } from '@ant-design/icons';
@@ -16,10 +19,10 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { RuleError } from '@src/prototype/rules/attendance';
 import { COMP_OFF, countLeaveDays, daysText, durationText, fmtDays, needsProof, typeLabel, validateLeave, type WorkCalendar } from '@src/prototype/rules/leave';
 
-import { applyForLeave, resubmitLeave } from '../api';
+import { applyForLeave, changeLeave, resubmitLeave, resubmitLeaveChange } from '../api';
 import { halfSuffix } from './leaveUi';
 import { useAtsScope } from '../hooks/useAtsScope';
-import type { LeaveBalance, LeaveHalf, LeaveRequestRow, LeaveTypeConfig, LeaveView } from '../types';
+import type { LeaveBalance, LeaveChangeRow, LeaveHalf, LeaveRequestRow, LeaveTypeConfig, LeaveView } from '../types';
 
 const { Text } = Typography;
 
@@ -65,6 +68,8 @@ const ApplyLeaveModal = ({
     onClose,
     onApplied,
     editing,
+    changing,
+    editingChange,
     initialType,
 }: {
     open: boolean;
@@ -72,8 +77,12 @@ const ApplyLeaveModal = ({
     today: string;
     onClose: () => void;
     onApplied: (next: LeaveView) => void;
-    /** Update and resubmit a request that was sent back. */
+    /** Edit an open request, or update and resubmit one that was sent back. */
     editing?: LeaveRequestRow | null;
+    /** Change approved leave (a change request). */
+    changing?: LeaveRequestRow | null;
+    /** Edit an open change request. */
+    editingChange?: LeaveChangeRow | null;
     /** Opened from a type's page: start with that type. */
     initialType?: string | null;
 }) => {
@@ -90,16 +99,20 @@ const ApplyLeaveModal = ({
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
 
+    // The approved leave a change is about (left out of the overlap and balance checks: its days count as free).
+    const original = changing ?? (editingChange ? view.requests.find(r => r.id === editingChange.leaveId) ?? null : null);
+    const startFrom = editing ?? editingChange ?? changing;
+
     useEffect(() => {
         if (!open) return;
-        if (editing) {
-            setType(editing.type);
-            setDuration(editing.half ? 'half' : 'full');
-            setFrom(dayjs(editing.start));
-            setTo(dayjs(editing.end));
-            setHalf(editing.half ?? 'FIRST');
-            setProof(editing.proof ?? null);
-            setReason(editing.reason);
+        if (startFrom) {
+            setType(startFrom.type);
+            setDuration(startFrom.half ? 'half' : 'full');
+            setFrom(dayjs(startFrom.start));
+            setTo(dayjs(startFrom.end));
+            setHalf(startFrom.half ?? 'FIRST');
+            setProof(startFrom.proof ?? null);
+            setReason(changing ? '' : startFrom.reason);
         } else {
             const first = nextWorkingDay(today, cal);
             const fallback = types.find(b => b.type === 'CASUAL') ?? types[0];
@@ -121,16 +134,18 @@ const ApplyLeaveModal = ({
     const end = iso(to) || start;
     const halfDays = duration === 'half';
     const count = start && end >= start ? countLeaveDays(start, end, halfDays ? half : null, cal, view.rules.sandwich) : null;
-    // Resubmitting: the request itself is in "in request" — leave it out of what's available.
+    // Resubmitting: the request itself is in "in request" — leave it out of what's available. Changing approved leave:
+    // its days count as free again.
     const ownDays = editing && editing.type === type ? editing.days : 0;
-    const available = b ? b.available + ownDays : 0;
+    const originalDays = original && original.type === type ? original.days : 0;
+    const available = b ? b.available + ownDays + originalDays : 0;
     const pending = b ? b.inRequest - ownDays : 0;
     const proofNeeded = Boolean(b && count && needsProof({ proofAfterDays: b.proofAfterDays }, count.days));
     const notAvailable = Boolean(b?.notAvailable);
 
     const submit = async () => {
         const existing = view.requests
-            .filter(r => r.id !== editing?.id && (r.state === 'approved' || r.state === 'pending' || r.state === 'update_requested'))
+            .filter(r => r.id !== editing?.id && r.id !== original?.id && (r.state === 'approved' || r.state === 'pending' || r.state === 'update_requested'))
             .map(r => ({ start: r.start, end: r.end, half: r.half, summary: summaryOf(r) }));
         try {
             validateLeave(
@@ -155,7 +170,11 @@ const ApplyLeaveModal = ({
         }
         setBusy(true);
         const body = { type, start, end, half: halfDays ? half : null, reason: reason.trim(), proof };
-        const res = editing ? await resubmitLeave(scope, editing.id, body) : await applyForLeave(scope, body);
+        let res: LeaveView | false;
+        if (editing) res = await resubmitLeave(scope, editing.id, body);
+        else if (editingChange) res = await resubmitLeaveChange(scope, editingChange.id, body);
+        else if (changing) res = await changeLeave(scope, changing.id, body);
+        else res = await applyForLeave(scope, body);
         setBusy(false);
         if (res) onApplied(res);
     };
@@ -165,11 +184,21 @@ const ApplyLeaveModal = ({
         setError('');
     };
 
+    const sentBack = (editing ?? editingChange)?.trail.status === 'UPDATE_REQUESTED';
+    let title = 'Apply for leave';
+    if (editing) title = sentBack ? `Update your ${typeLabel(editing.typeName).toLowerCase()} request` : 'Edit your leave request';
+    else if (editingChange) title = sentBack ? 'Update your leave change' : 'Edit your leave change';
+    else if (changing) title = 'Change leave';
+    let okText = 'Send request';
+    if (editing || editingChange) okText = 'Resubmit';
+    else if (changing) okText = 'Send for approval';
+    const was = changing ?? (editingChange ? { ...editingChange.was, typeName: editingChange.wasTypeName } : null);
+
     return (
         <Modal
             open={open}
-            title={editing ? `Update your ${typeLabel(editing.typeName).toLowerCase()} request` : 'Apply for leave'}
-            okText={editing ? 'Resubmit' : 'Send request'}
+            title={title}
+            okText={okText}
             onOk={submit}
             okButtonProps={{ loading: busy, 'data-submit-leave': true } as never}
             onCancel={onClose}
@@ -177,13 +206,31 @@ const ApplyLeaveModal = ({
             width={520}
         >
             <div className="flex flex-col gap-3" data-apply-leave>
-                {editing?.trail.updateRequest && (
+                {(editing ?? editingChange)?.trail.updateRequest && (
                     <Alert
                         type="warning"
                         showIcon
-                        message={`${editing.trail.updateRequest.by} asked for an update`}
-                        description={editing.trail.updateRequest.comment}
+                        message={`${(editing ?? editingChange)!.trail.updateRequest!.by} asked for an update`}
+                        description={(editing ?? editingChange)!.trail.updateRequest!.comment}
                     />
+                )}
+                {editing && !sentBack && (
+                    <Text type="secondary" className="text-xs" data-edit-note>
+                        Saving your changes sends the request back to the start of the approval chain.
+                    </Text>
+                )}
+                {was && (
+                    <div className="rounded-xl bg-[#F9FAFB] px-3 py-2" data-change-was>
+                        <Text type="secondary" className="block text-xs">
+                            Was (approved)
+                        </Text>
+                        <Text className="text-sm">
+                            {summaryOf(was)} · {daysText(was.days)}
+                        </Text>
+                        <Text type="secondary" className="block text-xs">
+                            Your approved leave stays as it is until the change is approved.
+                        </Text>
+                    </div>
                 )}
                 <div className="flex flex-col gap-1">
                     <Text strong className="text-sm">
@@ -321,7 +368,7 @@ const ApplyLeaveModal = ({
 
                 <div className="flex flex-col gap-1">
                     <Text strong className="text-sm">
-                        Reason
+                        {changing || editingChange ? 'Reason for the change' : 'Reason'}
                     </Text>
                     <Input.TextArea
                         rows={3}
@@ -337,6 +384,11 @@ const ApplyLeaveModal = ({
                 <Text type="secondary" className="text-xs">
                     Approval: {view.approvalPath}. Once approved, your attendance and timesheet update automatically.
                 </Text>
+                {(changing || editingChange) && (
+                    <Text type="secondary" className="text-xs">
+                        Past days can only be taken off your leave if you worked them (checked in, or logged timesheet hours).
+                    </Text>
+                )}
                 {error && <Alert type="error" showIcon message={error} data-leave-error />}
             </div>
         </Modal>

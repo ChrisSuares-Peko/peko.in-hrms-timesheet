@@ -10,8 +10,8 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
 | 1 — Rules: past leave only for days worked, restart an edited open request at Level 1, the leave log / recent activity | Leave: rules for past leave, editing open requests and the leave log | done |
 | 2 — Data: change requests, Cancel from a date (+ dry-run check), edit pending in place, queues, endpoints, seed | Leave: change requests, cancel from a date, edit pending requests | done |
 | 3 — Source docs: developer notes committed, old leave spec deleted, this log | Leave: developer notes replace the leave spec | done |
-| 4 — ESS Leave: compact cards, Recent activity, type page (4 cards, one log), My requests table, request drawer | Leave: ESS overview, type log, My requests and the request drawer | next |
-| 5 — Payroll navigation: no service tabs; Quick actions with waiting counts; breadcrumb + back link; redirects | Leave: Payroll services from Quick actions | |
+| 4 — ESS Leave: compact cards, Recent activity, type page (4 cards, one log), My requests table, request drawer | Leave: ESS overview, type log, My requests and the request drawer | done |
+| 5 — Payroll navigation: no service tabs; Quick actions with waiting counts; breadcrumb + back link; redirects | Leave: Payroll services from Quick actions | next |
 | 6 — API doc (`docs/api/leave.md`) for the new endpoints | Leave: API contract for changes and cancel from | |
 | 7 — Developer notes panel (prototype flag), README + docs/dev-notes/README.md | Dev notes: … | |
 | 8 — VERIFY 1–8 at 1440 / 1024 / 375, type-check, lint, tests, production build, one push | Leave: verification log | |
@@ -27,8 +27,14 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
   every leave queue), `handlers/ats.ts` + `api.ts` (endpoints), seed (`time-leaves.ts`, `ats-seed.ts`), data v9.
   Tests: `src/prototype/mocks/store/__tests__/atsLeaveUpdates.test.ts` (12).
 
+- Step 4: `leave/EssLeavePage.tsx` (overview cards 2 / 4 a row, Recent activity, Upcoming leave, Next public holiday;
+  type page with 4 cards + summary + one log with Show / status / date filters; My requests table with status filters;
+  drawer via `?req=kind:id`), `leave/leaveLogUi.tsx` (TypeCard, LeaveLogTable), `leave/LeaveRequestDrawer.tsx`,
+  `leave/ApplyLeaveModal.tsx` (Edit request, Change leave, edit a change), `leave/LeaveActionModals.tsx` (Cancel from +
+  live worked-day check). Balances carry the type's carry-forward limit (`carryForward`).
+
 ## Next
-- Step 4.
+- Step 5.
 
 ## Decisions
 1. **Spec.** `docs/dev-notes/developer-notes.md` is the spec; `docs/specs/leave-module-spec.md` is deleted. The notes'
@@ -62,5 +68,18 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
    Persisted demo data bumped to v9.
 10. **Source documents.** `docs/dev-notes/developer-notes.md` and the updated `docs/prototypes/leave-prototype.html` are
     committed as sources. The unrelated local change to `docs/prototypes/attendance-timesheet.html` is left alone.
+12. **ESS overview content.** Only the compact cards, Recent activity, Upcoming leave and Next public holiday. The
+    old Loss of pay card is a one-line alert above the cards (only when there is loss of pay); the old "Late check-in
+    deductions" panel is gone from Leave (late deductions and reversals are in Recent activity and each type's log; the
+    full list with disputes stays in Attendance → Notes). Probation / exit banners stay.
+13. **Comp off card** shows "available / earned days" (comp off has no yearly total).
+14. **Type page "Days (+/−)"**: approved and in-request leave show −days; rejected / withdrawn / cancelled requests and
+    change requests show their days in grey without a sign (nothing moved); a reversal is an info row (its text says
+    "+0.5 reversed"), as in the ledger.
+15. **Recent activity** = every dated event (request sent, each decision, edits, withdrawals, cancellations, approved
+    changes, comp off, credits, carry forward, lapses, late deductions, reversals, expiries), newest first, last 10.
+    Future-dated credits aren't shown. Clicking any request row opens its drawer.
+16. **My requests** lists leave, cancellation, change and comp off requests in one table (newest first); "Rejected or
+    withdrawn" also holds cancelled leave. A pending cancellation / change shows under the leave's status.
 11. **Commit hooks.** Husky hooks aren't installed in this checkout (no `.husky/_`), so commits run no hooks; the
     commitlint config would reject the "Leave: …" format the run asks for. Lint, type-check and tests are run by hand.

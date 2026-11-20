@@ -1,19 +1,22 @@
 // PROTOTYPE-SETUP (Leave module): ESS → Leaves (ESS - Employee and ESS - Manager), on the live leave store (GET leave;
-// docs/api/leave.md).
+// docs/api/leave.md). Spec: docs/dev-notes/developer-notes.md → Leave module → ESS · Layout.
 //   header ........ "Leave" · the leave year · "Request comp off" (when comp off is on) and "Apply for leave", pinned
 //                   top right
 //   sub-tabs ...... Overview · My requests (open ones counted) · Public holidays
-//   Overview ...... probation / exit banners; one card per leave type that applies to the employee (opens the type's
-//                   page); Loss of pay; Upcoming leave and Next public holiday; late check-in deductions
-//   type page ..... Available / Approved / In request, every request of that type with status (counts) and date-range
-//                   filters, and "Credits and deductions this year"
-//   My requests ... leave, cancellations and comp off with their status: Withdraw (pending), Update and resubmit
-//                   (update requested), Cancel leave (approved and not finished)
+//   Overview ...... compact cards (up to 4 a row, 2 on phones): type, "available / total days", View details; then
+//                   Recent activity (the last 10 changes, newest first; leave rows open the drawer); then Upcoming
+//                   leave and Next public holiday
+//   type page ..... four cards (Available of total · Approved · In request · Carried forward with the limit), a
+//                   one-line summary, then ONE log table (requests, credits, carry forward, lapses / expiry, late
+//                   deductions and reversals) with Show / status / date filters
+//   My requests ... a table (Leave type · Start date · End date · Duration · Status · View) with All / In progress /
+//                   Approved / Rejected or withdrawn; leave, cancellation, change and comp off requests
+//   drawer ........ any request: details, approval chain, history, and the actions for its state (?req=kind:id)
 //   Public holidays this calendar year
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ArrowLeftOutlined, PlusOutlined } from '@ant-design/icons';
-import { Alert, Button, DatePicker, Empty, Popconfirm, Segmented, Skeleton, Table, Tag, Typography } from 'antd';
+import { Alert, Button, DatePicker, Empty, Segmented, Select, Skeleton, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
@@ -21,15 +24,26 @@ import { useSearchParams } from 'react-router-dom';
 import { ESS_CARD } from '@src/components/ess/essTokens';
 import { useAppDispatch } from '@src/hooks/store';
 import { COMP_OFF, daysText, fmtDays, typeLabel } from '@src/prototype/rules/leave';
+import { STATUS_FILTER_LABEL, type LogGroup, type LogItemKind, type LogStatus, filterLog, logCounts, recentActivity, typeLog } from '@src/prototype/rules/leaveLog';
 import { showToast } from '@src/slices/apiSlice';
 
-import { cancelLeave, getLeaveView, resubmitLeaveCancellation, withdrawCompOff, withdrawLeave, withdrawLeaveCancellation } from '../api';
+import {
+    cancelLeave,
+    checkLeaveCancel,
+    getLeaveView,
+    resubmitLeaveCancellation,
+    withdrawCompOff,
+    withdrawLeave,
+    withdrawLeaveCancellation,
+    withdrawLeaveChange,
+} from '../api';
 import ApplyLeaveModal from './ApplyLeaveModal';
 import { CancelLeaveModal, CancelTarget, CompOffModal, ReasonModal } from './LeaveActionModals';
-import { BalanceCard, ExitBanner, LateDeductionsPanel, LedgerList, LeaveStatusTag, LossOfPayCard, ProbationBanner, dayTypeText, fmtDay, fmtRange, halfSuffix, leaveYearLine } from './leaveUi';
-import { UpdateRequestedNote } from '../components/ResubmitModal';
+import { LeaveLogTable, LeaveSection, TypeCard, availableOfTotal } from './leaveLogUi';
+import LeaveRequestDrawer, { type DrawerItem, stateOfTrail } from './LeaveRequestDrawer';
+import { ExitBanner, LeaveStatusTag, ProbationBanner, fmtDay, fmtRange, halfSuffix, leaveYearLine } from './leaveUi';
 import { useAtsScope } from '../hooks/useAtsScope';
-import type { CompOffRow, LeaveCancellationRow, LeaveRequestRow, LeaveView } from '../types';
+import type { CompOffRow, LeaveBalance, LeaveCancellationRow, LeaveChangeRow, LeaveRequestRow, LeaveView } from '../types';
 
 const { Text } = Typography;
 
@@ -44,54 +58,67 @@ const cancelTargetOf = (v: LeaveView, r: LeaveRequestRow): CancelTarget => ({
     start: r.start,
     end: r.end,
     half: r.half,
-    cancelFrom: r.cancelFrom!,
-    cancelDays: r.cancelDays ?? 0,
+    cancelFrom: r.cancelFrom ?? r.start,
+    cancelDays: r.cancelDays ?? r.days,
 });
 
 // ---- one leave type's page ----------------------------------------------------------------------------------
 
-type Bucket = 'all' | 'approved' | 'request' | 'rejected' | 'withdrawn';
-const bucketOf = (r: LeaveRequestRow): Bucket => {
-    if (r.state === 'approved') return 'approved';
-    if (r.state === 'rejected') return 'rejected';
-    if (r.state === 'withdrawn' || r.state === 'cancelled') return 'withdrawn';
-    return 'request';
-};
+const CREDIT_TEXT = { CYCLE_START: 'credited at the start of the leave cycle', MONTHLY: 'credited monthly', DAILY: 'accrues daily', COMP_OFF: 'earned by working weekly offs or holidays' } as const;
+const PROBATION_TEXT = { MONTHLY: 'credited monthly during probation', FULL: 'full entitlement during probation', NONE: 'not available during probation' } as const;
 
-const LeaveTypePage = ({ view, type, onBack, onApply }: { view: LeaveView; type: string; onBack: () => void; onApply: () => void }) => {
+/** "12 credited so far · credited monthly · next +1.5 on 1 Dec · credited monthly during probation · unused days over 30 lapse" */
+export const typeSummary = (b: LeaveBalance, v: Pick<LeaveView, 'rules'>) =>
+    [
+        b.type === COMP_OFF ? `${fmtDays(b.credited)} earned and not expired` : `${fmtDays(b.credited)} credited so far`,
+        CREDIT_TEXT[b.credit],
+        b.next ? `next +${fmtDays(b.next.amount)} on ${dayjs(b.next.date).format('D MMM')}` : '',
+        b.type === COMP_OFF ? '' : PROBATION_TEXT[b.probation],
+        (() => {
+            if (b.type === COMP_OFF) return v.rules.compOff.expiryDays ? `unused comp off expires ${v.rules.compOff.expiryDays} days after the day worked` : 'comp off never expires';
+            return b.carryForward ? `unused days over ${fmtDays(b.carryForward)} lapse at the end of the cycle` : 'unused days lapse at the end of the cycle';
+        })(),
+    ]
+        .filter(Boolean)
+        .join(' · ');
+
+const Stat = ({ label, value, sub }: { label: string; value: string; sub: string }) => (
+    <div className="flex min-w-0 flex-col gap-0.5 rounded-[20px] border border-solid border-[#eff1f4] bg-white px-4 py-3" data-type-stat={label}>
+        <Text type="secondary" className="text-xs">
+            {label}
+        </Text>
+        <Text className="text-xl font-semibold tabular-nums">{value}</Text>
+        <Text type="secondary" className="text-xs">
+            {sub}
+        </Text>
+    </div>
+);
+
+const LeaveTypePage = ({
+    view,
+    type,
+    today,
+    onBack,
+    onApply,
+    onOpen,
+}: {
+    view: LeaveView;
+    type: string;
+    today: string;
+    onBack: () => void;
+    onApply: () => void;
+    onOpen: (it: DrawerItem) => void;
+}) => {
     const b = view.balances.find(x => x.type === type);
-    const [bucket, setBucket] = useState<Bucket>('all');
+    const [show, setShow] = useState<'all' | LogGroup>('all');
+    const [status, setStatus] = useState<LogStatus | 'all'>('all');
     const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
-    const [showLedger, setShowLedger] = useState(false);
+    const rows = useMemo(() => typeLog(view, type, today), [view, type, today]);
     if (!b) return null;
-    const all = view.requests.filter(r => r.type === type);
-    const count = (k: Bucket) => all.filter(r => k === 'all' || bucketOf(r) === k).length;
-    const from = range?.[0]?.format('YYYY-MM-DD');
-    const to = range?.[1]?.format('YYYY-MM-DD');
-    const rows = all
-        .filter(r => bucket === 'all' || bucketOf(r) === bucket)
-        .filter(r => (!from || r.end >= from) && (!to || r.start <= to))
-        .sort((x, y) => y.start.localeCompare(x.start));
-    const columns: ColumnsType<LeaveRequestRow> = [
-        { title: 'Start date', key: 's', render: (_, r) => fmtDay(r.start) },
-        { title: 'End date', key: 'e', render: (_, r) => fmtDay(r.end) },
-        { title: 'Day type', key: 't', render: (_, r) => dayTypeText(r.half) },
-        { title: 'Days', key: 'd', render: (_, r) => fmtDays(r.days) },
-        { title: 'Reason', key: 'r', render: (_, r) => <span className="block max-w-[260px] whitespace-normal break-words">{r.reason || '–'}</span> },
-        { title: 'Applied on', key: 'a', render: (_, r) => dayjs(r.createdAt).format('D MMM') },
-        { title: 'Status', key: 'st', render: (_, r) => <LeaveStatusTag r={r} /> },
-    ];
-    const stat = (label: string, value: string, sub: string) => (
-        <div className={`${ESS_CARD} flex flex-col gap-0.5`} data-type-stat={label}>
-            <Text type="secondary" className="text-xs">
-                {label}
-            </Text>
-            <Text className="text-2xl font-semibold tabular-nums">{value}</Text>
-            <Text type="secondary" className="text-xs">
-                {sub}
-            </Text>
-        </div>
-    );
+    const counts = logCounts(rows);
+    const statuses = [...new Set(rows.map(r => r.statusKind))];
+    const shown = filterLog(rows, { show, status, from: range?.[0]?.format('YYYY-MM-DD'), to: range?.[1]?.format('YYYY-MM-DD') });
+    const comp = b.type === COMP_OFF;
     return (
         <div className="flex w-full min-w-0 flex-col gap-4" data-leave-type-page={type}>
             <div className="flex flex-wrap items-center gap-3">
@@ -105,158 +132,219 @@ const LeaveTypePage = ({ view, type, onBack, onApply }: { view: LeaveView; type:
                     Apply for leave
                 </Button>
             </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                {stat('Available', fmtDays(b.available), b.type === COMP_OFF ? 'of comp off' : `of ${fmtDays(b.allocated)} this year`)}
-                {stat('Approved', fmtDays(b.approved), 'days taken or booked this year')}
-                {stat('In request', fmtDays(b.inRequest), 'days waiting for approval')}
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-type-stats>
+                <Stat label="Available" value={availableOfTotal(b)} sub={comp ? 'of comp off earned' : 'of this year’s total (incl. carried forward)'} />
+                <Stat label="Approved" value={fmtDays(b.approved)} sub="days taken or booked this year" />
+                <Stat label="In request" value={fmtDays(b.inRequest)} sub="waiting for approval, already taken off" />
+                <Stat label="Carried forward" value={fmtDays(b.carried)} sub={comp ? 'comp off doesn’t carry forward' : `limit ${b.carryForward ? `${fmtDays(b.carryForward)} days` : 'none'}`} />
             </div>
+            <Text className="text-sm text-gray-600" data-type-summary>
+                {typeSummary(b, view)}
+                {b.late > 0 ? ` · −${fmtDays(b.late)} for late check-ins` : ''}
+            </Text>
             <div className="flex flex-wrap items-center gap-3">
                 <div className="max-w-full overflow-x-auto">
-                    <Segmented<Bucket>
-                        value={bucket}
-                        onChange={setBucket}
-                        aria-label="Status"
+                    <Segmented<'all' | LogGroup>
+                        value={show}
+                        onChange={setShow}
+                        aria-label="Show"
                         options={[
-                            { value: 'all', label: `All (${count('all')})` },
-                            { value: 'approved', label: `Approved (${count('approved')})` },
-                            { value: 'request', label: `In request (${count('request')})` },
-                            { value: 'rejected', label: `Rejected (${count('rejected')})` },
-                            { value: 'withdrawn', label: `Withdrawn / cancelled (${count('withdrawn')})` },
+                            { value: 'all', label: `All (${counts.all})` },
+                            { value: 'leave', label: `Leave (${counts.leave})` },
+                            { value: 'credit', label: `Credits (${counts.credit})` },
+                            { value: 'deduction', label: `Deductions (${counts.deduction})` },
                         ]}
+                        data-log-show
                     />
                 </div>
-                <span className="flex-1" />
+                <Select<LogStatus | 'all'>
+                    value={status}
+                    onChange={setStatus}
+                    aria-label="Status"
+                    className="w-full min-[420px]:w-44"
+                    options={[{ value: 'all', label: 'Any status' }, ...statuses.map(st => ({ value: st, label: STATUS_FILTER_LABEL[st] }))]}
+                    data-log-status-filter
+                />
+                <span className="hidden flex-1 sm:block" />
                 <DatePicker.RangePicker value={range} onChange={v => setRange(v)} format="D MMM YYYY" aria-label="Date range" className="w-full sm:w-auto" />
             </div>
-            <div className="min-w-0 overflow-hidden rounded-[18px] border border-solid border-[#eff1f4] bg-white">
-                <Table<LeaveRequestRow>
-                    rowKey="id"
-                    columns={columns}
-                    dataSource={rows}
-                    pagination={false}
-                    size="middle"
-                    scroll={{ x: 'max-content' }}
-                    locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`No ${b.label.toLowerCase()} matches these filters.`} /> }}
-                    data-type-requests
-                />
-            </div>
-            <div>
-                <Button type="link" className="!px-0" onClick={() => setShowLedger(v => !v)} aria-expanded={showLedger} data-toggle-ledger>
-                    {showLedger ? 'Hide' : 'Show'} credits and deductions this year
-                </Button>
-                {showLedger && (
-                    <div className={`${ESS_CARD} mt-2`}>
-                        <LedgerList ledger={b.ledger} />
-                    </div>
-                )}
-            </div>
+            <LeaveLogTable rows={shown} mode="type" onOpen={onOpen} empty={`Nothing in ${b.label.toLowerCase()} matches these filters.`} pageSize={15} />
         </div>
     );
 };
 
 // ---- My requests --------------------------------------------------------------------------------------------
 
-const TRAIL_STATE = { APPROVED: 'approved', REJECTED: 'rejected', CANCELLED: 'withdrawn', UPDATE_REQUESTED: 'update_requested' } as const;
-/** A cancellation's or comp off's state, as a leave request's. */
-const stateOfTrail = (r: { withdrawn?: boolean; trail: { status: string } }): LeaveRequestRow['state'] => {
-    if (r.withdrawn) return 'withdrawn';
-    return TRAIL_STATE[r.trail.status as keyof typeof TRAIL_STATE] ?? 'pending';
+type ReqFilter = 'all' | 'progress' | 'approved' | 'closed';
+type ReqRow = {
+    key: string;
+    item: DrawerItem;
+    typeName: string;
+    what?: string;
+    start: string;
+    end: string;
+    duration: string;
+    state: LeaveRequestRow['state'];
+    statusLabel: string;
+    under?: string;
+    createdAt: string;
 };
 
-type Item = { kind: 'leave'; r: LeaveRequestRow } | { kind: 'cancel'; r: LeaveCancellationRow } | { kind: 'compoff'; r: CompOffRow };
+const bucketOf = (state: LeaveRequestRow['state']): ReqFilter => {
+    if (state === 'pending' || state === 'update_requested') return 'progress';
+    if (state === 'approved') return 'approved';
+    return 'closed';
+};
 
-const MyRequests = ({
-    view,
-    onWithdraw,
-    onCancel,
-    onEdit,
-    onEditCancel,
-    onEditCompOff,
-}: {
-    view: LeaveView;
-    onWithdraw: (it: Item) => void;
-    onCancel: (r: LeaveRequestRow) => void;
-    onEdit: (r: LeaveRequestRow) => void;
-    onEditCancel: (r: LeaveCancellationRow) => void;
-    onEditCompOff: (r: CompOffRow) => void;
-}) => {
-    const items: Item[] = [
-        ...view.requests.map(r => ({ kind: 'leave' as const, r })),
-        ...view.cancellations.map(r => ({ kind: 'cancel' as const, r })),
-        ...view.compOffs.map(r => ({ kind: 'compoff' as const, r })),
-    ].sort((a, b) => b.r.createdAt.localeCompare(a.r.createdAt));
-    if (!items.length)
-        return (
-            <div className={ESS_CARD}>
-                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Nothing here yet. Use Apply for leave to raise one." />
-            </div>
-        );
+const requestRows = (view: LeaveView): ReqRow[] => {
+    const durationOf = (days: number, half: LeaveRequestRow['half'], multi: boolean) => `${daysText(days)}${half ? ` (${half === 'FIRST' ? 'first' : 'second'} half${multi ? 's' : ''})` : ''}`;
+    return [
+        ...view.requests.map(
+            (r): ReqRow => ({
+                key: `leave-${r.id}`,
+                item: { kind: 'leave', id: r.id },
+                typeName: typeLabel(r.typeName),
+                start: r.start,
+                end: r.end,
+                duration: durationOf(r.days, r.half, r.end > r.start),
+                state: r.state,
+                statusLabel: r.statusLabel,
+                under: [r.changePending ? 'Change requested' : '', r.cancellationPending ? 'Cancellation requested' : ''].filter(Boolean).join(' · ') || undefined,
+                createdAt: r.createdAt,
+            })
+        ),
+        ...view.cancellations.map(
+            (c: LeaveCancellationRow): ReqRow => ({
+                key: `cancel-${c.id}`,
+                item: { kind: 'cancel', id: c.id },
+                typeName: typeLabel(c.typeName),
+                what: 'Cancellation',
+                start: c.from,
+                end: c.to,
+                duration: `${daysText(c.days)} back`,
+                state: stateOfTrail(c),
+                statusLabel: c.statusLabel,
+                createdAt: c.createdAt,
+            })
+        ),
+        ...view.changes.map(
+            (c: LeaveChangeRow): ReqRow => ({
+                key: `change-${c.id}`,
+                item: { kind: 'change', id: c.id },
+                typeName: typeLabel(c.typeName),
+                what: 'Change',
+                start: c.start,
+                end: c.end,
+                duration: durationOf(c.days, c.half, c.end > c.start),
+                state: stateOfTrail(c),
+                statusLabel: c.statusLabel,
+                createdAt: c.createdAt,
+            })
+        ),
+        ...view.compOffs.map(
+            (c: CompOffRow): ReqRow => ({
+                key: `compoff-${c.id}`,
+                item: { kind: 'compoff', id: c.id },
+                typeName: 'Comp off',
+                what: `Worked ${c.holidayName ?? 'weekly off'}`,
+                start: c.date,
+                end: c.date,
+                duration: `+${daysText(c.days)}`,
+                state: stateOfTrail(c),
+                statusLabel: c.statusLabel,
+                createdAt: c.createdAt,
+            })
+        ),
+    ].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+};
+
+const MyRequests = ({ view, onOpen }: { view: LeaveView; onOpen: (it: DrawerItem) => void }) => {
+    const [filter, setFilter] = useState<ReqFilter>('all');
+    const all = useMemo(() => requestRows(view), [view]);
+    const count = (f: ReqFilter) => all.filter(r => f === 'all' || bucketOf(r.state) === f).length;
+    const rows = all.filter(r => filter === 'all' || bucketOf(r.state) === filter);
+    const columns: ColumnsType<ReqRow> = [
+        {
+            title: 'Leave type',
+            key: 'type',
+            render: (_, r) => (
+                <div className="flex flex-col">
+                    <span className="whitespace-nowrap font-medium">{r.typeName}</span>
+                    {r.what && <span className="text-xs text-gray-500">{r.what}</span>}
+                </div>
+            ),
+        },
+        { title: 'Start date', key: 's', render: (_, r) => <span className="whitespace-nowrap">{fmtDay(r.start)}</span> },
+        { title: 'End date', key: 'e', render: (_, r) => <span className="whitespace-nowrap">{fmtDay(r.end)}</span> },
+        { title: 'Duration', key: 'd', render: (_, r) => <span className="whitespace-nowrap">{r.duration}</span> },
+        {
+            title: 'Status',
+            key: 'st',
+            render: (_, r) => (
+                <div className="flex flex-col items-start gap-1">
+                    <LeaveStatusTag r={r} />
+                    {r.under && (
+                        <Text className="text-xs !text-[#B54708]" data-under-status>
+                            {r.under}
+                        </Text>
+                    )}
+                </div>
+            ),
+        },
+        {
+            title: 'Action',
+            key: 'a',
+            render: (_, r) => (
+                <Button
+                    type="link"
+                    className="!px-0"
+                    onClick={e => {
+                        e.stopPropagation();
+                        onOpen(r.item);
+                    }}
+                    data-view-request={`${r.item.kind}:${r.item.id}`}
+                >
+                    View
+                </Button>
+            ),
+        },
+    ];
     return (
-        <section aria-label="My requests" className={`${ESS_CARD} !py-2`} data-my-requests>
-            <ul className="m-0 list-none p-0">
-                {items.map(it => {
-                    const ask = it.r.trail.status === 'UPDATE_REQUESTED' && !it.r.withdrawn ? it.r.trail.updateRequest : undefined;
-                    let title = '';
-                    let sub = '';
-                    if (it.kind === 'leave') {
-                        title = `${typeLabel(it.r.typeName)} · ${fmtRange(it.r.start, it.r.end)}${halfSuffix(it.r.half, it.r.end > it.r.start)}`;
-                        sub = [daysText(it.r.days), it.r.reason, it.r.proof ? `Document: ${it.r.proof.name}` : '', it.r.lossOfPayDays ? `${daysText(it.r.lossOfPayDays)} loss of pay` : '']
-                            .filter(Boolean)
-                            .join(' · ');
-                        if (it.r.cancellation && it.r.state === 'approved') sub += ` · cancelled from ${dayjs(it.r.cancellation.from).format('D MMM')}`;
-                    } else if (it.kind === 'cancel') {
-                        title = `Leave cancellation · ${typeLabel(it.r.typeName)}, ${fmtRange(it.r.from, it.r.to)}`;
-                        sub = `${daysText(it.r.days)} back to the balance · ${it.r.reason}`;
-                    } else {
-                        title = `Comp off · worked ${fmtDay(it.r.date)} (${it.r.holidayName ?? 'weekly off'})`;
-                        sub = `${daysText(it.r.days)} of comp off · ${it.r.reason}`;
-                    }
-                    const state = it.kind === 'leave' ? it.r.state : stateOfTrail(it.r);
-                    return (
-                        <li key={`${it.kind}-${it.r.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 border-0 border-b border-solid border-gray-100 py-3 last:border-b-0" data-request={it.r.id} data-request-kind={it.kind}>
-                            <div className="min-w-0 flex-1 basis-[240px]">
-                                <Text className="block text-sm font-medium">{title}</Text>
-                                <Text type="secondary" className="block text-xs">
-                                    {sub}
-                                </Text>
-                            </div>
-                            <LeaveStatusTag r={{ state, statusLabel: it.r.statusLabel }} />
-                            {it.kind === 'leave' && it.r.cancellationPending && (
-                                <Tag color="warning" className="!m-0" data-cancel-requested>
-                                    Cancellation requested
-                                </Tag>
-                            )}
-                            {it.kind === 'leave' && it.r.state === 'approved' && it.r.cancelFrom && (
-                                <Button size="small" onClick={() => onCancel(it.r as LeaveRequestRow)} data-cancel-leave-button>
-                                    Cancel leave
-                                </Button>
-                            )}
-                            {isOpen(it.r) && it.r.trail.status !== 'UPDATE_REQUESTED' && (
-                                <Popconfirm title="Withdraw this request?" okText="Withdraw" onConfirm={() => onWithdraw(it)}>
-                                    <Button size="small">Withdraw</Button>
-                                </Popconfirm>
-                            )}
-                            {ask && (
-                                <div className="basis-full">
-                                    <UpdateRequestedNote
-                                        ask={ask}
-                                        onResubmit={() => {
-                                            if (it.kind === 'leave') onEdit(it.r);
-                                            else if (it.kind === 'cancel') onEditCancel(it.r);
-                                            else onEditCompOff(it.r);
-                                        }}
-                                    />
-                                </div>
-                            )}
-                        </li>
-                    );
-                })}
-            </ul>
-        </section>
+        <div className="flex min-w-0 flex-col gap-3" data-my-requests>
+            <div className="max-w-full overflow-x-auto">
+                <Segmented<ReqFilter>
+                    value={filter}
+                    onChange={setFilter}
+                    aria-label="Request status"
+                    options={[
+                        { value: 'all', label: `All (${count('all')})` },
+                        { value: 'progress', label: `In progress (${count('progress')})` },
+                        { value: 'approved', label: `Approved (${count('approved')})` },
+                        { value: 'closed', label: `Rejected or withdrawn (${count('closed')})` },
+                    ]}
+                    data-request-filter
+                />
+            </div>
+            <div className="min-w-0 overflow-hidden rounded-[18px] border border-solid border-[#eff1f4] bg-white">
+                <Table<ReqRow>
+                    rowKey="key"
+                    size="middle"
+                    columns={columns}
+                    dataSource={rows}
+                    pagination={rows.length > 15 ? { pageSize: 15, showSizeChanger: false, size: 'small' } : false}
+                    scroll={{ x: 'max-content' }}
+                    rowClassName="cursor-pointer"
+                    onRow={r => ({ onClick: () => onOpen(r.item), 'data-request': `${r.item.kind}:${r.item.id}` })}
+                    locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={all.length ? 'Nothing matches this filter.' : 'Nothing here yet. Use Apply for leave to raise one.'} /> }}
+                />
+            </div>
+        </div>
     );
 };
 
 // ---- the page -----------------------------------------------------------------------------------------------
+
+const KINDS: LogItemKind[] = ['leave', 'cancel', 'change', 'compoff'];
 
 const EssLeavePage = () => {
     const scope = useAtsScope();
@@ -266,18 +354,27 @@ const EssLeavePage = () => {
     const [failed, setFailed] = useState(false);
     const [applying, setApplying] = useState<{ type?: string | null } | null>(null);
     const [editing, setEditing] = useState<LeaveRequestRow | null>(null);
+    const [changing, setChanging] = useState<LeaveRequestRow | null>(null);
+    const [editingChange, setEditingChange] = useState<LeaveChangeRow | null>(null);
     const [cancelling, setCancelling] = useState<CancelTarget | null>(null);
     const [compOff, setCompOff] = useState<{ editing?: CompOffRow | null } | null>(null);
     const [editCancel, setEditCancel] = useState<LeaveCancellationRow | null>(null);
     const today = dayjs().format('YYYY-MM-DD');
     const sub = (['overview', 'requests', 'holidays'] as Sub[]).includes(params.get('tab') as Sub) ? (params.get('tab') as Sub) : 'overview';
     const typePage = params.get('type');
-    const setParam = (k: string, v: string | null) => {
+    const reqParam = params.get('req');
+    const drawer: DrawerItem | null = useMemo(() => {
+        const [kind, id] = (reqParam ?? '').split(':');
+        return KINDS.includes(kind as LogItemKind) && id ? { kind: kind as LogItemKind, id } : null;
+    }, [reqParam]);
+    const setParam = (k: string, v: string | null, replace = false) => {
         const next = new URLSearchParams(params);
         if (v) next.set(k, v);
         else next.delete(k);
-        setParams(next, { replace: false });
+        setParams(next, { replace });
     };
+    const openItem = (it: DrawerItem) => setParam('req', `${it.kind}:${it.id}`, Boolean(drawer));
+    const closeDrawer = () => setParam('req', null, true);
 
     const load = useCallback(async () => {
         const res = await getLeaveView(scope);
@@ -298,16 +395,17 @@ const EssLeavePage = () => {
     };
 
     const upcoming = useMemo(
-        () => (view ? view.requests.filter(r => (r.state === 'approved' || r.state === 'pending') && r.end >= today).sort((a, b) => a.start.localeCompare(b.start)) : []),
+        () => (view ? view.requests.filter(r => (r.state === 'approved' || r.state === 'pending' || r.state === 'update_requested') && r.end >= today).sort((a, b) => a.start.localeCompare(b.start)) : []),
         [view, today]
     );
+    const activity = useMemo(() => (view ? recentActivity(view, today, 10) : []), [view, today]);
 
     if (!view) {
         return failed ? <Alert type="error" showIcon message="Your leave couldn’t be loaded." /> : <Skeleton active paragraph={{ rows: 10 }} />;
     }
-    const open = view.requests.filter(isOpen).length + view.cancellations.filter(isOpen).length + view.compOffs.filter(isOpen).length;
-    const nextHoliday = view.holidays.find(h => h.date >= today);
-    const onProbation = view.status === 'PROBATION';
+    const open = view.requests.filter(isOpen).length + view.cancellations.filter(isOpen).length + view.changes.filter(isOpen).length + view.compOffs.filter(isOpen).length;
+    const nextHoliday = view.holidays.find(h => h.date >= today) ?? view.calendar.holidays.find(h => h.date >= today);
+    const firstApprover = view.approvalPath.split(',')[0];
 
     const actions = (
         <div className="flex flex-wrap gap-2">
@@ -322,30 +420,38 @@ const EssLeavePage = () => {
         </div>
     );
 
+    const closeForm = () => {
+        setApplying(null);
+        setEditing(null);
+        setChanging(null);
+        setEditingChange(null);
+    };
+
     const modals = (
         <>
             <ApplyLeaveModal
-                open={Boolean(applying) || Boolean(editing)}
+                open={Boolean(applying || editing || changing || editingChange)}
                 view={view}
                 today={today}
                 editing={editing}
+                changing={changing}
+                editingChange={editingChange}
                 initialType={applying?.type ?? null}
-                onClose={() => {
-                    setApplying(null);
-                    setEditing(null);
-                }}
+                onClose={closeForm}
                 onApplied={next => {
-                    const was = editing;
-                    setApplying(null);
-                    setEditing(null);
-                    done(next, was ? `Resubmitted. ${view.approvalPath.split(',')[0]} has it again.` : 'Leave request sent');
+                    let message = 'Leave request sent';
+                    if (editing || editingChange) message = `Resubmitted. ${firstApprover} has it again.`;
+                    else if (changing) message = 'Change sent for approval. Your leave stays as it is until it’s approved.';
+                    closeForm();
+                    done(next, message);
                 }}
             />
             <CancelLeaveModal
                 target={cancelling}
                 approvalPath={view.approvalPath}
                 onClose={() => setCancelling(null)}
-                onConfirm={async reason => done(await cancelLeave(scope, cancelling!.id, reason), 'Cancellation sent for approval')}
+                onCheck={from => checkLeaveCancel(scope, cancelling!.id, from)}
+                onConfirm={async (reason, from) => done(await cancelLeave(scope, cancelling!.id, reason, from), 'Cancellation sent for approval')}
             />
             <CompOffModal
                 open={Boolean(compOff)}
@@ -367,13 +473,33 @@ const EssLeavePage = () => {
                 onClose={() => setEditCancel(null)}
                 onSubmit={async reason => done(await resubmitLeaveCancellation(scope, editCancel!.id, reason), 'Cancellation resubmitted')}
             />
+            <LeaveRequestDrawer
+                view={view}
+                item={drawer}
+                onClose={closeDrawer}
+                actions={{
+                    onOpen: openItem,
+                    onEdit: r => setEditing(r),
+                    onChange: r => setChanging(r),
+                    onCancel: r => setCancelling(cancelTargetOf(view, r)),
+                    onEditCancel: r => setEditCancel(r),
+                    onEditChange: r => setEditingChange(r),
+                    onEditCompOff: r => setCompOff({ editing: r }),
+                    onWithdraw: async it => {
+                        if (it.kind === 'leave') done(await withdrawLeave(scope, it.id), 'Leave request withdrawn');
+                        else if (it.kind === 'cancel') done(await withdrawLeaveCancellation(scope, it.id), 'Cancellation withdrawn');
+                        else if (it.kind === 'change') done(await withdrawLeaveChange(scope, it.id), 'Change withdrawn');
+                        else done(await withdrawCompOff(scope, it.id), 'Comp off request withdrawn');
+                    },
+                }}
+            />
         </>
     );
 
     if (typePage && view.balances.some(b => b.type === typePage)) {
         return (
             <>
-                <LeaveTypePage view={view} type={typePage} onBack={() => setParam('type', null)} onApply={() => setApplying({ type: typePage })} />
+                <LeaveTypePage view={view} type={typePage} today={today} onBack={() => setParam('type', null)} onApply={() => setApplying({ type: typePage })} onOpen={openItem} />
                 {modals}
             </>
         );
@@ -410,27 +536,38 @@ const EssLeavePage = () => {
                 <>
                     <ProbationBanner view={view} />
                     <ExitBanner view={view} />
-                    <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-3" data-balance-cards>
+                    {view.lossOfPayDays > 0 && (
+                        <Alert type="error" showIcon data-lop message={`${daysText(view.lossOfPayDays)} of loss of pay from late check-ins with no leave left.`} />
+                    )}
+                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-balance-cards>
                         {view.balances.map(b => (
-                            <BalanceCard key={b.type} b={b} onProbation={onProbation} onOpen={() => setParam('type', b.type)} />
+                            <TypeCard key={b.type} b={b} onOpen={() => setParam('type', b.type)} />
                         ))}
-                        <LossOfPayCard days={view.lossOfPayDays} />
                     </div>
+                    <LeaveSection title="Recent activity" extra={<Text type="secondary" className="text-xs">The last 10 changes, newest first</Text>}>
+                        <LeaveLogTable rows={activity} mode="activity" onOpen={openItem} empty="Nothing has happened on your leave yet." />
+                    </LeaveSection>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <section aria-label="Upcoming leave" className={ESS_CARD} data-upcoming-leave>
                             <h3 className="m-0 mb-2 text-base font-medium text-gray-900">Upcoming leave</h3>
                             {upcoming.length === 0 && <Text type="secondary">Nothing planned.</Text>}
                             <ul className="m-0 list-none p-0">
                                 {upcoming.slice(0, 4).map(r => (
-                                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 border-0 border-b border-solid border-gray-100 py-2 last:border-b-0">
-                                        <span className="text-sm">
-                                            {fmtRange(r.start, r.end)}{' '}
-                                            <span className="text-xs text-gray-500">
-                                                · {r.typeName}
-                                                {halfSuffix(r.half, false)}
+                                    <li key={r.id} className="border-0 border-b border-solid border-gray-100 last:border-b-0">
+                                        <button
+                                            type="button"
+                                            onClick={() => openItem({ kind: 'leave', id: r.id })}
+                                            className="flex w-full cursor-pointer flex-wrap items-center justify-between gap-2 border-0 bg-transparent px-0 py-2 text-left"
+                                        >
+                                            <span className="text-sm">
+                                                {fmtRange(r.start, r.end)}{' '}
+                                                <span className="text-xs text-gray-500">
+                                                    · {typeLabel(r.typeName)}
+                                                    {halfSuffix(r.half, false)}
+                                                </span>
                                             </span>
-                                        </span>
-                                        <LeaveStatusTag r={r} />
+                                            <LeaveStatusTag r={r} />
+                                        </button>
                                     </li>
                                 ))}
                             </ul>
@@ -458,24 +595,10 @@ const EssLeavePage = () => {
                             </Button>
                         </section>
                     </div>
-                    <LateDeductionsPanel view={view} />
                 </>
             )}
 
-            {sub === 'requests' && (
-                <MyRequests
-                    view={view}
-                    onWithdraw={async it => {
-                        if (it.kind === 'leave') done(await withdrawLeave(scope, it.r.id), 'Leave request withdrawn');
-                        else if (it.kind === 'cancel') done(await withdrawLeaveCancellation(scope, it.r.id), 'Cancellation withdrawn');
-                        else done(await withdrawCompOff(scope, it.r.id), 'Comp off request withdrawn');
-                    }}
-                    onCancel={r => setCancelling(cancelTargetOf(view, r))}
-                    onEdit={r => setEditing(r)}
-                    onEditCancel={r => setEditCancel(r)}
-                    onEditCompOff={r => setCompOff({ editing: r })}
-                />
-            )}
+            {sub === 'requests' && <MyRequests view={view} onOpen={openItem} />}
 
             {sub === 'holidays' && (
                 <section aria-label="Public holidays" className={ESS_CARD} data-public-holidays>
