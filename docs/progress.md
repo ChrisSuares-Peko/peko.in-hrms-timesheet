@@ -13,8 +13,8 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
 | 4 — ESS Leave: compact cards, Recent activity, type page (4 cards, one log), My requests table, request drawer | Leave: ESS overview, type log, My requests and the request drawer | done |
 | 5 — Payroll navigation: no service tabs; Quick actions with waiting counts; breadcrumb + back link; redirects | Leave: Payroll services from Quick actions | done |
 | 6 — API doc (`docs/api/leave.md`) for the new endpoints | Leave: API contract for changes and cancel from | done |
-| 7 — Developer notes panel (prototype flag), README + docs/dev-notes/README.md | Dev notes: … | |
-| 8 — VERIFY 1–8 at 1440 / 1024 / 375, type-check, lint, tests, production build, one push | Leave: verification log | |
+| 7 — Developer notes panel (prototype flag), README + docs/dev-notes/README.md | Dev notes: panel in the prototype build | done |
+| 8 — VERIFY 1–8 at 1440 / 1024 / 375, type-check, lint, tests, production build, one push | Leave: verification log | next |
 
 ## Done
 - Step 1: `src/prototype/rules/leave.ts` (`removedPastDays`, `pastLeaveProblem`, `PAST_LEAVE_MESSAGES`, the shortened
@@ -42,8 +42,14 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
 - Step 6: `docs/api/leave.md` — `LeaveChange`, `changedFrom`, the new endpoints (`cancel-check`, `change`,
   `changes/:id/withdraw|resubmit`), `cancel` with `from`, `resubmit` while pending, `leaveKind = change`, the effects.
 
+- Step 7: `src/prototype/devNotes/devNotes.tsx` (split on the markers, page → module, minimal markdown renderer),
+  `DevNotesPanel.tsx` (button + right drawer, module dropdown with "(this page's module)", Copy, Copy all, Shared
+  platform link), mounted in `prototype/DataModeToggle.tsx` behind the flag; tests in
+  `src/prototype/devNotes/__tests__/devNotes.test.tsx` (25). Docs: `README.md` (Prototype flag),
+  `docs/dev-notes/README.md` (How to update the notes), `vercel.json` (`build.env.VITE_PROTOTYPE`).
+
 ## Next
-- Step 7 (Developer notes panel).
+- Step 8 (VERIFY, build, push).
 
 ## Decisions
 1. **Spec.** `docs/dev-notes/developer-notes.md` is the spec; `docs/specs/leave-module-spec.md` is deleted. The notes'
@@ -106,3 +112,15 @@ is finished and pushed; its log is in git history (`git show c319c89:docs/progre
     `/payroll/services/settings` and `/payroll/services/payroll-settings` → Payroll settings. The service pages keep
     their URLs (`/payroll/services/timesheet|leave|overtime|reimbursements`, `/payroll/timesheet`, `/payroll/employees`,
     `/payroll/HR-settings`), so bookmarks keep working.
+19. **Prototype flag.** There was no prototype flag (the demo controls always show). New: `VITE_PROTOTYPE`. On by
+    default with `yarn dev` (`VITE_PROTOTYPE=false` hides it); a build shows the panel only with `VITE_PROTOTYPE=true`,
+    otherwise the panel and the notes text are left out of the bundle (the condition is inlined where the lazy chunk is
+    imported). The Vercel prototype deploy turns it on in `vercel.json` (`build.env`); the Docker / Azure production
+    pipelines don't. `.env*` files are git-ignored here, so the flag can't live in a committed env file.
+20. **Developer notes button** sits inside the existing bottom-right demo pill ("Notes" on phones) and the drawer is
+    full width on phones. It always opens on the page's module; the dropdown lists every module by its title. Pages
+    without their own module (e.g. Salary, ESS Payslips) open on Shared platform / ESS shell. ESS Attendance &
+    Timesheet's sub-tabs all map to `attendance`, as asked. "Copy" copies the module with its marker; "Copy all" the
+    whole file.
+21. **Markdown renderer.** No markdown library in the repo; a minimal renderer (headings, bullets incl. one nested
+    level, bold, inline code, paragraphs) renders React nodes (no HTML injection).

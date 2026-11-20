@@ -5,9 +5,10 @@
 // PROTOTYPE-SETUP (Settings, Slice 6): "Payroll (demo)" — processed up to which month; process last month (disabled
 // while timesheets are unapproved, with how many employees block it), "Process anyway", or undo it. Processing locks
 // the month everywhere, exactly like the Payroll module's own processing. Demo only — not part of the real Payroll UI.
+// PROTOTYPE-SETUP (Developer notes): + the "Developer notes" button (prototype build only).
 // PROTOTYPE-SETUP (Leave module): "Leave (demo)" — put the ESS - Employee persona on probation, or back to Active (HR's
 // own control is Payroll → Leave → Balances → Mark active).
-import { useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 
 import { DownOutlined } from '@ant-design/icons';
 import { Button, ConfigProvider, Dropdown, Flex, Modal, Segmented, Tooltip, message } from 'antd';
@@ -30,6 +31,14 @@ import { useAppDispatch, useAppSelector } from '@src/hooks/store';
 import { demoDay, resetAllCollections } from '@src/prototype/mocks/store/persistentStore';
 import { DataMode, setDataMode } from '@src/slices/dataModeSlice';
 import { persistor } from '@store/store';
+
+// PROTOTYPE-SETUP (Developer notes): the "Developer notes" button sits in these demo controls, only in the prototype
+// build — VITE_PROTOTYPE=true (on by default with `yarn dev`; VITE_PROTOTYPE=false hides it). The condition is written
+// out here so production builds drop the panel and the notes text entirely. See README → Prototype flag.
+const DevNotesPanel =
+    import.meta.env.VITE_PROTOTYPE === 'true' || (import.meta.env.DEV && import.meta.env.VITE_PROTOTYPE !== 'false')
+        ? lazy(() => import('./devNotes/DevNotesPanel'))
+        : null;
 
 const reloadAfterPersist = async () => {
     try {
@@ -239,6 +248,11 @@ const DataModeToggle = () => {
                     Demo <DownOutlined />
                 </Button>
             </Dropdown>
+            {DevNotesPanel && (
+                <Suspense fallback={null}>
+                    <DevNotesPanel />
+                </Suspense>
+            )}
         </Flex>
         </ConfigProvider>
     );
