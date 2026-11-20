@@ -13,6 +13,7 @@ import type {
     AdminLeaveEntry,
     AdminLeaveOverview,
     AdminOffToday,
+    CompOffCalendar,
     CompOffCheck,
     HrAddLeaveInput,
     LeaveSettingsView,
@@ -282,6 +283,9 @@ export const resubmitLeaveCancellation = (s: AtsScope, id: string, reason: strin
     call<LeaveView>(s, 'post', `leave/cancellations/${id}/resubmit`, { body: { reason } });
 /** PROTOTYPE-SETUP (Leave module): comp off — what a worked day earns, the request, withdraw, update and resubmit. */
 export const checkCompOff = (s: AtsScope, date: string) => call<CompOffCheck>(s, 'get', 'leave/comp-off/check', { params: { date } });
+/** PROTOTYPE-SETUP (Comp off calendar): a month of days for the picker; `exclude` = the request being resubmitted. */
+export const getCompOffCalendar = (s: AtsScope, month: string, exclude?: string) =>
+    call<CompOffCalendar>(s, 'get', 'leave/comp-off/calendar', { params: exclude ? { month, exclude } : { month } });
 export const requestCompOff = (s: AtsScope, body: { date: string; reason: string }) => call<LeaveView>(s, 'post', 'leave/comp-off', { body });
 export const withdrawCompOff = (s: AtsScope, id: string) => call<LeaveView>(s, 'post', `leave/comp-off/${id}/withdraw`);
 export const resubmitCompOff = (s: AtsScope, id: string, body: { date: string; reason: string }) => call<LeaveView>(s, 'post', `leave/comp-off/${id}/resubmit`, { body });

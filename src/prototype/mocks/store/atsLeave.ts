@@ -8,7 +8,10 @@ import type {
     AdminLeaveEntry,
     AdminOffToday,
     ApprovalTrail,
+    CompOffCalendar,
+    CompOffCalendarDay,
     CompOffCheck,
+    CompOffDayKind,
     CompOffRequest,
     HrAddLeaveInput,
     LateDeduction,
@@ -49,6 +52,7 @@ import {
     appliesTo,
     applyCancellation,
     cancellationRange,
+    compOffDayAvailable,
     compOffDays,
     compOffProblem,
     computeLeaveYear,
@@ -667,6 +671,40 @@ export const compOffCheck = (mode: DataMode, e: MockEmployee, date: string, excl
         overtimeClaimed: Boolean(activeOvertimeOn(mode, e, date)),
     });
     return { date, days: problem ? 0 : compOffDays(workedMinutes, shiftMinutes), workedMinutes, dayName: publicHolidayOn(mode, date) ?? 'weekly off', problem };
+};
+
+/** PROTOTYPE-SETUP (Comp off calendar): one month of days for "Request comp off" (the employee's own weekly offs,
+ *  public holidays, days worked, days already claimed). `exclude` = the request being resubmitted (its day stays open). */
+export const compOffCalendar = (mode: DataMode, e: MockEmployee, month: string, exclude?: string): CompOffCalendar => {
+    const settings = getSettings(mode);
+    if (!settings.leavePolicy.compOff.enabled) throw new RuleError('Comp off is turned off at your company.');
+    const now = today();
+    const m = /^\d{4}-\d{2}$/.test(month) ? month : now.slice(0, 7);
+    const cal = calendarOf(mode, e);
+    const { expiryDays } = settings.leavePolicy.compOff;
+    const claimedDays = new Set(
+        atsCompOffs
+            .get(mode)
+            .filter(c => c.employeeId === e.id && c.id !== exclude && !c.withdrawn && c.trail.status !== 'REJECTED' && c.trail.status !== 'CANCELLED')
+            .map(c => c.date)
+    );
+    const days: CompOffCalendarDay[] = [];
+    for (let d = `${m}-01`; d.slice(0, 7) === m; d = addDays(d, 1)) {
+        const holidayName = publicHolidayOn(mode, d);
+        let kind: CompOffDayKind = 'WORKING';
+        if (holidayName) kind = 'HOLIDAY';
+        else if (!isWorkingDayFor(cal, d)) kind = 'WEEKLY_OFF';
+        const claimed = claimedDays.has(d);
+        days.push({
+            date: d,
+            kind,
+            ...(holidayName ? { holidayName } : {}),
+            worked: d <= now && workedOn(mode, e, d) > 0,
+            claimed,
+            available: compOffDayAvailable({ date: d, today: now, kind, expiryDays, claimed }),
+        });
+    }
+    return { month: m, today: now, expiryDays, days };
 };
 
 /** Request comp off for a worked weekly off / holiday (same approvers as leave). */

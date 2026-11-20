@@ -573,6 +573,13 @@ export const COMP_OFF_MESSAGES = {
     reason: 'Add what you worked on.',
 } as const;
 
+/** PROTOTYPE-SETUP (Comp off calendar): a day can be picked in the calendar only if it's a weekly off or public holiday
+ *  (on the employee's own schedule), not in the future, inside the expiry window (0 = never expires) and not already
+ *  claimed. Working days never can: extra hours on a working day are overtime. Hours worked are checked after picking
+ *  (compOffProblem), so a day off with no work can still be picked and is then refused with the reason. */
+export const compOffDayAvailable = (d: { date: string; today: string; kind: 'HOLIDAY' | 'WEEKLY_OFF' | 'WORKING'; expiryDays: number; claimed: boolean }) =>
+    d.kind !== 'WORKING' && d.date <= d.today && !(d.expiryDays && daysFrom(d.date, d.today) > d.expiryDays) && !d.claimed;
+
 /** Why a day can't be claimed as comp off, in this order (null = it can). */
 export const compOffProblem = (input: {
     date: string;

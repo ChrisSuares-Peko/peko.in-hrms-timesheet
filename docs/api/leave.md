@@ -121,6 +121,7 @@ HR's Add leave runs the same checks, worded for HR ("Kavya has 2 days of Annual 
 | POST | `leave/cancellations/:id/withdraw` | — | `LeaveView`. |
 | POST | `leave/cancellations/:id/resubmit` | `{ reason }` | `LeaveView`. Edit (while pending) or update (when sent back); starts again at level 1. |
 | GET | `leave/comp-off/check?date=` | — | `CompOffCheck { date, days, workedMinutes, dayName, problem }`. |
+| GET | `leave/comp-off/calendar?month=YYYY-MM[&exclude=id]` | — | `CompOffCalendar { month, today, expiryDays, days: [{ date, kind: HOLIDAY · WEEKLY_OFF · WORKING, holidayName?, worked, claimed, available }] }`. The "Request comp off" day picker. Only weekly offs and holidays on the employee's own schedule are `available` (not future, inside the expiry window, not already claimed; `exclude` = the request being resubmitted). Rule: `compOffDayAvailable`. |
 | POST | `leave/comp-off` | `{ date, reason }` | `LeaveView`. 409 with the refusal message. |
 | POST | `leave/comp-off/:id/withdraw` | — | `LeaveView`. |
 | POST | `leave/comp-off/:id/resubmit` | `{ date, reason }` | `LeaveView`. Edit (while pending) or update (when sent back); starts again at level 1. |

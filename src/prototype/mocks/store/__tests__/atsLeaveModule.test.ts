@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { addDays, weekdayOf } from '@src/prototype/rules/attendance';
-import { COMP_OFF } from '@src/prototype/rules/leave';
+import { COMP_OFF, compOffDayAvailable } from '@src/prototype/rules/leave';
 
 import { atsScenario } from '../../data/ats-seed';
 import { findEmployee } from '../../data/employees';
@@ -13,6 +13,7 @@ import {
     adminEmployeeLeaveTypes,
     adminLeaveBalances,
     adminLeaveEntries,
+    compOffCalendar,
     compOffCheck,
     createCompOff,
     createLeaveRequest,
@@ -186,6 +187,36 @@ describe('6 · comp off', () => {
         expect(balance(COMP_OFF)).toMatchObject({ available: 1, expiring: { date: addDays(s.snehaWorkedSaturday, 60) } });
         updateLeaveConfig(M, { compOff: { expiryDays: 1 } });
         expect(balance(COMP_OFF)!.available).toBe(0);
+    });
+    // PROTOTYPE-SETUP (Comp off calendar): only weekly offs / holidays on the employee's schedule can be picked.
+    it('the calendar: only weekly offs and holidays are pickable; working, future, too old and claimed days are not; worked off days carry a dot', () => {
+        const month = s.snehaWorkedSaturday.slice(0, 7);
+        const cal = compOffCalendar(M, sneha, month);
+        expect(cal.days[0].date).toBe(`${month}-01`);
+        cal.days.forEach(d => {
+            if (d.kind === 'WORKING') expect(d.available, d.date).toBe(false);
+            if (d.date > cal.today) expect(d.available, d.date).toBe(false);
+            if (d.available) expect(['HOLIDAY', 'WEEKLY_OFF']).toContain(d.kind);
+        });
+        const sat = cal.days.find(d => d.date === s.snehaWorkedSaturday)!;
+        expect(sat).toMatchObject({ kind: 'WEEKLY_OFF', worked: true, available: true, claimed: false });
+        const holiday = cal.days.find(d => d.kind === 'HOLIDAY');
+        if (holiday) expect(holiday.holidayName).toBe(publicHolidayOn(M, holiday.date));
+        // claimed → not available (but stays open when that request is the one being resubmitted)
+        createCompOff(M, sneha, { date: s.snehaWorkedSaturday, reason: 'Release weekend' });
+        const after = compOffCalendar(M, sneha, month).days.find(d => d.date === s.snehaWorkedSaturday)!;
+        expect(after).toMatchObject({ claimed: true, available: false });
+        const mine = leaveViewOf(M, sneha).compOffs.find(c => c.date === s.snehaWorkedSaturday)!;
+        expect(compOffCalendar(M, sneha, month, mine.id).days.find(d => d.date === s.snehaWorkedSaturday)!.available).toBe(true);
+    });
+    it('the calendar rule: expiry window, future and working days', () => {
+        const base = { today: '2026-11-21', expiryDays: 60, claimed: false };
+        expect(compOffDayAvailable({ ...base, date: '2026-11-14', kind: 'WEEKLY_OFF' })).toBe(true);
+        expect(compOffDayAvailable({ ...base, date: '2026-11-13', kind: 'WORKING' })).toBe(false);
+        expect(compOffDayAvailable({ ...base, date: '2026-11-22', kind: 'WEEKLY_OFF' })).toBe(false);
+        expect(compOffDayAvailable({ ...base, date: '2026-09-01', kind: 'HOLIDAY' })).toBe(false);
+        expect(compOffDayAvailable({ ...base, date: '2026-09-01', kind: 'HOLIDAY', expiryDays: 0 })).toBe(true);
+        expect(compOffDayAvailable({ ...base, date: '2026-11-14', kind: 'WEEKLY_OFF', claimed: true })).toBe(false);
     });
 });
 

@@ -66,6 +66,7 @@ import {
     adminLeaveEntries,
     adminLeaveViewOf,
     adminOffToday,
+    compOffCalendar,
     compOffCheck,
     createCompOff,
     createLeaveRequest,
@@ -262,6 +263,8 @@ export const atsRoutes: MockRoute[] = [
     route('POST', `${A}/leave/cancellations/:id/withdraw`, ess((ctx, me) => withdrawLeaveCancellation(ctx.mode, me, ctx.params.id!))),
     route('POST', `${A}/leave/cancellations/:id/resubmit`, ess((ctx, me) => resubmitLeaveCancellation(ctx.mode, me, ctx.params.id!, ctx.body))),
     route('GET', `${A}/leave/comp-off/check`, ess((ctx, me) => compOffCheck(ctx.mode, me, String(ctx.query.date ?? '')))),
+    // PROTOTYPE-SETUP (Comp off calendar): one month of pickable days.
+    route('GET', `${A}/leave/comp-off/calendar`, ess((ctx, me) => compOffCalendar(ctx.mode, me, String(ctx.query.month ?? ''), ctx.query.exclude ? String(ctx.query.exclude) : undefined))),
     route('POST', `${A}/leave/comp-off`, ess((ctx, me) => createCompOff(ctx.mode, me, ctx.body))),
     route('POST', `${A}/leave/comp-off/:id/withdraw`, ess((ctx, me) => withdrawCompOff(ctx.mode, me, ctx.params.id!))),
     route('POST', `${A}/leave/comp-off/:id/resubmit`, ess((ctx, me) => resubmitCompOff(ctx.mode, me, ctx.params.id!, ctx.body))),

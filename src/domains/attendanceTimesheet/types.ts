@@ -1419,6 +1419,31 @@ export interface CompOffCheck {
     problem: string | null;
 }
 
+/** PROTOTYPE-SETUP (Comp off calendar): what a day is on the employee's own schedule. */
+export type CompOffDayKind = 'HOLIDAY' | 'WEEKLY_OFF' | 'WORKING';
+
+/** One day of the "Request comp off" month calendar. Only available days can be picked. */
+export interface CompOffCalendarDay {
+    date: string;
+    kind: CompOffDayKind;
+    /** The public holiday's name, when kind is HOLIDAY. */
+    holidayName?: string;
+    /** The employee checked in (or logged a timesheet, in timesheet-only mode) that day: a dot on off days. */
+    worked: boolean;
+    /** Comp off already requested for the day (not rejected, withdrawn or cancelled). */
+    claimed: boolean;
+    /** A weekly off or holiday, not in the future, inside the expiry window, not already claimed. */
+    available: boolean;
+}
+
+export interface CompOffCalendar {
+    /** "YYYY-MM" */
+    month: string;
+    today: string;
+    expiryDays: number;
+    days: CompOffCalendarDay[];
+}
+
 // ---- Payroll admin (PROTOTYPE-SETUP: Payroll admin, Slices 1–5) ----------------------------------------------
 // The admin in the Payroll module is level 2 (and the final stop) for every employee: one tab per service.
 

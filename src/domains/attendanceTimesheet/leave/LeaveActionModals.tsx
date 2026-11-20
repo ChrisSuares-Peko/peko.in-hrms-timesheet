@@ -15,6 +15,7 @@ import { daysText, typeLabel } from '@src/prototype/rules/leave';
 
 import { checkCompOff, requestCompOff, resubmitCompOff } from '../api';
 import { DATE_FORMATS } from './ApplyLeaveModal';
+import { CompOffCalendar } from './CompOffCalendar';
 import { fmtDay } from './leaveUi';
 import { useAtsScope } from '../hooks/useAtsScope';
 import type { CompOffCheck, CompOffRow, LeaveCancelCheck, LeaveHalf, LeaveView } from '../types';
@@ -261,13 +262,13 @@ export const CompOffModal = ({
                     <Text strong className="text-sm">
                         Day you worked
                     </Text>
-                    <DatePicker
-                        value={day}
-                        format={DATE_FORMATS}
-                        aria-label="Day you worked"
-                        disabledDate={d => d.isAfter(dayjs(today), 'day')}
-                        onChange={d => {
-                            setDay(d);
+                    {/* PROTOTYPE-SETUP (Comp off calendar): only weekly offs and public holidays can be picked. */}
+                    <CompOffCalendar
+                        value={day ? day.format('YYYY-MM-DD') : null}
+                        today={today}
+                        exclude={editing?.id}
+                        onPick={d => {
+                            setDay(dayjs(d));
                             setCheck(null);
                             setError('');
                         }}
