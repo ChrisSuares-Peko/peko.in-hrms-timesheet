@@ -670,6 +670,8 @@ const ceil15 = m => Math.ceil(m / 15) * 15;
 const floor15 = m => Math.floor(m / 15) * 15;
 const inr = n => '₹' + Number(n).toLocaleString('en-IN');
 const clone = o => JSON.parse(JSON.stringify(o));
+const attOn = s => s.settings.mode === 'attendance' || s.settings.mode === 'both';
+const tsOn = s => s.settings.mode === 'timesheet' || s.settings.mode === 'both';
 const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
 // 12-hour display: '13:05' -> '1:05 PM'
 const t12 = t => { if (!t) return ''; const m = toMin(t) % 1440; const h = Math.floor(m / 60), mm = m % 60; return ((h % 12) || 12) + ':' + pad(mm) + ' ' + (h < 12 ? 'AM' : 'PM'); };
@@ -905,7 +907,7 @@ const blankWeek = () => ({ status: 'draft', entries: {}, approved: null, change:
 const readWeek = (s, id, ws) => s.weeks[id + '|' + ws] || blankWeek();
 const writeWeek = (s, id, ws) => (s.weeks[id + '|' + ws] = s.weeks[id + '|' + ws] || blankWeek());
 const isLocked = (s, k) => monthOf(k) <= s.settings.lastProcessed;
-const approvalOn = s => s.settings.tsApproval && s.settings.mode !== 'attendance';
+const approvalOn = s => s.settings.tsApproval && tsOn(s);
 const weekStatusKey = w => (w.change ? 'change' : w.status);
 const WEEK_STATUS = {
   draft: { label: 'Draft', cls: '' }, submitted: { label: 'With manager', cls: 'blue' }, with_payroll: { label: 'With Payroll', cls: 'blue' }, approved: { label: 'Approved', cls: 'green' },
@@ -1033,7 +1035,7 @@ const otText = (o, emp) => o.off ? 'Worked ' + dur(o.worked) + ' on a day off. A
 function submitWeek(s, empId, ws, by, text) {
   const w = writeWeek(s, empId, ws);
   w.unsaved = false; w.comment = null; w.dirty = {};
-  if (!EMAP[empId].mgr) { w.status = s.settings.l2.timesheet !== 'None' ? 'with_payroll' : 'approved'; if (w.status === 'approved') { w.approved = clone(w.entries); delete w.baseline; } hist(w, TODAY, 'System', text + ' No reporting manager, so it skipped level 1.'); }
+  if (!l1For(s, 'timesheet', empId)) { w.status = s.settings.l2.timesheet !== 'None' ? 'with_payroll' : 'approved'; if (w.status === 'approved') { w.approved = clone(w.entries); delete w.baseline; } hist(w, TODAY, 'System', text + ' No reporting manager, so it skipped level 1.'); }
   else { w.status = 'submitted'; hist(w, TODAY, by, text); }
 }
 // the admin's scheduled auto-submit: only drafts go out; anything already sent is left alone
@@ -1052,11 +1054,21 @@ function markEdited(s, empId, ws, by, day) {
   w.unsaved = true;
   return w;
 }
+const isPerson = v => !!(v && EMAP[v]);
+const routeLabel = v => !v || v === 'None' ? 'None' : v === 'Manager' ? 'Reporting manager' : isPerson(v) ? EMAP[v].name : v + ' team';
+function l1For(s, type, empId) { const v = (s.settings.l1 || {})[type] || 'Manager'; if (v === 'Manager' || v === empId) return EMAP[empId].mgr || null; return v; }
+function l2For(s, type) { const v = s.settings.l2[type]; return !v || v === 'None' ? null : v; }
+const l1Of = r => r.l1 !== undefined ? r.l1 : (EMAP[r.empId].mgr || null);
+const waitingWith = r => r.status === 'pending_l1' ? l1Of(r) : r.status === 'pending_l2' ? r.l2 : null;
+// requests waiting on a specific person (as level 1 or level 2)
+const personQueue = (s, id) => s.requests.filter(r => waitingWith(r) === id && reqVisible(s, r));
+// requests waiting on a team in Payroll (Payroll / HR / Admin / Finance)
+const teamWaiting = r => { const w = waitingWith(r); return !!w && !isPerson(w); };
 function createRequest(s, type, empId, data) {
   const e = EMAP[empId];
-  const l2 = s.settings.l2[type] === 'None' ? null : s.settings.l2[type];
-  const r = { id: 'REQ-' + (s.seq++), type, empId, created: TODAY, data, status: 'pending_l1', l2, trail: [{ level: 0, by: e.name, action: 'Submitted', at: TODAY }] };
-  if (!e.mgr) { r.trail.push({ level: 1, by: 'No reporting manager', action: 'Skipped', at: TODAY }); r.status = l2 ? 'pending_l2' : 'approved'; if (!l2) applyEffects(s, r); }
+  const l2 = l2For(s, type), l1 = l1For(s, type, empId);
+  const r = { id: 'REQ-' + (s.seq++), type, empId, created: TODAY, data, status: 'pending_l1', l1, l2, trail: [{ level: 0, by: e.name, action: 'Submitted', at: TODAY }] };
+  if (!l1) { r.trail.push({ level: 1, by: 'No reporting manager', action: 'Skipped', at: TODAY }); r.status = l2 ? 'pending_l2' : 'approved'; if (!l2) applyEffects(s, r); }
   s.requests.unshift(r);
   return r;
 }
@@ -1077,7 +1089,7 @@ function decideRequest(s, id, level, decision, comment, by) {
   if (decision === 'reject') { r.status = 'rejected'; return; }
   // asking for an update always goes straight back to the employee; when they resubmit, it starts again at the manager
   if (decision === 'update') { r.status = 'update_requested'; return; }
-  if (level === 1) { const l2 = s.settings.l2[r.type] === 'None' ? null : s.settings.l2[r.type]; r.l2 = l2; if (l2) r.status = 'pending_l2'; else { r.status = 'approved'; applyEffects(s, r); } }
+  if (level === 1) { const l2 = l2For(s, r.type); r.l2 = l2; if (l2) r.status = 'pending_l2'; else { r.status = 'approved'; applyEffects(s, r); } }
   else { r.status = 'approved'; applyEffects(s, r); }
 }
 function diffEntries(before, after) {
@@ -1108,19 +1120,21 @@ function payrollBlockers(s, m) {
 }
 function teamTimesheetItems(store, mgrId) {
   if (!approvalOn(store)) return [];
-  const reports = EMP.filter(e => e.mgr === mgrId).map(e => e.id);
   const items = [];
   Object.keys(store.weeks).forEach(key => {
     const [id, ws] = key.split('|');
-    if (!reports.includes(id)) return;
     const w = store.weeks[key];
-    if (w.status === 'submitted') items.push({ id, ws, kind: w.baseline ? 'change' : 'week' });
+    if (w.status === 'submitted' && l1For(store, 'timesheet', id) === mgrId) items.push({ id, ws, level: 1, kind: w.baseline ? 'change' : 'week' });
+    if (w.status === 'with_payroll' && l2For(store, 'timesheet') === mgrId) items.push({ id, ws, level: 2, kind: w.baseline ? 'change' : 'week' });
+    return;
   });
   return items.sort((a, b) => a.ws < b.ws ? -1 : 1);
 }
 function payrollTimesheetItems(store) {
   const items = [];
-  Object.keys(store.weeks).forEach(key => { const [id, ws] = key.split('|'); const w = store.weeks[key]; if (w.status === 'with_payroll') items.push({ id, ws, kind: w.baseline ? 'change' : 'week' }); });
+  Object.keys(store.weeks).forEach(key => { const [id, ws] = key.split('|'); const w = store.weeks[key];
+    if (w.status === 'with_payroll' && !isPerson(l2For(store, 'timesheet'))) items.push({ id, ws, level: 2, kind: w.baseline ? 'change' : 'week' });
+    if (w.status === 'submitted' && l1For(store, 'timesheet', id) && !isPerson(l1For(store, 'timesheet', id))) items.push({ id, ws, level: 1, kind: w.baseline ? 'change' : 'week' }); });
   return items.sort((a, b) => a.ws < b.ws ? -1 : 1);
 }
 const reqVisible = (s, r) => !(s.settings.mode === 'timesheet' && r.type === 'attendance');
@@ -1164,8 +1178,8 @@ function Tabs({ tabs, value, onChange }) {
   return html`<div className="tabs" role="tablist">${tabs.map(t => html`<button key=${t.k} className="tab" role="tab" aria-selected=${value === t.k} onClick=${() => onChange(t.k)}>${t.label}${t.n != null && html`<span className="n">${t.n}</span>`}</button>`)}</div>`;
 }
 function approvalLine(s, emp, type) {
-  const mgr = emp.mgr ? EMAP[emp.mgr] : null; const l2 = s.settings.l2[type];
-  return 'Approval: ' + (mgr ? mgr.name + ' (manager)' : 'no manager, skipped') + (l2 !== 'None' ? ', then ' + l2 + ' team' : '') + '.';
+  const l1 = l1For(s, type, emp.id), l2 = l2For(s, type);
+  return 'Approval: ' + (l1 ? routeLabel(l1) + (l1 === emp.mgr ? ' (manager)' : '') : 'no level 1, skipped') + (l2 ? ', then ' + routeLabel(l2) : '') + '.';
 }
 
 /* ---------------- track ---------------- */
@@ -1213,8 +1227,8 @@ function MonthGrid({ month, selected, onPick, cell }) {
 function reqStatusText(r) {
   if (r.status === 'withdrawn') return 'withdrawn';
   if (r.status === 'update_requested') return 'update requested';
-  if (r.status === 'pending_l1') { const e = EMAP[r.empId]; return 'with ' + (e.mgr ? EMAP[e.mgr].name : 'manager'); }
-  if (r.status === 'pending_l2') return 'with ' + r.l2 + ' team';
+  if (r.status === 'pending_l1') return 'with ' + routeLabel(l1Of(r));
+  if (r.status === 'pending_l2') return 'with ' + routeLabel(r.l2);
   return r.status === 'approved' ? 'approved' : 'rejected';
 }
 function ReqStatusChip({ r }) {
@@ -1233,9 +1247,9 @@ function Chain({ r }) {
   if (r.self) return html`<div className="chain"><span className="step done">✓ Entered by employee</span><span className="muted">Missed check-out updates don’t need approval</span></div>`;
   if (r.type === 'profile') return html`<div className="chain"><span className=${'step ' + s2}>${sym(s2)} HR team</span><span className="muted">Profile changes go straight to HR</span></div>`;
   return html`<div className="chain">
-    <span className=${'step ' + s1}>${sym(s1)} ${e.mgr ? EMAP[e.mgr].name + ' (manager)' : 'No manager, skipped'}</span>
+    <span className=${'step ' + s1}>${sym(s1)} ${l1Of(r) ? routeLabel(l1Of(r)) + (l1Of(r) === e.mgr ? ' (manager)' : '') : 'No level 1, skipped'}</span>
     ${showL2 && html`<span className="arrow">→</span>`}
-    ${showL2 && html`<span className=${'step ' + s2}>${sym(s2)} ${r.l2 ? r.l2 + ' team' : 'Level 2 per settings'}</span>`}
+    ${showL2 && html`<span className=${'step ' + s2}>${sym(s2)} ${routeLabel(r.l2)}</span>`}
   </div>`;
 }
 function reqTitle(r) { return r.type === 'overtime' && r.data.kind === 'planned' ? 'Planned overtime' : TYPE_LABEL[r.type]; }
@@ -1263,7 +1277,7 @@ function ReqRow({ r, showEmp, level, actor, canWithdraw }) {
   const actionable = level && ((level === 1 && r.status === 'pending_l1') || (level === 2 && r.status === 'pending_l2'));
   const lastComment = r.trail.filter(t => t.comment).slice(-1)[0];
   let context = null;
-  if (r.type === 'overtime' && level && r.data.kind !== 'planned' && store.settings.mode !== 'timesheet') {
+  if (r.type === 'overtime' && level && r.data.kind !== 'planned' && attOn(store)) {
     const a = attOf(store, e, r.data.date);
     if (a && a.out) context = 'Attendance that day: ' + t12(a.in) + ' to ' + t12(a.out) + (a.outDays === 1 ? ' (next day)' : '') + ' (' + dur(workedMins(a, r.data.date)) + ')'; if (false) context = 'x' + (toMin(a.out) - toMin(a.in)) + ')';
   }
@@ -1283,7 +1297,7 @@ function ReqRow({ r, showEmp, level, actor, canWithdraw }) {
     </div>
     <div className="row" style=${{ alignItems: 'flex-start' }}>
       ${actionable ? [html`<button key="rj" className="btn sm" onClick=${() => setRejecting(true)}>Reject</button>`, html`<button key="up" className="btn sm" onClick=${() => setAsking(true)}>Ask for update</button>`,
-        html`<button key="ap" className="btn sm good" onClick=${() => { update(s => decideRequest(s, r.id, level, 'approve', '', actor)); notify(reqTitle(r) + ' approved' + (level === 1 && store.settings.l2[r.type] !== 'None' ? ', sent to ' + store.settings.l2[r.type] : '')); }}>Approve</button>`]
+        html`<button key="ap" className="btn sm good" onClick=${() => { update(s => decideRequest(s, r.id, level, 'approve', '', actor)); notify(reqTitle(r) + ' approved' + (level === 1 && store.settings.l2[r.type] !== 'None' ? ', sent to ' + routeLabel(store.settings.l2[r.type]) : '')); }}>Approve</button>`]
         : !level && r.status === 'update_requested' ? [html`<${ReqStatusChip} key="c" r=${r} />`, html`<button key="u" className="btn sm primary" onClick=${() => setResub(true)}>Update and resubmit</button>`]
         : canWithdraw && (r.status === 'pending_l1' || r.status === 'pending_l2') ? [html`<${ReqStatusChip} key="c" r=${r} />`, html`<button key="w" className="btn sm" onClick=${() => { update(s => { const x = s.requests.find(y => y.id === r.id); x.status = 'withdrawn'; x.trail.push({ level: 0, by: EMAP[r.empId].name, action: 'Withdrawn', at: TODAY }); }); notify(reqTitle(r) + ' request withdrawn'); }}>Withdraw</button>`]
         : html`<${ReqStatusChip} r=${r} />`}
@@ -1500,7 +1514,7 @@ function LocationBar({ emp }) {
   };
   const pick = loc => { if (loc === 'client') { setAsking(true); return; } setLoc(loc); };
   // with timesheets on, location is chosen per timesheet entry instead
-  if (store.settings.mode !== 'attendance') return null;
+  if (tsOn(store)) return null;
   const trail = locs.length > 1 || (a.out && locs.length) ? html`<div className="loc-line">${locs.map(l => locText(l) + ' ' + t12(l.at)).join(' → ')}</div>` : null;
   if (a.in && a.out) return trail;
   return html`<div className="loc-bar">
@@ -1691,7 +1705,7 @@ function AttTotals({ emp, month }) {
     const a = attOf(store, emp, k);
     if (a) c.brk += (a.breaks || []).reduce((t, b) => t + (b.e ? Math.max(0, toMin(b.e) - toMin(b.s)) : 0), 0);
     if (a && a.out) c.worked += workedMins(a, k);
-    const o = k < TODAY ? otSuggestion(store, emp, k) : null; if (o && store.settings.mode !== 'timesheet') c.ot += o.extra;
+    const o = k < TODAY ? otSuggestion(store, emp, k) : null; if (o && attOn(store)) c.ot += o.extra;
   }
   const tiles = [['Present', c.present, 'present'], ['Late', c.late, 'late'], ['Half day', c.half, 'half'], ['Absent', c.absent, 'absent'], ['On leave', c.leave, 'leave'], ['Holidays', c.holiday, 'holiday'], ['Worked off-days', c.offwork, 'offwork'], ['Break time', dur(c.brk), 'off']];
   return html`<section className="panel pad att-totals" aria-label="Month totals">
@@ -2098,7 +2112,7 @@ function DayLine({ emp, k, list, expanded, onToggle, children }) {
     <button className="dl-a" onClick=${onToggle} aria-expanded=${expanded}>
       <span className="dl-d">${DAY_SHORT[dow(k)]} ${fromKey(k).getDate()}</span>
       <span className="dl-m">${MON[fromKey(k).getMonth()]}${k === TODAY ? ', today' : ''}</span>
-      ${st.label && store.settings.mode !== 'timesheet' ? html`<span className=${'mini ' + st.key}>${st.label}</span>` : null}
+      ${st.label && attOn(store) ? html`<span className=${'mini ' + st.key}>${st.label}</span>` : null}
     </button>
     <div className="dl-b" onClick=${onToggle}>
       <div className="dl-meta"><span>${meta}</span><span className="dl-log"><b>${lt.main}</b>${lt.note ? html`<span className="muted"> · ${lt.note}</span>` : null}${untimed ? html`<span className="muted"> · ${dur(untimed)} without set times</span>` : null}</span>
@@ -2476,7 +2490,7 @@ function WeekReview({ item, mgr, onClose, level }) {
   const { store, update, notify } = useApp();
   const emp = EMAP[item.id];
   const w = readWeek(store, item.id, item.ws);
-  const lvl = level || 1;
+  const lvl = item.level || level || 1;
   const isChange = !!w.baseline;
   const [tab, setTab] = useState(isChange ? 'changes' : 'sheet');
   const [rejecting, setRejecting] = useState(false);
@@ -2575,21 +2589,22 @@ function LeaveModal({ emp, onClose }) {
   const [reason, setReason] = useState(''); const [err, setErr] = useState('');
   const end = kind === 'half' ? from : to;
   let days = 0; if (end >= from) for (let k = from; k <= end; k = addDays(k, 1)) if (!isOff(k)) days++;
-  const needProof = lt === 'Sick' && kind === 'full' && days > 3;
+  const LR = leaveRules(store);
+  const needProof = lt === 'Sick' && kind === 'full' && days > LR.proofDays;
   const go = () => {
     if (kind === 'full' && to < from) return setErr('The end date is before the start date.');
     if (!days) return setErr('Those dates are all weekly offs or holidays.');
     const clash = store.requests.find(r => r.type === 'leave' && r.empId === emp.id && ['approved', 'pending_l1', 'pending_l2'].includes(r.status) && r.data.from <= end && r.data.to >= from);
     if (clash) return setErr('You already have leave on these dates (' + reqSummary(clash).split('.')[0] + ').');
     { const lb = leaveBalances(store, emp); const need = kind === 'half' ? 0.5 : days; if (lb.left(lt) < need) return setErr('You have ' + fd(lb.left(lt)) + ' day' + (lb.left(lt) === 1 ? '' : 's') + ' of ' + lt + ' leave available right now. Apply for fewer days or pick another leave type.'); }
-    if (needProof && !proof) return setErr('Sick leave of more than 3 days needs a medical certificate or proof.');
+    if (needProof && !proof) return setErr('Sick leave of more than ' + LR.proofDays + ' days needs a medical certificate or proof.');
     if (!reason.trim()) return setErr('Add a short reason.');
     update(s => createRequest(s, 'leave', emp.id, { leaveType: lt, from, to: end, days: kind === 'half' ? 0.5 : days, half: kind === 'half' ? half : null, proof: proof || null, reason: reason.trim() }));
     notify('Leave request sent'); onClose();
   };
   return html`<${Modal} title="Apply for leave" onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="o" className="btn primary" onClick=${go}>Send request</button>`]}>
     <div className="field"><label htmlFor="lt">Leave type</label><select id="lt" className="input" value=${lt} onChange=${e => { setLt(e.target.value); setErr(''); }}>${['Annual', 'Casual', 'Sick'].map(x => html`<option key=${x}>${x}</option>`)}</select></div>
-    <div className="field"><label>Duration</label><${Seg} label="Duration" value=${kind} onChange=${v => { setKind(v); setErr(''); }} options=${[['full', 'Full day(s)'], ['half', 'Half day']]} /></div>
+    <div className="field"><label>Duration</label><${Seg} label="Duration" value=${kind} onChange=${v => { setKind(v); setErr(''); }} options=${[['full', 'Full day(s)'], ['half', 'Half day']].filter(o => o[0] === 'full' || LR.halfDay)} /></div>
     ${kind === 'half' ? html`<div className="row" style=${{ flexWrap: 'nowrap', alignItems: 'flex-end' }}>
         <div className="field" style=${{ flex: 1 }}><label htmlFor="lf">Date</label><input id="lf" className="input" type="date" value=${from} onInput=${e => { setFrom(e.target.value); setErr(''); }} /></div>
         <div className="field" style=${{ flex: 1 }}><label>Which half</label><${Seg} label="Which half" value=${half} onChange=${setHalf} options=${[['first', 'First half'], ['second', 'Second half']]} /></div></div>`
@@ -2599,27 +2614,35 @@ function LeaveModal({ emp, onClose }) {
     <div className="small muted" style=${{ margin: '-4px 0 10px' }}>${kind === 'half' ? 'Half a day. ' + (half === 'first' ? 'You’ll start work at mid-shift.' : 'You’ll finish at mid-shift.') : days ? days + ' working day' + (days === 1 ? '' : 's') + ' (weekly offs and holidays aren’t counted).' : ''}</div>
     ${lt === 'Sick' && html`<div className="field"><label htmlFor="lp">Medical certificate or proof${needProof ? '' : ' (optional)'}</label>
       <input id="lp" className="input" type="file" accept="image/*,.pdf" onChange=${e => { setProof(e.target.files && e.target.files[0] ? e.target.files[0].name : ''); setErr(''); }} />
-      <span className="small muted">${needProof ? 'Required for sick leave of more than 3 days.' : 'Required only for more than 3 days.'}${proof ? ' Attached: ' + proof : ''}</span></div>`}
+      <span className="small muted">${needProof ? 'Required for sick leave of more than ' + LR.proofDays + ' days.' : 'Required only for more than ' + LR.proofDays + ' days.'}${proof ? ' Attached: ' + proof : ''}</span></div>`}
     <div className="field"><label htmlFor="lr">Reason</label><textarea id="lr" className="input" value=${reason} onInput=${e => { setReason(e.target.value); setErr(''); }}></textarea></div>
     <div className="small muted">${approvalLine(store, emp, 'leave')} Once approved, your attendance and timesheet update automatically.</div>${err && html`<div className="err">${err}</div>`}
   <//>`;
 }
 function ClaimModal({ emp, onClose }) {
   const { store, update, notify } = useApp();
-  const [cat, setCat] = useState('Travel'); const [amount, setAmount] = useState(''); const [date, setDate] = useState(TODAY);
-  const [desc, setDesc] = useState(''); const [err, setErr] = useState('');
+  const RR = reimbRules(store);
+  const [cat, setCat] = useState(RR.categories[0] ? RR.categories[0].name : ''); const [amount, setAmount] = useState(''); const [date, setDate] = useState(TODAY);
+  const [desc, setDesc] = useState(''); const [err, setErr] = useState(''); const [rcpt, setRcpt] = useState('');
+  const cfg = RR.categories.find(c => c.name === cat) || { limit: 0, receipt: false };
+  const usedM = store.requests.filter(r => r.type === 'reimbursement' && r.empId === emp.id && r.data.category === cat && ['approved', 'pending_l1', 'pending_l2', 'update_requested'].includes(r.status) && monthOf(r.data.date) === monthOf(date)).reduce((t, r) => t + (+r.data.amount || 0), 0);
   const go = () => {
     if (!(Number(amount) > 0)) return setErr('Enter the amount you spent.');
+    if (daysBetween(date, TODAY) > RR.claimDays) return setErr('Claims must be made within ' + RR.claimDays + ' days of the expense.');
+    if (cfg.limit && usedM + Number(amount) > cfg.limit) return setErr('Your ' + cat + ' limit is ' + inr(cfg.limit) + ' a month. You’ve already claimed ' + inr(usedM) + ', so you can claim up to ' + inr(Math.max(0, cfg.limit - usedM)) + '.');
+    if (cfg.receipt && !rcpt) return setErr('Attach the receipt for ' + cat + ' claims.');
     if (!desc.trim()) return setErr('Describe what the expense was for.');
-    update(s => createRequest(s, 'reimbursement', emp.id, { category: cat, amount: Math.round(Number(amount)), date, description: desc.trim() }));
+    update(s => createRequest(s, 'reimbursement', emp.id, { category: cat, amount: Math.round(Number(amount)), date, description: desc.trim(), receipt: rcpt || null }));
     notify('Claim sent'); onClose();
   };
   return html`<${Modal} title="New reimbursement claim" onClose=${onClose} footer=${[html`<button key="c" className="btn" onClick=${onClose}>Cancel</button>`, html`<button key="o" className="btn primary" onClick=${go}>Send claim</button>`]}>
-    <div className="field"><label htmlFor="cc">Category</label><select id="cc" className="input" value=${cat} onChange=${e => setCat(e.target.value)}>${['Travel', 'Meals', 'Internet', 'Client entertainment', 'Office supplies'].map(x => html`<option key=${x}>${x}</option>`)}</select></div>
+    <div className="field"><label htmlFor="cc">Category</label><select id="cc" className="input" value=${cat} onChange=${e => setCat(e.target.value)}>${RR.categories.map(c => c.name).map(x => html`<option key=${x}>${x}</option>`)}</select></div>
     <div className="row" style=${{ flexWrap: 'nowrap' }}>
       <div className="field" style=${{ flex: 1 }}><label htmlFor="ca">Amount (₹)</label><input id="ca" className="input" type="number" min="1" value=${amount} onInput=${e => { setAmount(e.target.value); setErr(''); }} /></div>
       <div className="field" style=${{ flex: 1 }}><label htmlFor="cd">Date spent</label><input id="cd" className="input" type="date" max=${TODAY} value=${date} onInput=${e => setDate(e.target.value)} /></div></div>
+    <div className="small muted" style=${{ margin: '-4px 0 10px' }}>${cfg.limit ? 'Limit ' + inr(cfg.limit) + ' a month · ' + inr(Math.max(0, cfg.limit - usedM)) + ' left for ' + fmtMonth(monthOf(date)) : 'No monthly limit'}${' · claim within ' + RR.claimDays + ' days'}</div>
     <div className="field"><label htmlFor="cx">What was it for?</label><textarea id="cx" className="input" value=${desc} onInput=${e => { setDesc(e.target.value); setErr(''); }}></textarea></div>
+    <div className="field"><label htmlFor="cr">Receipt${cfg.receipt ? '' : ' (optional)'}</label><input id="cr" className="input" type="file" accept="image/*,.pdf" onChange=${e => { setRcpt(e.target.files && e.target.files[0] ? e.target.files[0].name : ''); setErr(''); }} />${rcpt ? html`<span className="small muted">Attached: ${rcpt}</span>` : null}</div>
     <div className="small muted">${approvalLine(store, emp, 'reimbursement')}</div>${err && html`<div className="err">${err}</div>`}
   <//>`;
 }
@@ -2633,8 +2656,8 @@ function TeamToday({ mgr }) {
   const now = nowMin();
   const rows = reports.map(e => { const st = dayStatus(store, e, TODAY); const a = store.attendance[e.id + '|' + TODAY]; return { e, st, a }; });
   const c = { in: rows.filter(r => r.a && r.a.in).length, late: rows.filter(r => r.st.late).length, notin: rows.filter(r => r.st.key === 'notin').length, leave: rows.filter(r => r.st.key === 'leave').length };
-  const ts = store.settings.mode !== 'attendance';
-  const att = store.settings.mode !== 'timesheet';
+  const ts = tsOn(store);
+  const att = attOn(store);
   return html`<div>
     ${isOff(TODAY) && html`<div className="banner grey"><div>${holidayOf(TODAY) ? 'Today is ' + holidayOf(TODAY) + '.' : 'Today is a weekly off.'} Anyone who checks in is working overtime.</div></div>`}
     ${att && html`<div className="stats" style=${{ gridTemplateColumns: 'repeat(4,minmax(0,1fr))' }}>
@@ -2717,15 +2740,15 @@ function TeamApprovals({ mgr, onReview }) {
   const [sel, setSel] = useState({});
   const reports = EMP.filter(e => e.mgr === mgr.id).map(e => e.id);
   const ts = approvalOn(store) ? teamTimesheetItems(store, mgr.id).map(it => ({ kind: 'timesheet', key: 'ts' + it.id + it.ws, it, at: it.ws })) : [];
-  const rq = store.requests.filter(r => reports.includes(r.empId) && r.status === 'pending_l1' && reqVisible(store, r)).map(r => ({ kind: r.type, key: r.id, r, at: r.created }));
+  const rq = personQueue(store, mgr.id).map(r => ({ kind: r.type, key: r.id, r, at: r.created }));
   const all = ts.concat(rq);
-  const types = [['all', 'All'], ['timesheet', 'Timesheets'], ['attendance', 'Attendance'], ['overtime', 'Overtime'], ['leave', 'Leave'], ['reimbursement', 'Reimbursements']].filter(([k]) => k === 'all' || (k === 'timesheet' ? approvalOn(store) : k === 'attendance' ? store.settings.mode !== 'timesheet' : true));
+  const types = [['all', 'All'], ['timesheet', 'Timesheets'], ['attendance', 'Attendance'], ['overtime', 'Overtime'], ['leave', 'Leave'], ['reimbursement', 'Reimbursements']].filter(([k]) => k === 'all' || (k === 'timesheet' ? approvalOn(store) : k === 'attendance' ? attOn(store) : true));
   const count = k => k === 'all' ? all.length : all.filter(x => x.kind === k).length;
   const list = filter === 'all' ? all : all.filter(x => x.kind === filter);
   const chosen = list.filter(x => sel[x.key]);
   const approveOne = (s, x) => {
-    if (x.kind === 'timesheet') { const w = writeWeek(s, x.it.id, x.it.ws); if (s.settings.l2.timesheet !== 'None') { w.status = 'with_payroll'; hist(w, TODAY, mgr.name, 'Approved, sent to Payroll'); } else { w.status = 'approved'; w.approved = clone(w.entries); delete w.baseline; hist(w, TODAY, mgr.name, 'Approved'); } }
-    else decideRequest(s, x.r.id, 1, 'approve', '', mgr.name);
+    if (x.kind === 'timesheet') { const w = writeWeek(s, x.it.id, x.it.ws); if (x.it.level !== 2 && s.settings.l2.timesheet !== 'None') { w.status = 'with_payroll'; hist(w, TODAY, mgr.name, 'Approved, sent to Payroll'); } else { w.status = 'approved'; w.approved = clone(w.entries); delete w.baseline; hist(w, TODAY, mgr.name, 'Approved'); } }
+    else decideRequest(s, x.r.id, x.r.status === 'pending_l2' ? 2 : 1, 'approve', '', mgr.name);
   };
   const bulk = () => { const n = chosen.length; update(s => chosen.forEach(x => approveOne(s, x))); setSel({}); notify(n + ' item' + (n === 1 ? '' : 's') + ' approved and sent to level 2'); };
   const allOn = list.length > 0 && list.every(x => sel[x.key]);
@@ -2738,7 +2761,7 @@ function TeamApprovals({ mgr, onReview }) {
         ${x.kind === 'timesheet' ? (() => { const e = EMAP[x.it.id]; const w = store.weeks[x.it.id + '|' + x.it.ws]; return html`<div className="req"><div><div className="row" style=${{ gap: '8px' }}><span className="avatar" style=${{ width: '26px', height: '26px', fontSize: '11px' }}>${initials(e.name)}</span><span className="title">${e.name}, Timesheet</span><span className="muted small">Week of ${weekRange(x.it.ws)}</span></div>
             <div style=${{ marginTop: '4px', color: 'var(--ink-2)' }}>${dur(Object.values(w.entries).reduce((t, l) => t + sumMins(l), 0))} logged${x.it.kind === 'change' ? ' · edited after it was approved' : ''}</div></div>
             <div className="row" style=${{ alignItems: 'flex-start' }}>${x.it.kind === 'change' ? html`<span className="chip amber">Edited</span>` : null}<button className="btn sm primary" onClick=${() => onReview(x.it)}>Review</button></div></div>`; })()
-          : html`<${ReqRow} r=${x.r} showEmp level=${1} actor=${mgr.name} />`}
+          : html`<${ReqRow} r=${x.r} showEmp level=${x.r.status === 'pending_l2' ? 2 : 1} actor=${mgr.name} />`}
       </div>`)}
       ${list.length === 0 && html`<${Empty} title="You’re all caught up">Anything your team sends for approval shows up here. Requests wait for you, even while you’re on leave.<//>`}</div>
     <div className="small muted" style=${{ marginTop: '8px' }}>Approving sends it on to Payroll for level 2. “Ask for update” sends it straight back to the employee; when they resubmit, it comes back to you.</div>
@@ -2757,7 +2780,7 @@ function TeamDayModal({ emp, k, onClose }) {
       <dt>Check in</dt><dd>${a ? t12(a.in) : '–'}</dd>
       <dt>Check out</dt><dd>${a && a.out ? t12(a.out) + (a.outDays === 1 ? ' (next day)' : '') : a ? 'Still checked in' : '–'}</dd>
       <dt>Time at work</dt><dd>${a ? dur(workedMins(a, k)) : '–'}</dd>
-      ${store.settings.mode !== 'attendance' ? kids(html`<dt>Timesheet</dt><dd>${dur(logged)} logged</dd>`) : null}
+      ${tsOn(store) ? kids(html`<dt>Timesheet</dt><dd>${dur(logged)} logged</dd>`) : null}
       ${a && a.breaks && a.breaks.length ? kids(html`<dt>Breaks</dt><dd>${a.breaks.map(b => t12(b.s) + ' – ' + (b.e ? t12(b.e) : 'now')).join(', ')}</dd>`) : null}
       ${ded ? kids(html`<dt>Late deduction</dt><dd>${ded.days} day · ${ded.from}</dd>`) : null}</dl>
     ${pending ? html`<div style=${{ marginTop: '10px' }}><${ReqStatusChip} r=${pending} /></div>` : null}
@@ -2784,7 +2807,7 @@ function TeamLeaveCal({ mgr, people, level }) {
   const [month, setMonth] = useState(monthOf(TODAY));
   const reports = people ? people.map(e => e.id) : EMP.filter(e => e.mgr === mgr.id).map(e => e.id);
   const lv = store.requests.filter(r => r.type === 'leave' && reports.includes(r.empId) && ['approved', 'pending_l1', 'pending_l2'].includes(r.status));
-  const pendL = lv.filter(r => r.status === (level === 2 ? 'pending_l2' : 'pending_l1')).sort((a, b) => a.data.from < b.data.from ? -1 : 1);
+  const pendL = (level === 2 ? lv.filter(teamWaiting) : personQueue(store, mgr.id).filter(r => r.type === 'leave')).sort((a, b) => a.data.from < b.data.from ? -1 : 1);
   const cell = k => { const on = lv.filter(r => r.data.from <= k && r.data.to >= k && !isOff(k)); return [on.length ? html`<span key="n" className="cv">${on.length} off</span>` : null, ...on.map(r => html`<span key=${r.id} className=${'mini ' + (r.status === 'approved' ? 'leave' : 'off')} style=${{ border: r.status === 'approved' ? '' : '1px dashed var(--line-2)' }}>${first(EMAP[r.empId].name)}${r.data.half ? ' ½' : ''}</span>`)]; };
   return html`<div>
     <div className="viewbar"><button className="btn sm" aria-label="Previous month" onClick=${() => setMonth(addMonths(month, -1))}>‹</button><span className="range">${fmtMonth(month)}</span><button className="btn sm" aria-label="Next month" onClick=${() => setMonth(addMonths(month, 1))}>›</button>
@@ -2796,7 +2819,7 @@ function TeamLeaveCal({ mgr, people, level }) {
           <div className="small muted" style=${{ marginTop: '2px' }}>Check who else is off before you approve.</div></div>
         <div className="lc-list">${pendL.map(r => { const also = lv.filter(x => x.id !== r.id && x.status === 'approved' && x.data.from <= r.data.to && x.data.to >= r.data.from).map(x => first(EMAP[x.empId].name)); return html`<div key=${r.id} className="lc-item">
             <div className="row" style=${{ gap: '6px', padding: '8px 12px 0' }}>${also.length ? html`<span className="chip amber">Also off: ${Array.from(new Set(also)).join(', ')}</span>` : html`<span className="chip green">No one else off</span>`}<span className="spacer"></span><button className="btn link small" onClick=${() => setMonth(monthOf(r.data.from))}>Show on calendar</button></div>
-            <${ReqRow} r=${r} showEmp level=${level || 1} actor=${level === 2 ? (store.settings.l2.leave || 'HR') + ' team' : mgr.name} /></div>`; })}
+            <${ReqRow} r=${r} showEmp level=${r.status === 'pending_l2' ? 2 : 1} actor=${level === 2 ? routeLabel(waitingWith(r)) : mgr.name} /></div>`; })}
           ${pendL.length === 0 && html`<${Empty} title="Nothing to approve">New leave requests from your team show up here.<//>`}</div>
       </section></div>
     </div>
@@ -2808,7 +2831,7 @@ function TeamReimb({ mgr }) {
   const [st, setSt] = useState('all');
   const reports = EMP.filter(e => e.mgr === mgr.id).map(e => e.id);
   const inMonth = store.requests.filter(r => r.type === 'reimbursement' && reports.includes(r.empId) && monthOf(r.data.date || r.created) === month && r.status !== 'withdrawn');
-  const bucket = r => r.status === 'pending_l1' ? 'you' : r.status === 'pending_l2' ? 'l2' : r.status === 'approved' ? 'ok' : r.status === 'update_requested' ? 'upd' : 'no';
+  const bucket = r => waitingWith(r) === mgr.id ? 'you' : r.status === 'pending_l1' || r.status === 'pending_l2' ? 'l2' : r.status === 'approved' ? 'ok' : r.status === 'update_requested' ? 'upd' : 'no';
   const sum = list => list.reduce((t, r) => t + (+r.data.amount || 0), 0);
   const list = st === 'all' ? inMonth : inMonth.filter(r => bucket(r) === st);
   const byPerson = reports.map(id => ({ e: EMAP[id], list: inMonth.filter(r => r.empId === id) })).filter(x => x.list.length);
@@ -2823,7 +2846,7 @@ function TeamReimb({ mgr }) {
     </div>
     ${byPerson.length ? html`<div className="panel pad" style=${{ marginBottom: '14px' }}><h3 style=${{ marginBottom: '6px' }}>By team member</h3>${byPerson.map(x => html`<div key=${x.e.id} className="ul-row" style=${{ cursor: 'default' }}><span>${x.e.name} <span className="muted small">· ${x.list.length} claim${x.list.length === 1 ? '' : 's'}</span></span><span>${inr(sum(x.list))}</span></div>`)}</div>` : null}
     <div className="row" style=${{ marginBottom: '10px' }}><${Seg} label="Status" value=${st} onChange=${setSt} options=${[['all', 'All (' + inMonth.length + ')'], ['you', 'Waiting for you (' + c('you').length + ')'], ['l2', 'With Admin (' + c('l2').length + ')'], ['upd', 'Update requested (' + c('upd').length + ')'], ['ok', 'Approved (' + c('ok').length + ')'], ['no', 'Rejected (' + c('no').length + ')']]} /></div>
-    <div className="panel">${list.map(r => html`<${ReqRow} key=${r.id} r=${r} showEmp level=${r.status === 'pending_l1' ? 1 : undefined} actor=${mgr.name} />`)}
+    <div className="panel">${list.map(r => html`<${ReqRow} key=${r.id} r=${r} showEmp level=${waitingWith(r) === mgr.id ? (r.status === 'pending_l2' ? 2 : 1) : undefined} actor=${mgr.name} />`)}
       ${list.length === 0 && html`<${Empty} title="No claims here">Reimbursement claims from your team for ${fmtMonth(month)} show up here.<//>`}</div>
   </div>`;
 }
@@ -2833,12 +2856,12 @@ function TeamPage({ mgr }) {
   const [review, setReview] = useState(null);
   const mode = store.settings.mode;
   const reports = EMP.filter(e => e.mgr === mgr.id).map(e => e.id);
-  const n = (approvalOn(store) ? teamTimesheetItems(store, mgr.id).length : 0) + store.requests.filter(r => reports.includes(r.empId) && r.status === 'pending_l1' && reqVisible(store, r)).length;
+  const n = (approvalOn(store) ? teamTimesheetItems(store, mgr.id).length : 0) + personQueue(store, mgr.id).length;
   const TABS = [
     { k: 'approvals', label: 'Approvals', n },
-    mode !== 'timesheet' && { k: 'today', label: 'Team today' },
-    mode !== 'timesheet' && { k: 'att', label: 'Team attendance' },
-    mode !== 'attendance' && { k: 'teamts', label: 'Team timesheets' },
+    (mode === 'attendance' || mode === 'both') && { k: 'today', label: 'Team today' },
+    (mode === 'attendance' || mode === 'both') && { k: 'att', label: 'Team attendance' },
+    (mode === 'timesheet' || mode === 'both') && { k: 'teamts', label: 'Team timesheets' },
     { k: 'leavecal', label: 'Leave calendar' },
     { k: 'reimb', label: 'Team reimbursements' },
   ].filter(Boolean);
@@ -2866,9 +2889,9 @@ function TeamPageOld({ mgr }) {
   const pend = t => reqs(t).filter(r => r.status === 'pending_l1');
   const TABS = [
     { k: 'today', label: 'Team today' },
-    mode !== 'attendance' && { k: 'teamts', label: 'Team timesheets' },
+    (mode === 'timesheet' || mode === 'both') && { k: 'teamts', label: 'Team timesheets' },
     approvalOn(store) && { k: 'timesheet', label: 'Timesheet approvals', n: ts.length },
-    mode !== 'timesheet' && { k: 'attendance', label: 'Attendance', n: pend('attendance').length },
+    (mode === 'attendance' || mode === 'both') && { k: 'attendance', label: 'Attendance', n: pend('attendance').length },
     { k: 'overtime', label: 'Overtime', n: pend('overtime').length },
     { k: 'leave', label: 'Leave', n: pend('leave').length },
     { k: 'reimbursement', label: 'Reimbursements', n: pend('reimbursement').length },
@@ -2897,7 +2920,7 @@ function TimeSection({ emp, init }) {
   const { store } = useApp();
   const mode = store.settings.mode;
   const [tab, setTab] = useState((init && init.tab) || (mode === 'timesheet' ? 'timesheet' : 'attendance'));
-  const TABS = [mode !== 'timesheet' && { k: 'attendance', label: 'Attendance' }, mode !== 'attendance' && { k: 'timesheet', label: 'Timesheet' }, { k: 'overtime', label: 'Overtime' }].filter(Boolean);
+  const TABS = [(mode === 'attendance' || mode === 'both') && { k: 'attendance', label: 'Attendance' }, (mode === 'timesheet' || mode === 'both') && { k: 'timesheet', label: 'Timesheet' }, { k: 'overtime', label: 'Overtime' }].filter(Boolean);
   const cur = TABS.find(t => t.k === tab) ? tab : TABS[0].k;
   return html`<div><${Tabs} tabs=${TABS} value=${cur} onChange=${setTab} />
     ${cur === 'attendance' && html`<${MyAttendance} emp=${emp} initDate=${init && init.tab === 'attendance' ? init.date : null} />`}
@@ -3008,7 +3031,7 @@ function OvTable({ emp, go }) {
   return html`<section className="panel ov-card ov-table" aria-label="Recent days">
     <div className="row pad" style=${{ paddingBottom: '10px' }}><h3>Last 10 working days</h3><span className="spacer"></span><span className="muted small">Click any cell to open it in Attendance, Timesheet or Overtime</span></div>
     <div className="scroll-x"><table>
-      <thead><tr><th>Date</th>${mode !== 'timesheet' && html`<th>Check in</th>`}${mode !== 'timesheet' && html`<th>Check out</th>`}${mode !== 'attendance' && appr && html`<th>Timesheet</th>`}${mode !== 'attendance' && html`<th>Hours logged</th>`}<th>Overtime</th></tr></thead>
+      <thead><tr><th>Date</th>${(mode === 'attendance' || mode === 'both') && html`<th>Check in</th>`}${(mode === 'attendance' || mode === 'both') && html`<th>Check out</th>`}${(mode === 'timesheet' || mode === 'both') && appr && html`<th>Timesheet</th>`}${(mode === 'timesheet' || mode === 'both') && html`<th>Hours logged</th>`}<th>Overtime</th></tr></thead>
       <tbody>${days.map(k => {
         const a = attOf(store, emp, k);
         const st = dayStatus(store, emp, k);
@@ -3023,10 +3046,10 @@ function OvTable({ emp, go }) {
         const toOt = e => { e.stopPropagation(); go('time', { tab: 'overtime' }); };
         return html`<tr key=${k} className="ov-row" tabIndex="0" onClick=${() => go('time', { tab: mode === 'attendance' ? 'attendance' : 'timesheet', date: k })} onKeyDown=${e => { if (e.key === 'Enter') go('time', { tab: mode === 'attendance' ? 'attendance' : 'timesheet', date: k }); }}>
           <td><b style=${{ fontWeight: 500, color: k === TODAY ? 'var(--red)' : undefined }}>${fmtDate(k)}</b>${k === TODAY ? html`<span className="muted small"> today</span>` : null}</td>
-          ${mode !== 'timesheet' && html`<td className="ov-cell" title="Open in Attendance" onClick=${toAtt}>${lv ? html`<span className="mini leave">Leave</span>` : a ? kids(html`<span>${t12(a.in)}</span>${st.late ? html` <span className="mini late">Late</span>` : null}`) : k < TODAY ? html`<span className="mini absent">Absent</span>` : '—'}</td>`}
-          ${mode !== 'timesheet' && html`<td className="ov-cell" title="Open in Attendance" onClick=${toAtt}>${a && a.out ? html`<span>${t12(a.out)}${a.outDays === 1 ? html`<span className="mini off" style=${{ marginLeft: '6px' }}>next day</span>` : null}</span>` : a ? html`<span className="muted">${a.carried ? 'Still checked in' : 'Still in'}</span>` : '—'}</td>`}
-          ${mode !== 'attendance' && appr && html`<td className="ov-cell" title="Open in Timesheet" onClick=${toTs}>${mondayOf(k) <= THIS_WEEK ? html`<span className=${'chip ' + ws.cls}>${ws.label}</span>` : '—'}</td>`}
-          ${mode !== 'attendance' && html`<td className="ov-cell" title="Open in Timesheet" onClick=${toTs}>${logged ? dur(logged) : html`<span className="muted">0h</span>`}</td>`}
+          ${(mode === 'attendance' || mode === 'both') && html`<td className="ov-cell" title="Open in Attendance" onClick=${toAtt}>${lv ? html`<span className="mini leave">Leave</span>` : a ? kids(html`<span>${t12(a.in)}</span>${st.late ? html` <span className="mini late">Late</span>` : null}`) : k < TODAY ? html`<span className="mini absent">Absent</span>` : '—'}</td>`}
+          ${(mode === 'attendance' || mode === 'both') && html`<td className="ov-cell" title="Open in Attendance" onClick=${toAtt}>${a && a.out ? html`<span>${t12(a.out)}${a.outDays === 1 ? html`<span className="mini off" style=${{ marginLeft: '6px' }}>next day</span>` : null}</span>` : a ? html`<span className="muted">${a.carried ? 'Still checked in' : 'Still in'}</span>` : '—'}</td>`}
+          ${(mode === 'timesheet' || mode === 'both') && appr && html`<td className="ov-cell" title="Open in Timesheet" onClick=${toTs}>${mondayOf(k) <= THIS_WEEK ? html`<span className=${'chip ' + ws.cls}>${ws.label}</span>` : '—'}</td>`}
+          ${(mode === 'timesheet' || mode === 'both') && html`<td className="ov-cell" title="Open in Timesheet" onClick=${toTs}>${logged ? dur(logged) : html`<span className="muted">0h</span>`}</td>`}
           <td className="ov-cell" title="Open Overtime" onClick=${toOt}>${otR ? html`<${ReqStatusChip} r=${otR} />` : ot ? html`<span className="chip amber">${dur(ot.extra)} not claimed</span>` : html`<span className="muted">No</span>`}</td>
         </tr>`;
       })}</tbody>
@@ -3041,12 +3064,12 @@ function OvNotifications({ emp, isManager, go }) {
   if (appr) Object.keys(store.weeks).filter(k => k.startsWith(emp.id + '|')).forEach(k => { const w = store.weeks[k]; const ws = k.split('|')[1]; if (w.status === 'rejected') actions.push({ id: 'sb' + ws, tone: 'back', title: 'Timesheet sent back', text: 'Week of ' + fmtShort(ws) + ': ' + w.comment, btn: 'Fix and resubmit', go: ['time', { tab: 'timesheet', date: ws }] }); });
   // auto check-outs without a correction
   store.requests.filter(r => r.empId === emp.id && r.status === 'update_requested').forEach(r => actions.unshift({ id: 'ur' + r.id, tone: 'back', title: 'Update requested: ' + reqTitle(r).toLowerCase(), text: ((r.trail.filter(t => t.comment).slice(-1)[0] || {}).by || '') + ': ' + ((r.trail.filter(t => t.comment).slice(-1)[0] || {}).comment || ''), btn: 'Open', go: r.type === 'leave' ? ['leave'] : r.type === 'reimbursement' ? ['reimbursement'] : r.type === 'overtime' ? ['time', { tab: 'overtime' }] : ['time', { tab: 'attendance', date: r.data.date }] }));
-  if (store.settings.mode !== 'timesheet') leaveBalances(store, emp).ded.filter(d => !d.pending && d.k >= addDays(TODAY, -7) && !isLocked(store, d.k)).slice(-3).forEach(d => actions.push({ id: 'late' + d.k, tone: 'amber', title: 'Late on ' + fmtDate(d.k) + ' · −' + d.days + ' day', text: (d.from === 'Loss of pay' ? 'No leave left, so it’s loss of pay.' : 'Deducted from ' + d.from + ' leave.') + ' If you weren’t late, request a correction.', btn: 'Request correction', go: ['time', { tab: 'attendance', date: d.k }] }));
-  { const pd = store.settings.mode !== 'timesheet' ? openSessionBefore(store, emp, TODAY) : null; if (pd) actions.unshift({ id: 'open' + pd, tone: 'info', title: 'You’re still checked in from ' + fmtDate(pd), text: 'Check out of that day before checking in today. If the time is wrong, request a correction.', btn: 'Go to attendance', go: ['time', { tab: 'attendance' }] }); }
+  if (attOn(store)) leaveBalances(store, emp).ded.filter(d => !d.pending && d.k >= addDays(TODAY, -7) && !isLocked(store, d.k)).slice(-3).forEach(d => actions.push({ id: 'late' + d.k, tone: 'amber', title: 'Late on ' + fmtDate(d.k) + ' · −' + d.days + ' day', text: (d.from === 'Loss of pay' ? 'No leave left, so it’s loss of pay.' : 'Deducted from ' + d.from + ' leave.') + ' If you weren’t late, request a correction.', btn: 'Request correction', go: ['time', { tab: 'attendance', date: d.k }] }));
+  { const pd = attOn(store) ? openSessionBefore(store, emp, TODAY) : null; if (pd) actions.unshift({ id: 'open' + pd, tone: 'info', title: 'You’re still checked in from ' + fmtDate(pd), text: 'Check out of that day before checking in today. If the time is wrong, request a correction.', btn: 'Go to attendance', go: ['time', { tab: 'attendance' }] }); }
   // unclaimed overtime
   let otDays = 0, otMin = 0; for (let i = 1; i <= 35; i++) { const k = addDays(TODAY, -i); if (isLocked(store, k)) continue; const o = otSuggestion(store, emp, k); if (o && !otRequestFor(store, emp.id, k)) { otDays++; otMin += o.extra; } }
   if (otDays) actions.push({ id: 'ot', tone: 'amber', title: dur(otMin) + ' of overtime not claimed', text: otDays + ' day' + (otDays === 1 ? '' : 's') + ' with hours beyond your standard day.', btn: 'Review overtime', go: ['time', { tab: 'overtime' }] });
-  if (isManager) { const reports = EMP.filter(e => e.mgr === emp.id).map(e => e.id); const n = teamTimesheetItems(store, emp.id).length + store.requests.filter(r => reports.includes(r.empId) && r.status === 'pending_l1' && reqVisible(store, r)).length; if (n) actions.unshift({ id: 'team', tone: 'info', title: n + ' waiting for your approval', text: 'Timesheets and requests from your team.', btn: 'Open My team', go: ['team'] }); }
+  if (isManager) { const reports = EMP.filter(e => e.mgr === emp.id).map(e => e.id); const n = teamTimesheetItems(store, emp.id).length + personQueue(store, emp.id).length; if (n) actions.unshift({ id: 'team', tone: 'info', title: n + ' waiting for your approval', text: 'Timesheets and requests from your team.', btn: 'Open My team', go: ['team'] }); }
   // updates from my requests
   const updates = store.requests.filter(r => r.empId === emp.id && reqVisible(store, r)).map(r => { const last = r.trail[r.trail.length - 1]; return { r, at: last.at, last }; }).sort((x, y) => x.at < y.at ? 1 : -1).slice(0, 6);
   const updText = ({ r, last }) => r.self ? 'Saved, no approval needed' : r.status === 'approved' ? 'Approved' + (last.by ? ' by ' + last.by : '') : r.status === 'rejected' ? 'Rejected by ' + last.by + (last.comment ? ': ' + last.comment : '') : 'Waiting ' + reqStatusText(r);
@@ -3093,7 +3116,7 @@ function OvCards({ emp, go, isManager }) {
     { k: 'ot', icon: OvIcon.ot, label: 'Overtime', value: dur(otApproved) + ' approved', sub: 'in ' + MON_LONG[+m.slice(5) - 1] + ', ' + plural(pend('overtime').length, 'request') + ' waiting', go: ['time', { tab: 'overtime' }] },
     { k: 'pay', icon: OvIcon.pay, label: 'Payslips', value: 'Not in this prototype', sub: 'Coming in a later service', dim: true },
     { k: 'doc', icon: OvIcon.doc, label: 'Documents', value: 'Not in this prototype', sub: 'Coming in a later service', dim: true },
-    ...(isManager ? [(() => { const reports = EMP.filter(e => e.mgr === emp.id).map(e => e.id); const n = (approvalOn(store) ? teamTimesheetItems(store, emp.id).length : 0) + store.requests.filter(r => reports.includes(r.empId) && r.status === 'pending_l1' && reqVisible(store, r)).length; return { k: 'team', icon: Icon.mgr, label: 'My team', value: n ? n + ' waiting for you' : 'All caught up', sub: reports.length + ' direct reports', go: ['team'] }; })()] : []),
+    ...(isManager ? [(() => { const reports = EMP.filter(e => e.mgr === emp.id).map(e => e.id); const n = (approvalOn(store) ? teamTimesheetItems(store, emp.id).length : 0) + personQueue(store, emp.id).length; return { k: 'team', icon: Icon.mgr, label: 'My team', value: n ? n + ' waiting for you' : 'All caught up', sub: reports.length + ' direct reports', go: ['team'] }; })()] : []),
   ];
   return html`<section className="ov-cards" aria-label="Shortcuts">${cards.map(c => html`<button key=${c.k} className=${'ov-sc' + (c.dim ? ' dim' : '')} disabled=${!!c.dim} onClick=${() => c.go && go(...c.go)}>
     <span className="ov-sc-i">${c.icon}</span><span className="ov-sc-l">${c.label}</span><b>${c.value}</b><span className="ov-sc-s">${c.sub}</span></button>`)}</section>`;
@@ -3103,10 +3126,10 @@ function Home({ emp, isManager, go }) {
   const mode = store.settings.mode;
   return html`<div className=${'ov' + (mode === 'both' ? '' : ' one')}>
     <${OvProfile} emp=${emp} go=${go} />
-    ${mode !== 'timesheet' && html`<${OvAttendance} emp=${emp} wide=${mode === 'attendance'} go=${go} />`}
-    ${mode !== 'attendance' && html`<${OvTimesheet} emp=${emp} wide=${mode === 'timesheet'} go=${go} />`}
+    ${(mode === 'attendance' || mode === 'both') && html`<${OvAttendance} emp=${emp} wide=${mode === 'attendance'} go=${go} />`}
+    ${(mode === 'timesheet' || mode === 'both') && html`<${OvTimesheet} emp=${emp} wide=${mode === 'timesheet'} go=${go} />`}
     <${OvCards} emp=${emp} go=${go} isManager=${isManager} />
-    <${OvTable} emp=${emp} go=${go} />
+    ${store.settings.mode !== 'none' ? html`<${OvTable} emp=${emp} go=${go} />` : null}
     <${OvNotifications} emp=${emp} isManager=${isManager} go=${go} />
   </div>`;
 }
@@ -3174,8 +3197,10 @@ function MyProfile({ emp }) {
   </div>`;
 }
 const ESS_PAGES = (store, isManager) => [['home', 'Overview'], ['time', SECTION_NAME[store.settings.mode]], isManager && ['team', 'My team'], ['leave', 'Leave'], ['reimbursement', 'Reimbursements'], ['profile', 'My profile']].filter(Boolean);
-function Ess({ emp, isManager, nav, setNav }) {
+function Ess({ emp, isManager: isMgrProp, nav, setNav }) {
   const { store } = useApp();
+  // My team shows for anyone with direct reports, or anyone set as a level 1 / level 2 approver
+  const isManager = isMgrProp || EMP.some(x => x.mgr === emp.id) || Object.values(store.settings.l1 || {}).includes(emp.id) || Object.values(store.settings.l2 || {}).includes(emp.id);
   const go = (k, params) => setNav({ k, params: params || {}, n: Date.now() });
   const names = Object.fromEntries(ESS_PAGES(store, isManager));
   const page = nav.k;
@@ -3279,8 +3304,8 @@ function Settings() {
   const lastMonth = addMonths(monthOf(TODAY), -1);
   const blockers = st.lastProcessed < lastMonth ? payrollBlockers(store, lastMonth) : [];
   const set = (k, v) => update(s => { s.settings[k] = v; });
-  const modes = [['attendance', 'Attendance only', 'Employees check in and out. No timesheets.'], ['both', 'Attendance + timesheet', 'Check in and out, then log what you worked on. Each day runs from check-in to check-out.'], ['timesheet', 'Timesheet only', 'No check-in. Each day runs on the shift times, and timesheets count as days worked.']];
-  const comps = [['attendance', 'Attendance corrections'], ['overtime', 'Overtime'], ['leave', 'Leave'], ['reimbursement', 'Reimbursements'], ['timesheet', 'Timesheets']];
+  const modes = [['attendance', 'Attendance only', 'Employees check in and out. No timesheets.'], ['timesheet', 'Timesheet only', 'No check-in. Each day runs on the shift times, and timesheets count as days worked.'], ['both', 'Attendance + timesheet', 'Check in and out, then log what you worked on. Each day runs from check-in to check-out.'], ['none', 'Neither', 'No attendance or timesheets. Leave, overtime, reimbursements and the rest still work.']];
+  const comps = [['attendance', 'Attendance corrections'], ['timesheet', 'Timesheets'], ['overtime', 'Overtime']];
   return html`<div className="setgrid">
     <div className="panel pad"><h2 style=${{ marginBottom: '4px' }}>How Acme tracks time</h2><div className="muted small" style=${{ marginBottom: '14px' }}>Changes apply to everyone straight away.</div>
       <div className="modes">${modes.map(([k, t, d]) => html`<button key=${k} className="mode" aria-pressed=${st.mode === k} onClick=${() => { set('mode', k); notify('Switched to ' + t.toLowerCase()); }}><b>${t}</b><span>${d}</span></button>`)}</div></div>
@@ -3289,11 +3314,9 @@ function Settings() {
         <${NumField} id="g" label="Grace period after shift start" value=${st.graceMin} unit="min" onChange=${v => set('graceMin', v)} />
         <${NumField} id="h" label="Half day if time at work is under" value=${st.halfDayMin / 60} unit="hours" step="0.5" onChange=${v => set('halfDayMin', Math.round(v * 60))} />
         <${NumField} id="b" label="Break included in each shift" value=${st.breakMin} unit="min" onChange=${v => set('breakMin', v)} />
-        <${NumField} id="o" label="Suggest overtime from" value=${st.otMin} unit="min extra" onChange=${v => set('otMin', v)} />
-        <${NumField} id="ld" label="Leave deducted per late check-in" value=${st.lateDays != null ? st.lateDays : 0.5} unit="days (0 = off)" step="0.5" onChange=${v => set('lateDays', v)} />
       </div>
-      <div className="small muted">A 9h shift includes the break. Overtime is time beyond the shift length, whatever time someone checks in. Weekends and holidays count in full. Anyone who doesn’t check out is checked out automatically at 11:59 PM, and that day never counts as overtime until the real time is updated.</div></div>
-    ${st.mode !== 'attendance' && html`<div className="panel pad"><div className="row"><div style=${{ flex: 1, minWidth: '240px' }}><h2 style=${{ marginBottom: '4px' }}>Timesheet approval</h2>
+      <div className="small muted">A 9h shift includes the break. A check-in after shift start plus the grace period is a late mark. A day stays open until the employee checks out, and they can’t check in again until they do.</div></div>
+    ${(st.mode === 'timesheet' || st.mode === 'both') && html`<div className="panel pad"><div className="row"><div style=${{ flex: 1, minWidth: '240px' }}><h2 style=${{ marginBottom: '4px' }}>Timesheet approval</h2>
         <div className="muted small">When on, timesheets go to the reporting manager every ${DAY_LONG[st.submitDay]}, and payroll for a month can't be processed until every timesheet in it is approved.</div></div>
         <button className="switch" role="switch" aria-checked=${st.tsApproval} aria-label="Timesheet approval" onClick=${() => { set('tsApproval', !st.tsApproval); notify('Timesheet approval ' + (st.tsApproval ? 'off' : 'on')); }}></button></div>
       ${st.tsApproval && html`<div className="row" style=${{ marginTop: '14px' }}><label htmlFor="sd" className="small" style=${{ fontWeight: 500 }}>Submit every</label>
@@ -3301,21 +3324,76 @@ function Settings() {
         <span className="small">at</span><input className="input" type="time" aria-label="Auto-submit time" style=${{ width: 'auto' }} value=${st.submitTime || '23:00'} onChange=${e => set('submitTime', e.target.value)} />
         <button className="btn" onClick=${() => { update(runSubmission); notify('Auto-submit run done'); }}>Run auto-submit now (demo)</button></div>`}
       ${st.tsApproval && html`<div className="small muted" style=${{ marginTop: '8px' }}>Auto-submit sends every draft timesheet and its attendance for approval at this time. Anything already sent is left alone.</div>`}</div>`}
-    ${st.mode !== 'attendance' && html`<${ProjectSettings} />`}
-    <${LeavePolicySettings} />
+    ${(st.mode === 'timesheet' || st.mode === 'both') && html`<${ProjectSettings} />`}
+    <div className="panel pad"><h2 style=${{ marginBottom: '4px' }}>Overtime</h2><div className="muted small" style=${{ marginBottom: '12px' }}>Overtime is time beyond the shift length, whatever time someone checks in. Weekends and public holidays count in full. Leave and holiday hours never count. Overtime is only created when the employee claims it.</div>
+      <div className="rules"><${NumField} id="o" label="Suggest overtime from" value=${st.otMin} unit="min extra" onChange=${v => set('otMin', v)} /></div></div>
     <div className="panel"><div className="pad" style=${{ paddingBottom: '8px' }}><h2 style=${{ marginBottom: '4px' }}>Approvals</h2><div className="muted small">Level 1 is always the reporting manager. The CEO has no manager, so their requests skip to level 2.</div></div>
       <div className="scroll-x"><table><thead><tr><th>Request</th><th>Level 1</th><th>Level 2</th></tr></thead>
         <tbody>${comps.map(([k, l]) => { const off = (k === 'timesheet' && (st.mode === 'attendance' || !st.tsApproval)) || (k === 'attendance' && st.mode === 'timesheet');
-          return html`<tr key=${k} style=${{ opacity: off ? 0.5 : 1 }}><td>${l}${off && html`<div className="muted small">Not in use</div>`}</td><td>Reporting manager</td>
-            <td><select className="input" style=${{ width: 'auto' }} aria-label=${'Level 2 for ' + l} value=${st.l2[k]} disabled=${off} onChange=${e => update(s => { s.settings.l2[k] = e.target.value; })}>${['Payroll', 'HR', 'Admin', 'Finance', 'None'].map(x => html`<option key=${x} value=${x}>${x === 'None' ? 'None (manager is final)' : x}</option>`)}</select></td></tr>`; })}</tbody></table></div></div>
-    <div className="panel pad"><h2 style=${{ marginBottom: '4px' }}>Run payroll</h2><div className="muted small" style=${{ marginBottom: '12px' }}>Once payroll is processed for a month, its timesheets and attendance can't be edited.</div>
-      <div className="row"><span>Processed up to <b style=${{ fontWeight: 500 }}>${fmtMonth(st.lastProcessed)}</b></span><span className="spacer"></span>
-        ${st.lastProcessed < lastMonth ? html`<button className="btn primary" disabled=${blockers.length > 0} onClick=${() => { set('lastProcessed', lastMonth); notify('Payroll processed for ' + fmtMonth(lastMonth)); }}>Process payroll for ${fmtMonth(lastMonth)}</button>`
-          : html`<button className="btn" onClick=${() => { set('lastProcessed', addMonths(lastMonth, -1)); notify('Undid ' + fmtMonth(lastMonth) + ' payroll (demo)'); }}>Undo ${fmtMonth(lastMonth)} (demo)</button>`}</div>
-      ${blockers.length > 0 && html`<div><div className="banner amber" style=${{ marginTop: '12px', marginBottom: 0 }}><div><b>Can't process ${fmtMonth(lastMonth)} yet.</b> These timesheets need approval first.</div></div>
-        <div className="blockers">${blockers.map(b => html`<div key=${b.e.id}><b style=${{ fontWeight: 500 }}>${b.e.name}</b><span className="muted">manager: ${b.e.mgr ? EMAP[b.e.mgr].name : 'none'}</span>${b.open.map(o => html`<span key=${o.ws} className=${'chip ' + WEEK_STATUS[o.st].cls}>${fmtShort(o.ws)}: ${WEEK_STATUS[o.st].label}</span>`)}</div>`)}</div></div>`}</div>
+          return html`<tr key=${k} style=${{ opacity: off ? 0.5 : 1 }}><td>${l}${off && html`<div className="muted small">Not in use</div>`}</td><${RouteCellsWrap} k=${k} disabled=${off} /></tr>`; })}</tbody></table></div></div>
     <div className="panel pad row"><div><h2 style=${{ marginBottom: '4px' }}>Demo data</h2><div className="muted small">Puts every timesheet and request back to the starting state.</div></div><span className="spacer"></span><button className="btn" onClick=${reset}>Reset demo data</button></div>
   </div>`;
+}
+const leaveRules = s => Object.assign({ halfDay: true, proofDays: 3 }, s.settings.leaveRules || {});
+const DEFAULT_CATS = [{ name: 'Travel', limit: 0, receipt: true }, { name: 'Meals', limit: 3000, receipt: true }, { name: 'Internet', limit: 1500, receipt: false }, { name: 'Client entertainment', limit: 0, receipt: true }, { name: 'Office supplies', limit: 2000, receipt: true }];
+const reimbRules = s => Object.assign({ categories: DEFAULT_CATS, claimDays: 60 }, s.settings.reimb || {});
+const APPROVER_PEOPLE = () => EMP.filter(e => EMP.some(x => x.mgr === e.id) || !e.mgr);
+function RouteCells({ k, disabled }) {
+  const { store, update } = useApp();
+  const v1 = (store.settings.l1 || {})[k] || 'Manager', v2 = store.settings.l2[k] || 'None';
+  const ppl = APPROVER_PEOPLE();
+  const set = (lvl, v) => update(s => { if (lvl === 1) { s.settings.l1 = Object.assign({}, s.settings.l1 || {}, { [k]: v }); } else s.settings.l2[k] = v; });
+  const opts = lvl => [lvl === 1 ? html`<option key="m" value="Manager">Reporting manager</option>` : null, html`<optgroup key="t" label="Teams">${['Payroll', 'HR', 'Admin', 'Finance'].map(t => html`<option key=${t} value=${t}>${t}</option>`)}</optgroup>`, html`<optgroup key="p" label="A specific person">${ppl.map(e => html`<option key=${e.id} value=${e.id}>${e.name} \u00b7 ${e.title}</option>`)}</optgroup>`, lvl === 2 ? html`<option key="n" value="None">None (level 1 is final)</option>` : null];
+  return [html`<td key="1"><select className="input" style=${{ width: 'auto', maxWidth: '240px' }} aria-label=${'Level 1 for ' + k} value=${v1} disabled=${disabled} onChange=${e => set(1, e.target.value)}>${opts(1)}</select></td>`,
+    html`<td key="2"><select className="input" style=${{ width: 'auto', maxWidth: '240px' }} aria-label=${'Level 2 for ' + k} value=${v2} disabled=${disabled} onChange=${e => set(2, e.target.value)}>${opts(2)}</select></td>`];
+}
+function RouteCellsWrap({ k, disabled }) { return kids(RouteCells({ k, disabled })); }
+function ApprovalsMini({ types }) {
+  const { store, update } = useApp();
+  const L = { leave: 'Leave', reimbursement: 'Reimbursements' };
+  return html`<div className="panel"><div className="pad" style=${{ paddingBottom: '8px' }}><h2 style=${{ marginBottom: '4px' }}>Approvals</h2><div className="muted small">Level 1 is always the reporting manager. Level 2 is the final approval in Payroll.</div></div>
+    <div className="scroll-x"><table><thead><tr><th>Request</th><th>Level 1</th><th>Level 2</th></tr></thead><tbody>${types.map(k => html`<tr key=${k}><td>${L[k]}</td>${kids(RouteCells({ k }))}</tr>`)}</tbody></table></div></div>`;
+}
+function LeaveSettings() {
+  const { store, update } = useApp();
+  const r = leaveRules(store);
+  const setR = (k, v) => update(s => { s.settings.leaveRules = Object.assign({}, leaveRules(s), { [k]: v }); });
+  return html`<div className="setgrid">
+    <${LeavePolicySettings} />
+    <div className="panel pad"><h2 style=${{ marginBottom: '4px' }}>Leave requests</h2><div className="muted small" style=${{ marginBottom: '12px' }}>What employees can ask for when they apply.</div>
+      <div className="row" style=${{ marginBottom: '12px' }}><div style=${{ flex: 1 }}><b style=${{ fontWeight: 500 }}>Half-day leave</b><div className="small muted">Employees pick the first or second half of the day.</div></div><button className="switch" role="switch" aria-checked=${r.halfDay} aria-label="Half-day leave" onClick=${() => setR('halfDay', !r.halfDay)}></button></div>
+      <div className="row"><span className="small">Sick leave needs proof when it\u2019s longer than</span><input className="input" type="number" min="0" aria-label="Proof needed after days" style=${{ width: '70px' }} value=${r.proofDays} onChange=${e => setR('proofDays', Math.max(0, +e.target.value || 0))} /><span className="small muted">days (0 = always)</span></div></div>
+    <div className="panel pad"><h2 style=${{ marginBottom: '4px' }}>Late check-in deduction</h2><div className="muted small" style=${{ marginBottom: '12px' }}>Deducted automatically for every check-in after the grace period, Annual leave first, then Casual, then loss of pay. Reversed automatically if a correction is approved.</div>
+      <div className="rules"><${NumField} id="ld2" label="Leave deducted per late check-in" value=${store.settings.lateDays != null ? store.settings.lateDays : 0.5} unit="days (0 = off)" step="0.5" onChange=${v => update(s => { s.settings.lateDays = v; })} /></div></div>
+    <${ApprovalsMini} types=${['leave']} />
+  </div>`;
+}
+function ReimbSettings() {
+  const { store, update } = useApp();
+  const r = reimbRules(store);
+  const [nm, setNm] = useState(''); const [err, setErr] = useState('');
+  const setCats = fn => update(s => { const x = reimbRules(s); const cats = clone(x.categories); fn(cats); s.settings.reimb = Object.assign({}, x, { categories: cats }); });
+  const add = () => { const n = nm.trim(); if (!n) return setErr('Add a name.'); if (r.categories.some(c => c.name.toLowerCase() === n.toLowerCase())) return setErr('That category already exists.'); setCats(c => c.push({ name: n, limit: 0, receipt: true })); setNm(''); setErr(''); };
+  return html`<div className="setgrid">
+    <div className="panel pad"><h2 style=${{ marginBottom: '4px' }}>Categories</h2><div className="muted small" style=${{ marginBottom: '12px' }}>What employees can claim for, how much per month, and whether a receipt is needed.</div>
+      <div className="scroll-x"><table><thead><tr><th>Category</th><th>Monthly limit per employee</th><th>Receipt required</th><th></th></tr></thead><tbody>
+        ${r.categories.map((c, i) => html`<tr key=${c.name}><td>${c.name}</td>
+          <td><span className="row" style=${{ gap: '6px', flexWrap: 'nowrap' }}><span className="small">\u20b9</span><input className="input" type="number" min="0" aria-label=${c.name + ' monthly limit'} style=${{ width: '110px' }} value=${c.limit} onChange=${e => setCats(cs => { cs[i].limit = Math.max(0, Math.round(+e.target.value || 0)); })} /><span className="small muted">${c.limit ? '' : 'no limit'}</span></span></td>
+          <td><input type="checkbox" aria-label=${c.name + ' receipt required'} checked=${c.receipt} onChange=${e => setCats(cs => { cs[i].receipt = e.target.checked; })} /></td>
+          <td><button className="btn ghost sm" onClick=${() => setCats(cs => cs.splice(i, 1))}>Remove</button></td></tr>`)}
+      </tbody></table></div>
+      <div className="row" style=${{ flexWrap: 'nowrap', marginTop: '10px' }}><input className="input" placeholder="New category, e.g. Training" value=${nm} onInput=${e => { setNm(e.target.value); setErr(''); }} /><button className="btn" onClick=${add}>Add</button></div>
+      ${err && html`<div className="err">${err}</div>`}</div>
+    <div className="panel pad"><h2 style=${{ marginBottom: '4px' }}>Claim window</h2><div className="muted small" style=${{ marginBottom: '12px' }}>How long after spending someone can still claim it.</div>
+      <div className="rules"><${NumField} id="cw" label="Claims allowed up to" value=${r.claimDays} unit="days after the expense" onChange=${v => update(s => { s.settings.reimb = Object.assign({}, reimbRules(s), { claimDays: Math.max(1, v) }); })} /></div>
+      <div className="small muted">Approved claims are paid with the next payroll run.</div></div>
+    <${ApprovalsMini} types=${['reimbursement']} />
+  </div>`;
+}
+function PayrollSettings() {
+  const [sec, setSec] = useState('ato');
+  return html`<div><${AdminSub} value=${sec} onChange=${setSec} tabs=${[['ato', 'Attendance, timesheet & overtime'], ['leave', 'Leave'], ['reimb', 'Reimbursements']]} />
+    ${sec === 'ato' && html`<${Settings} />`}${sec === 'leave' && html`<${LeaveSettings} />`}${sec === 'reimb' && html`<${ReimbSettings} />`}</div>`;
 }
 function Employees() {
   return html`<div className="panel scroll-x"><table><thead><tr><th>Employee</th><th>ID</th><th>Department</th><th>Designation</th><th>Reports to</th><th>Shift</th></tr></thead>
@@ -3328,19 +3406,19 @@ function AdminReqs({ type, extra }) {
   const [f, setF] = useState('you'); const [sel, setSel] = useState({});
   const team = (type === 'profile' ? 'HR' : store.settings.l2[type] || 'Payroll') + ' team';
   const all = store.requests.filter(r => r.type === type && reqVisible(store, r) && r.status !== 'withdrawn');
-  const B = { you: r => r.status === 'pending_l2', mgr: r => r.status === 'pending_l1', upd: r => r.status === 'update_requested', ok: r => r.status === 'approved', no: r => r.status === 'rejected', all: () => true };
+  const B = { you: r => teamWaiting(r), mgr: r => (r.status === 'pending_l1' || r.status === 'pending_l2') && !teamWaiting(r), upd: r => r.status === 'update_requested', ok: r => r.status === 'approved', no: r => r.status === 'rejected', all: () => true };
   const cnt = k => all.filter(B[k]).length;
   const list = all.filter(B[f]).sort((a, b) => a.created < b.created ? 1 : -1);
-  const chosen = list.filter(r => sel[r.id] && r.status === 'pending_l2');
-  const bulk = () => { const n = chosen.length; update(s => chosen.forEach(r => decideRequest(s, r.id, 2, 'approve', '', team))); setSel({}); notify(n + ' approved'); };
-  const remind = r => { const e = EMAP[r.empId]; notify(r.status === 'pending_l1' ? 'Reminder sent to ' + (e.mgr ? EMAP[e.mgr].name : 'manager') : 'Reminder sent to ' + e.name); };
+  const chosen = list.filter(r => sel[r.id] && teamWaiting(r));
+  const bulk = () => { const n = chosen.length; update(s => chosen.forEach(r => decideRequest(s, r.id, r.status === 'pending_l2' ? 2 : 1, 'approve', '', team))); setSel({}); notify(n + ' approved'); };
+  const remind = r => { const e = EMAP[r.empId]; notify(waitingWith(r) ? 'Reminder sent to ' + routeLabel(waitingWith(r)) : 'Reminder sent to ' + e.name); };
   return html`<div>
-    <div className="row" style=${{ marginBottom: '10px' }}><${Seg} label="Status" value=${f} onChange=${v => { setF(v); setSel({}); }} options=${[['you', 'Waiting for you (' + cnt('you') + ')'], ['mgr', 'With managers (' + cnt('mgr') + ')'], ['upd', 'Update requested (' + cnt('upd') + ')'], ['ok', 'Approved (' + cnt('ok') + ')'], ['no', 'Rejected (' + cnt('no') + ')'], ['all', 'All (' + all.length + ')']]} /></div>
+    <div className="row" style=${{ marginBottom: '10px' }}><${Seg} label="Status" value=${f} onChange=${v => { setF(v); setSel({}); }} options=${[['you', 'Waiting for you (' + cnt('you') + ')'], ['mgr', 'With approvers (' + cnt('mgr') + ')'], ['upd', 'Update requested (' + cnt('upd') + ')'], ['ok', 'Approved (' + cnt('ok') + ')'], ['no', 'Rejected (' + cnt('no') + ')'], ['all', 'All (' + all.length + ')']]} /></div>
     ${f === 'you' && list.length ? html`<div className="bulk-bar"><label className="row" style=${{ gap: '6px' }}><input type="checkbox" checked=${list.every(r => sel[r.id])} onChange=${e => { const n = {}; if (e.target.checked) list.forEach(r => { n[r.id] = true; }); setSel(n); }} /><span className="small">Select all</span></label><span className="spacer"></span><button className="btn sm good" disabled=${!chosen.length} onClick=${bulk}>Approve selected${chosen.length ? ' (' + chosen.length + ')' : ''}</button></div>` : null}
     <div className="panel">${list.map(r => html`<div key=${r.id} className="ap-row">
-        ${r.status === 'pending_l2' ? html`<input type="checkbox" aria-label="Select" checked=${!!sel[r.id]} onChange=${e => setSel(Object.assign({}, sel, { [r.id]: e.target.checked }))} />` : html`<span></span>`}
-        <div>${(r.status === 'pending_l1' || r.status === 'update_requested' || extra) ? html`<div className="row" style=${{ gap: '6px', padding: '10px 14px 0' }}>${extra ? extra(r) : null}<span className="spacer"></span>${r.status === 'pending_l1' ? kids(html`<span className="small muted">Waiting for ${EMAP[r.empId].mgr ? EMAP[EMAP[r.empId].mgr].name : 'manager'}. You can decide once they approve.</span><button className="btn sm" onClick=${() => remind(r)}>Remind manager</button>`) : r.status === 'update_requested' ? html`<button className="btn sm" onClick=${() => remind(r)}>Remind employee</button>` : null}</div>` : null}
-        <${ReqRow} r=${r} showEmp level=${r.status === 'pending_l2' ? 2 : undefined} actor=${team} /></div></div>`)}
+        ${teamWaiting(r) ? html`<input type="checkbox" aria-label="Select" checked=${!!sel[r.id]} onChange=${e => setSel(Object.assign({}, sel, { [r.id]: e.target.checked }))} />` : html`<span></span>`}
+        <div>${((waitingWith(r) && !teamWaiting(r)) || r.status === 'update_requested' || extra) ? html`<div className="row" style=${{ gap: '6px', padding: '10px 14px 0' }}>${extra ? extra(r) : null}<span className="spacer"></span>${waitingWith(r) && !teamWaiting(r) ? kids(html`<span className="small muted">Waiting for ${routeLabel(waitingWith(r))}. You can decide once they approve.</span><button className="btn sm" onClick=${() => remind(r)}>Remind ${first(routeLabel(waitingWith(r)))}</button>`) : r.status === 'update_requested' ? html`<button className="btn sm" onClick=${() => remind(r)}>Remind employee</button>` : null}</div>` : null}
+        <${ReqRow} r=${r} showEmp level=${teamWaiting(r) ? (r.status === 'pending_l2' ? 2 : 1) : undefined} actor=${team} /></div></div>`)}
       ${list.length === 0 && html`<${Empty} title=${f === 'you' ? 'Nothing waiting for you' : 'Nothing here'}>${f === 'you' ? 'Requests reach you after the employee\u2019s manager approves them.' : 'Try another filter.'}<//>`}</div>
   </div>`;
 }
@@ -3380,7 +3458,7 @@ function AdminTimesheet() {
           <div className="row" style=${{ alignItems: 'flex-start' }}>${it.kind === 'change' ? html`<span className="chip amber">Edited</span>` : null}<button className="btn sm primary" onClick=${() => setRev(it)}>Review</button></div></div>`; })}
         ${waiting.length === 0 && html`<${Empty} title="Nothing waiting for you">Timesheets reach you after the employee\u2019s manager approves them.<//>`}</div>
     </div>`}
-    ${rev && html`<${WeekReview} item=${rev} mgr=${{ name: 'Payroll team' }} level=${2} onClose=${() => setRev(null)} />`}
+    ${rev && html`<${WeekReview} item=${rev} mgr=${{ name: routeLabel(rev.level === 1 ? l1For(store, 'timesheet', rev.id) : l2For(store, 'timesheet')) }} level=${rev.level || 2} onClose=${() => setRev(null)} />`}
   </div>`;
 }
 function AdminTypeStats({ type }) {
@@ -3430,7 +3508,7 @@ function AdminLeaveDetails() {
 function AdminService({ type }) {
   const { store } = useApp();
   const [sub, setSub] = useState('overview');
-  const waiting = store.requests.filter(r => r.type === type && r.status === 'pending_l2' && reqVisible(store, r)).length;
+  const waiting = store.requests.filter(r => r.type === type && teamWaiting(r) && reqVisible(store, r)).length;
   const offToday = type === 'leave' ? store.requests.filter(r => r.type === 'leave' && r.status === 'approved' && r.data.from <= TODAY && r.data.to >= TODAY) : [];
   const clash = r => { const also = store.requests.filter(x => x.type === 'leave' && x.id !== r.id && x.status === 'approved' && EMAP[x.empId].dept === EMAP[r.empId].dept && x.data.from <= r.data.to && x.data.to >= r.data.from).map(x => first(EMAP[x.empId].name)); return also.length ? html`<span className="chip amber">Also off in ${EMAP[r.empId].dept}: ${Array.from(new Set(also)).join(', ')}</span>` : html`<span className="chip green">No one else off in ${EMAP[r.empId].dept}</span>`; };
   return html`<div>
@@ -3455,21 +3533,22 @@ function Payroll() {
   const { store } = useApp();
   const [tab, setTab] = useState('timesheet');
   const mode = store.settings.mode;
-  const w = t => store.requests.filter(r => r.type === t && r.status === 'pending_l2' && reqVisible(store, r)).length;
+  const w = t => store.requests.filter(r => r.type === t && teamWaiting(r) && reqVisible(store, r)).length;
   const TABS = [
-    mode !== 'attendance' && { k: 'timesheet', label: 'Timesheet', n: payrollTimesheetItems(store).length },
-    mode !== 'timesheet' && { k: 'attendance', label: 'Attendance', n: w('attendance') },
+    (mode === 'timesheet' || mode === 'both') && { k: 'timesheet', label: 'Timesheet', n: payrollTimesheetItems(store).length },
+    (mode === 'attendance' || mode === 'both') && { k: 'attendance', label: 'Attendance', n: w('attendance') },
     { k: 'leave', label: 'Leave', n: w('leave') },
     { k: 'overtime', label: 'Overtime', n: w('overtime') },
     { k: 'reimbursement', label: 'Reimbursements', n: w('reimbursement') },
     { k: 'employees', label: 'Employees', n: w('profile') },
+    { k: 'settings', label: 'Payroll settings' },
   ].filter(Boolean);
   const cur = TABS.find(t => t.k === tab) ? tab : TABS[0].k;
   return html`<div><${Tabs} tabs=${TABS} value=${cur} onChange=${setTab} />
     ${cur === 'timesheet' && html`<${AdminTimesheet} />`}
     ${['attendance', 'leave', 'overtime', 'reimbursement'].includes(cur) && html`<${AdminService} key=${cur} type=${cur} />`}
     ${cur === 'employees' && html`<${AdminEmployees} />`}
-    ${cur === 'settings' && html`<div><div className="small muted" style=${{ marginBottom: '12px' }}>All ESS settings live here: tracking mode, working-day rules, timesheet filing, project codes, leave policy and the approval matrix.</div><${Settings} /></div>`}
+    ${cur === 'settings' && html`<${PayrollSettings} />`}
   </div>`;
 }
 function PayrollOld() {
@@ -3490,6 +3569,9 @@ function DemoControls() {
     ${open && html`<div className="panel demo-pop" role="dialog" aria-label="Demo controls"><h3 style=${{ marginBottom: '10px' }}>Demo controls</h3>
       <div className="field"><label>Tracking mode</label><${Seg} label="Tracking mode" value=${store.settings.mode} onChange=${k => { update(s => { s.settings.mode = k; }); notify(MODE_LABEL[k]); }} options=${[['attendance', 'Attendance'], ['both', 'Both'], ['timesheet', 'Timesheet']]} /></div>
       <div className="row">${approvalOn(store) && html`<button className="btn sm" onClick=${() => { update(runSubmission); notify('Submission run done'); }}>Simulate submission day</button>`}<button className="btn sm" onClick=${() => { update(s => { delete s.attendance[EMPLOYEE_ID + '|' + TODAY]; delete s.attendance[MANAGER_ID + '|' + TODAY]; }); notify('Today’s check-in cleared for both personas'); }}>Reset today’s check-in</button><button className="btn sm" onClick=${reset}>Reset demo data</button></div>
+      ${(() => { const lm = addMonths(monthOf(TODAY), -1); const done = store.settings.lastProcessed >= lm; const bl = done ? [] : payrollBlockers(store, lm); return html`<div className="field" style=${{ marginTop: '10px' }}><label>Payroll (demo)</label>
+        <div className="small muted" style=${{ marginBottom: '6px' }}>Processed up to ${fmtMonth(store.settings.lastProcessed)}. Processed months are locked everywhere.${!done && bl.length ? ' ' + bl.length + ' employee' + (bl.length === 1 ? ' has' : 's have') + ' timesheets for ' + fmtMonth(lm) + ' not approved yet.' : ''}</div>
+        <div className="row" style=${{ gap: '6px' }}>${done ? html`<button className="btn sm" onClick=${() => { update(s => { s.settings.lastProcessed = addMonths(lm, -1); }); notify('Undid ' + fmtMonth(lm) + ' payroll (demo)'); }}>Undo ${fmtMonth(lm)}</button>` : kids(html`<button className="btn sm primary" disabled=${bl.length > 0} title=${bl.length ? 'Approve the remaining timesheets first' : ''} onClick=${() => { update(s => { s.settings.lastProcessed = lm; }); notify('Payroll processed for ' + fmtMonth(lm) + '. It\u2019s locked now.'); }}>Process ${fmtMonth(lm)} payroll</button>${bl.length ? html`<button className="btn sm" onClick=${() => { update(s => { s.settings.lastProcessed = lm; }); notify('Processed ' + fmtMonth(lm) + ' anyway (demo override)'); }}>Process anyway</button>` : null}`)}</div></div>`; })()}
       <div className="field" style=${{ marginTop: '10px' }}><label>Rohan’s dates (for the leave demo)</label><div className="row" style=${{ flexWrap: 'nowrap', gap: '6px' }}>
         <label className="efl" style=${{ flex: 1 }}><span>Joined</span><input className="input" type="date" value=${empLife(store, EMPLOYEE_ID).doj} onChange=${e => e.target.value && update(s => { s.empLife = s.empLife || {}; s.empLife[EMPLOYEE_ID] = Object.assign({}, empLife(s, EMPLOYEE_ID), { doj: e.target.value }); })} /></label>
         <label className="efl" style=${{ flex: 1 }}><span>Leaving</span><input className="input" type="date" value=${empLife(store, EMPLOYEE_ID).exit || ''} onChange=${e => update(s => { s.empLife = s.empLife || {}; s.empLife[EMPLOYEE_ID] = Object.assign({}, empLife(s, EMPLOYEE_ID), { exit: e.target.value || null }); })} /></label></div></div>
@@ -3510,7 +3592,7 @@ function App() {
   const reset = useCallback(() => { setStore(buildDemo()); setToast({ msg: 'Demo data reset', id: Date.now() }); }, []);
   const ctx = useMemo(() => ({ store, update, notify, reset }), [store, update, notify, reset]);
   const mgrReports = EMP.filter(e => e.mgr === MANAGER_ID).map(e => e.id);
-  const mgrCount = teamTimesheetItems(store, MANAGER_ID).length + store.requests.filter(r => mgrReports.includes(r.empId) && r.status === 'pending_l1' && reqVisible(store, r)).length;
+  const mgrCount = teamTimesheetItems(store, MANAGER_ID).length + personQueue(store, MANAGER_ID).length;
   const payCount = store.requests.filter(r => r.status === 'pending_l2' && reqVisible(store, r)).length;
   const NAV = [{ k: 'payroll', label: 'Payroll', icon: Icon.payroll, n: payCount }, { k: 'ess-employee', label: 'ESS - Employee', icon: Icon.emp }, { k: 'ess-manager', label: 'ESS - Manager', icon: Icon.mgr, n: mgrCount }];
   const persona = section === 'ess-employee' ? EMAP[EMPLOYEE_ID] : section === 'ess-manager' ? EMAP[MANAGER_ID] : null;
