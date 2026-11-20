@@ -6,7 +6,7 @@
 import { useMemo, useState } from 'react';
 
 import { CopyOutlined, ReadOutlined } from '@ant-design/icons';
-import { Button, Drawer, Select, Tooltip, Typography, message } from 'antd';
+import { Button, Drawer, Select, Tooltip, Typography, message as antdMessage } from 'antd';
 import { useLocation } from 'react-router-dom';
 
 import useScreenSize from '@src/hooks/useScreenSize';
@@ -42,6 +42,7 @@ const DevNotesPanel = () => {
     const { xs } = useScreenSize();
     const notes = useMemo(() => parseNotes(NOTES_RAW), []);
     const pageModule = moduleForPath(pathname);
+    const [message, messageHolder] = antdMessage.useMessage();
     const [open, setOpen] = useState(false);
     const [picked, setPicked] = useState<string | null>(null);
     const known = (id: string) => notes.modules.some(m => m.id === id);
@@ -61,6 +62,7 @@ const DevNotesPanel = () => {
 
     return (
         <>
+            {messageHolder}
             <Tooltip title="Developer notes for this page (prototype only)">
                 <Button size="small" type="text" icon={<ReadOutlined />} onClick={openPanel} aria-haspopup="dialog" data-dev-notes-button>
                     {xs ? 'Notes' : 'Developer notes'}
@@ -74,16 +76,6 @@ const DevNotesPanel = () => {
                 title="Developer notes"
                 destroyOnHidden
                 data-dev-notes
-                extra={
-                    <div className="flex gap-1">
-                        <Button size="small" icon={<CopyOutlined />} onClick={() => copy('module')} data-dev-notes-copy>
-                            Copy
-                        </Button>
-                        <Button size="small" onClick={() => copy('all')} data-dev-notes-copy-all>
-                            Copy all
-                        </Button>
-                    </div>
-                }
                 footer={
                     current?.id !== SHARED && known(SHARED) ? (
                         <Button type="link" className="!px-0" onClick={() => setPicked(SHARED)} data-dev-notes-shared>
@@ -101,13 +93,24 @@ const DevNotesPanel = () => {
                         <Text type="secondary" className="text-xs">
                             Module
                         </Text>
-                        <Select
-                            value={current?.id}
-                            onChange={setPicked}
-                            aria-label="Module"
-                            options={notes.modules.map(m => ({ value: m.id, label: m.id === pageModule ? `${m.title} (this page's module)` : m.title }))}
-                            data-dev-notes-module
-                        />
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Select
+                                value={current?.id}
+                                onChange={setPicked}
+                                aria-label="Module"
+                                className="min-w-0 flex-1 basis-[220px]"
+                                options={notes.modules.map(m => ({ value: m.id, label: m.id === pageModule ? `${m.title} (this page's module)` : m.title }))}
+                                data-dev-notes-module
+                            />
+                            <div className="flex gap-2">
+                                <Button icon={<CopyOutlined />} onClick={() => copy('module')} data-dev-notes-copy>
+                                    Copy
+                                </Button>
+                                <Button onClick={() => copy('all')} data-dev-notes-copy-all>
+                                    Copy all
+                                </Button>
+                            </div>
+                        </div>
                         <Text type="secondary" className="text-xs">
                             Source: docs/dev-notes/developer-notes.md. Prototype only; not part of the product.
                         </Text>

@@ -20,7 +20,7 @@ import {
     withdrawLeaveChange,
 } from '../atsLeave';
 import { atsLeaveRequests } from '../atsRequests';
-import { attendanceDay, publicHolidayOn } from '../atsStore';
+import { attendanceDay, publicHolidayOn, weekView } from '../atsStore';
 import { decideRequest, teamRequests } from '../atsTeam';
 import { resetAllCollections } from '../persistentStore';
 
@@ -142,12 +142,17 @@ describe('past leave', () => {
         const l = worked();
         const second = addDays(l.start, 1) <= l.end ? l.end : l.start;
         expect(attendanceDay(M, sneha, second).status).toBe('on-leave');
+        expect(weekView(M, sneha, second).days.find(x => x.date === second)?.leaveRows?.length).toBe(1);
         const c = requestLeaveCancellation(M, sneha, l.id, { reason: 'I came in that day', from: second }).cancellations[0];
         expect(attendanceDay(M, sneha, second).status).toBe('on-leave'); // stays until approved
         approve(c.id);
         expect(view().requests.find(r => r.id === l.id)).toMatchObject({ end: l.start, days: 1 });
         expect(attendanceDay(M, sneha, second).status).not.toBe('on-leave');
         expect(attendanceDay(M, sneha, second).checkIn).toBe('10:05');
+        // the timesheet's read-only leave row goes too; the first day keeps its leave row
+        const rowsOn = (d: string) => weekView(M, sneha, d).days.find(x => x.date === d)?.leaveRows ?? [];
+        expect(rowsOn(second)).toEqual([]);
+        expect(rowsOn(l.start).length).toBe(1);
     });
     it('changing past leave to drop an unworked day is refused too', () => {
         const l = worked();

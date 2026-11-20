@@ -105,7 +105,10 @@ const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView;
                 {r.changedFrom && <Row label="Was">{wasText({ ...r.changedFrom, typeName: r.changedFromTypeName ?? r.typeName })}</Row>}
                 {r.cancellation && (
                     <Row label="Cancelled">
-                        {r.state === 'cancelled' ? 'Whole leave' : `From ${fmtDay(r.cancellation.from)} (was until ${fmtDay(r.cancellation.originalEnd)})`} · by {r.cancellation.by}
+                        {r.state === 'cancelled'
+                            ? 'Whole leave'
+                            : `${r.cancellation.originalEnd > r.cancellation.from ? `${fmtDay(r.cancellation.from)} – ${fmtDay(r.cancellation.originalEnd)}` : fmtDay(r.cancellation.from)} (was ${daysText(r.cancellation.originalDays)})`}{' '}
+                        · by {r.cancellation.by}
                     </Row>
                 )}
                 {r.lossOfPayDays ? <Row label="Loss of pay">{daysText(r.lossOfPayDays)} (approved beyond the balance)</Row> : null}
