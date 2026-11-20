@@ -639,7 +639,7 @@ describe('overview home', () => {
         createProfileRequest(M, sneha, { emergencyRelation: 'Mother' });
         const h = homeOf(M, sneha);
         expect(h.requests.length).toBeLessThanOrEqual(6);
-        expect(h.requests[0]).toMatchObject({ type: 'profile', state: 'pending', statusText: 'Waiting with HR team', link: { page: 'profile' } });
+        expect(h.requests[0]).toMatchObject({ type: 'profile', state: 'pending', statusText: 'Waiting with Admin / HR', link: { page: 'profile' } });
         expect(h.requests.map(r => r.at)).toEqual([...h.requests.map(r => r.at)].sort().reverse());
     });
     it('announcements: the next holiday (with its date) and two notices', () => {
@@ -1049,10 +1049,10 @@ describe('final batch: leave page and policy settings', () => {
     it('the view names who approves, and carries the calendar for counting working days', () => {
         const v = leaveViewOf(M, sneha);
         expect(v.employeeName).toBe('Sneha Iyer');
-        expect(v.approvalPath).toBe('Arjun Mehta (manager), then HR team');
+        expect(v.approvalPath).toBe('Arjun Mehta (manager), then Admin / HR');
         expect(v.calendar.weeklyOff).toEqual(getSettings(M).weeklyOff);
         expect(v.calendar.holidays.every(d => /^\d{4}-\d{2}-\d{2}$/.test(d.date) && d.name)).toBe(true);
-        expect(leaveViewOf(M, findEmployee('ACME-021')!).approvalPath).toBe('HR team');
+        expect(leaveViewOf(M, findEmployee('ACME-021')!).approvalPath).toBe('Admin / HR');
         updateSettings(M, { level2: { ...getSettings(M).level2, leave: 'NONE' } });
         expect(leaveViewOf(M, sneha).approvalPath).toBe('Arjun Mehta (manager)');
     });
@@ -1104,7 +1104,7 @@ describe('my team: ask for update', () => {
         decideRequest(M, 'leave', id, { role: 'MANAGER', manager: arjun }, 'APPROVED');
         expect(hrSees(id)).toBe(true);
         const hr = decideRequest(M, 'leave', id, { role: 'HR' }, 'UPDATE_REQUESTED', 'Add the event invite');
-        expect(hr.trail).toMatchObject({ status: 'UPDATE_REQUESTED', updateRequest: { level: 2, by: 'HR team' } });
+        expect(hr.trail).toMatchObject({ status: 'UPDATE_REQUESTED', updateRequest: { level: 2, by: 'Admin / HR' } });
         expect(teamRequests(M, arjun, 'leave', 'waiting').some(r => r.id === id)).toBe(false);
         const again = resubmitLeaveRequest(M, sneha, id, { reason: 'Family (invite attached)' }).requests.find(r => r.id === id)!;
         expect(again.trail.status).toBe('PENDING_MANAGER');
@@ -1402,7 +1402,7 @@ describe('leave & team: team reimbursements and leave to approve', () => {
         const month = months.find(m => teamReimbursements(M, arjun, m).totals.waiting.count > 0)!;
         expect(month).toBeTruthy();
         const v = teamReimbursements(M, arjun, month);
-        expect(v.level2Label).toBe('Admin');
+        expect(v.level2Label).toBe('Admin / HR');
         expect(v.totals.claimed.count).toBe(v.claims.length);
         expect(v.totals.claimed.amount).toBe(v.claims.reduce((n, c) => n + c.amount, 0));
         expect(v.byPerson.reduce((n, p) => n + p.count, 0)).toBe(v.claims.length);

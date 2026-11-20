@@ -217,9 +217,9 @@ const UPDATE_TITLE: Record<OverviewRequest['type'], string> = {
 
 // ---- your requests ------------------------------------------------------------------------------------------
 
-const ROLE_NAME = { HR: 'HR team', FINANCE: 'Finance team', PAYROLL: 'Payroll', ADMIN: 'Admin' } as const;
+const ROLE_NAME = { HR: 'Admin / HR', FINANCE: 'Admin / HR', PAYROLL: 'Admin / HR', ADMIN: 'Admin / HR' } as const;
 
-/** "Waiting with Arjun Mehta" / "Waiting with HR team" / "Approved by …" / "Rejected by …: reason" */
+/** "Waiting with Arjun Mehta" / "Waiting with Admin / HR" / "Approved by …" / "Rejected by …: reason" */
 export const trailStatusText = (trail: ApprovalTrail) => {
     const who = (step: ApprovalTrail['steps'][number]) => (step.role === 'MANAGER' ? step.approverName ?? 'your manager' : ROLE_NAME[step.role]);
     const decided = trail.steps.filter(s => s.decision);
@@ -232,7 +232,7 @@ export const trailStatusText = (trail: ApprovalTrail) => {
     return pending ? `Waiting with ${who(pending)}` : trailLabel(trail);
 };
 
-/** "Overtime approved" / "Overtime with Arjun Mehta" / "Overtime with Finance team" */
+/** "Overtime approved" / "Overtime with Arjun Mehta" / "Overtime with Admin / HR" */
 const overtimeChip = (trail: ApprovalTrail) => {
     if (trail.status === 'APPROVED') return 'Overtime approved';
     return `Overtime ${trailStatusText(trail).replace(/^Waiting /, '')}`;

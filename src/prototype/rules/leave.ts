@@ -711,10 +711,10 @@ export const LEAVE_ROUTE: ApprovalType = 'leave';
 
 /** Payroll → Leave → Requests: which views make sense for the approval setup (a view also stays while items sit in it). */
 export const adminRequestViews = (level1: Level1Approver, level2: Level2Approver, counts: { you: number; mgr: number }) => {
-    const isPerson = (v: string) => approverPersonId(v) !== null;
-    const teamStep = (level1 !== 'MANAGER' && !isPerson(level1)) || (level2 !== 'NONE' && !isPerson(level2));
-    const personStep = level1 === 'MANAGER' || isPerson(level1) || isPerson(level2);
-    const mgrLabel = level1 === 'MANAGER' && !isPerson(level2) ? 'With managers' : 'With approvers';
+    const isPerson = (v: string) => approverPersonId(v) !== null || v === 'MANAGER';
+    const teamStep = !isPerson(level1) || (level2 !== 'NONE' && !isPerson(level2));
+    const personStep = isPerson(level1) || isPerson(level2);
+    const mgrLabel = level1 === 'MANAGER' && !(isPerson(level2) && level2 !== 'MANAGER') ? 'With managers' : 'With approvers';
     return [
         ...(teamStep || counts.you ? [{ key: 'you' as const, label: 'Waiting for you' }] : []),
         ...(personStep || counts.mgr ? [{ key: 'mgr' as const, label: mgrLabel }] : []),

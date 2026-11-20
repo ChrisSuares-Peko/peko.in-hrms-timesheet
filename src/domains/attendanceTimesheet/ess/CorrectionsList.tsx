@@ -64,9 +64,8 @@ const statusLine = (c: CorrectionWithStatus) => {
         const name = steps.find(s => s.role === 'MANAGER')?.approverName;
         return name ? `Waiting with ${name}` : 'Waiting with your manager';
     }
-    if (status === 'PENDING_PAYROLL') return 'Waiting with Payroll';
-    if (status === 'PENDING_HR') return 'Waiting with HR team';
-    if (status === 'PENDING_FINANCE') return 'Waiting with Finance team';
+    // PROTOTYPE-SETUP (Approvers): every team shows as "Admin / HR".
+    if (status === 'PENDING_PAYROLL' || status === 'PENDING_HR' || status === 'PENDING_FINANCE' || status === 'PENDING_ADMIN') return 'Waiting with Admin / HR';
     if (status === 'REJECTED') return steps.find(s => s.decision === 'REJECTED')?.comment ?? c.statusLabel;
     if (status === 'UPDATE_REQUESTED') return 'Waiting for you to update it';
     return c.statusLabel;

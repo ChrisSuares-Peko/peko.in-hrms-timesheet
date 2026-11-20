@@ -32,7 +32,10 @@ export type Level2ConfigurableType = Exclude<ApprovalType, 'profile'>;
  */
 export type ApproverTeam = 'HR' | 'FINANCE' | 'PAYROLL' | 'ADMIN';
 export type PersonApprover = `person:${number}`;
-export type Level2Approver = ApproverTeam | PersonApprover | 'NONE';
+/** PROTOTYPE-SETUP (Approvers): level 2 can also be the reporting manager (resolved to the employee's manager when the
+ *  request is submitted; if that's the person who approves level 1, level 1 is final). Every team value is shown as
+ *  "Admin / HR" (approved in that service in Payroll); new choices store 'HR'. */
+export type Level2Approver = 'MANAGER' | ApproverTeam | PersonApprover | 'NONE';
 /** PROTOTYPE-SETUP (Settings, Slice 1): level 1 — the reporting manager (default), a team or a specific person. */
 export type Level1Approver = 'MANAGER' | ApproverTeam | PersonApprover;
 

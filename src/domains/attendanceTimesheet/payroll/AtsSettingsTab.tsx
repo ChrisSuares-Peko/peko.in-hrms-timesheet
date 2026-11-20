@@ -8,8 +8,9 @@
 //                    Payroll settings → Leave Policies (Leave types · Public holidays · Configuration), which shows
 //                    this as its Approvals sub-tab
 //   reimbursements . Categories (monthly limit, receipt) · Claim window · Approvals (reimbursements)
-// Approvals: level 1 (Reporting manager · a team · a specific person) and level 2 (a team · a specific person · None);
-// rows grey out ("Not in use") when the mode turns that function off. Run payroll isn't a setting: it stays in the
+// Approvals: PROTOTYPE-SETUP (Approvers) level 1 and level 2 each offer Reporting manager · Admin / HR (approved in
+// that service in Payroll) · a specific person; level 2 also None. Older team values (Payroll, HR, Admin, Finance)
+// show as Admin / HR and are saved as 'HR'. Rows grey out ("Not in use") when the mode turns that function off. Run payroll isn't a setting: it stays in the
 // Payroll module (Process Salary). Each tab saves the full set, so tabs never undo each other.
 import { useEffect, useState } from 'react';
 
@@ -39,7 +40,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 
 import { useAppDispatch } from '@src/hooks/store';
-import { DEFAULT_FILING, PROJECT_CODE_RE, WEEKDAYS, displayTime, filingFieldsError, formatDuration, hasCheckIn } from '@src/prototype/rules/attendance';
+import { DEFAULT_FILING, PROJECT_CODE_RE, WEEKDAYS, displayTime, filingFieldsError, formatDuration, hasCheckIn, normaliseApprover } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
 
 import { getApproverPeople, runAutoSubmitNow, updateAtsSettings } from '../api';
@@ -116,12 +117,18 @@ const MODES: { value: AtsMode; label: string; tabs: string }[] = [
 
 export type SettingsSection = 'ato' | 'leave' | 'reimbursements';
 
-/** PROTOTYPE-SETUP (Settings, Slice 3): the approver dropdowns, grouped (level 1 and level 2 differ). */
+/** PROTOTYPE-SETUP (Approvers): the same choices at both levels (level 2 also has None). */
 type Person = { id: number; name: string; title: string };
-const TEAMS = { label: 'Teams', options: (['PAYROLL', 'HR', 'ADMIN', 'FINANCE'] as const).map(t => ({ value: t, label: ({ PAYROLL: 'Payroll', HR: 'HR', ADMIN: 'Admin', FINANCE: 'Finance' } as const)[t] })) };
 const peopleGroup = (people: Person[]) => ({ label: 'A specific person', options: people.map(p => ({ value: `person:${p.id}`, label: `${p.name} · ${p.title}` })) });
-const level1Options = (people: Person[]) => [{ value: 'MANAGER', label: 'Reporting manager' }, TEAMS, peopleGroup(people)];
-const level2Options = (people: Person[]) => [TEAMS, peopleGroup(people), { value: 'NONE', label: 'None (level 1 is final)' }];
+const COMMON = [
+    { value: 'MANAGER', label: 'Reporting manager' },
+    { value: 'HR', label: 'Admin / HR (approved in Payroll)' },
+];
+const level1Options = (people: Person[]) => [...COMMON, peopleGroup(people)];
+const level2Options = (people: Person[]) => [...COMMON, peopleGroup(people), { value: 'NONE', label: 'None (level 1 is final)' }];
+/** Older team values (Payroll, HR, Admin, Finance) show — and save — as Admin / HR. */
+const levelsOf = <V extends string>(r: Record<Level2Key, V>) =>
+    Object.fromEntries(Object.entries(r).map(([k, v]) => [k, normaliseApprover(v as V)])) as Record<Level2Key, V>;
 
 interface MatrixRow {
     key: Level2Key;
@@ -167,14 +174,14 @@ const toForm = (s: AtsSettings): FormValues => ({
     approvalEnabled: s.timesheetApproval.enabled,
     submissionWeekday: s.timesheetApproval.submissionWeekday,
     submissionTime: s.timesheetApproval.submissionTime,
-    level1: { ...s.level1 },
-    level2: {
+    level1: levelsOf(s.level1),
+    level2: levelsOf({
         attendance: s.level2.attendance,
         overtime: s.level2.overtime,
         leave: s.level2.leave,
         reimbursement: s.level2.reimbursement,
         timesheet: s.level2.timesheet,
-    },
+    }),
     leaveRules: { ...s.leaveRules },
     reimbursements: { claimWindowDays: s.reimbursements.claimWindowDays, categories: s.reimbursements.categories.map(c => ({ ...c })) },
     frequency: (s.timesheetFiling ?? DEFAULT_FILING).frequency,
@@ -552,9 +559,11 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
     const approvals = (
         <Card title="Approvals" size="small" data-approvals-card>
             <Flex vertical gap={8}>
-                <Text type="secondary" className="text-xs">
-                    Level 1 is the reporting manager unless you pick a team or a specific person. Level 2 is the final approval. The CEO has no manager,
-                    so a “Reporting manager” level 1 is skipped for them. A change applies to new requests; anything already waiting stays where it is.
+                <Text type="secondary" className="text-xs" data-approvals-help>
+                    Pick who approves at each level: the employee’s reporting manager, Admin / HR (approved in that service in Payroll), or a specific
+                    person. Usually the reporting manager approves first, then it comes to Payroll for the final approval. “Reporting manager” at level 2
+                    is the employee’s manager; if they already approved level 1, that approval is final. Anyone without a reporting manager (the CEO)
+                    skips the manager step. A change applies to new requests; anything already waiting stays where it is.
                 </Text>
                 <div className="w-full overflow-x-auto">
                     <Table<MatrixRow>
@@ -568,8 +577,8 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
                     />
                 </div>
                 <Text type="secondary" className="text-xs">
-                    A specific person decides in their My team → Approvals; a team decides in Payroll → Requests. Rejecting or asking for an update at any
-                    level needs a comment.
+                    A manager or a specific person decides in their My team → Approvals; Admin / HR decides in Payroll, on that service’s Requests.
+                    Rejecting or asking for an update at any level needs a comment.
                 </Text>
             </Flex>
         </Card>

@@ -2,7 +2,7 @@
 // team or a specific person; level 2 none), the CEO skip, items in flight, and the queues per person and per team.
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { DEFAULT_SETTINGS, approvalPathText, personApprover, routeStep, startTrail, trailLabel } from '@src/prototype/rules/attendance';
+import { DEFAULT_SETTINGS, approvalPathText, normaliseApprover, personApprover, routeStep, startTrail, trailLabel } from '@src/prototype/rules/attendance';
 
 import { atsScenario } from '../../data/ats-seed';
 import { findEmployee } from '../../data/employees';
@@ -50,8 +50,8 @@ describe('routing rules', () => {
         const t = startTrail('leave', null, { ...DEFAULT_SETTINGS }, ctx);
         expect(t.steps[0]).toMatchObject({ level: 1, skipped: true });
         expect(t.status).toBe('PENDING_HR');
-        expect(trailLabel(t)).toBe('With HR team');
-        expect(approvalPathText(t, null)).toBe('HR team');
+        expect(trailLabel(t)).toBe('With Admin / HR');
+        expect(approvalPathText(t, null)).toBe('Admin / HR');
     });
     it('labels name the person or team', () => {
         const t = startTrail('leave', mgr, { ...DEFAULT_SETTINGS, level2: { ...DEFAULT_SETTINGS.level2, leave: personApprover(7) } }, ctx);
@@ -82,9 +82,56 @@ describe('routing in the app', () => {
         expect(decideRequest(M, 'leave', mine.id, { role: 'MANAGER', manager: p }, 'APPROVED').trail.status).toBe('APPROVED');
     });
 
+    // PROTOTYPE-SETUP (Approvers): Reporting manager · Admin / HR · a person at either level; level 2 also None.
+    it('the typical setup, Reporting manager → Admin / HR: the manager first, then Payroll decides', () => {
+        updateSettings(M, { level1: { ...DEFAULT_SETTINGS.level1, leave: 'MANAGER' }, level2: { ...DEFAULT_SETTINGS.level2, leave: 'HR' } });
+        expect(leaveViewOf(M, sneha).approvalPath).toBe(`${arjun.fullName} (manager), then Admin / HR`);
+        const day = nextWorking(s.today, 22);
+        createLeaveRequest(M, sneha, { type: 'CASUAL', start: day, end: day, reason: 'x' });
+        const mine = teamRequests(M, arjun, 'leave', 'waiting').find(r => r.employee.id === sneha.id && r.leave?.start === day)!;
+        expect(adminRequests(M, 'leave').find(r => r.item.id === mine.id)!.bucket).toBe('mgr');
+        const after = decideRequest(M, 'leave', mine.id, { role: 'MANAGER', manager: arjun }, 'APPROVED');
+        expect(trailLabel(after.trail)).toBe('With Admin / HR');
+        expect(adminRequests(M, 'leave').find(r => r.item.id === mine.id)!.bucket).toBe('you');
+        expect(adminDecide(M, 'leave', mine.id, 'APPROVED').trail.status).toBe('APPROVED');
+    });
+    it('Reporting manager at level 2: Admin / HR first, then the employee’s manager', () => {
+        updateSettings(M, { level1: { ...DEFAULT_SETTINGS.level1, leave: 'HR' }, level2: { ...DEFAULT_SETTINGS.level2, leave: 'MANAGER' } });
+        expect(leaveViewOf(M, sneha).approvalPath).toBe(`Admin / HR, then ${arjun.fullName}`);
+        const day = nextWorking(s.today, 23);
+        createLeaveRequest(M, sneha, { type: 'CASUAL', start: day, end: day, reason: 'x' });
+        const { id } = adminRequests(M, 'leave').find(r => r.item.employee.id === sneha.id && r.bucket === 'you' && r.item.leave?.start === day)!.item;
+        expect(teamRequests(M, arjun, 'leave', 'waiting').some(r => r.id === id)).toBe(false); // not before level 1
+        adminDecide(M, 'leave', id, 'APPROVED');
+        expect(teamRequests(M, arjun, 'leave', 'waiting').find(r => r.id === id)).toMatchObject({ waitingForYou: true, pendingLevel: 2 });
+        expect(decideRequest(M, 'leave', id, { role: 'MANAGER', manager: arjun }, 'APPROVED').trail.status).toBe('APPROVED');
+    });
+    it('Reporting manager at both levels: the same person approves once, and that is final', () => {
+        updateSettings(M, { level1: { ...DEFAULT_SETTINGS.level1, leave: 'MANAGER' }, level2: { ...DEFAULT_SETTINGS.level2, leave: 'MANAGER' } });
+        expect(leaveViewOf(M, sneha).approvalPath).toBe(`${arjun.fullName} (manager)`);
+        const day = nextWorking(s.today, 24);
+        createLeaveRequest(M, sneha, { type: 'CASUAL', start: day, end: day, reason: 'x' });
+        const mine = teamRequests(M, arjun, 'leave', 'waiting').find(r => r.employee.id === sneha.id && r.leave?.start === day)!;
+        expect(decideRequest(M, 'leave', mine.id, { role: 'MANAGER', manager: arjun }, 'APPROVED').trail.status).toBe('APPROVED');
+        // a person who is also the manager, at level 2: final after level 1 too
+        updateSettings(M, { level2: { ...DEFAULT_SETTINGS.level2, leave: personApprover(arjun.id) } });
+        expect(leaveViewOf(M, sneha).approvalPath).toBe(`${arjun.fullName} (manager)`);
+        // the CEO has no manager: a manager level 2 resolves to nobody, so an Admin / HR level 1 is final
+        updateSettings(M, { level1: { ...DEFAULT_SETTINGS.level1, leave: 'HR' }, level2: { ...DEFAULT_SETTINGS.level2, leave: 'MANAGER' } });
+        expect(startTrail('leave', null, { level1: { ...DEFAULT_SETTINGS.level1, leave: 'HR' }, level2: { ...DEFAULT_SETTINGS.level2, leave: 'MANAGER' } }).steps).toEqual([{ level: 1, role: 'HR' }]);
+    });
+    it('older team values show — and save — as Admin / HR, and still route to Payroll', () => {
+        expect(normaliseApprover('FINANCE')).toBe('HR');
+        expect(normaliseApprover('PAYROLL')).toBe('HR');
+        expect(normaliseApprover('MANAGER')).toBe('MANAGER');
+        expect(normaliseApprover(personApprover(7))).toBe(personApprover(7));
+        updateSettings(M, { level2: { ...DEFAULT_SETTINGS.level2, leave: 'FINANCE' } });
+        expect(leaveViewOf(M, sneha).approvalPath).toBe(`${arjun.fullName} (manager), then Admin / HR`);
+    });
+
     it('overtime level 1 = Payroll: skips the manager, waits in Payroll at both levels', () => {
         updateSettings(M, { level1: { ...DEFAULT_SETTINGS.level1, overtime: 'PAYROLL' } });
-        expect(approvalLinesOf(M, sneha).overtime).toBe('Approval: Payroll team, then Payroll team.');
+        expect(approvalLinesOf(M, sneha).overtime).toBe('Approval: Admin / HR, then Admin / HR.');
         const o = createOvertime(M, sneha, { kind: 'planned', date: nextWorking(s.today, 2), minutes: 60, description: 'Release' });
         expect(o.trail.status).toBe('PENDING_PAYROLL');
         expect(teamRequests(M, arjun, 'overtime', 'waiting').some(r => r.id === o.id)).toBe(false);
@@ -117,7 +164,7 @@ describe('routing in the app', () => {
         const week = weekView(M, sneha, s.thisWeek);
         expect(week.week.route?.l1).toMatchObject({ approverId: p.id });
         expect(week.waitingWith).toBe(p.fullName);
-        expect(week.nextApprover).toBe('Payroll team');
+        expect(week.nextApprover).toBe('Admin / HR');
         expect(timesheetQueue(M, p, 'waiting').some(i => i.employee.id === sneha.id)).toBe(true);
         expect(timesheetQueue(M, arjun, 'waiting').some(i => i.employee.id === sneha.id)).toBe(false);
         updateSettings(M, { level2: { ...DEFAULT_SETTINGS.level2, timesheet: 'NONE' } });

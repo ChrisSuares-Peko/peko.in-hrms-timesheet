@@ -243,7 +243,7 @@ export const filterLog = (rows: LeaveLogRow[], f: { show?: 'all' | LogGroup; sta
 // ---- recent activity -------------------------------------------------------------------------------------------
 
 const DECISION_WHAT = { APPROVED: 'approved', REJECTED: 'rejected', UPDATE_REQUESTED: 'sent back for an update' } as const;
-const TEAM_OF = { MANAGER: 'your manager', HR: 'HR team', FINANCE: 'Finance team', PAYROLL: 'Payroll team', ADMIN: 'Admin team' } as const;
+const TEAM_OF = { MANAGER: 'your manager', HR: 'Admin / HR', FINANCE: 'Admin / HR', PAYROLL: 'Admin / HR', ADMIN: 'Admin / HR' } as const;
 
 /** Every dated thing that happened to a request: sent, each decision (this round and earlier ones), withdrawn. */
 const eventsOf = (

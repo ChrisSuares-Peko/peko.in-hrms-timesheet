@@ -1142,8 +1142,17 @@ export const personApprover = (id: number): `person:${number}` => `person:${id}`
 /** "person:1004" → 1004; anything else → null. */
 export const approverPersonId = (v: string | undefined | null) => (v && /^person:\d+$/.test(v) ? Number(v.slice(7)) : null);
 
-/** "Payroll team", "HR team"… */
-export const TEAM_NAME: Record<ApproverTeam, string> = { PAYROLL: 'Payroll team', HR: 'HR team', ADMIN: 'Admin team', FINANCE: 'Finance team' };
+/** PROTOTYPE-SETUP (Approvers): one choice, "Admin / HR" (decided in that service in Payroll). Older team values
+ *  (Payroll, HR, Admin, Finance) keep routing to the Payroll queues as before and all show as "Admin / HR". */
+export const ADMIN_HR = 'Admin / HR';
+export const TEAM_NAME: Record<ApproverTeam, string> = { PAYROLL: ADMIN_HR, HR: ADMIN_HR, ADMIN: ADMIN_HR, FINANCE: ADMIN_HR };
+
+/** A settings value as the approver dropdowns show it: any team → 'HR' (Admin / HR); the rest as they are. */
+export const normaliseApprover = <V extends string>(v: V): V | 'HR' => (isApproverTeam(v) ? 'HR' : v);
+
+/** Two steps with the same person (e.g. "Reporting manager" at both levels): level 2 is dropped, level 1 is final. */
+export const samePerson = (a: ApprovalStep | null, b: ApprovalStep | null) =>
+    Boolean(a && b && a.role === 'MANAGER' && b.role === 'MANAGER' && a.approverId !== undefined && a.approverId === b.approverId);
 
 export interface RouteContext {
     /** The employee asking (a level 1 that is the employee themselves resolves to their manager). */
@@ -1174,7 +1183,7 @@ export const routeStep = (
     return isApproverTeam(value) ? { level, role: value } : null;
 };
 
-/** Who a step is with: "Priya Nair" / "Payroll team". */
+/** Who a step is with: "Priya Nair" / "Admin / HR". */
 export const stepName = (s: Pick<ApprovalStep, 'role' | 'approverName'>) => (s.role === 'MANAGER' ? s.approverName ?? 'Manager' : TEAM_NAME[s.role]);
 
 /** The step a trail is waiting on (the first undecided, non-skipped one while pending). */
@@ -1198,7 +1207,9 @@ export const startTrail = (
         return { type, status: nextStatus(hrOnly), steps: hrOnly };
     }
     const l1 = routeStep(settings.level1?.[type] ?? 'MANAGER', 1, manager, ctx);
-    const l2 = routeStep(settings.level2[type], 2, manager, ctx);
+    const r2 = routeStep(settings.level2[type], 2, manager, ctx);
+    // PROTOTYPE-SETUP (Approvers): the same person at both levels (e.g. Reporting manager → Reporting manager) approves once.
+    const l2 = samePerson(l1, r2) ? null : r2;
     const steps: ApprovalTrail['steps'] = [l1 ?? { level: 1, role: 'MANAGER', skipped: true }];
     if (l2) steps.push(l2);
     return { type, status: nextStatus(steps), steps };
@@ -1244,7 +1255,7 @@ export const UPDATE_MESSAGES = {
     notAsked: 'Nothing was asked to be updated on this request — refresh the page.',
 } as const;
 
-const ROLE_TEAM: Record<ApproverRole, string> = { MANAGER: 'Your manager', HR: 'HR team', FINANCE: 'Finance team', PAYROLL: 'Payroll team', ADMIN: 'Admin team' };
+const ROLE_TEAM: Record<ApproverRole, string> = { MANAGER: 'Your manager', HR: ADMIN_HR, FINANCE: ADMIN_HR, PAYROLL: ADMIN_HR, ADMIN: ADMIN_HR };
 
 /**
  * Decide at the pending level. Rejecting needs a comment. PROTOTYPE-SETUP (My team, Slice 1): "Ask for update"
@@ -1348,7 +1359,7 @@ export const requestState = (trail: ApprovalTrail) => {
 };
 
 /**
- * "With Arjun Mehta", "With HR team", "With Payroll team", "Approved", "Rejected", "Cancelled".
+ * "With Arjun Mehta", "With Admin / HR", "Approved", "Rejected", "Cancelled".
  * PROTOTYPE-SETUP (Settings, Slice 1): real names — the person or team it's waiting with, at either level.
  */
 export const trailLabel = (trail: ApprovalTrail) => {
@@ -1358,13 +1369,10 @@ export const trailLabel = (trail: ApprovalTrail) => {
             return name ? `With ${name}` : 'With manager';
         }
         case 'PENDING_HR':
-            return 'With HR team';
         case 'PENDING_FINANCE':
-            return 'With Finance team';
         case 'PENDING_ADMIN':
-            return 'With Admin team';
         case 'PENDING_PAYROLL':
-            return 'With Payroll team';
+            return `With ${ADMIN_HR}`;
         case 'APPROVED':
             return 'Approved';
         case 'CANCELLED':

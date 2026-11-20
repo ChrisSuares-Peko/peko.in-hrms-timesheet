@@ -663,7 +663,7 @@ describe('ask for update and resubmit', () => {
         expect(approved.status).toBe('PENDING_HR');
         expect(reachedLevel2(approved)).toBe(true);
         const u = decide(approved, 'HR', 'UPDATE_REQUESTED', 'Attach the invite', 'b');
-        expect(u).toMatchObject({ status: 'UPDATE_REQUESTED', updateRequest: { level: 2, role: 'HR', by: 'HR team' } });
+        expect(u).toMatchObject({ status: 'UPDATE_REQUESTED', updateRequest: { level: 2, role: 'HR', by: 'Admin / HR' } });
         const r = resubmitTrail(u, 'c', 'Sneha Iyer');
         expect(r.status).toBe('PENDING_MANAGER');
         expect(reachedLevel2(r)).toBe(false);

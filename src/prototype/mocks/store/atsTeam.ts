@@ -346,7 +346,7 @@ export const sendBackWeek = (mode: DataMode, manager: MockEmployee, employeeId: 
 
 // ---- timesheets at level 2: Payroll (PROTOTYPE-SETUP: Final batch, Slice 1) ------------------------------
 
-const PAYROLL_ACTOR = { id: null, name: 'Payroll team', role: 'HR' as const };
+const PAYROLL_ACTOR = { id: null, name: 'Admin / HR', role: 'HR' as const };
 
 /** "Timesheets waiting for Payroll" (waiting) or every timesheet that has reached Payroll (all). */
 export const payrollTimesheetQueue = (mode: DataMode, scope: QueueScope): TimesheetApprovalItem[] =>
@@ -688,7 +688,7 @@ export const teamRequests = (mode: DataMode, manager: MockEmployee, type: Reques
 
 // ---- team reimbursements (PROTOTYPE-SETUP: Leave & team, Slice 4) ------------------------------------------
 
-const LEVEL2_NAME: Record<string, string> = { PAYROLL: 'Payroll', HR: 'HR', ADMIN: 'Admin', FINANCE: 'Finance', NONE: 'Admin' };
+const LEVEL2_NAME: Record<string, string> = { PAYROLL: 'Admin / HR', HR: 'Admin / HR', ADMIN: 'Admin / HR', FINANCE: 'Admin / HR', NONE: 'Admin / HR', MANAGER: 'the reporting manager' };
 
 const claimBucket = (status: ApprovalStatus): TeamClaimBucket | null => {
     // PROTOTYPE-SETUP (Settings, Slice 1): pending with someone else (another person, or a team).
@@ -1116,12 +1116,12 @@ export const autoRunSubmissionDay = (mode: DataMode) => {
 const MODES = ['attendance', 'both', 'timesheet', 'none'] as const;
 /**
  * PROTOTYPE-SETUP (Settings, Slice 1): a level-1 / level-2 value — a team, a specific person (an employee), the
- * reporting manager (level 1 only) or none (level 2 only). Anything else keeps the current value.
+ * reporting manager (either level, PROTOTYPE-SETUP: Approvers) or none (level 2 only). Anything else keeps the current value.
  */
 const approverOk = (v: unknown, level: 1 | 2): boolean => {
     if (typeof v !== 'string') return false;
     if (isApproverTeam(v)) return true;
-    if (level === 1 && v === 'MANAGER') return true;
+    if (v === 'MANAGER') return true; // PROTOTYPE-SETUP (Approvers): either level
     if (level === 2 && v === 'NONE') return true;
     const pid = approverPersonId(v);
     return pid !== null && Boolean(findEmployee(pid));

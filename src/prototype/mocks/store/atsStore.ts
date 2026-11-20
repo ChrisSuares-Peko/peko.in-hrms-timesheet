@@ -49,6 +49,7 @@ import {
     trailLabel,
     dayLocations,
     routeStep,
+    samePerson,
     startTrail,
     type RouteContext,
     stepName,
@@ -165,7 +166,10 @@ export const newTrail = (mode: DataMode, type: ApprovalType, e: MockEmployee) =>
 export const timesheetRouteFor = (mode: DataMode, e: MockEmployee) => {
     const s = getSettings(mode);
     const ctx = routeContext(e);
-    return { l1: routeStep(s.level1.timesheet, 1, managerRef(e), ctx), l2: routeStep(s.level2.timesheet, 2, managerRef(e), ctx) };
+    const l1 = routeStep(s.level1.timesheet, 1, managerRef(e), ctx);
+    const l2 = routeStep(s.level2.timesheet, 2, managerRef(e), ctx);
+    // PROTOTYPE-SETUP (Approvers): the same person at both levels approves once.
+    return { l1, l2: samePerson(l1, l2) ? null : l2 };
 };
 
 /** The period's levels: as recorded when it was submitted (older periods: the current settings). */

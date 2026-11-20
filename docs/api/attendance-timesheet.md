@@ -33,6 +33,7 @@ Defaults:
 - `leavePolicy` — leave year, probation and per-type credits. See docs/api/leave-policy.md.
 - `timesheetFiling: { frequency: 'WEEKLY', fields: { startTime: true, endTime: true, duration: true, projectCode: false }, projectCodes: [...] }` — see **Timesheet filing** below. PUT refuses an impossible field combination with 400 (start and end time go together; start + end, or duration, must be on). Changing `frequency` regroups draft timesheets into the new periods; submitted, approved and sent-back ones keep their dates.
 - `level2`: attendance PAYROLL, overtime PAYROLL, timesheet PAYROLL, leave HR, reimbursement ADMIN. Options per type: PAYROLL, HR, ADMIN, FINANCE, NONE (manager is final).
+- PROTOTYPE-SETUP (Approvers): the settings screens offer the same three choices at both levels: `MANAGER` (Reporting manager), `HR` (shown as "Admin / HR", decided in that service in Payroll) and `person:<id>`. Level 2 also has `NONE`. `MANAGER` at level 2 resolves to the employee's manager when the request is submitted. If that is the same person as level 1, level 2 is dropped and level 1 is final (`samePerson`; this also applies to timesheet periods). Older team values (`PAYROLL`, `ADMIN`, `FINANCE`) still route to the Payroll queues as before. They show as "Admin / HR" and are saved as `HR` the next time the settings are saved (`normaliseApprover`).
 
 The legacy endpoints `hr-settings/grace-period` and `hr-settings/work-schedule` read and write the same `graceMinutes` and `shift`.
 

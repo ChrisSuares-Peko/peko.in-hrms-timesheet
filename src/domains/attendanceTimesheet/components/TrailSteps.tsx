@@ -6,7 +6,8 @@ import { Flex, Tooltip, Typography } from 'antd';
 import type { ApprovalStep, ApprovalTrail } from '../types';
 import { fmtStamp } from './format';
 
-const ROLE: Record<ApprovalStep['role'], string> = { MANAGER: 'Manager', HR: 'HR', FINANCE: 'Finance', PAYROLL: 'Payroll', ADMIN: 'Admin' };
+// PROTOTYPE-SETUP (Approvers): every team shows as "Admin / HR".
+const ROLE: Record<ApprovalStep['role'], string> = { MANAGER: 'Manager', HR: 'Admin / HR', FINANCE: 'Admin / HR', PAYROLL: 'Admin / HR', ADMIN: 'Admin / HR' };
 const PENDING: Partial<Record<ApprovalTrail['status'], ApprovalStep['role']>> = {
     PENDING_MANAGER: 'MANAGER',
     PENDING_HR: 'HR',
