@@ -1,156 +1,49 @@
-# Progress — Leave module updates + Developer notes panel
+# Progress — Developer notes panel, page-by-page version
 
-PROTOTYPE-SETUP. Run log. Spec: `docs/dev-notes/developer-notes.md` ("Leave module" and "Shared platform" sections; they
-replace `docs/specs/leave-module-spec.md`, deleted in this run). Prototype: `docs/prototypes/leave-prototype.html`.
-If a run stops, continue from the first step that isn't **done**. The previous run (Leave module, `756c594`–`c319c89`)
-is finished and pushed; its log is in git history (`git show c319c89:docs/progress.md`).
+PROTOTYPE-SETUP. Run log. Sources: `docs/dev-notes/dev-notes.json` (the notes) and
+`docs/prototypes/leave-prototype.html` (the panel's look and behaviour). If a run stops, continue from the first step
+that isn't **done**. The previous run (Leave module updates + module-grouped notes panel, `c34e05f`–`9b91229`) is
+finished and pushed; its log is in git history (`git show 9b91229:docs/progress.md`).
 
 | Step | Commit | Status |
 |---|---|---|
-| 1 — Rules: past leave only for days worked, restart an edited open request at Level 1, the leave log / recent activity | Leave: rules for past leave, editing open requests and the leave log | done |
-| 2 — Data: change requests, Cancel from a date (+ dry-run check), edit pending in place, queues, endpoints, seed | Leave: change requests, cancel from a date, edit pending requests | done |
-| 3 — Source docs: developer notes committed, old leave spec deleted, this log | Leave: developer notes replace the leave spec | done |
-| 4 — ESS Leave: compact cards, Recent activity, type page (4 cards, one log), My requests table, request drawer | Leave: ESS overview, type log, My requests and the request drawer | done |
-| 5 — Payroll navigation: no service tabs; Quick actions with waiting counts; breadcrumb + back link; redirects | Leave: Payroll services from Quick actions | done |
-| 6 — API doc (`docs/api/leave.md`) for the new endpoints | Leave: API contract for changes and cancel from | done |
-| 7 — Developer notes panel (prototype flag), README + docs/dev-notes/README.md | Dev notes: panel in the prototype build | done |
-| 8 — VERIFY 1–8 at 1440 / 1024 / 375, type-check, lint, tests, production build, one push | Leave: verification log | done |
+| 1 — Remove the module-grouped panel; page-key context + `useDevPage`; new docked panel on `dev-notes.json` | Dev notes: page-by-page panel replaces the module notes | done |
+| 2 — Every mapped screen and sub-tab reports its key | Dev notes: pages report their notes key | done |
+| 3 — README flag section, `docs/dev-notes/README.md` (how to update, key list) | Dev notes: how to update the notes and the key list | done |
+| 4 — VERIFY 1–5 at 1440 / 1024 / 375, type-check, lint, tests, production build, one push | Dev notes: verification log | next |
 
 ## Done
-- Step 1: `src/prototype/rules/leave.ts` (`removedPastDays`, `pastLeaveProblem`, `PAST_LEAVE_MESSAGES`, the shortened
-  leave ends on the last working day), `src/prototype/rules/attendance.ts` (`restartTrail`; approved full-day leave
-  stays "On leave" with a check-in), `src/prototype/rules/leaveLog.ts` (`typeLog`, `recentActivity`, `filterLog`,
-  `logCounts`). Tests: `src/prototype/rules/__tests__/leaveLog.test.ts` (15).
-- Step 2: `src/prototype/mocks/store/atsLeave.ts` (`leaveCancelCheck`, `requestLeaveCancellation` with `from`,
-  `requestLeaveChange` / `withdrawLeaveChange` / `resubmitLeaveChange`, `applyChange`, `changeBalanceLine`, edit
-  in place via `restartTrail`), `atsRequests.ts` (`atsLeaveChanges`), `atsTeam.ts` / `atsAdmin.ts` (change items in
-  every leave queue), `handlers/ats.ts` + `api.ts` (endpoints), seed (`time-leaves.ts`, `ats-seed.ts`), data v9.
-  Tests: `src/prototype/mocks/store/__tests__/atsLeaveUpdates.test.ts` (12).
-- Step 3: `docs/dev-notes/developer-notes.md` and the updated `docs/prototypes/leave-prototype.html` committed;
-  `docs/specs/leave-module-spec.md` deleted; this log restarted.
-
-- Step 4: `leave/EssLeavePage.tsx` (overview cards 2 / 4 a row, Recent activity, Upcoming leave, Next public holiday;
-  type page with 4 cards + summary + one log with Show / status / date filters; My requests table with status filters;
-  drawer via `?req=kind:id`), `leave/leaveLogUi.tsx` (TypeCard, LeaveLogTable), `leave/LeaveRequestDrawer.tsx`,
-  `leave/ApplyLeaveModal.tsx` (Edit request, Change leave, edit a change), `leave/LeaveActionModals.tsx` (Cancel from +
-  live worked-day check). Balances carry the type's carry-forward limit (`carryForward`).
-
-- Step 5: `src/prototype/persona/payrollServices.tsx` (service links, labels, "Payroll › Services › {service}"),
-  `CustomBreadcrumb.tsx` (uses it on service pages), `payroll/admin/adminShared.tsx` (`PayrollServiceBar` replaces
-  `PayrollServiceTabs`: "‹ Back to dashboard" + "N waiting for you"), the five service pages + Payroll settings,
-  `Dash.tsx` + `NavigationCards.tsx` (Quick actions heading, waiting badge and "N waiting" per tile, Payroll settings
-  tile), `routes/sections/payroll.tsx` (redirects).
-
-- Step 6: `docs/api/leave.md` — `LeaveChange`, `changedFrom`, the new endpoints (`cancel-check`, `change`,
-  `changes/:id/withdraw|resubmit`), `cancel` with `from`, `resubmit` while pending, `leaveKind = change`, the effects.
-
-- Step 7: `src/prototype/devNotes/devNotes.tsx` (split on the markers, page → module, minimal markdown renderer),
-  `DevNotesPanel.tsx` (button + right drawer, module dropdown with "(this page's module)", Copy, Copy all, Shared
-  platform link), mounted in `prototype/DataModeToggle.tsx` behind the flag; tests in
-  `src/prototype/devNotes/__tests__/devNotes.test.tsx` (25). Docs: `README.md` (Prototype flag),
-  `docs/dev-notes/README.md` (How to update the notes), `vercel.json` (`build.env.VITE_PROTOTYPE`).
-
-## VERIFY (Chrome via a scripted browser at 1440 / 1024 / 375, plus the store and rule tests)
-1. Pass — no service tabs on any Payroll page; every service page (Timesheet, Attendance, Leave, Overtime,
-   Reimbursements, Employees, Payroll settings) shows "Payroll › Services › {service}" and "‹ Back to dashboard"; the
-   dashboard's Quick actions open each one, tiles show "N waiting"; `/payroll/services/*` aliases and the older
-   retired routes redirect. No horizontal overflow at any width.
-2. Pass — cards show only "{type}", "available / total days", View details; 4 per row at 1440 / 1024, 2 at 375;
-   Recent activity lists 10 rows newest first; a leave row opens the drawer.
-3. Pass — 4 cards, a one-line summary, one log table; Show (All / Leave / Credits / Deductions with counts), status
-   and date filters work; no "credits and deductions" button.
-4. Pass — edited a pending request (saved in place, "Edited and resubmitted", back with Arjun at Level 1; store test
-   covers the restart from Level 2); changed approved Annual leave 2 → 1 day: "Change requested" under the status,
-   the original stayed until Arjun and HR approved, then it was replaced with "Was … 2 days"; cancelled from a chosen
-   date; withdrew a cancellation.
-5. Pass — cancelling the whole past "Plumbing work at home" leave is refused ("You didn’t check in on Mon 7 Sep … request
-   an attendance correction first"), Send disabled; cancelling from the day with a check-in worked; after approval the
-   leave is 1 day, that day shows the check-in in attendance and the timesheet's leave row is gone (store test).
-6. Pass — `atsLeaveModule.test.ts` (balances incl. in-request, half days over a range, sandwich rule, comp off incl.
-   the overtime clash, probation, late deduction and reversal, Requests views) all pass; in the browser the Apply form
-   shows "2 days waiting for approval are already taken off" and "5 half days = 2.5 days of leave".
-7. Pass — opens on the right module on all 14 mapped pages ("(this page's module)"), switches modules, Copy / Copy all
-   (25,133 chars) and the Shared platform link work at all widths; headings / bullets / bold render with no raw
-   markdown. Production build without the flag: no panel or notes text in `dist`; with `VITE_PROTOTYPE=true`: one lazy
-   chunk.
-8. Pass — no console errors from the new code (remaining messages are pre-existing: the sidebar's `stringLabel` prop,
-   external font lookups, antd deprecations on older pages). Type-check clean; ESLint 3 errors, all pre-existing in
-   `src/prototype/mocks/store/requestStores.ts`; tests 5725 passed, 366 failed in 166 files (baseline 366 / 166, all
-   unrelated; the one in this area, "timesheet v6: Excel round trip", failed before); production build passes.
+- Step 1: removed `src/prototype/devNotes/devNotes.tsx` (markdown loader, module map, renderer), its tests and
+  `docs/dev-notes/developer-notes.md`; rewrote `src/prototype/devNotes/DevNotesPanel.tsx`; added `devPage.tsx`
+  (`DevPageProvider`, `useDevPage`, `useCurrentDevPage`) and `notes.ts` (`DEV_NOTES`, `notesFor` with the fallback);
+  `DevPageProvider` wraps the router and demo controls in `App.tsx`. Tests: `src/prototype/devNotes/__tests__/devNotes.test.tsx`.
+- Step 2: `useDevPage` in the ESS Overview, Leave, Attendance & Timesheet, My team (+ member page), Reimbursements,
+  Profile; Payroll dashboard, Leave, Timesheet, Attendance, Overtime / Reimbursements, Employees; Payroll settings and
+  its Leave Policies sub-tabs.
+- Step 3: `README.md`, `docs/dev-notes/README.md`; references to the old notes file now point at `dev-notes.json`.
 
 ## Next
-- Nothing left in scope.
+- Step 4.
 
 ## Decisions
-1. **Spec.** `docs/dev-notes/developer-notes.md` is the spec; `docs/specs/leave-module-spec.md` is deleted. The notes'
-   personas (Rohan Mehta / Priya Nair) stay prototype-only names; the repo keeps Sneha Iyer (ESS - Employee) and Arjun
-   Mehta (ESS - Manager), as in the last run.
-2. **Editing a pending request** reuses `POST leave/requests/:id/resubmit` (now allowed while pending at either level,
-   not only after "Ask for update"). It saves in place and restarts at Level 1; the history says "Edited and
-   resubmitted". Cancellation and comp off requests can be edited the same way.
-3. **Change requests** are a new item (`LeaveChange`, collection `ats-leave-changes`) with the leave approvers, shown in
-   My team → Approvals and Payroll → Leave → Requests as a leave item of kind "change". While one waits: the original
-   is untouched and counted as before; the change's own days are not counted again as "in request" (no double
-   counting). It is checked like a new request with the original left out (so its days count as free). On approval
-   the original is updated in place (same id) and keeps `changedFrom` ("Was"); days beyond the balance are flagged as
-   loss of pay, like "Approve anyway". The approver's balance line for a change uses the balance with the original's
-   days given back.
-4. **One follow-up at a time.** An approved leave can have one open cancellation or change at a time; Change leave and
-   Cancel leave are hidden while one waits.
-5. **Cancel from.** The employee picks "Whole leave" or "From a date" (any day of the leave). Days before today must
-   have been worked: a check-in in attendance modes, timesheet entries in timesheet-only mode. In "neither" mode
-   nothing can prove it, so past days are refused with "ask HR to change it". Today and later need no proof.
-6. **HR cancel** keeps its rule from the notes (Payroll → Leaves: applies at once, only the days from today once the
-   leave has started) and never runs the worked-day check.
-7. **Leave and a check-in on the same day.** Before, a check-in overrode approved full-day leave (the day showed as
-   Present/Late and could even get a late mark). Now approved full-day leave stays the day's status ("{type} ·
-   checked in", no late mark, no overtime from it) until a cancellation or change is approved; then the check-in
-   counts as a worked day. Half-day leave is unchanged.
-8. **Shortened leave ends on a working day.** Cancelling from a Monday ends the leave on the Friday before, not on the
-   Sunday.
-9. **Demo data.** Sneha has a past 2-day casual leave ("Plumbing work at home", ~50 working days back) with no
-   check-in on day 1 and a check-in on day 2: cancelling the whole leave is refused; cancelling from day 2 works.
-   Persisted demo data bumped to v9.
-10. **Source documents.** `docs/dev-notes/developer-notes.md` and the updated `docs/prototypes/leave-prototype.html` are
-    committed as sources. The unrelated local change to `docs/prototypes/attendance-timesheet.html` is left alone.
-11. **Commit hooks.** Husky hooks aren't installed in this checkout (no `.husky/_`), so commits run no hooks; the
-    commitlint config would reject the "Leave: …" format the run asks for. Lint, type-check and tests are run by hand.
-12. **ESS overview content.** Only the compact cards, Recent activity, Upcoming leave and Next public holiday. The
-    old Loss of pay card is a one-line alert above the cards (only when there is loss of pay); the old "Late check-in
-    deductions" panel is gone from Leave (late deductions and reversals are in Recent activity and each type's log; the
-    full list with disputes stays in Attendance → Notes). Probation / exit banners stay.
-13. **Comp off card** shows "available / earned days" (comp off has no yearly total).
-14. **Type page "Days (+/−)"**: approved and in-request leave show −days; rejected / withdrawn / cancelled requests and
-    change requests show their days in grey without a sign (nothing moved); a reversal is an info row (its text says
-    "+0.5 reversed"), as in the ledger.
-15. **Recent activity** = every dated event (request sent, each decision, edits, withdrawals, cancellations, approved
-    changes, comp off, credits, carry forward, lapses, late deductions, reversals, expiries), newest first, last 10.
-    Future-dated credits aren't shown. Clicking any request row opens its drawer.
-16. **My requests** lists leave, cancellation, change and comp off requests in one table (newest first); "Rejected or
-    withdrawn" also holds cancelled leave. A pending cancellation / change shows under the leave's status.
-17. **Payroll navigation.** The service tabs component is gone; every service page has the breadcrumb
-    "Payroll › Services › {service}" ("Services" links to the dashboard's Quick actions) and "‹ Back to dashboard"
-    with "N waiting for you". Quick actions tiles: Employees & Departments (profile updates waiting), Salary, Leave,
-    Attendance, Reimbursements, Timesheet, Overtime (each with what's waiting) and a new Payroll settings tile, then
-    the existing Company documents, Reports, Announcements, Payslip and CTC tiles. "Leaves" / "Timesheets" tiles are
-    renamed "Leave" / "Timesheet" (the service names). Tiles still follow the tracking mode (no Timesheet in
-    attendance-only, no Attendance in timesheet-only, neither + no Overtime in "neither").
-18. **Redirects.** Already in place and kept: `/payroll/approvals` → Timesheet › Requests, `/payroll/timesheets` →
-    Timesheet › Overview, `/payroll/employee-Leaves` → Leave, `/payroll/leave-summary/:id` → Leave (that employee),
-    Payroll settings tab 11 → Leave Policies. New: `/payroll/services` → dashboard Quick actions;
-    `/payroll/services/attendance` → Attendance; `/payroll/services/employees` → Employees;
-    `/payroll/services/settings` and `/payroll/services/payroll-settings` → Payroll settings. The service pages keep
-    their URLs (`/payroll/services/timesheet|leave|overtime|reimbursements`, `/payroll/timesheet`, `/payroll/employees`,
-    `/payroll/HR-settings`), so bookmarks keep working.
-19. **Prototype flag.** There was no prototype flag (the demo controls always show). New: `VITE_PROTOTYPE`. On by
-    default with `yarn dev` (`VITE_PROTOTYPE=false` hides it); a build shows the panel only with `VITE_PROTOTYPE=true`,
-    otherwise the panel and the notes text are left out of the bundle (the condition is inlined where the lazy chunk is
-    imported). The Vercel prototype deploy turns it on in `vercel.json` (`build.env`); the Docker / Azure production
-    pipelines don't. `.env*` files are git-ignored here, so the flag can't live in a committed env file.
-20. **Developer notes button** sits inside the existing bottom-right demo pill ("Notes" on phones) and the drawer is
-    full width on phones. It always opens on the page's module; the dropdown lists every module by its title. Pages
-    without their own module (e.g. Salary, ESS Payslips) open on Shared platform / ESS shell. ESS Attendance &
-    Timesheet's sub-tabs all map to `attendance`, as asked. "Copy" copies the module with its marker; "Copy all" the
-    whole file.
-21. **Markdown renderer.** No markdown library in the repo; a minimal renderer (headings, bullets incl. one nested
-    level, bold, inline code, paragraphs) renders React nodes (no HTML injection).
+1. **One panel.** The module-grouped panel, its markdown loader, renderer, tests and `developer-notes.md` are removed.
+   `docs/api/leave.md` and code comments that cited `developer-notes.md` now cite `dev-notes.json`.
+2. **Flag** reused from the last run: `VITE_PROTOTYPE` (on in `yarn dev`, on in the Vercel prototype via `vercel.json`,
+   off in production builds, which drop the panel chunk and the JSON entirely). `useDevPage` / `DevPageProvider` are
+   in every build: they only hold a key string and nothing reads it without the panel.
+3. **Button** stays inside the existing bottom-right demo pill (as "next to the demo controls"); open, it reads "Close
+   notes" and is the primary (red) button. The panel is portalled to `<body>` with `z-index` 999: under the demo pill
+   (1000) and antd modals / drawers, over the page; no overlay. 460px wide, full width under 640px. Its body has 90px
+   of bottom padding so the demo pill never hides the last lines.
+4. **Clearing the key.** The prototype keeps the last key when a page has none; here leaving a page clears its key
+   (only if it's still the current one), so a page without notes shows the empty state instead of the previous page's
+   notes.
+5. **Closest keys for screens the notes don't name**: Payroll Timesheet / Overtime / Reimbursements sub-tabs report
+   `pay:<service>:<view>`, Payroll Attendance tabs `pay:attendance:<tab>` (all fall back to the service);
+   My team's other tabs `ess:team:<tab>` and a member's timesheet page `ess:team:member` (fall back to `ess:team`);
+   Payroll settings tabs other than Leave / Attendance-timesheet-overtime / Reimbursements report `pay:settings:other`
+   (no notes: empty state). ESS Payslips and Documents and the Payroll Salary pages report nothing (empty state).
+6. **Payroll → Leave → Balances** reports `pay:leave:details` (the notes' name for it).
+7. **Leave calendar** tab id is `leave-calendar` in code; it reports `ess:team:leavecal`.
+8. **Copy feedback** uses antd's message hook (no static-message warning). The page view's empty state shows "No
+   notes for this page yet" with the "How to use these notes" button and a one-line hint, as in the prototype.
