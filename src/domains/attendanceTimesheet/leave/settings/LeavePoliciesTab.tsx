@@ -1,6 +1,7 @@
 // PROTOTYPE-SETUP (Leave module): Payroll settings → Leave Policies, rebuilt as four sub-tabs (?leaveTab=).
 //   Leave types ....... search, "Add leave type"; the table (leave type, days per year, credited, accrual rate, carry
-//                       forward, applies to, status) with View / Edit / Deactivate (used) or Remove (never used)
+//                       forward, applies to, status, Action: View · Edit · Delete). Delete only for a type never used
+//                       (disabled with a tooltip otherwise); deactivating is "Show to employees" in the Edit drawer
 //   Public holidays ... a dated list per year: add a date and a name, remove
 //   Configuration ..... leave year (+ the automatic roll-forward), half-day leave, sandwich rule, comp off + expiry.
 //                       Probation and pro-rating are fixed rules, not settings; the late check-in deduction is an
@@ -10,7 +11,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DeleteOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, DatePicker, Empty, Flex, Input, InputNumber, Popconfirm, Radio, Segmented, Select, Skeleton, Switch, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, DatePicker, Empty, Flex, Input, InputNumber, Popconfirm, Radio, Segmented, Select, Skeleton, Switch, Table, Tag, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
@@ -21,7 +22,7 @@ import { APPLIES_LABEL, CREDIT_LABEL, accrualText, carryText, fmtDays } from '@s
 import { showToast } from '@src/slices/apiSlice';
 
 import { LeaveTypeDrawer, LeaveTypeView } from './LeaveTypeDrawer';
-import { addLeaveType, addPublicHoliday, getLeaveSettings, removeLeaveType, removePublicHoliday, setLeaveTypeActive, updateLeaveConfig, updateLeaveType } from '../../api';
+import { addLeaveType, addPublicHoliday, getLeaveSettings, removeLeaveType, removePublicHoliday, updateLeaveConfig, updateLeaveType } from '../../api';
 import AtsSettingsTab from '../../payroll/AtsSettingsTab';
 import { usePayrollScope } from '../../payroll/usePayrollAts';
 import type { LeavePolicy, LeaveSettingsView, LeaveTypeConfig, LeaveTypeInput, SandwichRule } from '../../types';
@@ -31,6 +32,8 @@ const { Text } = Typography;
 type Sub = 'types' | 'holidays' | 'config' | 'approvals';
 
 // ---- Leave types ----------------------------------------------------------------------------------------------
+
+const USED_TIP = 'Already used in leave requests, so it can’t be deleted. Open Edit to deactivate it instead.';
 
 const LeaveTypes = ({ view, onView }: { view: LeaveSettingsView; onView: (v: LeaveSettingsView | false, msg?: string) => boolean }) => {
     const scope = usePayrollScope();
@@ -60,10 +63,10 @@ const LeaveTypes = ({ view, onView }: { view: LeaveSettingsView; onView: (v: Lea
                 ),
         },
         {
-            title: '',
+            title: 'Action',
             key: 'x',
             render: (_, t) => (
-                <Flex gap={4} wrap="nowrap">
+                <Flex gap={4} wrap="nowrap" data-type-actions={t.id}>
                     <Button size="small" type="text" onClick={() => setViewing(t)} data-view-type={t.id}>
                         View
                     </Button>
@@ -71,20 +74,18 @@ const LeaveTypes = ({ view, onView }: { view: LeaveSettingsView; onView: (v: Lea
                         Edit
                     </Button>
                     {used(t.id) ? (
-                        <Button
-                            size="small"
-                            type="text"
-                            onClick={async () => {
-                                onView(await setLeaveTypeActive(scope, t.id, !t.active), t.active ? `${t.name} is inactive. Existing leave stays as it is.` : `${t.name} is active again`);
-                            }}
-                            data-toggle-type={t.id}
-                        >
-                            {t.active ? 'Deactivate' : 'Activate'}
-                        </Button>
+                        <Tooltip title={USED_TIP}>
+                            {/* A disabled button swallows hover: the span carries the tooltip. */}
+                            <span className="inline-block">
+                                <Button size="small" type="text" danger disabled className="pointer-events-none" aria-label={`Delete ${t.name} (${USED_TIP})`} data-delete-type={t.id}>
+                                    Delete
+                                </Button>
+                            </span>
+                        </Tooltip>
                     ) : (
-                        <Popconfirm title={`Remove ${t.name}?`} description="It hasn’t been used, so nothing else changes." okText="Remove" onConfirm={async () => onView(await removeLeaveType(scope, t.id), `${t.name} removed`)}>
-                            <Button size="small" type="text" danger disabled={view.policy.types.length <= 1} data-remove-type={t.id}>
-                                Remove
+                        <Popconfirm title={`Delete ${t.name}?`} description="It hasn’t been used, so nothing else changes." okText="Delete" onConfirm={async () => onView(await removeLeaveType(scope, t.id), `${t.name} deleted`)}>
+                            <Button size="small" type="text" danger disabled={view.policy.types.length <= 1} data-delete-type={t.id}>
+                                Delete
                             </Button>
                         </Popconfirm>
                     )}
@@ -123,8 +124,8 @@ const LeaveTypes = ({ view, onView }: { view: LeaveSettingsView; onView: (v: Lea
                 />
             </div>
             <Text type="secondary" className="text-xs">
-                A type that has been used can’t be removed or renamed, only made inactive, so past leave keeps its history. Inactive types disappear from the
-                leave forms. {view.migrationNote}
+                A type that has been used can’t be deleted or renamed (past leave keeps its history). To stop offering it, open Edit and turn off “Show to
+                employees”. Click View for every setting of a type. {view.migrationNote}
             </Text>
             <LeaveTypeView
                 type={viewing}

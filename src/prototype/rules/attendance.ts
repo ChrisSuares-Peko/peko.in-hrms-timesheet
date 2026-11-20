@@ -192,11 +192,11 @@ export const DEFAULT_FILING: TimesheetFilingSettings = {
 // (rules: ./leave.ts). Annual / Casual / Sick are the live policy the ESS balances already used; Maternity and Paternity
 // come from the original Payroll leave policies. Every type is paid.
 export const DEFAULT_LEAVE_TYPES: LeaveTypeConfig[] = [
-    { id: 'ANNUAL', name: 'Annual', daysPerYear: 12, credit: 'MONTHLY', probation: 'MONTHLY', carryForward: 30, encashOnExit: true, proofAfterDays: null, appliesTo: 'ALL', active: true },
-    { id: 'CASUAL', name: 'Casual', daysPerYear: 8, credit: 'CYCLE_START', probation: 'MONTHLY', carryForward: 0, encashOnExit: false, proofAfterDays: null, appliesTo: 'ALL', active: true },
-    { id: 'SICK', name: 'Sick', daysPerYear: 6, credit: 'CYCLE_START', probation: 'FULL', carryForward: 0, encashOnExit: false, proofAfterDays: 3, appliesTo: 'ALL', active: true },
-    { id: 'MATERNITY', name: 'Maternity', daysPerYear: 182, credit: 'CYCLE_START', probation: 'NONE', carryForward: 0, encashOnExit: false, proofAfterDays: 0, appliesTo: 'FEMALE', active: true },
-    { id: 'PATERNITY', name: 'Paternity', daysPerYear: 5, credit: 'CYCLE_START', probation: 'NONE', carryForward: 0, encashOnExit: false, proofAfterDays: null, appliesTo: 'MALE', active: true },
+    { id: 'ANNUAL', name: 'Annual', daysPerYear: 12, credit: 'MONTHLY', probation: 'MONTHLY', carryForward: 30, onLeaving: 'ENCASH', proofAfterDays: null, appliesTo: 'ALL', active: true },
+    { id: 'CASUAL', name: 'Casual', daysPerYear: 8, credit: 'CYCLE_START', probation: 'MONTHLY', carryForward: 0, onLeaving: 'BRING_FORWARD', proofAfterDays: null, appliesTo: 'ALL', active: true },
+    { id: 'SICK', name: 'Sick', daysPerYear: 6, credit: 'CYCLE_START', probation: 'FULL', carryForward: 0, onLeaving: 'BRING_FORWARD', proofAfterDays: 3, appliesTo: 'ALL', active: true },
+    { id: 'MATERNITY', name: 'Maternity', daysPerYear: 182, credit: 'CYCLE_START', probation: 'NONE', carryForward: 0, onLeaving: 'BRING_FORWARD', proofAfterDays: 0, appliesTo: 'FEMALE', active: true },
+    { id: 'PATERNITY', name: 'Paternity', daysPerYear: 5, credit: 'CYCLE_START', probation: 'NONE', carryForward: 0, onLeaving: 'BRING_FORWARD', proofAfterDays: null, appliesTo: 'MALE', active: true },
 ];
 
 /** Company leave cycle from 1 April; sandwich rule off; comp off on (expires after 60 days); late deductions Annual, then Casual. */

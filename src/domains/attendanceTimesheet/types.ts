@@ -1120,13 +1120,18 @@ export interface LeaveTypeConfig {
     probation: LeaveProbationRule;
     /** Unused days carried into the next cycle, up to this (0 = none); the rest lapses. */
     carryForward: number;
-    encashOnExit: boolean;
+    /** PROTOTYPE-SETUP (Leave types, "When an employee leaves"): what happens to unused days. Stored only: full &
+     *  final settlement is a later module. Older data's encashOnExit maps true → ENCASH, false → BRING_FORWARD. */
+    onLeaving: LeaveOnLeaving;
     /** A request longer than this many days needs a supporting document (null = never, 0 = always). */
     proofAfterDays: number | null;
     appliesTo: LeaveAppliesTo;
-    /** Inactive types are hidden from the leave forms; their history stays. */
+    /** "Show to employees". Off = deactivated: hidden from employees, nothing deleted, balances and history kept. */
     active: boolean;
 }
+
+/** Unused leave when someone leaves: encashed in full & final settlement, or used to bring the last working day forward. */
+export type LeaveOnLeaving = 'ENCASH' | 'BRING_FORWARD';
 
 /** Days off between two leave days of the same request: never · weekly offs · weekly offs and public holidays. */
 export type SandwichRule = 'OFF' | 'WEEKLY_OFFS' | 'WEEKLY_OFFS_AND_HOLIDAYS';
@@ -1327,8 +1332,10 @@ export interface LateDeduction {
 export interface LeaveSettlement {
     type: LeaveType;
     name: string;
-    /** Unused days paid out (encashable types). */
+    /** Unused days paid out in full & final settlement (types set to ENCASH). */
     encash: number;
+    /** Unused days that can bring the last working day forward (types set to BRING_FORWARD). */
+    bringForward: number;
     /** Days taken beyond what was earned, recovered in the final settlement. */
     recover: number;
 }

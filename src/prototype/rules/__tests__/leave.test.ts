@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { LeavePolicy, LeaveTypeConfig, Weekday } from '@src/domains/attendanceTimesheet/types';
 
-import { DEFAULT_SETTINGS, decide, resubmitTrail, startTrail, personApprover } from '../attendance';
+import { DEFAULT_LEAVE_POLICY, DEFAULT_SETTINGS, decide, resubmitTrail, startTrail, personApprover } from '../attendance';
 import {
     COMP_OFF,
     COMP_OFF_MESSAGES,
@@ -33,6 +33,7 @@ import {
     leavesClash,
     lossOfPayOnApproval,
     migrateLeavePolicy,
+    onLeavingOf,
     needsProof,
     newTypeId,
     rollForwardDay,
@@ -48,7 +49,7 @@ const type = (over: Partial<LeaveTypeConfig> = {}): LeaveTypeConfig => ({
     credit: 'MONTHLY',
     probation: 'MONTHLY',
     carryForward: 0,
-    encashOnExit: false,
+    onLeaving: 'BRING_FORWARD',
     proofAfterDays: null,
     appliesTo: 'ALL',
     active: true,
@@ -147,10 +148,21 @@ describe('carry forward and lapse', () => {
 });
 
 describe('exit settlement', () => {
-    it('encashes unused days of an encashable type; recovers days taken beyond what was earned', () => {
-        expect(exitSettlement({ earned: 6, approved: 2, late: 0.5 }, true)).toEqual({ encash: 3.5, recover: 0 });
-        expect(exitSettlement({ earned: 6, approved: 2, late: 0 }, false)).toEqual({ encash: 0, recover: 0 });
-        expect(exitSettlement({ earned: 3, approved: 5, late: 0 }, true)).toEqual({ encash: 0, recover: 2 });
+    it('unused days are encashed or bring the last working day forward (the type’s choice); days taken beyond what was earned are recovered', () => {
+        expect(exitSettlement({ earned: 6, approved: 2, late: 0.5 }, 'ENCASH')).toEqual({ encash: 3.5, bringForward: 0, recover: 0 });
+        expect(exitSettlement({ earned: 6, approved: 2, late: 0 }, 'BRING_FORWARD')).toEqual({ encash: 0, bringForward: 4, recover: 0 });
+        expect(exitSettlement({ earned: 3, approved: 5, late: 0 }, 'ENCASH')).toEqual({ encash: 0, bringForward: 0, recover: 2 });
+        expect(exitSettlement({ earned: 3, approved: 5, late: 0 }, 'BRING_FORWARD')).toEqual({ encash: 0, bringForward: 0, recover: 2 });
+    });
+    it('maps the old encash flag: true → encash, false → bring forward (stored policies too)', () => {
+        expect(onLeavingOf({ encashOnExit: true })).toBe('ENCASH');
+        expect(onLeavingOf({ encashOnExit: false })).toBe('BRING_FORWARD');
+        expect(onLeavingOf({ onLeaving: 'ENCASH', encashOnExit: false })).toBe('ENCASH');
+        const stored = { ...DEFAULT_LEAVE_POLICY, types: DEFAULT_LEAVE_POLICY.types.map(({ onLeaving: _o, ...t }) => ({ ...t, encashOnExit: t.id === 'ANNUAL' })) };
+        const p = migrateLeavePolicy(stored);
+        expect(p.types.find(t => t.id === 'ANNUAL')?.onLeaving).toBe('ENCASH');
+        expect(p.types.find(t => t.id === 'CASUAL')?.onLeaving).toBe('BRING_FORWARD');
+        expect(p.types.some(t => 'encashOnExit' in t)).toBe(false);
     });
 });
 
@@ -382,8 +394,8 @@ describe('leave types', () => {
             5
         );
         expect(migrated.cycleStart).toBe('01-01');
-        expect(migrated.types.find(t => t.id === 'ANNUAL')).toMatchObject({ daysPerYear: 18, credit: 'MONTHLY', carryForward: 45, encashOnExit: true });
-        expect(migrated.types.find(t => t.id === 'CASUAL')).toMatchObject({ daysPerYear: 12, credit: 'CYCLE_START' });
+        expect(migrated.types.find(t => t.id === 'ANNUAL')).toMatchObject({ daysPerYear: 18, credit: 'MONTHLY', carryForward: 45, onLeaving: 'ENCASH' });
+        expect(migrated.types.find(t => t.id === 'CASUAL')).toMatchObject({ daysPerYear: 12, credit: 'CYCLE_START', onLeaving: 'BRING_FORWARD' });
         expect(migrated.types.find(t => t.id === 'SICK')).toMatchObject({ proofAfterDays: 5 });
         expect(migrated.types.map(t => t.id)).toEqual(['ANNUAL', 'CASUAL', 'SICK', 'MATERNITY', 'PATERNITY']);
         expect(migrateLeavePolicy(null)).toBe(DEFAULT_POLICY);
@@ -424,8 +436,8 @@ describe('one employee’s year', () => {
         expect(off.balances.some(b => b.type === COMP_OFF)).toBe(false);
     });
     it('leaving this year: a settlement per type', () => {
-        const y = computeLeaveYear({ ...base, facts: { ...base.facts, exitDate: '2026-09-20' }, policy: { ...base.policy, types: [type({ id: 'X', name: 'Annual', daysPerYear: 12, encashOnExit: true })] }, leave: [] });
-        expect(y.settlement).toEqual([{ type: 'X', name: 'Annual', encash: 6, recover: 0 }]);
+        const y = computeLeaveYear({ ...base, facts: { ...base.facts, exitDate: '2026-09-20' }, policy: { ...base.policy, types: [type({ id: 'X', name: 'Annual', daysPerYear: 12, onLeaving: 'ENCASH' })] }, leave: [] });
+        expect(y.settlement).toEqual([{ type: 'X', name: 'Annual', encash: 6, bringForward: 0, recover: 0 }]);
     });
 });
 

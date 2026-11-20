@@ -1,6 +1,10 @@
 // PROTOTYPE-SETUP (Leave module): Leave Policies → Leave types → Add / Edit (a drawer, each field with help text) and
 // View (every setting of a type). Editing days, credit method, probation rule, carry forward or who it applies to asks
 // for confirmation with the number of employees affected. A used type keeps its name.
+// Drawer sections (notes pay:settings:leave:types): top (name, days, credited) · "When an employee joins" (pro-rated
+// note, During probation) · "When an employee leaves" (pro-rated note, Unused leave on leaving: encash in full & final
+// settlement or bring the last working day forward, stored only) · "Other" (carry forward, supporting document,
+// applies to, Show to employees: off = deactivated, hidden from employees, nothing deleted).
 import { useEffect, useState } from 'react';
 
 import { Alert, Button, Descriptions, Drawer, Flex, Input, InputNumber, Modal, Radio, Switch, Typography } from 'antd';
@@ -8,6 +12,7 @@ import { Alert, Button, Descriptions, Drawer, Flex, Input, InputNumber, Modal, R
 import {
     APPLIES_LABEL,
     CREDIT_LABEL,
+    ON_LEAVING_LABEL,
     PROBATION_LABEL,
     accrualText,
     carryText,
@@ -20,6 +25,15 @@ import {
 import type { LeaveTypeConfig, LeaveTypeInput } from '../../types';
 
 const { Text } = Typography;
+
+const SectionHeading = ({ title, note }: { title: string; note: string }) => (
+    <div className="border-0 border-t border-solid border-[#EAECF0] pt-3" data-lt-section={title}>
+        <Text className="block text-sm font-medium text-[#101828]">{title}</Text>
+        <Text type="secondary" className="text-xs">
+            {note}
+        </Text>
+    </div>
+);
 
 const Field = ({ label, help, children, htmlFor }: { label: string; help: string; children: React.ReactNode; htmlFor?: string }) => (
     <Flex vertical gap={4}>
@@ -39,9 +53,10 @@ const BLANK: LeaveTypeInput = {
     credit: 'MONTHLY',
     probation: 'MONTHLY',
     carryForward: 0,
-    encashOnExit: false,
+    onLeaving: 'BRING_FORWARD',
     proofAfterDays: null,
     appliesTo: 'ALL',
+    active: true,
 };
 
 /** The fields whose change moves balances (asks for confirmation). */
@@ -163,6 +178,7 @@ export const LeaveTypeDrawer = ({
                         {v.credit === 'DAILY' && `A little is added every day, about ${daysText(monthly)} a month.`}
                     </Text>
                 </Field>
+                <SectionHeading title="When an employee joins" note="Joiners get a pro-rated share for the rest of the leave cycle." />
                 <Field label="During probation" help="How this leave works while an employee’s status is Probation. It switches to the normal rule when HR marks them Active.">
                     <Radio.Group
                         optionType="button"
@@ -176,18 +192,26 @@ export const LeaveTypeDrawer = ({
                         ]}
                     />
                 </Field>
+                <SectionHeading
+                    title="When an employee leaves"
+                    note="Leave is pro-rated for the year up to their last working day. What they have left can then be used one of two ways."
+                />
+                <Field label="Unused leave on leaving" help="Full and final settlement is a separate module that comes later; this setting only records the choice.">
+                    <Radio.Group
+                        value={v.onLeaving}
+                        onChange={e => set('onLeaving', e.target.value)}
+                        aria-label="Unused leave on leaving"
+                        className="flex flex-col gap-1.5"
+                        options={(['ENCASH', 'BRING_FORWARD'] as const).map(o => ({ value: o, label: ON_LEAVING_LABEL[o] }))}
+                    />
+                </Field>
+                <SectionHeading title="Other" note="Carry forward, documents, who it’s for, and whether employees see it." />
                 <Field label="Carry forward up to" help="Unused days moved into the next leave cycle. Anything above this limit lapses." htmlFor="lt-carry">
                     <Flex align="center" gap={8}>
                         <InputNumber id="lt-carry" min={0} max={366} value={v.carryForward} onChange={n => set('carryForward', Number(n ?? 0))} className="!w-[120px]" />
                         <Text type="secondary" className="text-xs">
                             days (0 = no carry forward)
                         </Text>
-                    </Flex>
-                </Field>
-                <Field label="Encash on exit" help="Pay out unused days in the final settlement when someone leaves.">
-                    <Flex align="center" gap={8}>
-                        <Switch checked={v.encashOnExit} onChange={c => set('encashOnExit', c)} aria-label="Encash on exit" />
-                        <Text className="text-sm">{v.encashOnExit ? 'Yes' : 'No'}</Text>
                     </Flex>
                 </Field>
                 <Field
@@ -222,6 +246,15 @@ export const LeaveTypeDrawer = ({
                             { value: 'MALE', label: 'Male' },
                         ]}
                     />
+                </Field>
+                <Field
+                    label="Show to employees"
+                    help="Turn off to stop offering this leave type without deleting it. Balances and past leave stay as they are, and HR can still see it."
+                >
+                    <Flex align="center" gap={8}>
+                        <Switch checked={v.active !== false} onChange={c => set('active', c)} aria-label="Show to employees" data-show-to-employees />
+                        <Text className="text-sm">{v.active === false ? 'Hidden (deactivated)' : 'Shown'}</Text>
+                    </Flex>
                 </Field>
                 <Text type="secondary" className="text-xs">
                     Every leave type is paid. When someone uses up a type, any extra days are loss of pay.
@@ -258,7 +291,7 @@ export const LeaveTypeView = ({
             ]}
         >
             <Descriptions column={1} size="small" bordered data-leave-type-view>
-                <Descriptions.Item label="Status">{type.active ? 'Active' : 'Inactive (hidden from leave forms)'}</Descriptions.Item>
+                <Descriptions.Item label="Status">{type.active ? 'Active (shown to employees)' : 'Inactive (hidden from employees)'}</Descriptions.Item>
                 <Descriptions.Item label="Days per year">{fmtDays(type.daysPerYear)}</Descriptions.Item>
                 <Descriptions.Item label="Credited">{CREDIT_LABEL[type.credit]}</Descriptions.Item>
                 <Descriptions.Item label="Accrual rate">{accrualText(type)}</Descriptions.Item>
@@ -267,11 +300,14 @@ export const LeaveTypeView = ({
                     {carryText(type)}
                     {type.carryForward ? '. Anything above that lapses at the end of the leave cycle.' : '. Unused days lapse at the end of the leave cycle.'}
                 </Descriptions.Item>
-                <Descriptions.Item label="Encash on exit">{type.encashOnExit ? 'Yes, unused days are paid in the final settlement' : 'No'}</Descriptions.Item>
+                <Descriptions.Item label="When leaving">
+                    Pro-rated to the last working day;{' '}
+                    {type.onLeaving === 'ENCASH' ? 'unused days encashed in full & final settlement' : 'unused days used to bring the last working day forward'}
+                </Descriptions.Item>
                 <Descriptions.Item label="Supporting document">{proofText(type)}</Descriptions.Item>
                 <Descriptions.Item label="Applies to">{APPLIES_LABEL[type.appliesTo]}</Descriptions.Item>
                 <Descriptions.Item label="Used">
-                    {requests} request{requests === 1 ? '' : 's'} so far{requests ? ' (so it can’t be removed or renamed)' : ''}
+                    {requests} request{requests === 1 ? '' : 's'} so far{requests ? ' (so it can’t be deleted or renamed)' : ''}
                 </Descriptions.Item>
             </Descriptions>
             <Text type="secondary" className="mt-3 block text-xs">

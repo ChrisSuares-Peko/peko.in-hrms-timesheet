@@ -77,7 +77,8 @@ A balance (`LeaveBalance`) has these fields:
 ## Exit settlement
 
 When the employee has an exit date, `exit.settlement` lists the following for each type:
-- `encash`: unused days that are paid out. Only encashable types are paid out, so Annual is by default.
+- `encash`: unused days paid out, for types set to `ENCASH` (Annual by default).
+- `bringForward`: unused days that can bring the last working day forward, for types set to `BRING_FORWARD`. The ESS banner says "Casual: 2 days can be used to bring your last working day forward." Nothing is settled or moved automatically yet.
 - `recover`: leave taken beyond what was earned up to the exit date. These days are recovered as loss of pay.
 
 ## Endpoints (employee)

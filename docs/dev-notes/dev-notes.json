@@ -37,8 +37,9 @@
     [
      "Request comp off (modal)",
      [
-      "Pick the weekly off or public holiday worked. Hours come from attendance (or timesheet in timesheet-only mode). Half a shift or more = 0.5 day, full shift = 1 day.",
-      "Refused: a working day, a day not worked, already claimed, older than the expiry window, or already claimed as overtime."
+      "Day picker is a calendar: only weekly offs and public holidays can be selected (working days are disabled; extra hours on a working day are overtime). Also disabled: future days, days older than the expiry window, days already claimed. Days the employee worked are marked with a dot.",
+      "Legend: Public holiday · Weekly off · You worked · Not available.",
+      "Hours come from attendance (or timesheet in timesheet-only mode). Half a shift or more = 0.5 day, full shift = 1 day. Refused if the day was claimed as overtime."
      ]
     ],
     [
@@ -299,21 +300,24 @@
      "What’s on the page",
      [
       "Search by name, \"Add leave type\".",
-      "Table: Leave type · Days per year · Credited · Accrual rate (\"1 day a month\", \"All 8 days at once\", \"≈ 0.5 a month, accrued daily\") · Carry forward (\"Yes, up to 30 days\" / \"No\") · Applies to · Status · actions View / Edit / Deactivate (used) or Remove (unused).",
+      "Table: Leave type · Days per year · Credited · Accrual rate (\"1 day a month\", \"All 8 days at once\", \"≈ 0.5 a month, accrued daily\") · Carry forward (\"Yes, up to 30 days\" / \"No\") · Applies to · Status (Active / Inactive) · Action.",
+      "Action column: View · Edit · Delete. Delete only works for a type that has never been used; for a used type it’s disabled with the tooltip \"Already used in leave requests, so it can’t be deleted. Open Edit to deactivate it instead.\"",
       "View: every setting in plain language + how many requests used it, with Edit."
      ]
     ],
     [
      "Add / Edit drawer (help text under every field)",
      [
-      "Name; Days per year (shows the monthly amount); Credited: At the start of the leave cycle / Monthly / Daily; During probation: Credited monthly / Full entitlement / Not available; Carry forward up to N days (0 = none); Encash on exit; Supporting document needed when longer than N days (empty = never, 0 = always); Applies to: All / Female / Male.",
+      "Top: Name (locked once used), Days per year (shows the monthly amount), Credited: At the start of the leave cycle / Monthly / Daily.",
+      "\"When an employee joins\": joiners get a pro-rated share for the rest of the cycle; During probation: Credited monthly / Full entitlement / Not available (applies while the employee’s status is Probation).",
+      "\"When an employee leaves\": leave is pro-rated for the year up to the last working day; Unused leave on leaving: \"Encash in full & final settlement\" or \"Use it to bring the last working day forward\". Full & final settlement is a separate module that comes later: store the choice only, don’t build settlement or payroll changes now.",
+      "\"Other\": Carry forward up to N days (0 = none), Supporting document needed when longer than N days (empty = never, 0 = always), Applies to (All / Female / Male), Show to employees (on/off). Turning \"Show to employees\" off deactivates the type: hidden from employees, nothing deleted, balances and history kept.",
       "All leave types are paid; there is no unpaid option. Loss of pay only when a balance runs out.",
-      "A used type can’t be removed or renamed, only deactivated (hidden from forms, history kept).",
-      "Changing days, credit method, probation rule, carry forward or applies-to asks: \"This changes {type} balances for N employees from today. Leave already approved stays as it is.\" → Confirm and save."
+      "Changing days, credit method, probation rule, carry forward or applies-to asks for confirmation with the number of employees affected."
      ]
     ]
    ],
-   "prompt": "Build: Payroll settings → Leave → Leave types\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Leave module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: Where HR defines every leave type. These settings decide what employees see and can do in ESS.\n\nBuild or change:\n- The Leave types sub-tab: table, search, View popup, Add/Edit drawer with help text, deactivate/remove rules, change confirmation.\n- Map existing leave policy data into the new model without losing anything.\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Adding a daily-credit type and a female-only type works and shows correctly in ESS.\n- Editing a used type asks for confirmation with the affected count.\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
+   "prompt": "Build: Payroll settings → Leave → Leave types\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Leave module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: Where HR defines every leave type. These settings decide what employees see and can do in ESS.\n\nBuild or change:\n- The Leave types sub-tab: table with an Action column (View, Edit, Delete; Delete disabled for used types), search, View popup, Add/Edit drawer with help text and the sections Joins (probation) / Leaves (encash in F&F or bring the last working day forward, stored only) / Other (incl. Show to employees = deactivate), change confirmation.\n- Map existing leave policy data into the new model without losing anything.\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Adding a daily-credit type and a female-only type works and shows correctly in ESS.\n- Editing a used type asks for confirmation with the affected count.\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
   },
   "pay:settings:leave:holidays": {
    "title": "Payroll settings → Leave → Public holidays",
@@ -368,7 +372,10 @@
     [
      "Rules",
      [
-      "Level 1: Reporting manager / a team / a specific person. Level 2: a team / a specific person / None. Approvers are fixed on each request when it’s submitted, so changing this doesn’t move requests in flight. Leave cancellations, changes and comp off use the same approvers."
+      "Level 1 and Level 2 each offer: Reporting manager · Admin / HR (decided in that service in Payroll) · a specific person (managers and the CEO). Level 2 also has None (level 1 is final).",
+      "Typical setup: Reporting manager → Admin / HR. The manager approves first, then it comes to Payroll → Leave → Requests for the final approval.",
+      "\"Reporting manager\" at Level 2 resolves to the employee’s manager when Level 1 approves; if that’s the same person who approved Level 1, the request is final.",
+      "Approvers are fixed on each request when it’s submitted, so changing this doesn’t move requests in flight. Leave cancellations, changes and comp off use the same approvers. Older team values (Payroll, HR, Admin, Finance) all show as Admin / HR."
      ]
     ]
    ],
@@ -656,6 +663,12 @@
      [
       "Days of leave deducted per late check-in (0 = off) and the deduct-from order (first leave type, then second, then loss of pay). Shown only when attendance is tracked. Deductions are reversed automatically when a dispute is approved."
      ]
+    ],
+    [
+     "Approvers",
+     [
+      "Level 1 / Level 2 for attendance corrections, timesheets and overtime offer the same choices as leave: Reporting manager · Admin / HR · a specific person (+ None at Level 2)."
+     ]
     ]
    ],
    "prompt": "Build: Payroll settings → Attendance, timesheet & overtime\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Attendance / Timesheet / Overtime module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: Settings for attendance, timesheets and overtime.\n\nBuild or change:\n- These settings as described.\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Behaviour matches the notes and the prototype on this page.\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
@@ -713,7 +726,7 @@
    [
     "Approval engine (all request types)",
     [
-     "Per function (attendance corrections, timesheets, overtime, leave, reimbursements) HR sets Level 1 and Level 2. Level 1: Reporting manager (default) / a team (Payroll, HR, Admin, Finance) / a specific person. Level 2: a team / a specific person / None (level 1 is final).",
+     "Per function (attendance corrections, timesheets, overtime, leave, reimbursements) HR sets Level 1 and Level 2. Each can be: Reporting manager, Admin / HR (decided in Payroll), or a specific person. Level 2 can also be None (level 1 is final).",
      "Resolve the approvers when the item is submitted (and Level 2 again when Level 1 approves) and store them on the item. Changing settings later must not move items already in flight.",
      "No manager (CEO) or \"Reporting manager\" pointing at themselves: Level 1 is skipped.",
      "Actions at either level: Approve, Ask for update (comment required, goes straight back to the employee, status update_requested; resubmitting starts again at Level 1), Reject (requests only). Level 2 approval is final and runs the effects (attendance updated, leave applied, deduction reversed, etc).",

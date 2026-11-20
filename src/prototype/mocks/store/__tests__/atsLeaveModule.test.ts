@@ -62,8 +62,8 @@ const balance = (type: string, e = sneha) => leaveViewOf(M, e).balances.find(b =
 
 describe('1 · leave types', () => {
     it('a daily-credit type and a female-only type behave in ESS (hidden for men)', () => {
-        addLeaveType(M, { name: 'Study', daysPerYear: 6, credit: 'DAILY', probation: 'FULL', carryForward: 0, encashOnExit: false, proofAfterDays: null, appliesTo: 'ALL' });
-        addLeaveType(M, { name: 'Menstrual leave', daysPerYear: 12, credit: 'MONTHLY', probation: 'FULL', carryForward: 0, encashOnExit: false, proofAfterDays: null, appliesTo: 'FEMALE' });
+        addLeaveType(M, { name: 'Study', daysPerYear: 6, credit: 'DAILY', probation: 'FULL', carryForward: 0, onLeaving: 'BRING_FORWARD', proofAfterDays: null, appliesTo: 'ALL' });
+        addLeaveType(M, { name: 'Menstrual leave', daysPerYear: 12, credit: 'MONTHLY', probation: 'FULL', carryForward: 0, onLeaving: 'BRING_FORWARD', proofAfterDays: null, appliesTo: 'FEMALE' });
         const study = balance('LT-STUDY')!;
         expect(study.credit).toBe('DAILY');
         expect(study.credited).toBeGreaterThan(0);
@@ -80,6 +80,21 @@ describe('1 · leave types', () => {
         setLeaveTypeActive(M, 'CASUAL', { active: false });
         expect(balance('CASUAL')).toBeUndefined();
         expect(leaveViewOf(M, sneha).requests.some(r => r.type === 'CASUAL')).toBe(true);
+    });
+    // PROTOTYPE-SETUP (Leave types drawer): "Show to employees" off = deactivated, saved with the rest of the type.
+    it('"Show to employees" off hides a type from employees (nothing deleted); on brings it back; the leaving choice is stored', () => {
+        const usedBefore = leaveSettingsView(M).usage.SICK.requests;
+        updateLeaveType(M, 'SICK', { active: false, onLeaving: 'ENCASH' });
+        expect(balance('SICK')).toBeUndefined();
+        expect(() => createLeaveRequest(M, sneha, { type: 'SICK', start: working(s.today, 5), reason: 'x' })).toThrow('Pick a leave type.');
+        const t = leaveSettingsView(M).policy.types.find(x => x.id === 'SICK')!;
+        expect(t).toMatchObject({ active: false, onLeaving: 'ENCASH' });
+        expect(leaveSettingsView(M).usage.SICK.requests).toBe(usedBefore);
+        updateLeaveType(M, 'SICK', { active: true });
+        expect(balance('SICK')).toBeDefined();
+        // older clients sending the encash flag still map: false → bring forward
+        updateLeaveType(M, 'SICK', { encashOnExit: false } as never);
+        expect(leaveSettingsView(M).policy.types.find(x => x.id === 'SICK')!.onLeaving).toBe('BRING_FORWARD');
     });
 });
 

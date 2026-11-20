@@ -22,10 +22,10 @@ PROTOTYPE-SETUP (Leave module). Mock API served by `src/prototype/mocks/handlers
 | `credit` | `CYCLE_START` · `MONTHLY` · `DAILY` | At the start of the leave cycle · days ÷ 12 on the 1st (not rounded) · days × days elapsed ÷ days in the cycle. |
 | `probation` | `MONTHLY` · `FULL` · `NONE` | While the employee's status is Probation: credited monthly · full entitlement · not available. |
 | `carryForward` | ≥ 0 | Unused days carried into the next cycle, up to this; the rest lapses. |
-| `encashOnExit` | bool | Unused days paid in the final settlement. |
+| `onLeaving` | `ENCASH` · `BRING_FORWARD` | Unused leave on leaving: encashed in full & final settlement · used to bring the last working day forward. Stored only (F&F is a later module). Replaces `encashOnExit` (true → `ENCASH`, false → `BRING_FORWARD`), mapped on read and accepted on write. |
 | `proofAfterDays` | `null` · 0 · N | Supporting document: never · always · when longer than N days. |
 | `appliesTo` | `ALL` · `FEMALE` · `MALE` | Who sees it. Other employees never see the type. |
-| `active` | bool | Inactive types are hidden from the forms; history stays. |
+| `active` | bool | "Show to employees" in the Edit drawer. Off = deactivated: hidden from employees, nothing deleted, balances and history kept. |
 
 All types are paid. Loss of pay only happens when a balance runs out (late deductions, or an approver approving anyway).
 `COMP_OFF` ("Comp off") is added to an employee's types while comp off is on; it's never in the types table.
@@ -69,7 +69,7 @@ so later settings changes don't move items in flight. Statuses: `PENDING_MANAGER
 | Credits per type (start of cycle / monthly / daily), probation per type, 15th-of-the-month pro-rata | `creditSchedule`, `creditedBy`, `countedMonths` |
 | Carry forward and lapse; roll-forward on the last working day of the cycle | `carryForward`, `rollForwardDay` |
 | Available = credited − approved − late deductions − leave in request | `availableBalance`, `computeLeaveYear` |
-| Exit: encash unused (encashable types), recover extra taken | `exitSettlement` |
+| Exit: unused days encashed or bring the last working day forward (per type), recover extra taken | `exitSettlement` |
 | Day count: the employee's own working days; half days 0.5 per working day; sandwich rule | `countLeaveDays` |
 | Checks when applying | `validateLeave` |
 | Comp off: 0.5 / 1 day by hours; refusals; expiry, oldest credit used first | `compOffDays`, `compOffProblem`, `compOffLedger` |

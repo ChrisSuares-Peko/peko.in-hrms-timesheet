@@ -44,7 +44,7 @@ export const typeOf = (b: LeaveBalance): LeaveTypeConfig => ({
     credit: b.credit === 'COMP_OFF' ? 'CYCLE_START' : b.credit,
     probation: b.probation,
     carryForward: 0,
-    encashOnExit: false,
+    onLeaving: 'BRING_FORWARD',
     proofAfterDays: b.proofAfterDays,
     appliesTo: 'ALL',
     active: true,

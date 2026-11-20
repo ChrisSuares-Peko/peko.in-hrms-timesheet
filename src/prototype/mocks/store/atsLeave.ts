@@ -59,6 +59,7 @@ import {
     leaveYearOf,
     lossOfPayOnApproval,
     newTypeId,
+    onLeavingOf,
     pastLeaveProblem,
     removedPastDays,
     rollForwardDay,
@@ -269,7 +270,7 @@ const applicableTypes = (mode: DataMode, e: MockEmployee): LeaveTypeConfig[] => 
     const policy = getSettings(mode).leavePolicy;
     const own = policy.types.filter(t => t.active && appliesTo(t, e.gender));
     return policy.compOff.enabled
-        ? [...own, { id: COMP_OFF, name: 'Comp off', daysPerYear: 0, credit: 'CYCLE_START', probation: 'FULL', carryForward: 0, encashOnExit: false, proofAfterDays: null, appliesTo: 'ALL', active: true }]
+        ? [...own, { id: COMP_OFF, name: 'Comp off', daysPerYear: 0, credit: 'CYCLE_START', probation: 'FULL', carryForward: 0, onLeaving: 'ENCASH', proofAfterDays: null, appliesTo: 'ALL', active: true }]
         : own;
 };
 
@@ -326,7 +327,7 @@ export const leaveViewOf = (mode: DataMode, e: MockEmployee): LeaveView => {
         year: { ...y.year, basis: settings.leavePolicy.year },
         dateOfJoin: life.dateOfJoin,
         exit: life.exitDate && y.settlement ? { date: life.exitDate, settlement: y.settlement } : null,
-        balances: y.balances.map(({ entitlement: _e, encashOnExit: _x, ...b }) => b),
+        balances: y.balances.map(({ entitlement: _e, onLeaving: _x, ...b }) => b),
         lateDeductions: y.lateDeductions
             .map(d => {
                 const dispute = disputeOf(mode, e, d.date);
@@ -986,6 +987,13 @@ export const TYPE_MESSAGES = {
     notFound: 'Leave type not found.',
 } as const;
 
+/** The body's leaving choice; older clients may still send encashOnExit (true → ENCASH, false → BRING_FORWARD). */
+const onLeavingFrom = (body: Partial<LeaveTypeInput> | undefined, cur?: LeaveTypeConfig) => {
+    const b = body as { onLeaving?: unknown; encashOnExit?: unknown } | undefined;
+    if (b && (b.onLeaving === 'ENCASH' || b.onLeaving === 'BRING_FORWARD' || typeof b.encashOnExit === 'boolean')) return onLeavingOf(b);
+    return cur?.onLeaving ?? 'BRING_FORWARD';
+};
+
 const cleanType = (body: Partial<LeaveTypeInput> | undefined, cur?: LeaveTypeConfig): Omit<LeaveTypeConfig, 'id'> => {
     const name = String(body?.name ?? cur?.name ?? '').trim();
     if (!name) throw new RuleError(TYPE_MESSAGES.name, 400);
@@ -1001,7 +1009,7 @@ const cleanType = (body: Partial<LeaveTypeInput> | undefined, cur?: LeaveTypeCon
         credit: pick(body?.credit, ['CYCLE_START', 'MONTHLY', 'DAILY'] as const, cur?.credit ?? 'MONTHLY'),
         probation: pick(body?.probation, ['MONTHLY', 'FULL', 'NONE'] as const, cur?.probation ?? 'MONTHLY'),
         carryForward: Number.isFinite(carry) ? Math.max(0, Math.min(366, carry)) : 0,
-        encashOnExit: typeof body?.encashOnExit === 'boolean' ? body.encashOnExit : cur?.encashOnExit ?? false,
+        onLeaving: onLeavingFrom(body, cur),
         proofAfterDays: Number.isFinite(proof as number) || proof === null ? proof : null,
         appliesTo: pick(body?.appliesTo, ['ALL', 'FEMALE', 'MALE'] as const, cur?.appliesTo ?? 'ALL'),
         active: typeof body?.active === 'boolean' ? body.active : cur?.active ?? true,

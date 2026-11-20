@@ -187,12 +187,14 @@ export const ProbationBanner = ({ view, who }: { view: Pick<LeaveView, 'status'>
         />
     ) : null;
 
-/** "Leaving on Friday, 20 December. Leave is pro-rated to your last day. Annual: 3 unused days encashed …" */
+/** "Leaving on Friday, 20 December. Leave is pro-rated to your last day. Annual: 3 unused days encashed …"; types set to
+ *  bring the last working day forward say "Casual: 2 days can be used to bring your last working day forward." */
 export const settlementText = (v: Pick<LeaveView, 'exit'>) => {
     if (!v.exit) return '';
     const parts = v.exit.settlement.flatMap(s => {
         const out: string[] = [];
         if (s.encash > 0) out.push(`${s.name}: ${fmtDays(s.encash)} unused ${s.encash <= 1 ? 'day' : 'days'} encashed in the final settlement.`);
+        if (s.bringForward > 0) out.push(`${s.name}: ${daysText(s.bringForward)} can be used to bring your last working day forward.`);
         if (s.recover > 0) out.push(`${s.name}: ${daysText(s.recover)} more than earned, recovered in the final settlement.`);
         return out;
     });

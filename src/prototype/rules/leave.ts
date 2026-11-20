@@ -27,6 +27,7 @@ import type {
     LeaveAppliesTo,
     LeaveCredit,
     LeaveHalf,
+    LeaveOnLeaving,
     LeavePolicy,
     LeaveProbationRule,
     LeaveTypeConfig,
@@ -60,6 +61,22 @@ export interface LegacyLeavePolicy {
     types: Record<string, { daysPerYear: number; credit: 'UPFRONT' | 'MONTHLY'; carryForward: number; encashOnExit: boolean }>;
 }
 
+/** A stored type from before "Unused leave on leaving": encashOnExit true → ENCASH, false → BRING_FORWARD. */
+export const onLeavingOf = (t: { onLeaving?: unknown; encashOnExit?: unknown }): LeaveOnLeaving => {
+    if (t.onLeaving === 'ENCASH' || t.onLeaving === 'BRING_FORWARD') return t.onLeaving;
+    return t.encashOnExit ? 'ENCASH' : 'BRING_FORWARD';
+};
+const withOnLeaving = (t: LeaveTypeConfig): LeaveTypeConfig => {
+    const rest: LeaveTypeConfig & { encashOnExit?: boolean } = { ...t, onLeaving: onLeavingOf(t) };
+    delete rest.encashOnExit;
+    return rest;
+};
+
+export const ON_LEAVING_LABEL: Record<LeaveOnLeaving, string> = {
+    ENCASH: 'Encash in full & final settlement',
+    BRING_FORWARD: 'Use it to bring the last working day forward',
+};
+
 const isLegacy = (p: unknown): p is LegacyLeavePolicy => Boolean(p && typeof p === 'object' && !Array.isArray((p as LeavePolicy).types));
 
 /**
@@ -75,7 +92,7 @@ export const migrateLeavePolicy = (stored: unknown, legacyProofDays?: number): L
         return {
             ...DEFAULT_POLICY,
             ...p,
-            types: (p.types ?? DEFAULT_POLICY.types).map(t => ({ ...t })),
+            types: (p.types ?? DEFAULT_POLICY.types).map(withOnLeaving),
             compOff: { ...DEFAULT_POLICY.compOff, ...p.compOff },
             lateOrder: p.lateOrder ?? DEFAULT_POLICY.lateOrder,
         };
@@ -89,7 +106,7 @@ export const migrateLeavePolicy = (stored: unknown, legacyProofDays?: number): L
             daysPerYear: o.daysPerYear,
             credit: (o.credit === 'UPFRONT' ? 'CYCLE_START' : 'MONTHLY') as LeaveCredit,
             carryForward: o.carryForward,
-            encashOnExit: o.encashOnExit,
+            onLeaving: (o.encashOnExit ? 'ENCASH' : 'BRING_FORWARD') as LeaveOnLeaving,
             ...(d.id === 'SICK' && legacyProofDays !== undefined ? { proofAfterDays: legacyProofDays } : {}),
         };
     });
@@ -325,10 +342,12 @@ export const creditedBy = (schedule: ReturnType<typeof creditSchedule>, type: Pi
 /** Available = credited so far − approved leave − late deductions − leave still in request. 10 − 4 − 0 − 2 = 4. */
 export const availableBalance = (b: { credited: number; approved: number; late: number; inRequest: number }) => r2(b.credited - b.approved - b.late - b.inRequest);
 
-/** Exit: unused days of an encashable type are encashed; days taken beyond what was earned are recovered. */
-export const exitSettlement = (b: { earned: number; approved: number; late: number }, encashOnExit: boolean) => {
+/** Exit: unused days are encashed or bring the last working day forward (the type's choice; stored only, full & final
+ *  settlement is a later module); days taken beyond what was earned are recovered. */
+export const exitSettlement = (b: { earned: number; approved: number; late: number }, onLeaving: LeaveOnLeaving) => {
     const left = r2(b.earned - b.approved - b.late);
-    return { encash: left > 0 && encashOnExit ? left : 0, recover: left < 0 ? -left : 0 };
+    const unused = left > 0 ? left : 0;
+    return { encash: onLeaving === 'ENCASH' ? unused : 0, bringForward: onLeaving === 'BRING_FORWARD' ? unused : 0, recover: left < 0 ? -left : 0 };
 };
 
 // ---- counting leave days ----------------------------------------------------------------------------------------
@@ -820,7 +839,7 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
             notAvailable: onProbation && b.t.probation === 'NONE',
             ledger: b.ledger.sort((x, y) => y.date.localeCompare(x.date)),
             entitlement: b.entitlement,
-            encashOnExit: b.t.encashOnExit,
+            onLeaving: b.t.onLeaving,
         };
     });
 
@@ -853,7 +872,7 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
             notAvailable: false,
             ledger,
             entitlement: co.earned,
-            encashOnExit: false,
+            onLeaving: 'ENCASH' as LeaveOnLeaving,
         });
     }
 
@@ -861,7 +880,7 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
     const settlement = exit
         ? balances
               .filter(b => b.type !== COMP_OFF)
-              .map(b => ({ type: b.type, name: b.name, ...exitSettlement({ earned: b.entitlement + b.carried, approved: b.approved, late: b.late }, b.encashOnExit) }))
+              .map(b => ({ type: b.type, name: b.name, ...exitSettlement({ earned: b.entitlement + b.carried, approved: b.approved, late: b.late }, b.onLeaving) }))
         : null;
 
     return { year, asOf, balances, lateDeductions: late.deductions, lossOfPay: late.lossOfPay, settlement };
