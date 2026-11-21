@@ -154,3 +154,48 @@
 .ant-switch.peko-switch.ant-switch-checked:hover:not(.ant-switch-disabled) {
     background: #ff6963 !important;
 }
+
+/* Buttons (rule 6): the theme radius (6px) even where an older shared component adds its own rounded-* class. */
+.peko-scope .ant-btn:not(.ant-btn-circle):not(.ant-btn-round),
+.ant-modal .peko-modal .ant-btn:not(.ant-btn-circle):not(.ant-btn-round),
+.ant-drawer .peko-drawer-body .ant-btn:not(.ant-btn-circle):not(.ant-btn-round),
+.ant-drawer .peko-drawer-footer .ant-btn:not(.ant-btn-circle):not(.ant-btn-round) {
+    border-radius: 6px;
+}
+
+/* Tags on pages ESS shares with the /employee portal (their markup stays theirs): antd preset colours land on the
+   same six pairs as StatusTag (rule 9). */
+.peko-scope .ant-tag.peko-tag.ant-tag-success,
+.peko-scope .ant-tag.peko-tag.ant-tag-green {
+    background: #ecfdf3;
+    color: #027a48;
+}
+.peko-scope .ant-tag.peko-tag.ant-tag-warning,
+.peko-scope .ant-tag.peko-tag.ant-tag-gold,
+.peko-scope .ant-tag.peko-tag.ant-tag-orange {
+    background: #fff6ea;
+    color: #d48806;
+}
+.peko-scope .ant-tag.peko-tag.ant-tag-error,
+.peko-scope .ant-tag.peko-tag.ant-tag-red,
+.peko-scope .ant-tag.peko-tag.ant-tag-volcano {
+    background: #fff1f0;
+    color: #ff4d4f;
+}
+.peko-scope .ant-tag.peko-tag.ant-tag-processing,
+.peko-scope .ant-tag.peko-tag.ant-tag-blue,
+.peko-scope .ant-tag.peko-tag.ant-tag-geekblue,
+.peko-scope .ant-tag.peko-tag.ant-tag-cyan {
+    background: #e6f4ff;
+    color: #0958d9;
+}
+.peko-scope .ant-tag.peko-tag.ant-tag-purple,
+.peko-scope .ant-tag.peko-tag.ant-tag-magenta {
+    background: #f9f0fb;
+    color: #861e99;
+}
+
+/* Inputs (rule 7): the platform's `.rounded-select` (index.css, 0.3rem !important) gets the theme radius in scope. */
+.peko-scope .rounded-select .ant-select-selector {
+    border-radius: 6px !important;
+}

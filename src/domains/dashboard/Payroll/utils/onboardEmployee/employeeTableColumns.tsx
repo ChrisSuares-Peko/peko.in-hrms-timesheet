@@ -1,10 +1,11 @@
 // EmployeeTableColumns.tsx
 import { InfoCircleFilled } from '@ant-design/icons';
-import { Avatar, Flex, Tag, Tooltip, Typography } from 'antd';
+import { Avatar, Flex, Tooltip, Typography } from 'antd';
 import type { TableColumnsType } from 'antd';
 import moment from 'moment';
 import { NavigateFunction } from 'react-router-dom';
 
+import StatusTag, { type StatusTone } from '@src/components/peko/StatusTag';
 import { paths } from '@src/routes/paths';
 
 import ViewMore from '../../components/ViewMore';
@@ -22,33 +23,13 @@ const OFFBOARDING_STATUS_MAP: Record<string, string> = {
     SUSPENSION: 'suspended',
 };
 
-const STATUS_TAG_CONFIG: Record<string, { bg: string; color: string; label: string }> = {
-    active: {
-        bg: '#F6FFED',
-        color: '#52C41A',
-        label: 'Active',
-    },
-    inprobation: {
-        bg: '#F9F0FF',
-        color: '#722ED1',
-        label: 'In Probation',
-    },
-
-    confirmed: {
-        bg: '#E6F7FF',
-        color: '#1677FF',
-        label: 'Confirmed',
-    },
-    suspended: {
-        bg: '#FFF7E6',
-        color: '#FAAD14',
-        label: 'Suspended',
-    },
-    resigned: {
-        bg: '#FFF1F0',
-        color: '#FF4D4F',
-        label: 'Resigned',
-    },
+// PROTOTYPE-SETUP (Design update, rule 9): employee statuses use the shared Peko status tag.
+const STATUS_TAG_CONFIG: Record<string, { tone: StatusTone; label: string }> = {
+    active: { tone: 'success', label: 'Active' },
+    inprobation: { tone: 'warning', label: 'In Probation' },
+    confirmed: { tone: 'success', label: 'Confirmed' },
+    suspended: { tone: 'warning', label: 'Suspended' },
+    resigned: { tone: 'error', label: 'Resigned' },
 };
 
 const getInitials = (name: string): string =>
@@ -181,61 +162,13 @@ export const getEmployeeTableColumns = ({
 
             if (!status) return statusKey;
 
-            return (
-                <Tag
-                    color={status.bg}
-                    style={{
-                        color: status.color,
-                        borderRadius: 50,
-                        height: '22px',
-                        fontSize: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        paddingInline: 10,
-                        width: 'fit-content',
-                    }}
-                >
-                    ● {status.label}
-                </Tag>
-            );
+            return <StatusTag tone={status.tone}>{status.label}</StatusTag>;
         },
     },
     {
         title: 'ESS Status',
         dataIndex: 'isEss',
-        render: (isEss?: boolean) => {
-            const cfg = isEss
-                ? { label: 'Live', color: '#027A48', bg: '#ECFDF3' }
-                : { label: 'Not Live', color: '#D92D20', bg: '#FEF3F2' };
-            return (
-                <Tag
-                    bordered={false}
-                    style={{
-                        color: cfg.color,
-                        backgroundColor: cfg.bg,
-                        borderRadius: 9999,
-                        height: '22px',
-                        fontSize: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        paddingInline: 10,
-                        width: 'fit-content',
-                    }}
-                >
-                    <span
-                        style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: '50%',
-                            backgroundColor: cfg.color,
-                            display: 'inline-block',
-                        }}
-                    />
-                    {cfg.label}
-                </Tag>
-            );
-        },
+        render: (isEss?: boolean) => isEss ? <StatusTag tone="success">Live</StatusTag> : <StatusTag tone="error">Not Live</StatusTag>,
     },
     {
         title: employeeStatus === 'past' ? 'Last Working Day' : null,

@@ -151,7 +151,8 @@ export const payrollRoutes = [
             },
         ],
     },
-    { element: <HomePage />, index: true },
+    // PROTOTYPE-SETUP (Design update): the Payroll dashboard (Quick actions) renders in the Peko scope too.
+    { element: <PekoScope><HomePage /></PekoScope>, index: true },
     { element: <PayrollAccountSetupPage />, path: paths.payroll.payrollAccountSetup },
     { element: <PayrollAccountProgressPage />, path: paths.payroll.payrollAccountProgress },
     { element: <SalaryDashboardPage />, path: paths.payroll.salaryDashboard },

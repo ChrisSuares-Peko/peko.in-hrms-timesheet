@@ -5,7 +5,7 @@ PROTOTYPE-SETUP. Run log. Sources: `docs/dev-notes/dev-notes.json` (the notes) a
 that isn't **done**. The previous run (Leave module updates + module-grouped notes panel, `c34e05f`–`9b91229`) is
 finished and pushed; its log is in git history (`git show 9b91229:docs/progress.md`).
 
-## Design update: Peko design language for the ESS & Payroll redesign screens — in progress
+## Design update: Peko design language for the ESS & Payroll redesign screens — done
 
 Look only: no behaviour, data, route, validation or wording changes (apart from the new one-line descriptions the
 design asks for, listed under Decisions). Rules: `docs/design/peko-design-language.md`. Screenshots:
@@ -20,7 +20,7 @@ design asks for, listed under Decisions). Rules: `docs/design/peko-design-langua
 | 4 — ESS Leave: Overview, type details, My requests + drawer, Public holidays, Apply and comp off modals | Design: ESS Leave | done |
 | 5 — My team | Design: My team | done |
 | 6 — Remaining ESS and Payroll screens in scope | Design: remaining ESS and Payroll screens | done |
-| 7 — VERIFY 1–8, build, push | | |
+| 7 — VERIFY 1–8, build, push | Design: verification, design language doc, screenshots | done |
 
 Decisions:
 1. **Reference.** `docs/prototypes/leave-prototype.html` is the same file as the last run (no Peko palette: it uses
@@ -61,6 +61,8 @@ Decisions:
     Employees keeps its three actions beside the title: its tab row has seven tabs and no room.
 12. **Main-tab counts** are small red pills (antd Badge): Attendance "Requests", Employees "Profile Update Request",
     "Document Requests", "Profile updates". Segmented sub-tabs keep their "Requests (1)" text.
+13. **Content width**: the scope caps content at 1320px; the dashboard layout already gives ~40px side padding on
+    desktop, so it isn't changed.
 14. **Field labels** in the hand-built forms (Apply leave, comp off, cancel, Add leave drawer) are 14px regular #121212
     (were bold). antd `Form.Item` labels already follow the theme.
 15. **Generic greys** left from the prototype (Tailwind gray-400…800, #475467, #667085, #98A2B3, #F9FAFB, #EAECF0)
@@ -100,8 +102,66 @@ Decisions:
     #EAEAEA, soft shadow) and their text greys onto #121212 / #8B8B8B, and their antd tables, tags and buttons follow the
     scope. Their pastel summary tiles (value above the label, coloured backgrounds) stay as they are: restyling them
     means changing the portal's own component. Listed under intentional differences.
-13. **Content width**: the scope caps content at 1320px; the dashboard layout already gives ~40px side padding on
-    desktop, so it isn't changed.
+
+29. **Payroll dashboard in the scope too** (its index route), so the Quick actions, the chart's year select and the
+    header buttons take the theme radius. Legacy pieces that hard-code their own look inside the scope are brought
+    onto the rules with scoped CSS only: buttons with a `rounded-*` class → 6px; the platform's `.rounded-select`
+    (0.3rem !important) → 6px; antd preset tag colours → the six pairs.
+30. **Employees table**: the "● Active" / "In Probation" / "Confirmed" / "Suspended" / "Resigned" and "Live" / "Not
+    Live" pills are StatusTags (success, warning, success, warning, error; success, error). The "●" glyph is gone.
+
+Intentional differences from the prototype (it isn't in the Peko palette; the rules and the theme win):
+- Prototype red #E30000 and blue links → Peko #FF3A3A and red links; its dark selected segmented item → white
+  selected item on #F5F5F5; its 12px panels and 10px banners → 8px cards and Alert-coloured notices; its green
+  switches → red; its blue "leave"/"holiday" chips → the purple leave pair.
+- The prototype's Payroll service pages have a "‹ Payroll dashboard" button and an inline crumb; the build keeps the
+  layout breadcrumb and the red "‹ Back to dashboard" link the rules ask for.
+- ESS page headers keep their own breadcrumb ("Overview › Leave") and keep "Apply for leave" / "Request comp off"
+  beside the title, as in the prototype (the tab-row rule is for Payroll pages).
+- Employees keeps its three actions beside the title (seven tabs leave no room on the tab row).
+- Calendars (timesheet three-month calendar, attendance calendar and team grid, leave calendars, comp off calendar)
+  keep their colours and legends (rule 15).
+
+Visual changes skipped because they'd need more than a look change:
+- ESS Reimbursements, Payslips, Documents and the profile header card are the /employee portal's own components; their
+  pastel summary tiles and the inline-coloured "Pending" / "Rejected" reimbursement tags stay as they are (only the
+  scoped CSS reaches them). Changing them means changing the portal for everyone.
+- The Payroll dashboard's Info cards, chart, Today's Attendance and Activities panels are the existing dashboard (only
+  Quick actions is part of the redesign); they get the scope's tokens but keep their markup.
+- The ESS Overview "Quick actions" keep the ESS illustrated tiles (rule 13 is the Payroll dashboard's).
+
+VERIFY (Chrome, scripted: `dverify.cjs`, `flows.cjs`, `run3.cjs`, `flow2.cjs` in the session scratchpad):
+1. **Page header — pass.** Leave, Timesheet, Attendance, Overtime, Reimbursements, Employees and Payroll settings show
+   "Payroll › Services › {service}" (last item rgb(255,58,58)), "‹ Back to dashboard", a 20px / 500 / #404040 title and a
+   14px #8B8B8B line, at 1440, 1024 and 375.
+2. **Tabs and Segmented — pass.** Main tab rows are antd line Tabs (Attendance, Employees, Payroll settings, ESS
+   Attendance & Timesheet, My team); every sub-tab and filter group checked is antd Segmented.
+3. **antd + theme values — pass in our screens.** No button, input, select or picker with a radius other than 6px in
+   the scope at any width; tables, drawers, modals and switches are antd (switches red). The portal-owned pages are
+   the exception noted above.
+4. **Status tags — pass in our screens.** Every visible tag in the redesign screens is a StatusTag on one of the six
+   pairs (0 off-pair). ESS Reimbursements' "Pending" / "Rejected" are the portal's inline colours (#FFFBEB, #FEF2F2).
+5. **Notices — pass.** Every visible Alert is on an antd Alert colour; no solid saturated block wider than 120px
+   outside buttons, badges, switches and calendars on any page checked.
+6. **Balance cards and tiles — pass.** ESS Leave: 4 per row at 1440 and 1024, 2 at 375, 0 clipped, available 22px / 500,
+   rest 13px, text "6.5 / 17 days". Quick actions: 13 tiles, 0 clipped, 8px radius, #EAEAEA border, 18px padding,
+   40×40 #FFF7F7 icon square in #EA3639, 6 red count badges.
+7. **Side by side — pass with the differences listed above.** Before (1440): `docs/design/screens/before/`; after (1440,
+   1024, 375, plus the Apply / comp off modals, the request drawer, the Add leave drawer and the leave type drawer):
+   `docs/design/screens/after/`.
+8. **No behaviour change — pass.** Edit and resubmit, change request, manager then Admin / HR approval, cancellation
+   (whole refused before check-in rules, from-date), withdraw (`flows.cjs` v2–v5); apply for leave (8 → 9 requests);
+   HR Add leave (25 → 26 approved leaves); Leave configuration save and restore; Leave types table, delete rules,
+   drawer, Show to employees hiding Casual in ESS, comp off calendar, approver options (`run3.cjs`). No console errors
+   on any of the 25 screens at three widths. (`flows.cjs` v7 targets the module-grouped notes panel removed two runs
+   ago and was not run.)
+
+Checks: type-check clean. ESLint: only the 3 existing errors in `requestStores.ts`. Production build passes. Tests:
+5712 passed, 371 failed in 171 files; the failures are the files that already failed before this run, plus 15 files
+in PekoCloud, Sales, corporate cards and invoices that time out under the full-suite load and pass when run on their
+own (e.g. ItemsTable 4/4, ChequeBooksTable + UploadDocumentsKyb 35/35). No file in those domains, `src/index.css` or
+`src/antd.config.tsx` changed in this run. In the redesign's own suites the only failures are the two known ones
+("off today" on a Saturday, "Excel round trip").
 
 ## Leave settings + comp off calendar + approvers — done
 
