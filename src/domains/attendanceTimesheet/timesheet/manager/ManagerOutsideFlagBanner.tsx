@@ -68,7 +68,7 @@ const ManagerOutsideFlagBanner = ({ day, perspective = 'employee', onAction }: O
                             </li>
                         ))}
                     </ul>
-                    <span className="text-gray-600">{explain}</span>
+                    <span className="text-[#595959]">{explain}</span>
                     {!flag.pendingCorrection && perspective === 'employee' && (
                         <span className="text-[#8B8B8B]">Suggested: {suggestion}.</span>
                     )}

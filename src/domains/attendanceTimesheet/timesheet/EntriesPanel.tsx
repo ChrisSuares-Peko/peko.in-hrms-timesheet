@@ -75,14 +75,14 @@ export const breakEntries = (day: TimesheetDay): TimesheetEntry[] => [
 
 /** PROTOTYPE-SETUP (Leave & team, Slice 2): a leave / public-holiday row — read-only, a chip on light purple. */
 const LeaveLine = ({ row }: { row: TimesheetLeaveRow }) => (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-0 border-b border-solid border-gray-100 bg-[#F5F3FF] px-1 py-1.5 text-[13px] last:border-b-0" data-leave-row={row.kind}>
-        <span className="w-[140px] shrink-0 tabular-nums text-gray-700">{entryTimeText({ start: row.start, end: row.end })}</span>
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-0 border-b border-solid border-[#F0F0F0] bg-[#F5F3FF] px-1 py-1.5 text-[13px] last:border-b-0" data-leave-row={row.kind}>
+        <span className="w-[140px] shrink-0 tabular-nums text-[#404040]">{entryTimeText({ start: row.start, end: row.end })}</span>
         <span className="w-[56px] shrink-0 tabular-nums text-[#8B8B8B]">{formatDuration(row.minutes)}</span>
         <span className="order-last flex min-w-0 basis-full items-center gap-1.5 md:order-none md:flex-1 md:basis-0">
             <StatusTag tone="leave">
                 {row.tag}
             </StatusTag>
-            <span className="min-w-0 break-words text-gray-700">{row.description}</span>
+            <span className="min-w-0 break-words text-[#404040]">{row.description}</span>
         </span>
     </div>
 );
@@ -97,11 +97,11 @@ const BreakLine = ({ day, brk, editable, onSave }: { day: TimesheetDay; brk: Tim
     };
     return (
         <div
-            className="group flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-0 border-b border-solid border-gray-100 px-1 py-1.5 text-[13px] last:border-b-0"
+            className="group flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-0 border-b border-solid border-[#F0F0F0] px-1 py-1.5 text-[13px] last:border-b-0"
             style={{ background: BREAK_HATCH.replace('#C9CED6', '#F3F4F6').replace('#EEF0F3', '#FFFFFF') }}
             data-break-row
         >
-            <span className="w-[140px] shrink-0 tabular-nums text-gray-700">{entryTimeText({ start: brk.start, end: brk.end })}</span>
+            <span className="w-[140px] shrink-0 tabular-nums text-[#404040]">{entryTimeText({ start: brk.start, end: brk.end })}</span>
             <span className="w-[56px] shrink-0 tabular-nums text-[#8B8B8B]">{formatDuration(brk.minutes)}</span>
             <span className="order-last flex min-w-0 basis-full items-center gap-1.5 md:order-none md:flex-1 md:basis-0">
                 <StatusTag className="!m-0">
@@ -121,7 +121,7 @@ const BreakLine = ({ day, brk, editable, onSave }: { day: TimesheetDay; brk: Tim
                         aria-label="Break description"
                     />
                 ) : (
-                    <span className={brk.description ? 'text-gray-700' : 'text-gray-400'}>{brk.description || 'No description'}</span>
+                    <span className={brk.description ? 'text-[#404040]' : 'text-[#8B8B8B]'}>{brk.description || 'No description'}</span>
                 )}
             </span>
             {editable && onSave && (
@@ -183,7 +183,7 @@ const EntryLine = ({
     return (
         <div
             ref={ref}
-            className={`group flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 border-0 border-b border-solid border-gray-100 py-1.5 text-[13px] last:border-b-0 ${
+            className={`group flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 border-0 border-b border-solid border-[#F0F0F0] py-1.5 text-[13px] last:border-b-0 ${
                 highlighted ? 'rounded-md bg-[#FFFAEB] px-1.5 outline outline-1 outline-[#F5C26B]' : ''
             }`}
             onDoubleClick={() => editable && onEdit()}
@@ -191,13 +191,13 @@ const EntryLine = ({
             data-highlighted={highlighted || undefined}
         >
             {showTimes && (
-                <span className={`${entry.endNext ? 'w-[180px]' : 'w-[140px]'} shrink-0 tabular-nums ${isTimed(entry) ? 'font-medium text-[#121212]' : 'italic text-gray-400'}`}>
+                <span className={`${entry.endNext ? 'w-[180px]' : 'w-[140px]'} shrink-0 tabular-nums ${isTimed(entry) ? 'font-medium text-[#121212]' : 'italic text-[#8B8B8B]'}`}>
                     {entryTimeText(entry)}
                 </span>
             )}
             <span className={`w-[56px] shrink-0 tabular-nums ${showTimes ? 'text-[#8B8B8B]' : 'font-medium text-[#121212]'}`}>{formatDuration(entryMins(entry))}</span>
             {/* PROTOTYPE-SETUP (V2): on phones the description gets its own full-width line under the times. */}
-            <span className="order-last min-w-0 basis-full break-words text-gray-700 md:order-none md:flex-1 md:basis-0">
+            <span className="order-last min-w-0 basis-full break-words text-[#404040] md:order-none md:flex-1 md:basis-0">
                 {/* PROTOTYPE-SETUP (Final batch, Slice 2): location and project chips. */}
                 <StatusTag className="!mr-1.5 align-middle !text-[11px]" data-location-chip>
                     {locationChip(entry.location, entry.client)}

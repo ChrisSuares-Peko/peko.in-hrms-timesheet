@@ -123,7 +123,7 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
                     )}
                 </div>
                 <div className="ts-notices-body -mx-1.5 px-1.5" data-notices-body>
-                    <div className="rounded-lg border border-solid border-gray-100 px-3 py-2.5">{week}</div>
+                    <div className="rounded-lg border border-solid border-[#F0F0F0] px-3 py-2.5">{week}</div>
 
                     {items.length > 0 && <Group>Needs your action</Group>}
                     {items.map(x => (
@@ -153,7 +153,7 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
                                     key={d.date}
                                     type="button"
                                     onClick={() => onPickDay(d.date)}
-                                    className="flex w-full cursor-pointer items-center justify-between gap-2 border-0 border-b border-solid border-gray-100 bg-transparent px-0 py-[7px] text-left text-[13px] text-[#121212] last:border-b-0 hover:text-blue-600"
+                                    className="flex w-full cursor-pointer items-center justify-between gap-2 border-0 border-b border-solid border-[#F0F0F0] bg-transparent px-0 py-[7px] text-left text-[13px] text-[#121212] last:border-b-0 hover:text-blue-600"
                                     data-unlogged={d.date}
                                 >
                                     <span className="min-w-0">
@@ -181,9 +181,9 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
                                 {showHistory && (
                                     <ul className="m-0 mt-1.5 list-none p-0">
                                         {events.map((h, i) => (
-                                            <li key={`${h.at}-${i}`} className="grid grid-cols-[86px_minmax(0,1fr)] gap-2.5 border-0 border-b border-solid border-gray-100 py-1.5 text-xs last:border-b-0">
-                                                <span className="text-gray-400">{fmtStamp(h.at)}</span>
-                                                <span className="break-words text-gray-700">
+                                            <li key={`${h.at}-${i}`} className="grid grid-cols-[86px_minmax(0,1fr)] gap-2.5 border-0 border-b border-solid border-[#F0F0F0] py-1.5 text-xs last:border-b-0">
+                                                <span className="text-[#8B8B8B]">{fmtStamp(h.at)}</span>
+                                                <span className="break-words text-[#404040]">
                                                     <b className="font-medium">{who(h.actor)}</b>: {HISTORY_LABEL[h.action]}
                                                     {h.detail ? ` — ${h.detail}` : ''}
                                                 </span>

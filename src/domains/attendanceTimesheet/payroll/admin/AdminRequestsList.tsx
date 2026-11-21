@@ -148,7 +148,7 @@ const AdminRequestsList = ({
                 />
             </div>
             {current === 'you' && waiting.length > 0 && (
-                <Flex align="center" gap={10} wrap="wrap" className="rounded-lg border border-solid border-[#EAECF0] bg-[#F9FAFB] px-3 py-2" data-bulk-bar>
+                <Flex align="center" gap={10} wrap="wrap" className="rounded-lg border border-solid border-[#F0F0F0] bg-[#FAFAFA] px-3 py-2" data-bulk-bar>
                     <Checkbox
                         checked={allOn}
                         indeterminate={!allOn && chosen.length > 0}
@@ -163,7 +163,7 @@ const AdminRequestsList = ({
                 </Flex>
             )}
             {list.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-[#EAECF0] py-10" data-admin-empty>
+                <div className="rounded-lg border border-dashed border-[#F0F0F0] py-10" data-admin-empty>
                     <Empty
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description={

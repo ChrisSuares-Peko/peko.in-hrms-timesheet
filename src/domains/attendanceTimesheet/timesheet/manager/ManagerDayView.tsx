@@ -84,8 +84,8 @@ const ManagerDayView = ({
         <div
             id={`ts-day-${day.date}`}
             className={`flex min-w-0 flex-col gap-2.5 rounded-lg border border-solid p-4 ${
-                isToday ? 'border-blue-300 shadow-sm' : 'border-gray-200'
-            } ${noWindow && !day.entries.length ? 'bg-gray-50' : 'bg-white'}`}
+                isToday ? 'border-blue-300 shadow-sm' : 'border-[#EAEAEA]'
+            } ${noWindow && !day.entries.length ? 'bg-[#FAFAFA]' : 'bg-white'}`}
         >
             <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1">
                 <div className="flex min-w-0 flex-col gap-0.5">
@@ -126,7 +126,7 @@ const ManagerDayView = ({
                         className={`font-medium tabular-nums ${
                             day.expectedMinutes && day.loggedMinutes >= day.expectedMinutes
                                 ? 'text-green-600'
-                                : 'text-gray-700'
+                                : 'text-[#404040]'
                         }`}
                     >
                         {totals}
@@ -188,7 +188,7 @@ const ManagerDayView = ({
                     )
                 )}
                 {!day.entries.length && editing !== 'new' && (
-                    <span className="text-xs text-gray-400">{emptyText}</span>
+                    <span className="text-xs text-[#8B8B8B]">{emptyText}</span>
                 )}
                 {canEdit && edit && editing === 'new' && (
                     <ManagerEntryEditor

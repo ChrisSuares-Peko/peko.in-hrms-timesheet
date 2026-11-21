@@ -42,7 +42,7 @@ const LateNotesPanel = ({ reloadKey, onDispute }: { reloadKey: number; onDispute
                 {notes.map(d => {
                     const amount = lateAmountText(d);
                     const late = formatDuration(d.lateMinutes);
-                    let tone = 'bg-[#F9FAFB]';
+                    let tone = 'bg-[#FAFAFA]';
                     let body: React.ReactNode;
                     let action: React.ReactNode = null;
                     if (d.state === 'reversed') {

@@ -46,9 +46,9 @@ const ManagerWeekHistory = ({ history, defaultOpen }: WeekHistoryProps) => {
                                             {HISTORY_LABEL[h.action].toLowerCase()}
                                         </span>
                                         {h.detail && (
-                                            <span className="break-words text-gray-600">{h.detail}</span>
+                                            <span className="break-words text-[#595959]">{h.detail}</span>
                                         )}
-                                        <span className="text-gray-400">{fmtStamp(h.at)}</span>
+                                        <span className="text-[#8B8B8B]">{fmtStamp(h.at)}</span>
                                     </div>
                                 ),
                             }))}

@@ -166,7 +166,7 @@ const TeamApprovalsInbox = ({ settings, onChanged }: { settings: TeamSettings; o
                 options={FILTERS.filter(f => f.key === 'all' || kinds.includes(f.key)).map(f => ({ value: f.key, label: `${f.label} (${count(f.key)})` }))}
             />
             {list.length > 0 && (
-                <Flex align="center" gap={10} wrap="wrap" className="rounded-lg border border-solid border-[#EAECF0] bg-[#F9FAFB] px-3 py-2" data-bulk-bar>
+                <Flex align="center" gap={10} wrap="wrap" className="rounded-lg border border-solid border-[#F0F0F0] bg-[#FAFAFA] px-3 py-2" data-bulk-bar>
                     <Checkbox
                         checked={allOn}
                         indeterminate={!allOn && chosen.length > 0}
@@ -181,7 +181,7 @@ const TeamApprovalsInbox = ({ settings, onChanged }: { settings: TeamSettings; o
                 </Flex>
             )}
             {list.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-[#EAECF0] py-10">
+                <div className="rounded-lg border border-dashed border-[#F0F0F0] py-10">
                     <Empty
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description={

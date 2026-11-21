@@ -139,7 +139,7 @@ const WeekStatusCard = ({ view, today, review, onStepPeriod, onReview, bare = fa
                     <span className="whitespace-nowrap font-medium">Review</span>
                 </button>
             )}
-            <p className="my-2 break-words text-[13px] text-gray-600" data-status-line>
+            <p className="my-2 break-words text-[13px] text-[#595959]" data-status-line>
                 {statusLine(view, today)}
             </p>
         </section>

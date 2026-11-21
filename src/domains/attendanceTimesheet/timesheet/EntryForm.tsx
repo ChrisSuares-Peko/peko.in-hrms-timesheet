@@ -234,12 +234,12 @@ const EntryForm = ({
         // eslint-disable-next-line jsx-a11y/no-static-element-interactions
         <div
             onKeyDown={onKeyDown}
-            className={`flex min-w-0 flex-col gap-1.5 py-2 ${quick ? 'mt-1 border-0 border-t border-dashed border-gray-200' : ''}`}
+            className={`flex min-w-0 flex-col gap-1.5 py-2 ${quick ? 'mt-1 border-0 border-t border-dashed border-[#EAEAEA]' : ''}`}
             onClick={e => e.stopPropagation()}
             data-entry-form
         >
             <div className="flex min-w-0 flex-wrap items-end gap-x-2 gap-y-1.5">
-                {quick && !compact && <PlusOutlined aria-hidden className="mb-1.5 hidden text-gray-400 md:block" />}
+                {quick && !compact && <PlusOutlined aria-hidden className="mb-1.5 hidden text-[#8B8B8B] md:block" />}
                 {times && (
                     <>
                         <Field label="Start time" className={box.time}>

@@ -58,7 +58,7 @@ const Edited = ({ before, after }: { before: TimesheetEntry; after: TimesheetEnt
                     </span>
                     {descChanged && <span className="break-words"> · {before.description}</span>}
                 </span>
-                <ArrowRightOutlined className="text-xs text-gray-400" />
+                <ArrowRightOutlined className="text-xs text-[#8B8B8B]" />
                 <span className="font-medium text-[#121212]">
                     <span className="tabular-nums">
                         {before.date !== after.date && `${fmtDay(after.date)} `}
@@ -67,7 +67,7 @@ const Edited = ({ before, after }: { before: TimesheetEntry; after: TimesheetEnt
                     {descChanged && <span className="break-words"> · {after.description}</span>}
                 </span>
             </div>
-            {!descChanged && <span className="break-words text-xs text-gray-600">{after.description}</span>}
+            {!descChanged && <span className="break-words text-xs text-[#595959]">{after.description}</span>}
         </div>
     );
 };
@@ -88,7 +88,7 @@ const ManagerChangeDiff = ({ base, proposed }: ChangeDiffProps) => {
         <div className="flex min-w-0 flex-col gap-2">
             <div className="flex flex-wrap items-baseline gap-x-2 text-sm">
                 <span className="font-semibold text-[#121212]">What changed</span>
-                <span className="text-gray-600">{diffSummary(diff)}</span>
+                <span className="text-[#595959]">{diffSummary(diff)}</span>
                 {dates.length > 0 && (
                     <span className="text-xs text-[#8B8B8B]">
                         · {formatDuration(baseTotal)} → {formatDuration(proposedTotal)} ({deltaText})

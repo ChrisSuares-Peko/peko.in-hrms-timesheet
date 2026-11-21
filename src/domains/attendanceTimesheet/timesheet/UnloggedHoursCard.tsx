@@ -51,7 +51,7 @@ const UnloggedHoursCard = ({ days, today, period, onPick }: UnloggedHoursCardPro
                             key={d.date}
                             type="button"
                             onClick={() => onPick(d.date)}
-                            className="flex w-full cursor-pointer items-center justify-between gap-2 border-0 border-b border-solid border-gray-100 bg-transparent px-0 py-[7px] text-left text-[13px] text-[#121212] last:border-b-0 hover:text-blue-600"
+                            className="flex w-full cursor-pointer items-center justify-between gap-2 border-0 border-b border-solid border-[#F0F0F0] bg-transparent px-0 py-[7px] text-left text-[13px] text-[#121212] last:border-b-0 hover:text-blue-600"
                         >
                             <span className="min-w-0">
                                 {dayjs(d.date).format('ddd, D MMM')}

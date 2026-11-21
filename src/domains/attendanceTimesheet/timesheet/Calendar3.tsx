@@ -101,7 +101,7 @@ const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnable
             ) : (
                 <div className="grid grid-cols-7 gap-[2px]">
                     {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
-                        <span key={`h${i}`} className="pb-0.5 text-center text-[10px] text-gray-400">
+                        <span key={`h${i}`} className="pb-0.5 text-center text-[10px] text-[#8B8B8B]">
                             {d}
                         </span>
                     ))}
@@ -146,7 +146,7 @@ const SWATCH = 'inline-block h-2.5 w-2.5 rounded-[3px]';
 
 /** Saved · Submitted · Update requested · Leave · Public holiday · Selected (approval off: Leave · Public holiday · Selected). */
 const Legend = ({ approvalEnabled }: { approvalEnabled: boolean }) => (
-    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-600" data-calendar-legend>
+    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#595959]" data-calendar-legend>
         {approvalEnabled && (
             <>
                 <span className="inline-flex items-center gap-1.5">

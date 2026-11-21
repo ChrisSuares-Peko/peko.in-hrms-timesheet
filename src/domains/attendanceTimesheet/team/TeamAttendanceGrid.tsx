@@ -58,7 +58,7 @@ const checkOutText = (day: Day) => {
 };
 
 const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="grid grid-cols-[130px_minmax(0,1fr)] gap-2 border-0 border-b border-solid border-gray-100 py-1.5 text-sm last:border-b-0">
+    <div className="grid grid-cols-[130px_minmax(0,1fr)] gap-2 border-0 border-b border-solid border-[#F0F0F0] py-1.5 text-sm last:border-b-0">
         <Text type="secondary">{label}</Text>
         <span className="min-w-0 break-words">{children}</span>
     </div>
@@ -124,23 +124,23 @@ const TeamAttendanceGrid = () => {
                     <table className="border-collapse text-xs">
                         <thead>
                             <tr>
-                                <th className="sticky left-0 z-10 min-w-[170px] bg-white px-3 py-2 text-left font-medium text-gray-600">Team member</th>
+                                <th className="sticky left-0 z-10 min-w-[170px] bg-white px-3 py-2 text-left font-medium text-[#595959]">Team member</th>
                                 {view.dates.map(d => (
                                     <th
                                         key={d}
-                                        className={`px-0.5 py-2 text-center font-normal ${view.off.includes(d) ? 'bg-[#F5F6F7]' : ''} ${d === view.today ? 'font-semibold text-[#FF3A3A]' : 'text-[#8B8B8B]'}`}
+                                        className={`px-0.5 py-2 text-center font-normal ${view.off.includes(d) ? 'bg-[#F5F5F5]' : ''} ${d === view.today ? 'font-semibold text-[#FF3A3A]' : 'text-[#8B8B8B]'}`}
                                     >
                                         {dayjs(d).format('dd').charAt(0)}
                                         <br />
                                         {dayjs(d).date()}
                                     </th>
                                 ))}
-                                <th className="px-2 py-2 text-center font-medium text-gray-600">Late</th>
+                                <th className="px-2 py-2 text-center font-medium text-[#595959]">Late</th>
                             </tr>
                         </thead>
                         <tbody>
                             {view.rows.map(r => (
-                                <tr key={r.employee.id} className="border-0 border-t border-solid border-gray-100" data-team-row={r.employee.name}>
+                                <tr key={r.employee.id} className="border-0 border-t border-solid border-[#F0F0F0]" data-team-row={r.employee.name}>
                                     <td className="sticky left-0 z-10 bg-white px-3 py-2">
                                         <span className="block text-sm font-medium text-[#121212]">{r.employee.name}</span>
                                         <span className="block text-[11px] text-[#8B8B8B]">{r.employee.designation}</span>
@@ -148,7 +148,7 @@ const TeamAttendanceGrid = () => {
                                     {r.days.map(d => {
                                         const code = d.date <= view.today || d.status === 'on-leave' ? cellCode(d) : '';
                                         return (
-                                            <td key={d.date} className={`px-0.5 py-1 text-center ${view.off.includes(d.date) ? 'bg-[#F5F6F7]' : ''} ${d.date === view.today ? 'bg-[#FFF1F1]' : ''}`}>
+                                            <td key={d.date} className={`px-0.5 py-1 text-center ${view.off.includes(d.date) ? 'bg-[#F5F5F5]' : ''} ${d.date === view.today ? 'bg-[#FFF1F1]' : ''}`}>
                                                 <button
                                                     type="button"
                                                     title={`${dayjs(d.date).format('ddd D MMM')}${d.label ? `: ${d.label}` : ''}`}
@@ -163,7 +163,7 @@ const TeamAttendanceGrid = () => {
                                         );
                                     })}
                                     <td className="px-2 text-center">
-                                        {r.lateCount ? <span className="rounded-full bg-[#FFFAEB] px-2 py-0.5 font-semibold text-[#B54708]">{r.lateCount}</span> : <span className="text-gray-400">0</span>}
+                                        {r.lateCount ? <span className="rounded-full bg-[#FFFAEB] px-2 py-0.5 font-semibold text-[#B54708]">{r.lateCount}</span> : <span className="text-[#8B8B8B]">0</span>}
                                     </td>
                                 </tr>
                             ))}

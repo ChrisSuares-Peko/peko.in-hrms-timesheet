@@ -37,7 +37,7 @@ const ManagerTimeTrack = ({ day, range, isToday, compact }: TimeTrackProps) => {
     return (
         <div className="w-full min-w-0">
             <div
-                className={`relative w-full overflow-hidden rounded-md bg-gray-100 ${compact ? 'h-5' : 'h-8'}`}
+                className={`relative w-full overflow-hidden rounded-md bg-[#F5F5F5] ${compact ? 'h-5' : 'h-8'}`}
                 role="img"
                 aria-label={`${w.label}. ${day.entries.length} entries logged.`}
             >
@@ -91,7 +91,7 @@ const ManagerTimeTrack = ({ day, range, isToday, compact }: TimeTrackProps) => {
                 )}
             </div>
             {!compact && (
-                <div className="relative mt-0.5 h-4 w-full overflow-hidden text-[10px] leading-4 text-gray-400">
+                <div className="relative mt-0.5 h-4 w-full overflow-hidden text-[10px] leading-4 text-[#8B8B8B]">
                     {labels.map((h, i) => {
                         let shift = '-50%';
                         if (i === 0 && h === r[0]) shift = '0';

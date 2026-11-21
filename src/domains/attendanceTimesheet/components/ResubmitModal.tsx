@@ -74,7 +74,7 @@ export const resubmitError = (v: ResubmitValues, today: string): string => {
 };
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-gray-700">
+    <div className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-[#404040]">
         <span>{label}</span>
         {children}
     </div>

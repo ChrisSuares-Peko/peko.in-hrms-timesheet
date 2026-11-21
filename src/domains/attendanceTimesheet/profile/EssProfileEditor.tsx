@@ -249,7 +249,7 @@ const EssProfileEditor = () => {
                     </div>
                 </div>
 
-                <Text className="text-[12px] font-medium uppercase text-gray-400">Contact information</Text>
+                <Text className="text-[12px] font-medium uppercase text-[#8B8B8B]">Contact information</Text>
                 <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
                     <Field label="Mobile number" id="pf-mobile">
                         <Input id="pf-mobile" type="tel" value={form.mobile} disabled={locked} onChange={set('mobile')} />
@@ -264,7 +264,7 @@ const EssProfileEditor = () => {
 
                 <div className="my-6 border-0 border-t border-solid border-[#f0f0f0]" />
 
-                <Text className="text-[12px] font-medium uppercase text-gray-400">Emergency contact</Text>
+                <Text className="text-[12px] font-medium uppercase text-[#8B8B8B]">Emergency contact</Text>
                 <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
                     <Field label="Name" id="pf-ec-name">
                         <Input id="pf-ec-name" value={form.emergencyName} disabled={locked} onChange={set('emergencyName')} />

@@ -56,8 +56,8 @@ export const LedgerList = ({ ledger, empty = 'Nothing credited or deducted yet t
     ledger.length ? (
         <ul className="m-0 list-none p-0" data-ledger>
             {ledger.map((x, i) => (
-                <li key={`${x.date}-${x.kind}-${i}`} className="flex items-baseline justify-between gap-3 border-0 border-t border-solid border-gray-100 py-1.5 text-xs first:border-t-0">
-                    <span className={x.amount === null ? 'text-[#8B8B8B]' : 'text-gray-800'}>
+                <li key={`${x.date}-${x.kind}-${i}`} className="flex items-baseline justify-between gap-3 border-0 border-t border-solid border-[#F0F0F0] py-1.5 text-xs first:border-t-0">
+                    <span className={x.amount === null ? 'text-[#8B8B8B]' : 'text-[#121212]'}>
                         {dayjs(x.date).format('D MMM')} · {x.text}
                     </span>
                     {x.amount !== null && <span className={`shrink-0 tabular-nums ${x.amount < 0 ? 'text-[#B42318]' : 'text-[#067647]'}`}>{signed(x.amount)}</span>}
@@ -99,12 +99,12 @@ export const BalanceCard = ({ b, onProbation = false, onOpen }: { b: LeaveBalanc
     const { probation, extra } = balanceLines(b, onProbation);
     const body = (
         <>
-            <Text className="text-sm text-gray-600">{b.label}</Text>
+            <Text className="text-sm text-[#595959]">{b.label}</Text>
             <Text className="text-2xl font-semibold text-[#121212]" data-available>
                 {fmtDays(b.available)} available
             </Text>
             {probation}
-            <Text className="text-xs text-gray-600">
+            <Text className="text-xs text-[#595959]">
                 {b.type === COMP_OFF ? `${fmtDays(b.credited)} earned and not expired` : `${fmtDays(b.credited)} credited so far of ${fmtDays(b.allocated)} this year`}
                 {b.carried > 0 ? ` (incl. ${fmtDays(b.carried)} carried forward)` : ''}
             </Text>
@@ -160,12 +160,12 @@ export const LateDeductionsPanel = ({ view }: { view: LeaveView }) => {
             {view.lateDeductions.length > 0 && (
                 <ul className="m-0 mt-2 list-none p-0">
                     {view.lateDeductions.map(d => (
-                        <li key={d.date} className="flex flex-wrap items-baseline justify-between gap-x-3 border-0 border-b border-solid border-gray-100 py-2 text-sm last:border-b-0">
-                            <span className="text-gray-800">
+                        <li key={d.date} className="flex flex-wrap items-baseline justify-between gap-x-3 border-0 border-b border-solid border-[#F0F0F0] py-2 text-sm last:border-b-0">
+                            <span className="text-[#121212]">
                                 {fmtDay(d.date)} ·{' '}
                                 {d.state === 'reversed' && d.reversedOn ? `dispute approved ${dayjs(d.reversedOn).format('D MMM')}` : `late by ${formatDuration(d.lateMinutes)}`}
                             </span>
-                            <span className={`tabular-nums ${d.state === 'reversed' ? 'text-[#067647]' : 'text-gray-700'}`}>{lateLedgerText(d)}</span>
+                            <span className={`tabular-nums ${d.state === 'reversed' ? 'text-[#067647]' : 'text-[#404040]'}`}>{lateLedgerText(d)}</span>
                         </li>
                     ))}
                 </ul>

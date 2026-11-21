@@ -128,7 +128,7 @@ const HrAddLeaveDrawer = ({ open, onClose, onAdded }: { open: boolean; onClose: 
         >
             <Flex vertical gap={14} data-hr-add-leave>
                 <Flex vertical gap={4}>
-                    <Text strong className="text-sm">
+                    <Text className="text-sm">
                         Employee
                     </Text>
                     <Select
@@ -146,7 +146,7 @@ const HrAddLeaveDrawer = ({ open, onClose, onAdded }: { open: boolean; onClose: 
                 </Flex>
                 <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
                     <Flex vertical gap={4}>
-                        <Text strong className="text-sm">
+                        <Text className="text-sm">
                             Start date
                         </Text>
                         <DatePicker
@@ -161,7 +161,7 @@ const HrAddLeaveDrawer = ({ open, onClose, onAdded }: { open: boolean; onClose: 
                         />
                     </Flex>
                     <Flex vertical gap={4}>
-                        <Text strong className="text-sm">
+                        <Text className="text-sm">
                             End date
                         </Text>
                         <DatePicker
@@ -176,7 +176,7 @@ const HrAddLeaveDrawer = ({ open, onClose, onAdded }: { open: boolean; onClose: 
                         />
                     </Flex>
                 </div>
-                <div className="rounded-lg bg-[#F9FAFB] px-3 py-2" data-hr-duration>
+                <div className="rounded-lg bg-[#FAFAFA] px-3 py-2" data-hr-duration>
                     {count && count.working > 0 ? (
                         <Text className="text-sm">
                             <b className="font-medium">{halfOf ? `${count.working} half day${count.working === 1 ? '' : 's'} = ${daysText(count.days)}` : daysText(count.days)}</b>
@@ -192,7 +192,7 @@ const HrAddLeaveDrawer = ({ open, onClose, onAdded }: { open: boolean; onClose: 
                 </div>
                 {from && (
                     <Flex vertical gap={4}>
-                        <Text strong className="text-sm">
+                        <Text className="text-sm">
                             Half days
                         </Text>
                         <Radio.Group
@@ -209,7 +209,7 @@ const HrAddLeaveDrawer = ({ open, onClose, onAdded }: { open: boolean; onClose: 
                     </Flex>
                 )}
                 <Flex vertical gap={4}>
-                    <Text strong className="text-sm">
+                    <Text className="text-sm">
                         Leave type
                     </Text>
                     <Select
@@ -230,7 +230,7 @@ const HrAddLeaveDrawer = ({ open, onClose, onAdded }: { open: boolean; onClose: 
                     )}
                 </Flex>
                 <Flex vertical gap={4}>
-                    <Text strong className="text-sm">
+                    <Text className="text-sm">
                         Note
                     </Text>
                     <Input.TextArea
@@ -245,7 +245,7 @@ const HrAddLeaveDrawer = ({ open, onClose, onAdded }: { open: boolean; onClose: 
                     />
                 </Flex>
                 <Flex vertical gap={4}>
-                    <Text strong className="text-sm">
+                    <Text className="text-sm">
                         Attachment (optional)
                     </Text>
                     <Upload

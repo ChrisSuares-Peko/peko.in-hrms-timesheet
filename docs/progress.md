@@ -15,7 +15,7 @@ design asks for, listed under Decisions). Rules: `docs/design/peko-design-langua
 |---|---|---|
 | 0 — Shared pieces: PekoScope (one theme layer), StatusTag, page header, sweep of radii/borders/greys/red | Design: shared Peko scope, status tag and page header | done |
 | 1 — Payroll dashboard: Quick actions as cards | Design: Payroll dashboard quick actions | done |
-| 2 — Payroll Leave: all sub-tabs + Add leave drawer | | |
+| 2 — Payroll Leave: all sub-tabs + Add leave drawer | Design: Payroll Leave | done |
 | 3 — Payroll settings: Leave sub-tabs, Attendance/timesheet/overtime, Reimbursements | | |
 | 4 — ESS Leave: Overview, type details, My requests + drawer, Public holidays, Apply and comp off modals | | |
 | 5 — My team | | |
@@ -61,6 +61,10 @@ Decisions:
     Employees keeps its three actions beside the title: its tab row has seven tabs and no room.
 12. **Main-tab counts** are small red pills (antd Badge): Attendance "Requests", Employees "Profile Update Request",
     "Document Requests", "Profile updates". Segmented sub-tabs keep their "Requests (1)" text.
+14. **Field labels** in the hand-built forms (Apply leave, comp off, cancel, Add leave drawer) are 14px regular #121212
+    (were bold). antd `Form.Item` labels already follow the theme.
+15. **Generic greys** left from the prototype (Tailwind gray-400…800, #475467, #667085, #98A2B3, #F9FAFB, #EAECF0)
+    are mapped onto the Peko neutrals (#121212, #404040, #595959, #8B8B8B, #FAFAFA, #F5F5F5, #F0F0F0, #EAEAEA).
 13. **Content width**: the scope caps content at 1320px; the dashboard layout already gives ~40px side padding on
     desktop, so it isn't changed.
 

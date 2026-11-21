@@ -27,8 +27,8 @@ import type { LeaveTypeConfig, LeaveTypeInput } from '../../types';
 const { Text } = Typography;
 
 const SectionHeading = ({ title, note }: { title: string; note: string }) => (
-    <div className="border-0 border-t border-solid border-[#EAECF0] pt-3" data-lt-section={title}>
-        <Text className="block text-sm font-medium text-[#101828]">{title}</Text>
+    <div className="border-0 border-t border-solid border-[#F0F0F0] pt-3" data-lt-section={title}>
+        <Text className="block text-sm font-medium text-[#121212]">{title}</Text>
         <Text type="secondary" className="text-xs">
             {note}
         </Text>

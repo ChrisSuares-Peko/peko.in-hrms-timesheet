@@ -253,7 +253,7 @@ const CategoriesCard = () => {
                                         {fields.map(f => {
                                             const cat: ReimbursementCategory | undefined = form.getFieldValue(['reimbursements', 'categories', f.name]);
                                             return (
-                                                <tr key={f.key} className="border-0 border-t border-solid border-gray-100" data-category-row={cat?.name}>
+                                                <tr key={f.key} className="border-0 border-t border-solid border-[#F0F0F0]" data-category-row={cat?.name}>
                                                     <td className="py-2 pr-3">{cat?.name}</td>
                                                     <td className="py-2 pr-3">
                                                         <Flex align="center" gap={6}>
@@ -333,7 +333,7 @@ const ModeCards = ({
                     key={m.value}
                     htmlFor={`ats-mode-${m.value}`}
                     className={`block cursor-pointer rounded-lg border border-solid p-4 transition-colors ${
-                        value === m.value ? 'border-[#FF3A3A] bg-[#FFF8F8]' : 'border-gray-200 bg-white'
+                        value === m.value ? 'border-[#FF3A3A] bg-[#FFF8F8]' : 'border-[#EAEAEA] bg-white'
                     }`}
                 >
                     <Flex vertical gap={6}>

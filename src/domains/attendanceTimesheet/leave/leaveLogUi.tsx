@@ -29,7 +29,7 @@ export const TypeCard = ({ b, onOpen }: { b: LeaveBalance; onOpen: () => void })
         className="flex min-w-0 cursor-pointer flex-col gap-1 rounded-lg border border-solid border-[#eff1f4] bg-white px-4 py-3 text-left transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#FF3A3A]"
         data-type-card={b.type}
     >
-        <Text className="truncate text-sm text-gray-600">{b.label}</Text>
+        <Text className="truncate text-sm text-[#595959]">{b.label}</Text>
         <Text className="text-xl font-semibold tabular-nums text-[#121212]" data-available-total>
             {availableOfTotal(b)}
         </Text>
@@ -54,8 +54,8 @@ const signed = (n: number) => (n > 0 ? `+${fmtDays(n)}` : `−${fmtDays(-n)}`);
 
 const DaysCell = ({ r }: { r: LeaveLogRow }) => {
     if (r.days !== null) return <span className={`tabular-nums ${r.days < 0 ? 'text-[#B42318]' : 'text-[#067647]'}`}>{signed(r.days)}</span>;
-    if (r.plainDays !== undefined) return <span className="tabular-nums text-gray-400">{fmtDays(r.plainDays)}</span>;
-    return <span className="text-gray-400">–</span>;
+    if (r.plainDays !== undefined) return <span className="tabular-nums text-[#8B8B8B]">{fmtDays(r.plainDays)}</span>;
+    return <span className="text-[#8B8B8B]">–</span>;
 };
 
 export const LogStatusTag = ({ r }: { r: Pick<LeaveLogRow, 'status' | 'statusKind'> }) => (
@@ -78,7 +78,7 @@ export const LeaveLogTable = ({
     pageSize?: number;
 }) => {
     const date = { title: 'Date', key: 'date', render: (_: unknown, r: LeaveLogRow) => <span className="whitespace-nowrap">{dayjs(r.date).format('D MMM YYYY')}</span> };
-    const period = { title: 'Period', key: 'period', render: (_: unknown, r: LeaveLogRow) => r.period || <span className="text-gray-400">–</span> };
+    const period = { title: 'Period', key: 'period', render: (_: unknown, r: LeaveLogRow) => r.period || <span className="text-[#8B8B8B]">–</span> };
     const days = { title: 'Days (+/−)', key: 'days', align: 'right' as const, render: (_: unknown, r: LeaveLogRow) => <DaysCell r={r} /> };
     const status = { title: 'Status', key: 'status', render: (_: unknown, r: LeaveLogRow) => <LogStatusTag r={r} /> };
     const columns: ColumnsType<LeaveLogRow> =

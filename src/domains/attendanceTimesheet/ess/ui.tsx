@@ -42,7 +42,7 @@ export const Panel = ({
 export const StatTile = ({
     label,
     value,
-    tone = 'bg-[#F7F7F7]',
+    tone = 'bg-[#F5F5F5]',
     hint,
 }: {
     label: string;

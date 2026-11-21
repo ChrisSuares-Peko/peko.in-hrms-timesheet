@@ -25,7 +25,7 @@ dayjs.extend(relativeTime);
 const ProfileChanges = ({ item }: { item: RequestItem }) => {
     const changes = item.profile?.changes ?? [];
     return (
-        <div className="max-w-[520px] rounded-lg bg-[#F9FAFB] px-3 py-2">
+        <div className="max-w-[520px] rounded-lg bg-[#FAFAFA] px-3 py-2">
             <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
                 {changes.map(c => (
                     <Fragment key={c.field}>
@@ -41,7 +41,7 @@ const ProfileChanges = ({ item }: { item: RequestItem }) => {
                             </Flex>
                         ) : (
                             <Typography.Text className="break-words">
-                                <span className="text-[#667085] line-through decoration-[#98A2B3]">{c.from || '—'}</span>
+                                <span className="text-[#8B8B8B] line-through decoration-[#98A2B3]">{c.from || '—'}</span>
                                 {' → '}
                                 <b className="font-semibold !text-[#1570EF]">{c.to || '—'}</b>
                             </Typography.Text>
@@ -87,7 +87,7 @@ const CorrectionTimes = ({ item }: { item: RequestItem }) => {
         },
     ];
     return (
-        <div className="rounded-lg bg-[#F9FAFB] px-3 py-2 max-w-[420px]">
+        <div className="rounded-lg bg-[#FAFAFA] px-3 py-2 max-w-[420px]">
             <Flex gap={6} align="center" className="mb-1">
                 <StatusTag color="blue" className="!m-0">
                     Correction
@@ -173,7 +173,7 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
                         )}
                         {item.notes && (
                             <Typography.Paragraph type="secondary" className="!mb-0 text-sm">
-                                <span className="font-medium text-[#475467]">Reason: </span>
+                                <span className="font-medium text-[#595959]">Reason: </span>
                                 {item.notes}
                             </Typography.Paragraph>
                         )}
@@ -249,7 +249,7 @@ const num = (n: number) => String(Math.round(n * 100) / 100);
 
 /** "Annual: 7 available now · 6.5 after this" (red when short: "short by 1.5 (would be loss of pay)"). */
 export const LeaveBalanceLine = ({ b }: { b: LeaveBalanceInfo }) => (
-    <Typography.Text className={`text-sm ${b.after < 0 ? '!text-[#B42318]' : '!text-[#475467]'}`} data-leave-balance-line={b.after < 0 ? 'short' : 'ok'}>
+    <Typography.Text className={`text-sm ${b.after < 0 ? '!text-[#B42318]' : '!text-[#595959]'}`} data-leave-balance-line={b.after < 0 ? 'short' : 'ok'}>
         {b.typeName}: {num(b.availableNow)} available now · {b.after < 0 ? `short by ${num(-b.after)} (would be loss of pay)` : `${num(b.after)} after this`}
     </Typography.Text>
 );

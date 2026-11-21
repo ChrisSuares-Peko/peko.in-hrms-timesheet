@@ -89,7 +89,7 @@ const Overview = ({ service }: { service: Service }) => {
                         <section aria-label="By category" className={`${ESS_CARD} !py-4`} data-by-category>
                             <h3 className="mb-2 mt-0 text-base font-medium text-[#121212]">By category</h3>
                             {o.categories.map(c => (
-                                <div key={c.category} className="flex items-center justify-between gap-3 border-0 border-b border-solid border-gray-100 py-2 last:border-b-0" data-category={c.category}>
+                                <div key={c.category} className="flex items-center justify-between gap-3 border-0 border-b border-solid border-[#F0F0F0] py-2 last:border-b-0" data-category={c.category}>
                                     <span>
                                         {c.category} <Text type="secondary" className="text-xs">· {c.count}</Text>
                                     </span>

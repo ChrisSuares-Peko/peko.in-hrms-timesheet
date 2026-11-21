@@ -75,7 +75,7 @@ const LeaveToApprove = ({ items, onShow, onDecide }: { items: RequestItem[] | nu
                 />
             )}
             {items?.map(r => (
-                <div key={r.id} className="flex flex-col gap-1.5 border-0 border-b border-solid border-gray-100 py-2.5 last:border-b-0" data-leave-request={r.id}>
+                <div key={r.id} className="flex flex-col gap-1.5 border-0 border-b border-solid border-[#F0F0F0] py-2.5 last:border-b-0" data-leave-request={r.id}>
                     <Flex align="center" gap={6} wrap="wrap" className="px-1">
                         <ClashChip names={r.leave?.alsoOff ?? []} />
                         <span className="flex-1" />
@@ -172,17 +172,17 @@ const TeamLeaveCalendar = ({ onChanged, loadMonth, loadPending: pendingLoader, d
                             return (
                                 <div
                                     key={d}
-                                    className={`flex min-h-[86px] min-w-0 flex-col gap-1 rounded-lg border border-solid p-1.5 ${shaded ? 'border-transparent bg-[#F5F6F7]' : 'border-gray-100'} ${d === view.today ? '!border-[#FF3A3A]' : ''}`}
+                                    className={`flex min-h-[86px] min-w-0 flex-col gap-1 rounded-lg border border-solid p-1.5 ${shaded ? 'border-transparent bg-[#F5F5F5]' : 'border-[#F0F0F0]'} ${d === view.today ? '!border-[#FF3A3A]' : ''}`}
                                     data-cal-day={d}
                                 >
                                     <div className="flex items-center justify-between">
-                                        <span className={`text-xs ${d === view.today ? 'font-semibold text-[#FF3A3A]' : 'text-gray-600'}`}>{dayjs(d).date()}</span>
+                                        <span className={`text-xs ${d === view.today ? 'font-semibold text-[#FF3A3A]' : 'text-[#595959]'}`}>{dayjs(d).date()}</span>
                                         {off.length > 0 && <span className="text-[10px] font-medium text-[#5925DC]" data-off-count>{off.length} off</span>}
                                     </div>
                                     {off.map(({ person, leave }) => (
                                         <Tooltip key={`${leave.id}-${d}`} title={`${person.name} · ${typeLabel(leave.typeName)}${leave.half ? ` (${leave.half === 'FIRST' ? 'first' : 'second'} half)` : ''} · ${leave.state === 'approved' ? 'approved' : 'waiting for approval'}`}>
                                             <span
-                                                className={`truncate rounded px-1.5 py-0.5 text-[11px] ${leave.state === 'approved' ? 'bg-[#F4F3FF] text-[#5925DC]' : 'border border-dashed border-[#B2B7C2] bg-white text-gray-600'}`}
+                                                className={`truncate rounded px-1.5 py-0.5 text-[11px] ${leave.state === 'approved' ? 'bg-[#F4F3FF] text-[#5925DC]' : 'border border-dashed border-[#B2B7C2] bg-white text-[#595959]'}`}
                                                 data-leave-chip={leave.state}
                                             >
                                                 {person.name.split(' ')[0]}

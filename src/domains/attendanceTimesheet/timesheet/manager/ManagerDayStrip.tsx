@@ -37,8 +37,8 @@ const ManagerDayStrip = ({ days, selected, today, onSelect, onPrevWeek, onNextWe
                 {days.map(d => {
                     const isSel = d.date === selected;
                     const nothing = d.unloggedMinutes > 0 && d.loggedMinutes === 0;
-                    let tone = 'border-gray-200 bg-white text-gray-800';
-                    if (d.window.kind === 'none') tone = 'border-gray-200 bg-gray-50 text-[#8B8B8B]';
+                    let tone = 'border-[#EAEAEA] bg-white text-[#121212]';
+                    if (d.window.kind === 'none') tone = 'border-[#EAEAEA] bg-[#FAFAFA] text-[#8B8B8B]';
                     if (isSel) tone = 'border-blue-500 bg-blue-500 text-white';
                     return (
                         <button

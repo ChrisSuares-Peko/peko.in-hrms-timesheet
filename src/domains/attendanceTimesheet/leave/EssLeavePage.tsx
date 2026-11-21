@@ -140,7 +140,7 @@ const LeaveTypePage = ({
                 <Stat label="In request" value={fmtDays(b.inRequest)} sub="waiting for approval, already taken off" />
                 <Stat label="Carried forward" value={fmtDays(b.carried)} sub={comp ? 'comp off doesn’t carry forward' : `limit ${b.carryForward ? `${fmtDays(b.carryForward)} days` : 'none'}`} />
             </div>
-            <Text className="text-sm text-gray-600" data-type-summary>
+            <Text className="text-sm text-[#595959]" data-type-summary>
                 {typeSummary(b, view)}
                 {b.late > 0 ? ` · −${fmtDays(b.late)} for late check-ins` : ''}
             </Text>
@@ -516,7 +516,7 @@ const EssLeavePage = () => {
                     <Typography.Title level={4} className="!mb-0.5">
                         Leave
                     </Typography.Title>
-                    <Text className="text-sm text-gray-600" data-leave-year>
+                    <Text className="text-sm text-[#595959]" data-leave-year>
                         {leaveYearLine(view)}
                     </Text>
                 </div>
@@ -557,7 +557,7 @@ const EssLeavePage = () => {
                             {upcoming.length === 0 && <Text type="secondary">Nothing planned.</Text>}
                             <ul className="m-0 list-none p-0">
                                 {upcoming.slice(0, 4).map(r => (
-                                    <li key={r.id} className="border-0 border-b border-solid border-gray-100 last:border-b-0">
+                                    <li key={r.id} className="border-0 border-b border-solid border-[#F0F0F0] last:border-b-0">
                                         <button
                                             type="button"
                                             onClick={() => openItem({ kind: 'leave', id: r.id })}

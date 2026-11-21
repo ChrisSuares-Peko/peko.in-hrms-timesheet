@@ -125,13 +125,13 @@ const SubmitReviewModal = ({ kind, review, entries, busy, managerName, periodWor
                         <button
                             type="button"
                             onClick={() => onReview(r.date, r.ids)}
-                            className="flex w-full cursor-pointer items-center justify-between gap-3 border-0 border-b border-solid border-gray-100 bg-transparent px-0 py-2 text-left text-[13px] text-[#121212] hover:text-[#FF3A3A]"
+                            className="flex w-full cursor-pointer items-center justify-between gap-3 border-0 border-b border-solid border-[#F0F0F0] bg-transparent px-0 py-2 text-left text-[13px] text-[#121212] hover:text-[#FF3A3A]"
                         >
                             <span className="min-w-0">
                                 <b className="font-medium">{dayText(r.date)}</b>
-                                <span className={kind === 'unlogged' ? 'text-[#B54708]' : 'text-gray-600'}> · {r.text}</span>
+                                <span className={kind === 'unlogged' ? 'text-[#B54708]' : 'text-[#595959]'}> · {r.text}</span>
                             </span>
-                            <RightOutlined className="shrink-0 text-[10px] text-gray-400" />
+                            <RightOutlined className="shrink-0 text-[10px] text-[#8B8B8B]" />
                         </button>
                     </li>
                 ))}

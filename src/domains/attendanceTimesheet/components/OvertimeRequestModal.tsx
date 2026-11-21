@@ -157,7 +157,7 @@ const OvertimeRequestModal = ({
                 </Form.Item>
 
                 {!planned && dateIso && (
-                    <div className="rounded-lg bg-[#F7F7F7] px-4 py-3 mb-4 min-h-[44px]">
+                    <div className="rounded-lg bg-[#F5F5F5] px-4 py-3 mb-4 min-h-[44px]">
                         {ctxLoading && <Spin size="small" />}
                         {!ctxLoading && ctx && (
                             <div className="flex items-center justify-between gap-2 flex-wrap">

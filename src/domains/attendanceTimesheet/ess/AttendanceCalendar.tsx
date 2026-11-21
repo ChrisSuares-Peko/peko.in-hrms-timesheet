@@ -101,7 +101,7 @@ const DayCell = ({
                     beforeJoining
                         ? 'bg-transparent border-transparent cursor-not-allowed opacity-40'
                         : 'cursor-pointer hover:shadow-md'
-                } ${dashed && !beforeJoining ? 'border-dashed border-gray-200' : 'border-transparent'} ${ring}`}
+                } ${dashed && !beforeJoining ? 'border-dashed border-[#EAEAEA]' : 'border-transparent'} ${ring}`}
                 style={beforeJoining ? undefined : { backgroundColor: look.bg }}
             >
                 <span
@@ -221,7 +221,7 @@ const AttendanceCalendar = ({
                     ? Array.from({ length: 35 }, (_, i) => (
                           <span
                               key={i}
-                              className="block rounded-lg bg-gray-100 animate-pulse min-h-[44px] sm:min-h-[62px]"
+                              className="block rounded-lg bg-[#F5F5F5] animate-pulse min-h-[44px] sm:min-h-[62px]"
                           />
                       ))
                     : [

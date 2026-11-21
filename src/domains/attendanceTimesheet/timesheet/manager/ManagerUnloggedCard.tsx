@@ -56,7 +56,7 @@ const ManagerUnloggedCard = ({ periodLabel, items, loading, onOpenDay, perspecti
                             key={i.date}
                             type="button"
                             onClick={() => onOpenDay(i.date)}
-                            className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border-0 bg-transparent px-1 py-1.5 text-left hover:bg-gray-50"
+                            className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border-0 bg-transparent px-1 py-1.5 text-left hover:bg-[#FAFAFA]"
                         >
                             <span className="flex min-w-0 flex-col">
                                 <span className="text-sm text-[#121212]">{fmtDay(i.date)}</span>
@@ -66,7 +66,7 @@ const ManagerUnloggedCard = ({ periodLabel, items, loading, onOpenDay, perspecti
                             </span>
                             <span className="flex shrink-0 items-center gap-1.5 text-xs font-medium tabular-nums text-amber-600">
                                 {formatDuration(i.unloggedMinutes)}
-                                <RightOutlined className="text-[10px] text-gray-400" />
+                                <RightOutlined className="text-[10px] text-[#8B8B8B]" />
                             </span>
                         </button>
                     ))}

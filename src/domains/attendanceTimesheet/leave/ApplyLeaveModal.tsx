@@ -220,7 +220,7 @@ const ApplyLeaveModal = ({
                     </Text>
                 )}
                 {was && (
-                    <div className="rounded-lg bg-[#F9FAFB] px-3 py-2" data-change-was>
+                    <div className="rounded-lg bg-[#FAFAFA] px-3 py-2" data-change-was>
                         <Text type="secondary" className="block text-xs">
                             Was (approved)
                         </Text>
@@ -233,7 +233,7 @@ const ApplyLeaveModal = ({
                     </div>
                 )}
                 <div className="flex flex-col gap-1">
-                    <Text strong className="text-sm">
+                    <Text className="text-sm">
                         Leave type
                     </Text>
                     <Select
@@ -244,7 +244,7 @@ const ApplyLeaveModal = ({
                         data-leave-type
                     />
                     {b && (
-                        <div className={`flex flex-col rounded-lg px-3 py-2 ${notAvailable ? 'bg-[#FFFAEB]' : 'bg-[#F9FAFB]'}`} data-available-line>
+                        <div className={`flex flex-col rounded-lg px-3 py-2 ${notAvailable ? 'bg-[#FFFAEB]' : 'bg-[#FAFAFA]'}`} data-available-line>
                             {notAvailable ? (
                                 <Text className="text-sm !text-[#B54708]">Not available during probation</Text>
                             ) : (
@@ -264,7 +264,7 @@ const ApplyLeaveModal = ({
 
                 {view.rules.halfDay && (
                     <div className="flex flex-col gap-1">
-                        <Text strong className="text-sm">
+                        <Text className="text-sm">
                             Duration
                         </Text>
                         <Radio.Group
@@ -285,7 +285,7 @@ const ApplyLeaveModal = ({
 
                 <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2">
                     <div className="flex flex-col gap-1">
-                        <Text strong className="text-sm">
+                        <Text className="text-sm">
                             From
                         </Text>
                         <DatePicker
@@ -301,7 +301,7 @@ const ApplyLeaveModal = ({
                         />
                     </div>
                     <div className="flex flex-col gap-1">
-                        <Text strong className="text-sm">
+                        <Text className="text-sm">
                             To
                         </Text>
                         <DatePicker
@@ -320,7 +320,7 @@ const ApplyLeaveModal = ({
 
                 {halfDays && (
                     <div className="flex flex-col gap-1">
-                        <Text strong className="text-sm">
+                        <Text className="text-sm">
                             Which half of each day
                         </Text>
                         <Radio.Group
@@ -342,7 +342,7 @@ const ApplyLeaveModal = ({
 
                 {proofNeeded && b && (
                     <div className="flex flex-col gap-1" data-proof-field>
-                        <Text strong className="text-sm">
+                        <Text className="text-sm">
                             Supporting document
                         </Text>
                         <Upload
@@ -367,7 +367,7 @@ const ApplyLeaveModal = ({
                 )}
 
                 <div className="flex flex-col gap-1">
-                    <Text strong className="text-sm">
+                    <Text className="text-sm">
                         {changing || editingChange ? 'Reason for the change' : 'Reason'}
                     </Text>
                     <Input.TextArea

@@ -32,7 +32,7 @@ const STATE_COLOR: Record<string, string> = {
 };
 
 const Row = ({ label, children }: { label: string; children: ReactNode }) => (
-    <div className="flex items-center justify-between gap-3 py-2 border-b border-gray-100 last:border-b-0">
+    <div className="flex items-center justify-between gap-3 py-2 border-b border-[#F0F0F0] last:border-b-0">
         <Text className="text-sm text-[#8B8B8B]">{label}</Text>
         <Text className="text-sm font-medium text-valueText text-right tabular-nums">{children}</Text>
     </div>
@@ -93,7 +93,7 @@ const DayDetailDrawer = ({
                 )}
 
                 {!future && !beforeJoining && (
-                    <div className="rounded-lg bg-[#F7F7F7] px-4 py-1">
+                    <div className="rounded-lg bg-[#F5F5F5] px-4 py-1">
                         <Row label="Check-in">{day.checkIn ? displayTime(day.checkIn) : '—'}</Row>
                         <Row label="Check-out">
                             {checkOutText}

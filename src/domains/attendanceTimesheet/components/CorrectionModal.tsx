@@ -298,7 +298,7 @@ const CorrectionModal = ({ open, date, initial, current, fromTimesheet, shiftEnd
                 </Form.Item>
 
                 {picked && (
-                    <div className="rounded-lg bg-[#F7F7F7] px-4 py-3 mb-4" data-recorded-now>
+                    <div className="rounded-lg bg-[#F5F5F5] px-4 py-3 mb-4" data-recorded-now>
                         <Text className="block text-[11px] uppercase tracking-wide text-titleText">Recorded now</Text>
                         {loadingDay && !recorded ? <Spin size="small" /> : <Text className="text-sm text-valueText">{recordedText(recorded)}</Text>}
                     </div>

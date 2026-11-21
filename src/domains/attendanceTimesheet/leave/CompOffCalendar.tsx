@@ -31,9 +31,9 @@ const whyNot = (d: CompOffCalendarDay, data: CalendarData) => {
 const dayClass = (d: CompOffCalendarDay, selected: boolean) => {
     const base = 'relative h-[34px] rounded-lg border border-solid text-[13px] transition-colors';
     const ring = selected ? 'border-[#FF3A3A] shadow-[0_0_0_1px_#FF3A3A]' : 'border-transparent';
-    let tone = 'bg-transparent text-[#98A2B3]';
-    if (d.kind === 'HOLIDAY') tone = d.available ? 'bg-[#FFF3C4] text-[#7A5B00]' : 'bg-[#FFF9E1] text-[#98A2B3]';
-    else if (d.kind === 'WEEKLY_OFF') tone = d.available ? 'bg-[#EEF1F6] text-[#101828]' : 'bg-[#F4F6F9] text-[#98A2B3]';
+    let tone = 'bg-transparent text-[#8B8B8B]';
+    if (d.kind === 'HOLIDAY') tone = d.available ? 'bg-[#FFF3C4] text-[#7A5B00]' : 'bg-[#FFF9E1] text-[#8B8B8B]';
+    else if (d.kind === 'WEEKLY_OFF') tone = d.available ? 'bg-[#EEF1F6] text-[#121212]' : 'bg-[#F4F6F9] text-[#8B8B8B]';
     const cursor = d.available ? 'cursor-pointer hover:border-[#FF9B9B]' : 'cursor-not-allowed';
     return `${base} ${ring} ${tone} ${cursor} ${d.claimed ? 'line-through' : ''}`;
 };
@@ -79,7 +79,7 @@ export const CompOffCalendar = ({
     const shown = data?.month === month ? data : null;
     const lead = (m.day() + 6) % 7; // Monday first
     return (
-        <div className="rounded-[10px] border border-solid border-[#EAECF0] p-2.5" data-comp-off-calendar={month}>
+        <div className="rounded-[10px] border border-solid border-[#F0F0F0] p-2.5" data-comp-off-calendar={month}>
             <div className="mb-1.5 flex items-center gap-2">
                 <Button size="small" icon={<LeftOutlined />} aria-label="Previous month" onClick={() => setMonth(m.subtract(1, 'month').format('YYYY-MM'))} />
                 <Text className="flex-1 text-center text-sm font-medium">{m.format('MMMM YYYY')}</Text>
@@ -95,7 +95,7 @@ export const CompOffCalendar = ({
                 <div className="grid grid-cols-7 gap-1" role="grid" aria-label={`Days in ${m.format('MMMM YYYY')}`}>
                     {HEAD.map((h, i) => (
                         // eslint-disable-next-line react/no-array-index-key -- the weekday letters repeat
-                        <span key={`h${i}`} className="text-center text-[11px] text-[#667085]">
+                        <span key={`h${i}`} className="text-center text-[11px] text-[#8B8B8B]">
                             {h}
                         </span>
                     ))}
@@ -128,7 +128,7 @@ export const CompOffCalendar = ({
                     })}
                 </div>
             )}
-            <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-[#344054]" data-comp-off-legend>
+            <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-[#404040]" data-comp-off-legend>
                 <span className="flex items-center gap-1.5">
                     <Swatch className="bg-[#FFF3C4] shadow-[inset_0_0_0_1px_#E8C547]" />
                     Public holiday

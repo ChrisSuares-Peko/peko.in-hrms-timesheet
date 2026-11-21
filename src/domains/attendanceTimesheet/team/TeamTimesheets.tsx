@@ -34,7 +34,7 @@ const iso = (d: dayjs.Dayjs) => d.format('YYYY-MM-DD');
 const MARKER: Record<GridMarker, { label: string; short: string; className: string }> = {
     leave: { label: 'Leave', short: 'Lv', className: 'bg-[#F4F3FF] text-[#5925DC]' },
     holiday: { label: 'Holiday', short: 'Hol', className: 'bg-[#ECFDFF] text-[#0E7090]' },
-    off: { label: 'Off', short: 'Off', className: 'bg-[#F2F4F7] text-[#667085]' },
+    off: { label: 'Off', short: 'Off', className: 'bg-[#F2F4F7] text-[#8B8B8B]' },
     'nothing-logged': { label: 'Nothing logged', short: '0h', className: 'bg-[#FEF3F2] text-[#B42318] font-medium' },
 };
 
@@ -50,7 +50,7 @@ const CellView = ({ cell, compact }: { cell: Cell; compact?: boolean }) => {
         cls = MARKER[cell.marker].className;
     } else {
         content = future ? '' : '0h';
-        cls = 'text-[#98A2B3]';
+        cls = 'text-[#8B8B8B]';
     }
     const tip = [
         dayjs(cell.date).format('ddd, D MMM'),
@@ -196,7 +196,7 @@ const TeamTimesheets = ({ loadWeek, loadMonth, onOpenMember, empty }: TeamTimesh
             title: (
                 <Flex vertical align="center" gap={0}>
                     <span>{dayjs(d).format('ddd')}</span>
-                    <span className="text-xs font-normal text-[#667085]">{dayjs(d).format('D MMM')}</span>
+                    <span className="text-xs font-normal text-[#8B8B8B]">{dayjs(d).format('D MMM')}</span>
                 </Flex>
             ),
             key: d,

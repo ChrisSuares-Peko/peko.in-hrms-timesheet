@@ -63,7 +63,7 @@ export const WeekStatusBar = ({ view, perspective, actions, note }: WeekStatusBa
                         </StatusTag>
                     )}
                 </div>
-                <span className="text-xs text-gray-600">
+                <span className="text-xs text-[#595959]">
                     <span className="font-medium tabular-nums text-[#121212]">
                         {formatDuration(totals.loggedMinutes)}
                     </span>{' '}
@@ -130,7 +130,7 @@ export const WeekNotices = ({ view, perspective }: WeekNoticesProps) => {
                             {week.decision?.comment && (
                                 <span className="break-words text-base text-[#121212]">“{week.decision.comment}”</span>
                             )}
-                            <span className="text-xs text-gray-600">
+                            <span className="text-xs text-[#595959]">
                                 {employee
                                     ? 'Fix the timesheet below, then resubmit it.'
                                     : 'Waiting for the employee to fix and resubmit the timesheet.'}

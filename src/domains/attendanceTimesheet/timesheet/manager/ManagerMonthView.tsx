@@ -32,7 +32,7 @@ const HEAD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const cellTone = (d: MonthDay, today: string) => {
     if (d.status === 'on-leave') return 'bg-purple-50';
     if (d.status === 'holiday') return 'bg-cyan-50';
-    if (OFF.includes(d.status) || (!d.expectedMinutes && !d.loggedMinutes)) return 'bg-gray-50';
+    if (OFF.includes(d.status) || (!d.expectedMinutes && !d.loggedMinutes)) return 'bg-[#FAFAFA]';
     if (d.date < today && d.expectedMinutes && !d.loggedMinutes) return 'bg-red-50/60';
     return 'bg-white';
 };
@@ -45,7 +45,7 @@ const statusText = (d: MonthDay, atsMode: AtsMode) => {
 };
 
 const Stat = ({ label, value, tone }: { label: string; value: string; tone?: string }) => (
-    <div className="flex min-w-0 flex-col rounded-lg border border-solid border-gray-200 bg-white px-3 py-2">
+    <div className="flex min-w-0 flex-col rounded-lg border border-solid border-[#EAEAEA] bg-white px-3 py-2">
         <span className="text-xs text-[#8B8B8B]">{label}</span>
         <span className={`text-base font-semibold tabular-nums ${tone ?? 'text-[#121212]'}`}>{value}</span>
     </div>
@@ -109,7 +109,7 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                                     const isSel = selected === date;
                                     const status = statusText(d, atsMode);
                                     const nothing = d.date < today && d.expectedMinutes > 0 && !d.loggedMinutes;
-                                    let border = 'border-gray-200';
+                                    let border = 'border-[#EAEAEA]';
                                     if (date === today) border = 'border-blue-400';
                                     if (isSel) border = 'border-blue-500 ring-1 ring-blue-500';
                                     return (
@@ -127,19 +127,19 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                                         >
                                             <span
                                                 className={`text-xs font-semibold leading-4 ${
-                                                    date === today ? 'text-blue-600' : 'text-gray-800'
+                                                    date === today ? 'text-blue-600' : 'text-[#121212]'
                                                 }`}
                                             >
                                                 {dayjs(date).format('D')}
                                             </span>
                                             <span
                                                 className={`text-[11px] tabular-nums leading-4 sm:text-xs ${
-                                                    nothing ? 'text-red-500' : 'text-gray-700'
+                                                    nothing ? 'text-red-500' : 'text-[#404040]'
                                                 }`}
                                             >
                                                 {d.loggedMinutes || d.expectedMinutes ? shortHours(d.loggedMinutes) : ''}
                                                 {d.expectedMinutes > 0 && (
-                                                    <span className="hidden text-gray-400 md:inline">
+                                                    <span className="hidden text-[#8B8B8B] md:inline">
                                                         {' '}
                                                         / {shortHours(d.expectedMinutes)}
                                                     </span>
@@ -157,7 +157,7 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                                                     </Tooltip>
                                                 )}
                                                 {d.locked && (
-                                                    <LockOutlined className="hidden text-gray-400 sm:inline" />
+                                                    <LockOutlined className="hidden text-[#8B8B8B] sm:inline" />
                                                 )}
                                             </span>
                                         </button>
@@ -170,7 +170,7 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
             </div>
             <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#8B8B8B]">
                 <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-2.5 w-3 rounded-sm border border-solid border-gray-200 bg-red-50" />
+                    <span className="inline-block h-2.5 w-3 rounded-sm border border-solid border-[#EAEAEA] bg-red-50" />
                     Nothing logged
                 </span>
                 <span className="inline-flex items-center gap-1">

@@ -46,7 +46,7 @@ interface TotalTileProps {
 }
 
 /** PROTOTYPE-SETUP (Attendance layout, Slice 2): a compact month-total tile — 18px value, 12px label. */
-const TotalTile = ({ label, value, tone = 'bg-[#F7F7F7]', hint }: TotalTileProps) => {
+const TotalTile = ({ label, value, tone = 'bg-[#F5F5F5]', hint }: TotalTileProps) => {
     const tile = (
         <div data-total-tile className={`flex min-w-0 flex-col justify-center rounded-lg px-3 py-2 ${tone}`}>
             <span className="text-[18px] font-semibold leading-tight text-[#121212] tabular-nums">{value}</span>
@@ -165,7 +165,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
               {
                   label: `worked, ${totals.overtimeMinutes ? `${formatDuration(totals.overtimeMinutes)} overtime` : 'no overtime'}`,
                   value: formatDuration(totals.minutesAtWork),
-                  tone: 'bg-[#F7F7F7] ring-1 ring-inset ring-[#e6e6e6]',
+                  tone: 'bg-[#F5F5F5] ring-1 ring-inset ring-[#e6e6e6]',
                   hint: 'Check-in to check-out, breaks included. Days you’re still checked in aren’t counted yet.',
               },
           ]
@@ -210,7 +210,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                             {Array.from({ length: 9 }, (_, i) => (
                                 <span
                                     key={i}
-                                    className="block h-[58px] rounded-lg bg-gray-100 animate-pulse"
+                                    className="block h-[58px] rounded-lg bg-[#F5F5F5] animate-pulse"
                                 />
                             ))}
                         </div>

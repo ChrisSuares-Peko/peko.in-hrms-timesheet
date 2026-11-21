@@ -110,7 +110,7 @@ export const CancelLeaveModal = ({
             <div className="flex flex-col gap-3" data-cancel-leave>
                 {!hr && multiDay && (
                     <div className="flex flex-col gap-1">
-                        <Text strong className="text-sm">
+                        <Text className="text-sm">
                             Cancel from
                         </Text>
                         <Radio.Group
@@ -143,7 +143,7 @@ export const CancelLeaveModal = ({
                         )}
                     </div>
                 )}
-                <div className="rounded-lg bg-[#F9FAFB] px-3 py-2">
+                <div className="rounded-lg bg-[#FAFAFA] px-3 py-2">
                     <Text type="secondary" className="block text-xs">
                         {hr && started ? 'Cancelling the rest of this leave' : 'Cancelling'}
                     </Text>
@@ -159,7 +159,7 @@ export const CancelLeaveModal = ({
                 )}
                 {!hr && check?.problem && <Alert type="warning" showIcon message={check.problem} data-cancel-problem />}
                 <div className="flex flex-col gap-1">
-                    <Text strong className="text-sm">
+                    <Text className="text-sm">
                         Reason
                     </Text>
                     <Input.TextArea
@@ -259,7 +259,7 @@ export const CompOffModal = ({
                     {expiry ? ` Comp off expires ${expiry} days after the day you worked.` : ''}
                 </Text>
                 <div className="flex flex-col gap-1">
-                    <Text strong className="text-sm">
+                    <Text className="text-sm">
                         Day you worked
                     </Text>
                     {/* PROTOTYPE-SETUP (Comp off calendar): only weekly offs and public holidays can be picked. */}
@@ -277,7 +277,7 @@ export const CompOffModal = ({
                 {check && !check.problem && (
                     <div className="rounded-lg bg-[#ECFDF3] px-3 py-2 text-sm" data-comp-off-earns>
                         <b className="font-medium">{daysText(check.days)} of comp off</b>
-                        <span className="text-gray-600">
+                        <span className="text-[#595959]">
                             {' '}
                             · {check.dayName}, {formatDuration(check.workedMinutes)} worked
                         </span>
@@ -285,7 +285,7 @@ export const CompOffModal = ({
                 )}
                 {check?.problem && <Alert type="warning" showIcon message={check.problem} data-comp-off-problem />}
                 <div className="flex flex-col gap-1">
-                    <Text strong className="text-sm">
+                    <Text className="text-sm">
                         What did you work on?
                     </Text>
                     <Input.TextArea

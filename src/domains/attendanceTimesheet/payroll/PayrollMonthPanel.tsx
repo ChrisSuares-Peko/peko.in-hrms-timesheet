@@ -229,7 +229,7 @@ const PayrollMonthPanel = () => {
 
                 {lastProcessed && lastProcessed.month !== justProcessed?.month && (
                     <Flex align="center" gap={6} className="text-xs">
-                        <LockOutlined className="text-gray-400" />
+                        <LockOutlined className="text-[#8B8B8B]" />
                         <Text type="secondary" className="text-xs">
                             {lastProcessed.monthLabel} processed
                             {lastProcessed.processedAt

@@ -46,7 +46,7 @@ const ViewBar = ({ mode, label, logged, expected, ofWord = 'worked', actions, su
         </span>
         {submit}
         <span className="hidden flex-1 sm:block" />
-        <span className="basis-full text-[13px] text-gray-600 sm:basis-auto">
+        <span className="basis-full text-[13px] text-[#595959] sm:basis-auto">
             Logged <b className="font-medium text-[#121212]">{formatDuration(logged)}</b> of {formatDuration(expected)} {ofWord}
         </span>
         {actions && <span className="flex flex-wrap gap-1.5">{actions}</span>}
