@@ -22,6 +22,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import { PEKO_CARD, PEKO_STAT_LABEL, PEKO_STAT_VALUE } from '@src/components/peko/pekoTokens';
 import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
@@ -85,11 +86,10 @@ export const typeSummary = (b: LeaveBalance, v: Pick<LeaveView, 'rules'>) =>
         .join(' · ');
 
 const Stat = ({ label, value, sub }: { label: string; value: string; sub: string }) => (
-    <div className="flex min-w-0 flex-col gap-0.5 rounded-lg border border-solid border-[#eff1f4] bg-white px-4 py-3" data-type-stat={label}>
-        <Text type="secondary" className="text-xs">
-            {label}
-        </Text>
-        <Text className="text-xl font-semibold tabular-nums">{value}</Text>
+    // PROTOTYPE-SETUP (Design update, rule 5): label 13px #8B8B8B, value 24px medium #121212.
+    <div className={`flex min-w-0 flex-col gap-1 ${PEKO_CARD} !p-5`} data-type-stat={label}>
+        <span className={PEKO_STAT_LABEL}>{label}</span>
+        <span className={`leading-8 tabular-nums ${PEKO_STAT_VALUE}`}>{value}</span>
         <Text type="secondary" className="text-xs">
             {sub}
         </Text>
@@ -122,7 +122,7 @@ const LeaveTypePage = ({
     const shown = filterLog(rows, { show, status, from: range?.[0]?.format('YYYY-MM-DD'), to: range?.[1]?.format('YYYY-MM-DD') });
     const comp = b.type === COMP_OFF;
     return (
-        <div className="flex w-full min-w-0 flex-col gap-4" data-leave-type-page={type}>
+        <div className="flex w-full min-w-0 flex-col gap-6" data-leave-type-page={type}>
             <div className="flex flex-wrap items-center gap-3">
                 <Button icon={<ArrowLeftOutlined />} onClick={onBack}>
                     Back
@@ -134,7 +134,7 @@ const LeaveTypePage = ({
                     Apply for leave
                 </Button>
             </div>
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-type-stats>
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4" data-type-stats>
                 <Stat label="Available" value={availableOfTotal(b)} sub={comp ? 'of comp off earned' : 'of this year’s total (incl. carried forward)'} />
                 <Stat label="Approved" value={fmtDays(b.approved)} sub="days taken or booked this year" />
                 <Stat label="In request" value={fmtDays(b.inRequest)} sub="waiting for approval, already taken off" />
@@ -327,7 +327,7 @@ const MyRequests = ({ view, onOpen }: { view: LeaveView; onOpen: (it: DrawerItem
                     data-request-filter
                 />
             </div>
-            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#eff1f4] bg-white">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
                 <Table<ReqRow>
                     rowKey="key"
                     size="middle"
@@ -510,13 +510,13 @@ const EssLeavePage = () => {
     }
 
     return (
-        <div className="flex w-full min-w-0 flex-col gap-4" data-ess-leave>
+        <div className="flex w-full min-w-0 flex-col gap-6" data-ess-leave>
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                     <Typography.Title level={4} className="!mb-0.5">
                         Leave
                     </Typography.Title>
-                    <Text className="text-sm text-[#595959]" data-leave-year>
+                    <Text className="text-sm !text-[#8B8B8B]" data-leave-year>
                         {leaveYearLine(view)}
                     </Text>
                 </div>
@@ -543,7 +543,7 @@ const EssLeavePage = () => {
                     {view.lossOfPayDays > 0 && (
                         <Alert type="error" showIcon data-lop message={`${daysText(view.lossOfPayDays)} of loss of pay from late check-ins with no leave left.`} />
                     )}
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-balance-cards>
+                    <div className="grid w-full grid-cols-2 gap-4 lg:grid-cols-4" data-balance-cards>
                         {view.balances.map(b => (
                             <TypeCard key={b.type} b={b} onOpen={() => setParam('type', b.type)} />
                         ))}

@@ -282,16 +282,10 @@ const OvertimeRequestModal = ({
                     </Text>
                 )}
 
-                <div className="flex gap-3">
-                    <Button onClick={onClose} className="flex-1">
-                        Cancel
-                    </Button>
-                    <Button
-                        type="primary"
-                        htmlType="submit"
-                        loading={saving}
-                        className="flex-1 font-medium"
-                    >
+                {/* PROTOTYPE-SETUP (Design update, rule 11): the form's buttons sit in a footer row, right-aligned. */}
+                <div className="-mx-6 -mb-5 mt-2 flex justify-end gap-2 border-0 border-t border-solid border-[#F0F0F0] px-6 py-3" data-modal-footer>
+                    <Button onClick={onClose}>Cancel</Button>
+                    <Button type="primary" htmlType="submit" loading={saving}>
                         Send for approval
                     </Button>
                 </div>

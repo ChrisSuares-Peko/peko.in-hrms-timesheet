@@ -21,19 +21,24 @@ const { Text } = Typography;
 /** "6 / 18 days" — comp off has no yearly total: what's been earned (and not expired). */
 export const availableOfTotal = (b: LeaveBalance) => `${fmtDays(b.available)} / ${fmtDays(b.type === COMP_OFF ? b.credited : b.allocated)} days`;
 
+/**
+ * PROTOTYPE-SETUP (Design update: Peko design language, rule 14): a leave balance card — the name in 13px grey,
+ * "available / total days" with the available number 22px medium and the rest 13px grey, "View details ›" as a red link.
+ */
 export const TypeCard = ({ b, onOpen }: { b: LeaveBalance; onOpen: () => void }) => (
     <button
         type="button"
         onClick={onOpen}
         aria-label={`${b.label}: ${availableOfTotal(b)} available. View details`}
-        className="flex min-w-0 cursor-pointer flex-col gap-1 rounded-lg border border-solid border-[#eff1f4] bg-white px-4 py-3 text-left transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#FF3A3A]"
+        className="flex min-w-0 cursor-pointer flex-col items-start gap-1 rounded-lg border border-solid border-[#EAEAEA] bg-white p-4 text-left font-[inherit] shadow-[0px_1px_12px_1px_rgba(122,122,122,0.06)] transition-[border-color,box-shadow] hover:border-[#FFE4E4] hover:shadow-[0px_4px_16px_2px_rgba(122,122,122,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#FF3A3A] sm:px-5"
         data-type-card={b.type}
     >
-        <Text className="truncate text-sm text-[#595959]">{b.label}</Text>
-        <Text className="text-xl font-semibold tabular-nums text-[#121212]" data-available-total>
-            {availableOfTotal(b)}
+        <Text className="w-full truncate text-[13px] !text-[#8B8B8B]">{b.label}</Text>
+        <Text className="whitespace-nowrap tabular-nums" data-available-total>
+            <span className="text-[22px] font-medium leading-7 text-[#121212]">{fmtDays(b.available)}</span>
+            <span className="text-[13px] text-[#8B8B8B]"> / {fmtDays(b.type === COMP_OFF ? b.credited : b.allocated)} days</span>
         </Text>
-        <span className="text-xs font-medium text-[#FF3A3A]">View details ›</span>
+        <span className="mt-0.5 text-[13px] font-medium text-[#FF3A3A]">View details ›</span>
     </button>
 );
 
@@ -100,7 +105,7 @@ export const LeaveLogTable = ({
                   { title: 'Reason', key: 'reason', render: (_, r) => <span className="block max-w-[260px] whitespace-normal break-words">{r.reason || '–'}</span> },
               ];
     return (
-        <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#eff1f4] bg-white">
+        <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
             <Table<LeaveLogRow>
                 rowKey="key"
                 size="middle"

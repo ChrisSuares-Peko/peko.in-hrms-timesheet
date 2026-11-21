@@ -17,7 +17,7 @@ design asks for, listed under Decisions). Rules: `docs/design/peko-design-langua
 | 1 — Payroll dashboard: Quick actions as cards | Design: Payroll dashboard quick actions | done |
 | 2 — Payroll Leave: all sub-tabs + Add leave drawer | Design: Payroll Leave | done |
 | 3 — Payroll settings: Leave sub-tabs, Attendance/timesheet/overtime, Reimbursements | Design: Payroll settings | done |
-| 4 — ESS Leave: Overview, type details, My requests + drawer, Public holidays, Apply and comp off modals | | |
+| 4 — ESS Leave: Overview, type details, My requests + drawer, Public holidays, Apply and comp off modals | Design: ESS Leave | done |
 | 5 — My team | | |
 | 6 — Remaining ESS and Payroll screens in scope | | |
 | 7 — VERIFY 1–8, build, push | | |
@@ -74,6 +74,13 @@ Decisions:
 19. **Card padding**: antd `Card` (also `size="small"`, used by the settings cards) has 20–24px header and body padding.
 20. **Leave type drawer**: field labels are 14px regular; the section headings ("When an employee joins"…) are 16px
     medium.
+21. **Leave balance cards**: the "available / total days" text is one element with two spans (22px medium number,
+    13px grey rest), so its text and the card's aria-label are unchanged. 2 per row on phones, 4 on desktop, 16px gaps.
+22. **Footer order**: the leave request drawer lists its primary action first in every state; the footer row is reversed
+    visually so the primary sits last on the right (keyboard order unchanged). The correction and overtime request
+    modals keep their buttons inside the form (submit), drawn as a footer row: full-width #F0F0F0 divider,
+    right-aligned, no longer two full-width buttons.
+23. **Section spacing**: ESS Leave and the type details page use 24px between sections, 16px between cards in a row.
 13. **Content width**: the scope caps content at 1320px; the dashboard layout already gives ~40px side padding on
     desktop, so it isn't changed.
 

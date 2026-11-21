@@ -250,7 +250,8 @@ const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView;
             width={xs ? '100%' : 520}
             onClose={onClose}
             destroyOnHidden
-            footer={buttons ? <div className="flex flex-wrap justify-end gap-2">{buttons}</div> : null}
+            // PROTOTYPE-SETUP (Design update, rule 11): actions right-aligned with the primary last (each list puts it first).
+            footer={buttons ? <div className="flex flex-row-reverse flex-wrap justify-start gap-2">{buttons}</div> : null}
             data-leave-drawer={`${item.kind}:${item.id}`}
         >
             <div className="flex flex-col gap-5">
