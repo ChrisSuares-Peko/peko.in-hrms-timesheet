@@ -18,8 +18,8 @@ import type { EssHomeView, OverviewAction, OverviewLink, OverviewRequest } from 
 
 const TONE = {
     back: 'bg-[#FFF4E8] border-[#FFD9A8]',
-    info: 'bg-[#EEF3FF] border-[#C9D7FF]',
-    amber: 'bg-[#FFF6E0] border-[#FCE3A6]',
+    info: 'bg-[#E6F4FF] border-[#91CAFF]',
+    amber: 'bg-[#FFFBE6] border-[#FFE58F]',
 } as const;
 
 const DOT = { pending: 'bg-[#2E62E8]', approved: 'bg-[#43B75D]', rejected: 'bg-[#FF3A3A]', update_requested: 'bg-[#F79009]' } as const;

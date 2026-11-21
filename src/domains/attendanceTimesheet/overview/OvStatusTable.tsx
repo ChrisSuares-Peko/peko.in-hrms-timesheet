@@ -149,7 +149,7 @@ const OvStatusTable = ({
                 to={linkTo(c.tab, c.withDate ? d.date : undefined)}
                 title={c.hint}
                 aria-label={`${dayjs(d.date).format('D MMM')}: ${c.hint}`}
-                className="block min-h-[44px] px-2 py-3 text-sm tabular-nums text-[#121212] decoration-[#c4c4c4] underline-offset-[3px] hover:bg-[#EEF3FF] hover:text-[#121212] hover:underline"
+                className="block min-h-[44px] px-2 py-3 text-sm tabular-nums text-[#121212] decoration-[#c4c4c4] underline-offset-[3px] hover:bg-[#E6F4FF] hover:text-[#121212] hover:underline"
             >
                 {c.cell(d)}
             </Link>

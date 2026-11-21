@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 
 import { SearchOutlined } from '@ant-design/icons';
-import { Button, Col, Input, Pagination, Row, Table, Tag, Typography } from 'antd';
+import { Button, Col, Input, Pagination, Row, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
+import StatusTag, { type StatusTone } from '@src/components/peko/StatusTag';
 import useScreenSize from '@src/hooks/useScreenSize';
 
 import { useGetDocumentRequestsApi } from '../../hooks/employeeHooks/useGetDocumentRequestsApi';
@@ -24,28 +25,15 @@ export type DocumentRequestRecord = {
     status: 'Pending' | 'In Progress' | 'Completed' | 'Rejected';
 };
 
-const statusConfig: Record<DocumentRequestRecord['status'], { color: string; bg: string }> = {
-    Pending: { color: '#B78912', bg: '#FFFAE6' },
-    'In Progress': { color: '#175CD3', bg: '#EFF8FF' },
-    Completed: { color: '#027A48', bg: '#ECFDF3' },
-    Rejected: { color: '#B42318', bg: '#FEF3F2' },
+// PROTOTYPE-SETUP (Design update, rule 9): the shared Peko status tag.
+const STATUS_TONE: Record<DocumentRequestRecord['status'], StatusTone> = {
+    Pending: 'warning',
+    'In Progress': 'info',
+    Completed: 'success',
+    Rejected: 'error',
 };
 
-const renderStatus = (status: DocumentRequestRecord['status']) => {
-    const cfg = statusConfig[status];
-    return (
-        <Tag
-            style={{
-                color: cfg.color,
-                backgroundColor: cfg.bg,
-                borderColor: 'transparent',
-                borderRadius: 9999,
-            }}
-        >
-            {status}
-        </Tag>
-    );
-};
+const renderStatus = (status: DocumentRequestRecord['status']) => <StatusTag tone={STATUS_TONE[status]}>{status}</StatusTag>;
 
 const PAGE_SIZE = 10;
 

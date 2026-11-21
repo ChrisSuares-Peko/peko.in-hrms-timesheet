@@ -138,7 +138,7 @@ export const BalanceCard = ({ b, onProbation = false, onOpen }: { b: LeaveBalanc
 
 export const LossOfPayCard = ({ days }: { days: number }) =>
     days > 0 ? (
-        <section aria-label="Loss of pay" className="rounded-lg border border-solid border-[#FECDCA] bg-[#FEF3F2] p-4 sm:p-6" data-lop-card>
+        <section aria-label="Loss of pay" className="rounded-lg border border-solid border-[#FFCCC7] bg-[#FFF2F0] p-4 sm:p-6" data-lop-card>
             <Text className="block text-sm text-[#B42318]">Loss of pay</Text>
             <Text className="block text-2xl font-semibold text-[#B42318]">{daysText(days)}</Text>
             <Text className="block text-xs text-[#B42318]">From late check-ins with no leave left</Text>

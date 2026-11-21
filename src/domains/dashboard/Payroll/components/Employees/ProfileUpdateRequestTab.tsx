@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 
 import { DownOutlined, SearchOutlined, UpOutlined } from '@ant-design/icons';
-import { Avatar, Button, Col, Input, Pagination, Row, Table, Tag } from 'antd';
+import { Avatar, Button, Col, Input, Pagination, Row, Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
+import StatusTag, { type StatusTone } from '@src/components/peko/StatusTag';
 import useScreenSize from '@src/hooks/useScreenSize';
 
 import ProfileUpdateDrawer from './ProfileUpdateDrawer';
@@ -35,44 +36,14 @@ export type ProfileUpdateRecord = {
     bankChanges?: ChangeItem[];
 };
 
-const statusConfig: Record<
-    ProfileUpdateRecord['status'],
-    { color: string; bg: string; dot: string }
-> = {
-    Pending: { color: '#B54708', bg: '#FEF6E7', dot: '#F59E0B' },
-    Approved: { color: '#027A48', bg: '#ECFDF3', dot: '#12B76A' },
-    Rejected: { color: '#B42318', bg: '#FEF2F2', dot: '#EF4444' },
+// PROTOTYPE-SETUP (Design update, rule 9): the shared Peko status tag.
+const STATUS_TONE: Record<ProfileUpdateRecord['status'], StatusTone> = {
+    Pending: 'warning',
+    Approved: 'success',
+    Rejected: 'error',
 };
 
-const renderStatus = (status: ProfileUpdateRecord['status']) => {
-    const cfg = statusConfig[status];
-    return (
-        <Tag
-            style={{
-                color: cfg.color,
-                backgroundColor: cfg.bg,
-                borderColor: 'transparent',
-                borderRadius: 9999,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                padding: '2px 10px',
-            }}
-        >
-            <span
-                style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    backgroundColor: cfg.dot,
-                    display: 'inline-block',
-                    flexShrink: 0,
-                }}
-            />
-            {status}
-        </Tag>
-    );
-};
+const renderStatus = (status: ProfileUpdateRecord['status']) => <StatusTag tone={STATUS_TONE[status]}>{status}</StatusTag>;
 
 const PAGE_SIZE = 10;
 

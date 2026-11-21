@@ -40,8 +40,8 @@ interface Notice {
 
 const TONE: Record<Notice['tone'], string> = {
     back: 'bg-[#FFF1E6] text-[#7A3E00]',
-    info: 'bg-[#EEF3FF] text-[#1D3F9E]',
-    amber: 'bg-[#FFFAEB] text-[#93370D]',
+    info: 'bg-[#E6F4FF] text-[#121212]',
+    amber: 'bg-[#FFFBE6] text-[#121212]',
 };
 
 const Group = ({ children }: { children: ReactNode }) => (

@@ -58,7 +58,7 @@ function EmployeesListTab({
             </Col>
 
             <Col md={3} xs={24}>
-                <Button className="md:w-36" icon={<DownloadOutlined />} onClick={handleExport}>
+                <Button block icon={<DownloadOutlined />} onClick={handleExport}>
                     Export
                 </Button>
             </Col>

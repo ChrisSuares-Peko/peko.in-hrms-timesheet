@@ -1,5 +1,7 @@
-import { Avatar, Tag, Typography } from 'antd';
+import { Avatar, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+
+import StatusTag, { type StatusTone } from '@src/components/peko/StatusTag';
 
 export type AttendanceStatus = 'Present' | 'Late' | 'Absent' | 'On Leave' | 'Half Day';
 
@@ -26,42 +28,16 @@ export interface TimesheetRecord {
     rawNotes: string;
 }
 
-const statusConfig: Record<AttendanceStatus, { color: string; bg: string }> = {
-    Present: { color: '#027A48', bg: '#ECFDF3' },
-    Late: { color: '#B78912', bg: '#FFFAE6' },
-    Absent: { color: '#CF4C00', bg: '#FFF9F5' },
-    'On Leave': { color: '#2F54EB', bg: '#F0F5FF' },
-    'Half Day': { color: '#722ed1', bg: '#f9f0ff' },
+// PROTOTYPE-SETUP (Design update, rule 9): attendance statuses use the shared Peko status tag.
+const STATUS_TONE: Record<AttendanceStatus, StatusTone> = {
+    Present: 'success',
+    Late: 'warning',
+    Absent: 'error',
+    'On Leave': 'leave',
+    'Half Day': 'warning',
 };
 
-const renderStatusTag = (status: TimesheetRecord['status']) => {
-    const cfg = statusConfig[status];
-    return (
-        <Tag
-            style={{
-                color: cfg.color,
-                backgroundColor: cfg.bg,
-                borderColor: 'transparent',
-                borderRadius: 9999,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-            }}
-        >
-            <span
-                style={{
-                    width: 6,
-                    height: 6,
-                    borderRadius: '50%',
-                    backgroundColor: cfg.color,
-                    flexShrink: 0,
-                    display: 'inline-block',
-                }}
-            />
-            {status}
-        </Tag>
-    );
-};
+const renderStatusTag = (status: TimesheetRecord['status']) => <StatusTag tone={STATUS_TONE[status]}>{status}</StatusTag>;
 
 export const timesheetPrimaryColumns: ColumnsType<TimesheetRecord> = [
     {

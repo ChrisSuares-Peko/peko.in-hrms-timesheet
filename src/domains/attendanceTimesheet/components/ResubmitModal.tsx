@@ -36,8 +36,8 @@ const toTime = (v: string | null) => (v ? dayjs(`2000-01-01T${v}`) : null);
 
 /** The line under a request that was sent back: "{by} asked for an update: {comment}" and the button. */
 export const UpdateRequestedNote = ({ ask, onResubmit }: { ask: UpdateAsk; onResubmit: () => void }) => (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[#FFFAEB] px-3 py-2" data-update-requested>
-        <Text className="min-w-0 flex-1 basis-[200px] text-xs text-[#93370D]">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[#FFFBE6] px-3 py-2" data-update-requested>
+        <Text className="min-w-0 flex-1 basis-[200px] text-xs text-[#121212]">
             <b className="font-medium">{ask.by} asked for an update:</b> {ask.comment}
         </Text>
         <Button size="small" type="primary" onClick={onResubmit} data-resubmit>

@@ -203,7 +203,7 @@ const TeamApprovalsInbox = ({ settings, onChanged }: { settings: TeamSettings; o
                                 onChange={e => setSel({ ...sel, [x.key]: e.target.checked })}
                             />
                             {x.ts ? (
-                                <div className="rounded-lg border border-solid border-[#FECDCA] bg-white p-4">
+                                <div className="rounded-lg border border-solid border-[#FFCCC7] bg-white p-4">
                                     <Flex gap={12} justify="space-between" align="flex-start" wrap="wrap">
                                         <Flex vertical gap={6} className="min-w-0 flex-1 basis-[240px]">
                                             <PersonCell person={x.ts.employee} />

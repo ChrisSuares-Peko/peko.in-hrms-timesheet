@@ -131,7 +131,7 @@ const WeekStatusCard = ({ view, today, review, onStepPeriod, onReview, bare = fa
                 <button
                     type="button"
                     onClick={onReview}
-                    className="mt-1.5 flex w-full cursor-pointer items-start gap-1.5 rounded-lg border-0 bg-[#FFFAEB] px-2 py-1.5 text-left text-xs text-[#93370D] hover:bg-[#FFF3D6]"
+                    className="mt-1.5 flex w-full cursor-pointer items-start gap-1.5 rounded-lg border-0 bg-[#FFFBE6] px-2 py-1.5 text-left text-xs text-[#121212] hover:bg-[#FFF1B8]"
                     data-period-warnings
                 >
                     <WarningOutlined className="mt-0.5" />

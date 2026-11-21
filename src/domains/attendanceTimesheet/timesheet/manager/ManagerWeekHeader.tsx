@@ -73,7 +73,7 @@ export const WeekStatusBar = ({ view, perspective, actions, note }: WeekStatusBa
                     )}
                 </span>
                 {checks && (
-                    <span className="text-xs text-[#93370D]" data-period-checks>
+                    <span className="text-xs text-[#121212]" data-period-checks>
                         Check: {checks}
                     </span>
                 )}

@@ -327,7 +327,7 @@ export const UploadModal = ({
                 </div>
             }
         >
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#EEF3FF] px-3 py-2 text-sm text-[#1D3F9E]" data-upload-strip>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#E6F4FF] px-3 py-2 text-sm text-[#121212]" data-upload-strip>
                 <span className="min-w-0">Fill in the template, then upload it here. Each row is one entry.</span>
                 <Button size="small" onClick={template} data-template-download>
                     Download template

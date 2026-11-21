@@ -244,7 +244,7 @@ const ApplyLeaveModal = ({
                         data-leave-type
                     />
                     {b && (
-                        <div className={`flex flex-col rounded-lg px-3 py-2 ${notAvailable ? 'bg-[#FFFAEB]' : 'bg-[#FAFAFA]'}`} data-available-line>
+                        <div className={`flex flex-col rounded-lg px-3 py-2 ${notAvailable ? 'bg-[#FFFBE6]' : 'bg-[#FAFAFA]'}`} data-available-line>
                             {notAvailable ? (
                                 <Text className="text-sm !text-[#B54708]">Not available during probation</Text>
                             ) : (

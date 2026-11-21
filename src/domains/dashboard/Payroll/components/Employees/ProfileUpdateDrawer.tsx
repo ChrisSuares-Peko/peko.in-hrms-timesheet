@@ -1,5 +1,7 @@
 import { ArrowRightOutlined, BankOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Button, Drawer, Tag, Typography } from 'antd';
+import { Avatar, Button, Drawer, Typography } from 'antd';
+
+import StatusTag, { type StatusTone } from '@src/components/peko/StatusTag';
 
 import type { ProfileUpdateRecord } from './ProfileUpdateRequestTab';
 import { useProfileUpdateAction } from '../../hooks/employeeHooks/useProfileUpdateAction';
@@ -10,11 +12,8 @@ interface Props {
     onClose: () => void;
 }
 
-const statusConfig: Record<string, { color: string; bg: string; dot: string }> = {
-    Pending: { color: '#B54708', bg: '#FEF6E7', dot: '#F59E0B' },
-    Approved: { color: '#027A48', bg: '#ECFDF3', dot: '#12B76A' },
-    Rejected: { color: '#B42318', bg: '#FEF2F2', dot: '#EF4444' },
-};
+// PROTOTYPE-SETUP (Design update, rule 9): the shared Peko status tag.
+const STATUS_TONE: Record<string, StatusTone> = { Pending: 'warning', Approved: 'success', Rejected: 'error' };
 
 const ChangeRow = ({
     field,
@@ -139,7 +138,6 @@ const SectionCard = ({
 
 const ProfileUpdateDrawer = ({ open, record, onClose }: Props) => {
     const { approve, reject, approving, rejecting } = useProfileUpdateAction();
-    const statusCfg = record ? (statusConfig[record.status] ?? statusConfig.Pending) : null;
     const isPending = record?.status === 'Pending';
 
     const handleApprove = async () => {
@@ -263,33 +261,10 @@ const ProfileUpdateDrawer = ({ open, record, onClose }: Props) => {
                                 {record.employeeId}
                             </div>
                         </div>
-                        {statusCfg && (
-                            <Tag
-                                style={{
-                                    backgroundColor: statusCfg.bg,
-                                    color: statusCfg.color,
-                                    borderColor: 'transparent',
-                                    borderRadius: 16,
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    padding: '5px 10px',
-                                    fontWeight: 500,
-                                    fontSize: 12,
-                                    flexShrink: 0,
-                                }}
-                            >
-                                <span
-                                    style={{
-                                        width: 7,
-                                        height: 7,
-                                        borderRadius: '50%',
-                                        backgroundColor: statusCfg.dot,
-                                        display: 'inline-block',
-                                    }}
-                                />
+                        {record.status && (
+                            <StatusTag tone={STATUS_TONE[record.status] ?? 'warning'} className="shrink-0">
                                 {record.status}
-                            </Tag>
+                            </StatusTag>
                         )}
                     </div>
 

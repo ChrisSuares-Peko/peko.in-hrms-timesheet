@@ -354,7 +354,7 @@ const EntryForm = ({
                 </span>
             )}
             {overlaps.length > 0 && (
-                <span className="text-xs text-[#93370D]" data-overlap-note>
+                <span className="text-xs text-[#121212]" data-overlap-note>
                     <WarningOutlined className="mr-1" />
                     {overlaps
                         .map(o => `Overlaps ${o.other.description} (${entryTimeText(o.other)}) from ${rangeText(o.from, o.to)}`)

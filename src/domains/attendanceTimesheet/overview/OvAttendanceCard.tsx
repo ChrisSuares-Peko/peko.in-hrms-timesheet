@@ -169,7 +169,7 @@ export const AttendancePunch = ({
             <EssStatusBlock tone={strip.tone} title={strip.text} sub={sub} />
             {/* PROTOTYPE-SETUP (Final batch, Slice 5): leave deducted for today's late check-in. */}
             {t.lateDeduction && t.lateDeduction.state !== 'reversed' && t.lateMinutes > 0 && (
-                <span className="-mt-1 rounded-lg bg-[#FFFAEB] px-3 py-2 text-xs leading-4 text-[#93370D]" data-late-note>
+                <span className="-mt-1 rounded-lg bg-[#FFFBE6] px-3 py-2 text-xs leading-4 text-[#121212]" data-late-note>
                     {lateTodayNote(t.lateDeduction, formatDuration(t.lateMinutes))}
                 </span>
             )}

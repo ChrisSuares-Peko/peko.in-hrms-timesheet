@@ -19,7 +19,7 @@ design asks for, listed under Decisions). Rules: `docs/design/peko-design-langua
 | 3 — Payroll settings: Leave sub-tabs, Attendance/timesheet/overtime, Reimbursements | Design: Payroll settings | done |
 | 4 — ESS Leave: Overview, type details, My requests + drawer, Public holidays, Apply and comp off modals | Design: ESS Leave | done |
 | 5 — My team | Design: My team | done |
-| 6 — Remaining ESS and Payroll screens in scope | | |
+| 6 — Remaining ESS and Payroll screens in scope | Design: remaining ESS and Payroll screens | done |
 | 7 — VERIFY 1–8, build, push | | |
 
 Decisions:
@@ -86,6 +86,20 @@ Decisions:
     #121212. The ESS attendance/overtime totals keep their status tint, moved onto the Peko pair backgrounds (late /
     half day → #FFF6EA, absent → #FFF1F0, on leave / holidays → #F9F0FB). Accent-coloured values (red "Waiting for
     you", green "Approved") are #121212 now.
+25. **Notices** (Overview "Needs your action", timesheet notices, update-requested strips, late notes, the leave
+    loss-of-pay card) use the antd Alert pairs: info #E6F4FF / #91CAFF, warning #FFFBE6 / #FFE58F, error #FFF2F0 /
+    #FFCCC7, with #121212 body text. Calendar cells, legends and the attendance grid keep their own colours (rule 15).
+26. **Legacy Payroll status pills** (Attendance daily log, Employees document requests, profile update list and
+    drawer) now render the shared StatusTag: Present success, Late / Half Day warning, Absent error, On Leave leave;
+    Pending warning, In Progress info, Completed / Approved success, Rejected error. Their leading dot is gone (the
+    shared pill has none).
+27. **Employees "Export"** stayed inside its column (it overflowed the content edge by 17px before this run; now the
+    button fills its column).
+28. **Pages shared with the /employee portal** (ESS Reimbursements, Payslips, Documents, the profile header card) keep
+    their own markup, as in the ESS design slices: the scoped `ess.css` moves their cards onto the Peko card (8px,
+    #EAEAEA, soft shadow) and their text greys onto #121212 / #8B8B8B, and their antd tables, tags and buttons follow the
+    scope. Their pastel summary tiles (value above the label, coloured backgrounds) stay as they are: restyling them
+    means changing the portal's own component. Listed under intentional differences.
 13. **Content width**: the scope caps content at 1320px; the dashboard layout already gives ~40px side padding on
     desktop, so it isn't changed.
 
