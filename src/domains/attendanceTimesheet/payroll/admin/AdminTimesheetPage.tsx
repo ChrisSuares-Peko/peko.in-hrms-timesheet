@@ -11,10 +11,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { LockOutlined } from '@ant-design/icons';
-import { Alert, Button, Empty, Flex, Select, Skeleton, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Empty, Flex, Select, Skeleton, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useSearchParams } from 'react-router-dom';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { formatDuration } from '@src/prototype/rules/attendance';
 import { periodLabel } from '@src/prototype/rules/timesheetFiling';
@@ -52,7 +53,7 @@ const Overview = ({ month, onMonth, onSeeWho }: { month: string; onMonth: (m: st
         { title: 'Hours logged', key: 'l', render: (_, r) => formatDuration(r.loggedMinutes) },
         { title: 'Hours worked', key: 'w', render: (_, r) => formatDuration(r.workedMinutes) },
         { title: 'With managers', dataIndex: 'submitted', key: 's' },
-        { title: 'Waiting for you', key: 'y', render: (_, r) => (r.withYou ? <Tag color="blue" className="!m-0">{r.withYou}</Tag> : 0) },
+        { title: 'Waiting for you', key: 'y', render: (_, r) => (r.withYou ? <StatusTag color="blue" className="!m-0">{r.withYou}</StatusTag> : 0) },
         { title: 'Approved', dataIndex: 'approved', key: 'a' },
     ];
     const total = (k: keyof Omit<DeptRow, 'department'>) => (o?.departments ?? []).reduce((n, d) => n + d[k], 0);
@@ -98,10 +99,10 @@ const Overview = ({ month, onMonth, onSeeWho }: { month: string; onMonth: (m: st
                     )}
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                         {COUNT_TILES.map(t => (
-                            <CountTile key={t.key} label={t.label} value={o.counts[t.key]} sub="timesheet periods" color={o.counts[t.key] ? t.color : undefined} />
+                            <CountTile key={t.key} label={t.label} value={o.counts[t.key]} sub="timesheet periods" />
                         ))}
                     </div>
-                    <div className="min-w-0 overflow-hidden rounded-2xl border border-solid border-[#e6e6e6] bg-white">
+                    <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
                         <Table<DeptRow>
                             rowKey="department"
                             columns={columns}
@@ -183,7 +184,7 @@ const Requests = ({ onReview, reloadKey }: { onReview: (t: ReviewTarget) => void
                 Timesheets approved by managers, waiting for your final approval. Ask for update sends it straight back to the employee.
             </Text>
             {list.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[#EAECF0] py-10" data-admin-empty>
+                <div className="rounded-lg border border-dashed border-[#EAECF0] py-10" data-admin-empty>
                     <Empty
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description={
@@ -195,7 +196,7 @@ const Requests = ({ onReview, reloadKey }: { onReview: (t: ReviewTarget) => void
                     />
                 </div>
             ) : (
-                <div className="rounded-2xl border border-solid border-[#e6e6e6] bg-white px-4">
+                <div className="rounded-lg border border-solid border-[#EAEAEA] bg-white px-4">
                     {list.map(item => (
                         <div key={item.id} className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-0 border-b border-solid border-gray-100 py-3 last:border-b-0" data-timesheet-request={item.employee.id}>
                             <div className="min-w-0 flex-1 basis-[240px]">
@@ -212,9 +213,9 @@ const Requests = ({ onReview, reloadKey }: { onReview: (t: ReviewTarget) => void
                             </div>
                             <Flex gap={8} align="center" className="ml-auto">
                                 {item.editedAfter && (
-                                    <Tag color="gold" className="!m-0" data-edited>
+                                    <StatusTag color="gold" className="!m-0" data-edited>
                                         Edited
-                                    </Tag>
+                                    </StatusTag>
                                 )}
                                 <Button type="primary" size="small" onClick={() => onReview({ employeeId: item.employee.id, date: item.weekStart })}>
                                     Review

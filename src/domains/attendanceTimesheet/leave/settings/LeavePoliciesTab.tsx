@@ -11,11 +11,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { DeleteOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, DatePicker, Empty, Flex, Input, InputNumber, Popconfirm, Radio, Segmented, Select, Skeleton, Switch, Table, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, DatePicker, Empty, Flex, Input, InputNumber, Popconfirm, Radio, Segmented, Select, Skeleton, Switch, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { APPLIES_LABEL, CREDIT_LABEL, accrualText, carryText, fmtDays } from '@src/prototype/rules/leave';
@@ -55,11 +56,11 @@ const LeaveTypes = ({ view, onView }: { view: LeaveSettingsView; onView: (v: Lea
             key: 's',
             render: (_, t) =>
                 t.active ? (
-                    <Tag color="success" className="!m-0">
+                    <StatusTag color="success" className="!m-0">
                         Active
-                    </Tag>
+                    </StatusTag>
                 ) : (
-                    <Tag className="!m-0">Inactive</Tag>
+                    <StatusTag className="!m-0">Inactive</StatusTag>
                 ),
         },
         {
@@ -105,12 +106,12 @@ const LeaveTypes = ({ view, onView }: { view: LeaveSettingsView; onView: (v: Lea
                 </div>
                 <Flex gap={8} wrap="wrap" className="w-full sm:w-auto">
                     <Input allowClear prefix={<SearchOutlined />} placeholder="Search by name" aria-label="Search leave types" className="w-full sm:w-[220px]" value={q} onChange={e => setQ(e.target.value)} />
-                    <Button type="primary" danger icon={<PlusOutlined />} onClick={() => setEditing({ type: null })} data-add-type>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing({ type: null })} data-add-type>
                         Add leave type
                     </Button>
                 </Flex>
             </Flex>
-            <div className="min-w-0 overflow-hidden rounded-2xl border border-solid border-[#e6e6e6] bg-white">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
                 <Table<LeaveTypeConfig>
                     rowKey="id"
                     columns={columns}
@@ -200,12 +201,12 @@ const Holidays = ({ view, onView }: { view: LeaveSettingsView; onView: (v: Leave
                     className="w-full sm:flex-1"
                     maxLength={60}
                 />
-                <Button type="primary" danger icon={<PlusOutlined />} onClick={add} data-add-holiday>
+                <Button type="primary" icon={<PlusOutlined />} onClick={add} data-add-holiday>
                     Add holiday
                 </Button>
             </Flex>
             {error && <Alert type="error" showIcon message={error} />}
-            <div className="min-w-0 overflow-hidden rounded-2xl border border-solid border-[#e6e6e6] bg-white">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
                 <Table
                     rowKey="date"
                     size="middle"
@@ -221,7 +222,7 @@ const Holidays = ({ view, onView }: { view: LeaveSettingsView; onView: (v: Leave
                             render: (_, h) => (
                                 <span>
                                     {dayjs(h.date).format('dddd')}
-                                    {weekend(h.date) && <Tag className="!ml-2">Weekly off</Tag>}
+                                    {weekend(h.date) && <StatusTag tone="leave" className="!ml-2">Weekly off</StatusTag>}
                                 </span>
                             ),
                         },
@@ -380,7 +381,7 @@ const Configuration = ({ view, onView }: { view: LeaveSettingsView; onView: (v: 
                 <Button onClick={() => setC(configOf(view))} disabled={!dirty || busy}>
                     Discard changes
                 </Button>
-                <Button type="primary" danger loading={busy} disabled={!dirty} onClick={save} data-save-config>
+                <Button type="primary" loading={busy} disabled={!dirty} onClick={save} data-save-config>
                     Save settings
                 </Button>
             </Flex>

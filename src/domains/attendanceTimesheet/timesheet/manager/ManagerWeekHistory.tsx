@@ -30,7 +30,7 @@ const ManagerWeekHistory = ({ history, defaultOpen }: WeekHistoryProps) => {
                     key: 'history',
                     label: (
                         <span className="text-sm font-medium">
-                            History <span className="font-normal text-gray-500">({items.length})</span>
+                            History <span className="font-normal text-[#8B8B8B]">({items.length})</span>
                         </span>
                     ),
                     children: items.length ? (
@@ -41,7 +41,7 @@ const ManagerWeekHistory = ({ history, defaultOpen }: WeekHistoryProps) => {
                                 color: HISTORY_COLOR[h.action],
                                 children: (
                                     <div className="flex min-w-0 flex-col text-xs">
-                                        <span className="text-sm text-gray-900">
+                                        <span className="text-sm text-[#121212]">
                                             <span className="font-medium">{who(h.actor)}</span>{' '}
                                             {HISTORY_LABEL[h.action].toLowerCase()}
                                         </span>
@@ -54,7 +54,7 @@ const ManagerWeekHistory = ({ history, defaultOpen }: WeekHistoryProps) => {
                             }))}
                         />
                     ) : (
-                        <span className="text-xs text-gray-500">Nothing has happened in this timesheet yet.</span>
+                        <span className="text-xs text-[#8B8B8B]">Nothing has happened in this timesheet yet.</span>
                     ),
                 },
             ]}

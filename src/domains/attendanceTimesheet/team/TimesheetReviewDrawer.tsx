@@ -9,8 +9,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CheckOutlined, RollbackOutlined } from '@ant-design/icons';
-import { Alert, Button, Drawer, Flex, Grid, Input, Modal, Skeleton, Tabs, Tag, Typography } from 'antd';
+import { Alert, Button, Drawer, Flex, Grid, Input, Modal, Skeleton, Tabs, Typography } from 'antd';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { EDITED_AFTER_TEXT } from '@src/prototype/rules/timesheetFiling';
 import { showToast } from '@src/slices/apiSlice';
@@ -178,9 +179,9 @@ const TimesheetReviewDrawer = ({ target, reviewer = 'MANAGER', onClose, onDecide
                                 {formatDuration(totals.loggedMinutes)} logged{edited ? ' after the change' : ''}
                             </Typography.Text>
                             {edited && (
-                                <Tag color="gold" className="!m-0" data-edited-label>
+                                <StatusTag color="gold" className="!m-0" data-edited-label>
                                     {view.week.editedAfter === 'APPROVED' ? 'Edited after approval' : 'Edited after sending'}
-                                </Tag>
+                                </StatusTag>
                             )}
                             <WeekStatusTag status={view.week.status} />
                         </Flex>

@@ -1,13 +1,13 @@
 import { useState } from 'react';
 
-import { Button, Row, Tabs, TabsProps, Typography } from 'antd';
+import { Button, Tabs, TabsProps } from 'antd';
 import { useSearchParams } from 'react-router-dom';
 
 // PROTOTYPE-SETUP (Payroll admin, Slices 1 and 5): the service tabs on top, and Requests — the admin requests list for
 // attendance corrections (was "Attendance corrections"). Overtime moved to its own service tab (Payroll → Overtime).
+import { PekoPageHeader, PekoTabLabel } from '@src/components/peko/PageHeader';
 import AdminRequestsList from '@src/domains/attendanceTimesheet/payroll/admin/AdminRequestsList';
 import { PayrollServiceBar, useAdminCounts } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
-import useScreenSize from '@src/hooks/useScreenSize';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
 
 import AddHolidaysModal from '../components/modals/AddHolidaysModal';
@@ -25,7 +25,8 @@ const tabItems = (waiting: number): TabsProps['items'] => [
     { key: '4', label: 'Holidays' },
     { key: '5', label: 'Shift Schedule' },
     // PROTOTYPE-SETUP: ESS Service 1 — renamed from "Dispute". (Payroll admin, Slice 5): "Requests".
-    { key: '6', label: `Requests (${waiting})` },
+    // PROTOTYPE-SETUP (Design update): the count is a small red pill on the tab.
+    { key: '6', label: <PekoTabLabel label="Requests" count={waiting} /> },
 ];
 
 const Timesheet = () => {
@@ -37,31 +38,26 @@ const Timesheet = () => {
     const [markAttendanceOpen, setMarkAttendanceOpen] = useState(false);
     const [addHolidayOpen, setAddHolidayOpen] = useState(false);
     const [dailyRefetchTrigger, setDailyRefetchTrigger] = useState(0);
-    const { xs, md } = useScreenSize();
-
-    const getButtonSize = (): 'small' | 'large' | 'middle' => {
-        if (xs) return 'small';
-        if (md) return 'large';
-        return 'middle';
-    };
-    const btnSize = getButtonSize();
+    // PROTOTYPE-SETUP (Design update): the page action sits right-aligned on the tab row.
+    let action = null;
+    if (activeTab === '1' || activeTab === '2') {
+        action = (
+            <Button type="primary" onClick={() => setMarkAttendanceOpen(true)}>
+                Mark Attendance
+            </Button>
+        );
+    } else if (activeTab === '4') {
+        action = (
+            <Button type="primary" onClick={() => setAddHolidayOpen(true)}>
+                Add Holiday
+            </Button>
+        );
+    }
 
     return (
         <>
             <PayrollServiceBar active="attendance" />
-            <Row justify="space-between" align="middle" className="mb-4">
-                <Typography.Text className="text-xl font-medium">Attendance</Typography.Text>
-                {(activeTab === '1' || activeTab === '2') && (
-                    <Button danger size={btnSize} onClick={() => setMarkAttendanceOpen(true)}>
-                        Mark Attendance
-                    </Button>
-                )}
-                {activeTab === '4' && (
-                    <Button danger size={btnSize} onClick={() => setAddHolidayOpen(true)}>
-                        Add Holiday
-                    </Button>
-                )}
-            </Row>
+            <PekoPageHeader title="Attendance" description="Everyone’s daily attendance, monthly summary, holidays, shifts and correction requests." />
 
             <MarkAttendanceModal
                 open={markAttendanceOpen}
@@ -78,7 +74,7 @@ const Timesheet = () => {
                 setHolidayData={() => {}}
             />
 
-            <Tabs activeKey={activeTab} items={tabItems(counts?.attendance ?? 0)} onChange={setActiveTab} />
+            <Tabs activeKey={activeTab} items={tabItems(counts?.attendance ?? 0)} onChange={setActiveTab} tabBarExtraContent={action} />
 
             {activeTab === '1' && <DailyLogTab refetchTrigger={dailyRefetchTrigger} />}
             {activeTab === '2' && <MonthlySummaryTab />}

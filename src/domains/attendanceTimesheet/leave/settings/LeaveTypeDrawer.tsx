@@ -37,7 +37,7 @@ const SectionHeading = ({ title, note }: { title: string; note: string }) => (
 
 const Field = ({ label, help, children, htmlFor }: { label: string; help: string; children: React.ReactNode; htmlFor?: string }) => (
     <Flex vertical gap={4}>
-        <label htmlFor={htmlFor} className="text-sm font-semibold text-[#171717]">
+        <label htmlFor={htmlFor} className="text-sm font-semibold text-[#121212]">
             {label}
         </label>
         <Text type="secondary" className="text-xs">
@@ -136,7 +136,7 @@ export const LeaveTypeDrawer = ({
                     {error && <Alert type="error" showIcon message={error} />}
                     <Flex justify="end" gap={8}>
                         <Button onClick={onClose}>Cancel</Button>
-                        <Button type="primary" danger loading={busy} onClick={save} data-save-leave-type>
+                        <Button type="primary" loading={busy} onClick={save} data-save-leave-type>
                             {saveLabel}
                         </Button>
                     </Flex>
@@ -285,7 +285,7 @@ export const LeaveTypeView = ({
                 <Button key="c" onClick={onClose}>
                     Close
                 </Button>,
-                <Button key="e" type="primary" danger onClick={onEdit}>
+                <Button key="e" type="primary" onClick={onEdit}>
                     Edit
                 </Button>,
             ]}

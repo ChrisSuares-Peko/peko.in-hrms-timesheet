@@ -31,7 +31,7 @@ export const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 const claimsText = (n: number) => `${n} claim${n === 1 ? '' : 's'}`;
 
 const Total = ({ label, total, accent }: { label: string; total: { amount: number; count: number }; accent?: string }) => (
-    <div className="flex min-w-0 flex-col gap-0.5 rounded-[20px] border border-solid border-[#e6e6e6] bg-white px-4 py-3" data-reimb-total={label}>
+    <div className="flex min-w-0 flex-col gap-0.5 rounded-lg border border-solid border-[#EAEAEA] bg-white px-4 py-3" data-reimb-total={label}>
         <Text type="secondary" className="text-xs">
             {label}
         </Text>
@@ -99,7 +99,7 @@ const TeamReimbursements = ({ onChanged }: { onChanged?: () => void }) => {
                     </div>
                     {view.byPerson.length > 0 && (
                         <section aria-label="By team member" className={`${ESS_CARD} !py-4`}>
-                            <h3 className="mb-2 mt-0 text-base font-medium text-gray-900">By team member</h3>
+                            <h3 className="mb-2 mt-0 text-base font-medium text-[#121212]">By team member</h3>
                             {view.byPerson.map(p => (
                                 <div key={p.employee.id} className="flex items-center justify-between gap-3 border-0 border-b border-solid border-gray-100 py-2 last:border-b-0" data-reimb-person>
                                     <span className="flex min-w-0 items-center gap-2">
@@ -122,7 +122,7 @@ const TeamReimbursements = ({ onChanged }: { onChanged?: () => void }) => {
                         />
                     </div>
                     {list.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-[#EAECF0] py-10" data-reimb-empty>
+                        <div className="rounded-lg border border-dashed border-[#EAECF0] py-10" data-reimb-empty>
                             <Empty
                                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                                 description={

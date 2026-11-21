@@ -10,8 +10,9 @@ import {
     PlusOutlined,
     ReloadOutlined,
 } from '@ant-design/icons';
-import { Alert, Button, Empty, Popconfirm, Skeleton, Tag, Typography } from 'antd';
+import { Alert, Button, Empty, Popconfirm, Skeleton, Typography } from 'antd';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { showToast } from '@src/slices/apiSlice';
 
@@ -70,11 +71,11 @@ const DayContext = ({ r }: { r: RequestRow }) => {
 
     return (
         <div className="flex items-center gap-2 flex-wrap">
-            <Text className="text-xs text-[#616161] tabular-nums">{parts.join(' · ')}</Text>
+            <Text className="text-xs text-[#8B8B8B] tabular-nums">{parts.join(' · ')}</Text>
             {r.kind === 'planned' && (
-                <Tag color={ctx.extraMinutes >= r.minutes ? 'success' : 'warning'} className="!m-0">
+                <StatusTag color={ctx.extraMinutes >= r.minutes ? 'success' : 'warning'} className="!m-0">
                     Actual extra: {formatDuration(ctx.extraMinutes)}
-                </Tag>
+                </StatusTag>
             )}
         </div>
     );
@@ -174,16 +175,15 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                 <div className="flex flex-col sm:flex-row lg:flex-col gap-2 lg:w-[200px] shrink-0">
                     <Button
                         type="primary"
-                        danger
                         icon={<PlusOutlined />}
-                        className="flex-1 h-10 font-medium"
+                        className="flex-1 font-medium"
                         onClick={() => setModal({ kind: 'worked' })}
                     >
                         Request overtime
                     </Button>
                     <Button
                         icon={<CalendarOutlined />}
-                        className="flex-1 h-10 font-medium"
+                        className="flex-1 font-medium"
                         onClick={() => setModal({ kind: 'planned' })}
                     >
                         Plan overtime
@@ -210,14 +210,13 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                                 <div className="flex flex-col min-w-0 flex-1">
                                     <div className="flex items-center gap-2 flex-wrap">
                                         <Text className="font-semibold">{fmtDay(s.date)}</Text>
-                                        <Tag color="orange" className="!m-0" bordered={false}>
+                                        <StatusTag color="orange" className="!m-0">
                                             +{formatDuration(s.minutes)}
-                                        </Tag>
+                                        </StatusTag>
                                     </div>
-                                    <Text className="text-xs text-[#616161]">{s.reason}</Text>
+                                    <Text className="text-xs text-[#8B8B8B]">{s.reason}</Text>
                                 </div>
                                 <Button
-                                    danger
                                     onClick={() =>
                                         setModal({
                                             kind: 'worked',
@@ -235,7 +234,7 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                     <Empty
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description={
-                            <span className="text-[#616161]">
+                            <span className="text-[#8B8B8B]">
                                 Nothing to claim. Days with at least{' '}
                                 {formatDuration(view.minimumMinutes)} extra show up here.
                             </span>
@@ -254,12 +253,12 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                             >
                                 <div className="flex items-start justify-between gap-2 flex-wrap">
                                     <div className="flex items-center gap-2 flex-wrap min-w-0">
-                                        <Tag
+                                        <StatusTag
                                             color={r.kind === 'planned' ? 'geekblue' : 'cyan'}
                                             className="!m-0"
                                         >
                                             {r.kind === 'planned' ? 'Planned' : 'Worked'}
-                                        </Tag>
+                                        </StatusTag>
                                         <Text className="font-semibold">{fmtDate(r.date)}</Text>
                                         <Text className="text-sm tabular-nums">
                                             {formatDuration(r.minutes)}
@@ -268,7 +267,7 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                                     <RequestStatusTag trail={r.trail} label={r.statusLabel} />
                                 </div>
                                 {r.description && (
-                                    <Text className="text-sm text-[#616161] break-words">
+                                    <Text className="text-sm text-[#8B8B8B] break-words">
                                         {r.description}
                                     </Text>
                                 )}
@@ -307,7 +306,7 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                     <Empty
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description={
-                            <span className="text-[#616161]">No overtime requests yet.</span>
+                            <span className="text-[#8B8B8B]">No overtime requests yet.</span>
                         }
                     />
                 )}

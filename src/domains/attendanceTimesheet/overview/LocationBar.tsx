@@ -54,7 +54,7 @@ const LocationBar = ({ overview, onOverview }: { overview: AtsOverview; onOvervi
         <div className="flex min-w-0 flex-col gap-1.5" data-location-bar>
             {!done && (
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <span className="text-sm text-[#616161]">Working from</span>
+                    <span className="text-sm text-[#8B8B8B]">Working from</span>
                     <Segmented
                         size="small"
                         aria-label="Work location"
@@ -87,10 +87,10 @@ const LocationBar = ({ overview, onOverview }: { overview: AtsOverview; onOvervi
                 </div>
             )}
             {!done && !asking && current.location === 'CLIENT' && current.client && (
-                <span className="text-xs text-[#616161]">Client: {current.client}</span>
+                <span className="text-xs text-[#8B8B8B]">Client: {current.client}</span>
             )}
             {(trail.length > 1 || (done && trail.length > 0)) && (
-                <span className="break-words text-xs text-[#616161]" data-location-trail>
+                <span className="break-words text-xs text-[#8B8B8B]" data-location-trail>
                     {locationTrailText(trail)}
                 </span>
             )}

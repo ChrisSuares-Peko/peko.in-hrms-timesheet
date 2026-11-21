@@ -157,7 +157,7 @@ const OvertimeRequestModal = ({
                 </Form.Item>
 
                 {!planned && dateIso && (
-                    <div className="rounded-2xl bg-[#F7F7F7] px-4 py-3 mb-4 min-h-[44px]">
+                    <div className="rounded-lg bg-[#F7F7F7] px-4 py-3 mb-4 min-h-[44px]">
                         {ctxLoading && <Spin size="small" />}
                         {!ctxLoading && ctx && (
                             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -277,21 +277,20 @@ const OvertimeRequestModal = ({
 
                 {/* PROTOTYPE-SETUP (Settings, Slice 1): who approves, by name. */}
                 {approvalLine && (
-                    <Text className="mb-3 block text-xs text-[#616161]" data-approval-line>
+                    <Text className="mb-3 block text-xs text-[#8B8B8B]" data-approval-line>
                         {approvalLine}
                     </Text>
                 )}
 
                 <div className="flex gap-3">
-                    <Button onClick={onClose} className="flex-1 h-10 rounded-lg">
+                    <Button onClick={onClose} className="flex-1">
                         Cancel
                     </Button>
                     <Button
                         type="primary"
-                        danger
                         htmlType="submit"
                         loading={saving}
-                        className="flex-1 h-10 rounded-lg font-medium"
+                        className="flex-1 font-medium"
                     >
                         Send for approval
                     </Button>

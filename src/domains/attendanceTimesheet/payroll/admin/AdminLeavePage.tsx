@@ -13,12 +13,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
-import { Button, DatePicker, Empty, Flex, Input, Modal, Popconfirm, Segmented, Select, Skeleton, Table, Tag, Typography } from 'antd';
+import { Button, DatePicker, Empty, Flex, Input, Modal, Popconfirm, Segmented, Select, Skeleton, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import { PekoTabRow } from '@src/components/peko/PageHeader';
+import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { adminRequestViews, daysText, fmtDays, typeLabel } from '@src/prototype/rules/leave';
@@ -44,13 +46,13 @@ export const DeptClashChip = ({ row }: { row: AdminRequestRow }) => {
     const c = row.deptClash;
     if (!c) return null;
     return c.names.length ? (
-        <Tag color="warning" className="!m-0 whitespace-normal" data-dept-clash="amber">
+        <StatusTag color="warning" className="!m-0 whitespace-normal" data-dept-clash="amber">
             Also off in {c.department}: {c.names.join(', ')}
-        </Tag>
+        </StatusTag>
     ) : (
-        <Tag color="success" className="!m-0" data-dept-clash="green">
+        <StatusTag color="success" className="!m-0" data-dept-clash="green">
             No one else off in {c.department}
-        </Tag>
+        </StatusTag>
     );
 };
 
@@ -76,13 +78,13 @@ const Overview = ({ reloadKey }: { reloadKey: number }) => {
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5" data-leave-tiles>
                     <CountTile label="Off today" value={o.offToday.length} sub={`of ${o.employees} employees`} />
                     <CountTile label="Off this week" value={o.offThisWeek} sub="people" />
-                    <CountTile label="Waiting for you" value={o.waitingForYou} sub="requests" color={o.waitingForYou ? '#B42318' : undefined} />
+                    <CountTile label="Waiting for you" value={o.waitingForYou} sub="requests" />
                     <CountTile label={`Leave taken in ${o.monthLabel}`} value={fmtDays(o.takenThisMonth)} sub="days, approved" />
                     <CountTile label="On probation" value={o.onProbation} sub="employees" />
                 </div>
             )}
             <section aria-label="Off today" className={`${ESS_CARD} !py-4`} data-off-today>
-                <h3 className="m-0 mb-2 text-base font-medium text-gray-900">Off today</h3>
+                <h3 className="m-0 mb-2 text-base font-medium text-[#121212]">Off today</h3>
                 {!o && <Skeleton active title={false} paragraph={{ rows: 1 }} />}
                 {o && o.offToday.length === 0 && (
                     <Text type="secondary" className="text-sm">
@@ -92,10 +94,10 @@ const Overview = ({ reloadKey }: { reloadKey: number }) => {
                 {o && o.offToday.length > 0 && (
                     <Flex gap={6} wrap="wrap">
                         {o.offToday.map(x => (
-                            <Tag key={`${x.employee.id}-${x.type}`} className="!m-0 !bg-[#F4F3FF] !text-[#5925DC]" bordered={false} data-off-chip>
+                            <StatusTag key={`${x.employee.id}-${x.type}`} tone="leave" data-off-chip>
                                 {x.employee.name} · {x.typeName}
                                 {x.half ? ' ½' : ''}
-                            </Tag>
+                            </StatusTag>
                         ))}
                     </Flex>
                 )}
@@ -153,7 +155,7 @@ const Leaves = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () => 
         .filter(r => !text || r.employee.name.toLowerCase().includes(text) || r.employee.email.toLowerCase().includes(text) || r.typeName.toLowerCase().includes(text));
     const columns: ColumnsType<AdminLeaveEntry> = [
         { title: 'Name', key: 'n', fixed: 'left', render: (_, r) => <PersonCell person={r.employee} sub={r.employee.email} size={32} /> },
-        { title: 'Leave type', key: 't', render: (_, r) => <Tag className="!m-0">{r.typeName}</Tag> },
+        { title: 'Leave type', key: 't', render: (_, r) => <StatusTag tone="leave">{r.typeName}</StatusTag> },
         { title: 'From', key: 'f', render: (_, r) => dayjs(r.start).format('D MMM YYYY') },
         { title: 'To', key: 'to', render: (_, r) => dayjs(r.end).format('D MMM YYYY') },
         {
@@ -173,7 +175,7 @@ const Leaves = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () => 
         { title: 'Reason', key: 'r', render: (_, r) => <span className="block max-w-[240px] whitespace-normal break-words">{r.reason || '–'}</span> },
         { title: 'Applied on', key: 'a', render: (_, r) => dayjs(r.createdAt).format('D MMM YYYY') },
         { title: 'Added by', key: 'b', render: (_, r) => r.addedBy },
-        { title: 'Status', key: 's', render: (_, r) => <Tag color={STATE[r.state].color} className="!m-0">{STATE[r.state].label}</Tag> },
+        { title: 'Status', key: 's', render: (_, r) => <StatusTag color={STATE[r.state].color} className="!m-0">{STATE[r.state].label}</StatusTag> },
         {
             title: '',
             key: 'x',
@@ -224,7 +226,7 @@ const Leaves = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () => 
                     onChange={e => setQ(e.target.value)}
                 />
             </Flex>
-            <div className="min-w-0 overflow-hidden rounded-2xl border border-solid border-[#e6e6e6] bg-white">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
                 <Table<AdminLeaveEntry>
                     rowKey="id"
                     columns={columns}
@@ -322,9 +324,9 @@ const Balances = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () =
             render: (_, r) =>
                 r.status === 'PROBATION' ? (
                     <Flex gap={6} align="center" wrap="nowrap" onClick={e => e.stopPropagation()}>
-                        <Tag color="warning" className="!m-0">
+                        <StatusTag color="warning" className="!m-0">
                             Probation
-                        </Tag>
+                        </StatusTag>
                         <Popconfirm
                             title={`Mark ${r.employee.name.split(' ')[0]} active?`}
                             description="From today they’re a full employee: leave follows the normal rules."
@@ -337,16 +339,16 @@ const Balances = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () =
                         </Popconfirm>
                     </Flex>
                 ) : (
-                    <Tag color="success" className="!m-0">
+                    <StatusTag color="success" className="!m-0">
                         Active
-                    </Tag>
+                    </StatusTag>
                 ),
         },
         ...(data?.types ?? []).map(t => ({
             title: (
                 <span>
                     {t.name}
-                    <span className="block text-xs font-normal text-gray-500">available / allocated</span>
+                    <span className="block text-xs font-normal text-[#8B8B8B]">available / allocated</span>
                 </span>
             ),
             key: t.id,
@@ -356,8 +358,8 @@ const Balances = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () =
                 return (
                     <span className="tabular-nums" data-balance-cell={t.id}>
                         <b className="font-medium">{fmtDays(v.available)}</b>
-                        <span className="text-gray-500"> / {fmtDays(v.allocated)}</span>
-                        {v.inRequest > 0 && <span className="block text-xs text-gray-500">{fmtDays(v.inRequest)} in request</span>}
+                        <span className="text-[#8B8B8B]"> / {fmtDays(v.allocated)}</span>
+                        {v.inRequest > 0 && <span className="block text-xs text-[#8B8B8B]">{fmtDays(v.inRequest)} in request</span>}
                     </span>
                 );
             },
@@ -368,9 +370,9 @@ const Balances = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () =
             key: 'lop',
             render: (_, r) =>
                 r.lossOfPayDays ? (
-                    <Tag color="red" className="!m-0" data-lop>
+                    <StatusTag color="red" className="!m-0" data-lop>
                         {fmtDays(r.lossOfPayDays)}
-                    </Tag>
+                    </StatusTag>
                 ) : (
                     <Text type="secondary">0</Text>
                 ),
@@ -381,7 +383,7 @@ const Balances = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () =
     return (
         <Flex vertical gap={8} className="min-w-0">
             <Input allowClear prefix={<SearchOutlined />} placeholder="Search by name or email" aria-label="Search employees" className="w-full sm:w-[280px]" value={q} onChange={e => setQ(e.target.value)} />
-            <div className="min-w-0 overflow-hidden rounded-2xl border border-solid border-[#e6e6e6] bg-white">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
                 <Table<AdminLeaveRow>
                     rowKey={r => r.employee.id}
                     columns={columns}
@@ -433,16 +435,15 @@ const AdminLeavePage = () => {
     return (
         <div className="w-full min-w-0" data-admin-page="leave">
             <PayrollServiceBar active="leave" />
-            <ServiceHeader
-                title="Leave"
-                line="Everyone’s leave and balances. Approve requests that reach your team, add leave, and cancel it."
+            <ServiceHeader title="Leave" line="Everyone’s leave and balances. Approve requests that reach your team, add leave, and cancel it." />
+            {/* PROTOTYPE-SETUP (Design update): "Add leave" sits right-aligned on the sub-tab row. */}
+            <PekoTabRow
                 actions={
-                    <Button type="primary" danger icon={<PlusOutlined />} onClick={() => setAdding(true)} data-add-leave>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setAdding(true)} data-add-leave>
                         Add leave
                     </Button>
                 }
-            />
-            <div className="mb-4 max-w-full overflow-x-auto">
+            >
                 <Segmented<View>
                     value={view}
                     onChange={setView}
@@ -454,7 +455,7 @@ const AdminLeavePage = () => {
                         { value: 'balances', label: 'Balances' },
                     ]}
                 />
-            </div>
+            </PekoTabRow>
             {view === 'overview' && <Overview reloadKey={reloadKey} />}
             {view === 'leaves' && <Leaves reloadKey={reloadKey} onChanged={changed} />}
             {view === 'requests' && settings && (

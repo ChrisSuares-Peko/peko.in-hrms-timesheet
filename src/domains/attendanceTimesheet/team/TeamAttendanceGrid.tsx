@@ -71,7 +71,7 @@ const TeamDayModal = ({ person, day, view, onClose }: { person: PersonRef | null
         <Modal open title={`${person.name} · ${dayjs(day.date).format('dddd, D MMMM')}`} onCancel={onClose} footer={<Button onClick={onClose}>Close</Button>} destroyOnHidden>
             <div className="mb-2" data-team-day>
                 <DayStatusTag status={day.status} label={day.label} />
-                {day.label && day.status !== 'holiday' && <Text className="ml-2 text-xs text-gray-500">{day.label}</Text>}
+                {day.label && day.status !== 'holiday' && <Text className="ml-2 text-xs text-[#8B8B8B]">{day.label}</Text>}
             </div>
             <Row label="Shift">{off ? 'Off' : `${displayTime(view.shift.start)} – ${displayTime(view.shift.end)}`}</Row>
             <Row label="Check in">{day.checkIn ? displayTime(day.checkIn) : '–'}</Row>
@@ -128,7 +128,7 @@ const TeamAttendanceGrid = () => {
                                 {view.dates.map(d => (
                                     <th
                                         key={d}
-                                        className={`px-0.5 py-2 text-center font-normal ${view.off.includes(d) ? 'bg-[#F5F6F7]' : ''} ${d === view.today ? 'font-semibold text-[#FF4F4F]' : 'text-gray-500'}`}
+                                        className={`px-0.5 py-2 text-center font-normal ${view.off.includes(d) ? 'bg-[#F5F6F7]' : ''} ${d === view.today ? 'font-semibold text-[#FF3A3A]' : 'text-[#8B8B8B]'}`}
                                     >
                                         {dayjs(d).format('dd').charAt(0)}
                                         <br />
@@ -142,8 +142,8 @@ const TeamAttendanceGrid = () => {
                             {view.rows.map(r => (
                                 <tr key={r.employee.id} className="border-0 border-t border-solid border-gray-100" data-team-row={r.employee.name}>
                                     <td className="sticky left-0 z-10 bg-white px-3 py-2">
-                                        <span className="block text-sm font-medium text-gray-900">{r.employee.name}</span>
-                                        <span className="block text-[11px] text-gray-500">{r.employee.designation}</span>
+                                        <span className="block text-sm font-medium text-[#121212]">{r.employee.name}</span>
+                                        <span className="block text-[11px] text-[#8B8B8B]">{r.employee.designation}</span>
                                     </td>
                                     {r.days.map(d => {
                                         const code = d.date <= view.today || d.status === 'on-leave' ? cellCode(d) : '';
@@ -169,7 +169,7 @@ const TeamAttendanceGrid = () => {
                             ))}
                         </tbody>
                     </table>
-                    {view.rows.length === 0 && <Text className="block p-4 text-sm text-gray-500">No one reports to you yet.</Text>}
+                    {view.rows.length === 0 && <Text className="block p-4 text-sm text-[#8B8B8B]">No one reports to you yet.</Text>}
                 </div>
             )}
             {view && <TeamDayModal person={cell?.person ?? null} day={cell?.day ?? null} view={view} onClose={() => setCell(null)} />}

@@ -5,11 +5,12 @@
 // Rows come from src/prototype/rules/leaveLog.ts.
 import type { ReactNode } from 'react';
 
-import { Empty, Table, Tag, Typography } from 'antd';
+import { Empty, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import StatusTag from '@src/components/peko/StatusTag';
 import { COMP_OFF, fmtDays } from '@src/prototype/rules/leave';
 import type { LeaveLogRow, LogItemKind, LogStatus } from '@src/prototype/rules/leaveLog';
 
@@ -25,14 +26,14 @@ export const TypeCard = ({ b, onOpen }: { b: LeaveBalance; onOpen: () => void })
         type="button"
         onClick={onOpen}
         aria-label={`${b.label}: ${availableOfTotal(b)} available. View details`}
-        className="flex min-w-0 cursor-pointer flex-col gap-1 rounded-[20px] border border-solid border-[#eff1f4] bg-white px-4 py-3 text-left transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#FF4F4F]"
+        className="flex min-w-0 cursor-pointer flex-col gap-1 rounded-lg border border-solid border-[#eff1f4] bg-white px-4 py-3 text-left transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#FF3A3A]"
         data-type-card={b.type}
     >
         <Text className="truncate text-sm text-gray-600">{b.label}</Text>
-        <Text className="text-xl font-semibold tabular-nums text-gray-900" data-available-total>
+        <Text className="text-xl font-semibold tabular-nums text-[#121212]" data-available-total>
             {availableOfTotal(b)}
         </Text>
-        <span className="text-xs font-medium text-[#FF4F4F]">View details ›</span>
+        <span className="text-xs font-medium text-[#FF3A3A]">View details ›</span>
     </button>
 );
 
@@ -58,9 +59,9 @@ const DaysCell = ({ r }: { r: LeaveLogRow }) => {
 };
 
 export const LogStatusTag = ({ r }: { r: Pick<LeaveLogRow, 'status' | 'statusKind'> }) => (
-    <Tag color={STATUS_COLOR[r.statusKind]} className="!m-0" data-log-status={r.statusKind}>
+    <StatusTag color={STATUS_COLOR[r.statusKind]} className="!m-0" data-log-status={r.statusKind}>
         {r.status}
-    </Tag>
+    </StatusTag>
 );
 
 export const LeaveLogTable = ({
@@ -99,7 +100,7 @@ export const LeaveLogTable = ({
                   { title: 'Reason', key: 'reason', render: (_, r) => <span className="block max-w-[260px] whitespace-normal break-words">{r.reason || '–'}</span> },
               ];
     return (
-        <div className="min-w-0 overflow-hidden rounded-[18px] border border-solid border-[#eff1f4] bg-white">
+        <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#eff1f4] bg-white">
             <Table<LeaveLogRow>
                 rowKey="key"
                 size="middle"
@@ -130,7 +131,7 @@ export const LeaveLogTable = ({
 export const LeaveSection = ({ title, children, extra, label }: { title: string; children: ReactNode; extra?: ReactNode; label?: string }) => (
     <section aria-label={label ?? title} className={`${ESS_CARD} flex min-w-0 flex-col gap-3`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="m-0 text-base font-medium text-gray-900">{title}</h3>
+            <h3 className="m-0 text-base font-medium text-[#121212]">{title}</h3>
             {extra}
         </div>
         {children}

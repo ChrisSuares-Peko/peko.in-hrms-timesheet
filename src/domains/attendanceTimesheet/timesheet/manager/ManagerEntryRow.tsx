@@ -5,8 +5,9 @@
 // PROTOTYPE-SETUP (Timesheet filing): the project code (when the company uses them), no times in duration-only
 // filing, and an "Overlaps" marker when the entry shares time with another.
 import { DeleteOutlined, EditOutlined, WarningFilled } from '@ant-design/icons';
-import { Button, Popconfirm, Tag } from 'antd';
+import { Button, Popconfirm } from 'antd';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { DEFAULT_FILING, entryMinutes, formatDuration, usesTimes } from '@src/prototype/rules/attendance';
 
 import { entryTimeLabel } from './managerHelpers';
@@ -39,38 +40,38 @@ const ManagerEntryRow = ({ entry, outside, mark, canEdit, busy, onEdit, onDelete
         <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
             <span className="whitespace-nowrap text-sm font-medium tabular-nums">
                 {usesTimes(fields) && entryTimeLabel(entry)}
-                <span className={usesTimes(fields) ? 'ml-2 text-xs font-normal text-gray-500' : ''}>
+                <span className={usesTimes(fields) ? 'ml-2 text-xs font-normal text-[#8B8B8B]' : ''}>
                     {formatDuration(entryMinutes(entry))}
                 </span>
             </span>
             <span className="min-w-0 break-words text-sm text-gray-700">
                 {fields.projectCode && entry.projectCode && (
-                    <Tag bordered={false} className="!mr-1.5 font-mono !text-[11px]" data-project-code>
+                    <StatusTag className="!mr-1.5 font-mono !text-[11px]" data-project-code>
                         {entry.projectCode}
-                    </Tag>
+                    </StatusTag>
                 )}
                 {entry.description}
             </span>
             <span className="flex flex-wrap gap-1">
                 {overlaps && (
-                    <Tag color="warning" className="!m-0">
+                    <StatusTag color="warning" className="!m-0">
                         Overlaps
-                    </Tag>
+                    </StatusTag>
                 )}
                 {outside && (
-                    <Tag color="warning" icon={<WarningFilled />} className="!m-0">
+                    <StatusTag color="warning" icon={<WarningFilled />} className="!m-0">
                         Outside the window
-                    </Tag>
+                    </StatusTag>
                 )}
                 {mark === 'added' && (
-                    <Tag color="green" className="!m-0">
+                    <StatusTag color="green" className="!m-0">
                         New
-                    </Tag>
+                    </StatusTag>
                 )}
                 {mark === 'edited' && (
-                    <Tag color="blue" className="!m-0">
+                    <StatusTag color="blue" className="!m-0">
                         Edited
-                    </Tag>
+                    </StatusTag>
                 )}
             </span>
         </div>

@@ -51,7 +51,7 @@ const Edited = ({ before, after }: { before: TimesheetEntry; after: TimesheetEnt
         <div className="flex min-w-0 flex-col gap-0.5 rounded-md border-l-[3px] border-solid border-y-0 border-r-0 border-blue-400 bg-blue-50 px-2 py-1 text-sm">
             <span className="text-xs font-semibold text-blue-700">Edited</span>
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="text-gray-500 line-through">
+                <span className="text-[#8B8B8B] line-through">
                     <span className="tabular-nums">
                         {before.date !== after.date && `${fmtDay(before.date)} `}
                         {span(before)}
@@ -59,7 +59,7 @@ const Edited = ({ before, after }: { before: TimesheetEntry; after: TimesheetEnt
                     {descChanged && <span className="break-words"> · {before.description}</span>}
                 </span>
                 <ArrowRightOutlined className="text-xs text-gray-400" />
-                <span className="font-medium text-gray-900">
+                <span className="font-medium text-[#121212]">
                     <span className="tabular-nums">
                         {before.date !== after.date && `${fmtDay(after.date)} `}
                         {span(after)}
@@ -87,18 +87,18 @@ const ManagerChangeDiff = ({ base, proposed }: ChangeDiffProps) => {
     return (
         <div className="flex min-w-0 flex-col gap-2">
             <div className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                <span className="font-semibold text-gray-900">What changed</span>
+                <span className="font-semibold text-[#121212]">What changed</span>
                 <span className="text-gray-600">{diffSummary(diff)}</span>
                 {dates.length > 0 && (
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-[#8B8B8B]">
                         · {formatDuration(baseTotal)} → {formatDuration(proposedTotal)} ({deltaText})
                     </span>
                 )}
             </div>
-            {!dates.length && <span className="text-xs text-gray-500">No changes to the entries.</span>}
+            {!dates.length && <span className="text-xs text-[#8B8B8B]">No changes to the entries.</span>}
             {dates.map(date => (
                 <div key={date} className="flex min-w-0 flex-col gap-1">
-                    <span className="flex flex-wrap gap-x-2 text-xs font-medium text-gray-500">
+                    <span className="flex flex-wrap gap-x-2 text-xs font-medium text-[#8B8B8B]">
                         {fmtDay(date)}
                         <span className="tabular-nums font-normal">
                             {formatDuration(dayTotal(base, date))} → {formatDuration(dayTotal(proposed, date))}

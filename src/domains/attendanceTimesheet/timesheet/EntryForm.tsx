@@ -17,8 +17,9 @@
 import { useId, useMemo, useState } from 'react';
 
 import { PlusOutlined, WarningOutlined } from '@ant-design/icons';
-import { Button, Input, Select, Tag } from 'antd';
+import { Button, Input, Select } from 'antd';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import {
     DEFAULT_FILING,
     ENTRY_MESSAGES,
@@ -82,7 +83,7 @@ const LOCATION_OPTIONS = (Object.keys(LOCATION_LABEL) as WorkLocation[]).map(val
 /** A field with its label above (the form wraps; `width` is the field's basis). */
 const Field = ({ label, className, children }: { label: string; className: string; children: React.ReactNode }) => (
     <div className={`flex min-w-0 flex-col gap-0.5 ${className}`}>
-        <span className="text-[11px] leading-4 text-gray-500" aria-hidden>
+        <span className="text-[11px] leading-4 text-[#8B8B8B]" aria-hidden>
             {label}
         </span>
         {children}
@@ -347,9 +348,9 @@ const EntryForm = ({
             </div>
             {nextTag && (
                 <span data-next-tag>
-                    <Tag color="blue" className="!m-0">
+                    <StatusTag color="blue" className="!m-0">
                         {nextTag}
-                    </Tag>
+                    </StatusTag>
                 </span>
             )}
             {overlaps.length > 0 && (
@@ -361,7 +362,7 @@ const EntryForm = ({
                     . Check your timings — you can still save it.
                 </span>
             )}
-            {!hideHint && <span className="text-xs text-gray-500">{hint}</span>}
+            {!hideHint && <span className="text-xs text-[#8B8B8B]">{hint}</span>}
             {error && (
                 <span role="alert" className="text-xs text-red-600">
                     {error}

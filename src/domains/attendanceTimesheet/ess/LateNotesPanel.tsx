@@ -101,7 +101,7 @@ const LateNotesPanel = ({ reloadKey, onDispute }: { reloadKey: number; onDispute
                         );
                     }
                     return (
-                        <li key={d.date} className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl px-4 py-3 ${tone}`} data-late-note={d.dispute?.state ?? d.state}>
+                        <li key={d.date} className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg px-4 py-3 ${tone}`} data-late-note={d.dispute?.state ?? d.state}>
                             <Text className="min-w-0 flex-1 basis-[260px] text-sm">{body}</Text>
                             {action}
                         </li>

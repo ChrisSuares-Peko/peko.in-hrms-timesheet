@@ -9,10 +9,11 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { Alert, Button, Tag, Typography } from 'antd';
+import { Alert, Button, Typography } from 'antd';
 import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import StatusTag from '@src/components/peko/StatusTag';
 import { formatDuration } from '@src/prototype/rules/attendance';
 import { COMP_OFF, daysText, fmtDays, lateDeductionIntro, lateLedgerText } from '@src/prototype/rules/leave';
 
@@ -45,9 +46,9 @@ const signed = (n: number) => (n > 0 ? `+${fmtDays(n)}` : `−${fmtDays(-n)}`);
 export const LeaveStatusTag = ({ r }: { r: Pick<LeaveRequestRow, 'state' | 'statusLabel'> }) => {
     const color = { approved: 'success', rejected: 'error', withdrawn: 'default', cancelled: 'default', update_requested: 'warning', pending: 'processing' }[r.state];
     return (
-        <Tag color={color} className="!m-0" data-leave-state={r.state}>
+        <StatusTag color={color} className="!m-0" data-leave-state={r.state}>
             {r.statusLabel}
-        </Tag>
+        </StatusTag>
     );
 };
 
@@ -56,7 +57,7 @@ export const LedgerList = ({ ledger, empty = 'Nothing credited or deducted yet t
         <ul className="m-0 list-none p-0" data-ledger>
             {ledger.map((x, i) => (
                 <li key={`${x.date}-${x.kind}-${i}`} className="flex items-baseline justify-between gap-3 border-0 border-t border-solid border-gray-100 py-1.5 text-xs first:border-t-0">
-                    <span className={x.amount === null ? 'text-gray-500' : 'text-gray-800'}>
+                    <span className={x.amount === null ? 'text-[#8B8B8B]' : 'text-gray-800'}>
                         {dayjs(x.date).format('D MMM')} · {x.text}
                     </span>
                     {x.amount !== null && <span className={`shrink-0 tabular-nums ${x.amount < 0 ? 'text-[#B42318]' : 'text-[#067647]'}`}>{signed(x.amount)}</span>}
@@ -79,7 +80,7 @@ const balanceLines = (b: LeaveBalance, onProbation: boolean) => {
                     Available once you’re confirmed
                 </Text>
             );
-        if (b.probation === 'MONTHLY') return <Text className="text-xs text-gray-500">Credited monthly during probation</Text>;
+        if (b.probation === 'MONTHLY') return <Text className="text-xs text-[#8B8B8B]">Credited monthly during probation</Text>;
         return null;
     })();
     const extra = [
@@ -99,7 +100,7 @@ export const BalanceCard = ({ b, onProbation = false, onOpen }: { b: LeaveBalanc
     const body = (
         <>
             <Text className="text-sm text-gray-600">{b.label}</Text>
-            <Text className="text-2xl font-semibold text-gray-900" data-available>
+            <Text className="text-2xl font-semibold text-[#121212]" data-available>
                 {fmtDays(b.available)} available
             </Text>
             {probation}
@@ -107,7 +108,7 @@ export const BalanceCard = ({ b, onProbation = false, onOpen }: { b: LeaveBalanc
                 {b.type === COMP_OFF ? `${fmtDays(b.credited)} earned and not expired` : `${fmtDays(b.credited)} credited so far of ${fmtDays(b.allocated)} this year`}
                 {b.carried > 0 ? ` (incl. ${fmtDays(b.carried)} carried forward)` : ''}
             </Text>
-            <Text className="text-xs text-gray-500">{extra.join(' · ')}</Text>
+            <Text className="text-xs text-[#8B8B8B]">{extra.join(' · ')}</Text>
         </>
     );
     if (onOpen) {
@@ -116,11 +117,11 @@ export const BalanceCard = ({ b, onProbation = false, onOpen }: { b: LeaveBalanc
                 type="button"
                 aria-label={`${b.label}: ${fmtDays(b.available)} available. View details`}
                 onClick={onOpen}
-                className={`${ESS_CARD} flex cursor-pointer flex-col gap-1 border-0 text-left transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.10)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#FF4F4F]`}
+                className={`${ESS_CARD} flex cursor-pointer flex-col gap-1 border-0 text-left transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.10)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#FF3A3A]`}
                 data-balance={b.type}
             >
                 {body}
-                <span className="mt-1 text-sm font-medium text-[#FF4F4F]">View details ›</span>
+                <span className="mt-1 text-sm font-medium text-[#FF3A3A]">View details ›</span>
             </button>
         );
     }
@@ -137,7 +138,7 @@ export const BalanceCard = ({ b, onProbation = false, onOpen }: { b: LeaveBalanc
 
 export const LossOfPayCard = ({ days }: { days: number }) =>
     days > 0 ? (
-        <section aria-label="Loss of pay" className="rounded-[32px] border border-solid border-[#FECDCA] bg-[#FEF3F2] p-4 sm:p-6" data-lop-card>
+        <section aria-label="Loss of pay" className="rounded-lg border border-solid border-[#FECDCA] bg-[#FEF3F2] p-4 sm:p-6" data-lop-card>
             <Text className="block text-sm text-[#B42318]">Loss of pay</Text>
             <Text className="block text-2xl font-semibold text-[#B42318]">{daysText(days)}</Text>
             <Text className="block text-xs text-[#B42318]">From late check-ins with no leave left</Text>
@@ -151,11 +152,11 @@ export const LateDeductionsPanel = ({ view }: { view: LeaveView }) => {
     const firstName = view.balances.find(b => b.type === view.lateOrder[0])?.name ?? 'Annual';
     return (
         <section aria-label="Late check-in deductions" className={ESS_CARD} data-late-panel>
-            <h3 className="m-0 text-base font-medium text-gray-900">Late check-in deductions</h3>
+            <h3 className="m-0 text-base font-medium text-[#121212]">Late check-in deductions</h3>
             <Text type="secondary" className="mt-1 block text-xs">
                 {off ? 'Late check-ins don’t deduct leave at your company.' : lateDeductionIntro(view.lateDeductionDays, firstName)}
             </Text>
-            {view.lateDeductions.length === 0 && <Text className="mt-3 block text-sm text-gray-500">No late check-ins this leave year.</Text>}
+            {view.lateDeductions.length === 0 && <Text className="mt-3 block text-sm text-[#8B8B8B]">No late check-ins this leave year.</Text>}
             {view.lateDeductions.length > 0 && (
                 <ul className="m-0 mt-2 list-none p-0">
                     {view.lateDeductions.map(d => (

@@ -7,11 +7,12 @@
 //   Requests ... the admin requests list for the type
 import { useEffect, useMemo, useState } from 'react';
 
-import { Empty, Flex, Modal, Skeleton, Table, Tag, Typography } from 'antd';
+import { Empty, Flex, Modal, Skeleton, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import StatusTag from '@src/components/peko/StatusTag';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { formatDuration } from '@src/prototype/rules/attendance';
 import { typeDetails, typeOverview } from '@src/prototype/rules/payrollAdmin';
@@ -56,7 +57,7 @@ const Overview = ({ service }: { service: Service }) => {
         { title: 'Department', dataIndex: 'department', key: 'd', render: v => <Text strong>{v}</Text> },
         { title: 'Requests', dataIndex: 'requests', key: 'r' },
         { title: COPY[service].unit, key: 'v', render: (_, r) => fmt(r.value) },
-        { title: 'Waiting for you', key: 'w', render: (_, r) => (r.waiting ? <Tag color="blue" className="!m-0">{r.waiting}</Tag> : 0) },
+        { title: 'Waiting for you', key: 'w', render: (_, r) => (r.waiting ? <StatusTag color="blue" className="!m-0">{r.waiting}</StatusTag> : 0) },
         { title: 'Approved', key: 'a', render: (_, r) => fmt(r.approved) },
     ];
     return (
@@ -69,10 +70,10 @@ const Overview = ({ service }: { service: Service }) => {
                     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                         <CountTile label="Requested" value={fmt(o.totals.requested.value)} sub={requestsText(o.totals.requested.count)} />
                         <CountTile label="With managers" value={fmt(o.totals.withManagers.value)} sub={requestsText(o.totals.withManagers.count)} />
-                        <CountTile label="Waiting for you" value={fmt(o.totals.waiting.value)} sub={requestsText(o.totals.waiting.count)} color={o.totals.waiting.count ? '#1D4ED8' : undefined} />
-                        <CountTile label="Approved" value={fmt(o.totals.approved.value)} sub={requestsText(o.totals.approved.count)} color={o.totals.approved.count ? '#067647' : undefined} />
+                        <CountTile label="Waiting for you" value={fmt(o.totals.waiting.value)} sub={requestsText(o.totals.waiting.count)} />
+                        <CountTile label="Approved" value={fmt(o.totals.approved.value)} sub={requestsText(o.totals.approved.count)} />
                     </div>
-                    <div className="min-w-0 overflow-hidden rounded-2xl border border-solid border-[#e6e6e6] bg-white">
+                    <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
                         <Table<Dept>
                             rowKey="department"
                             columns={columns}
@@ -86,7 +87,7 @@ const Overview = ({ service }: { service: Service }) => {
                     </div>
                     {service === 'reimbursement' && o.categories.length > 0 && (
                         <section aria-label="By category" className={`${ESS_CARD} !py-4`} data-by-category>
-                            <h3 className="mb-2 mt-0 text-base font-medium text-gray-900">By category</h3>
+                            <h3 className="mb-2 mt-0 text-base font-medium text-[#121212]">By category</h3>
                             {o.categories.map(c => (
                                 <div key={c.category} className="flex items-center justify-between gap-3 border-0 border-b border-solid border-gray-100 py-2 last:border-b-0" data-category={c.category}>
                                     <span>
@@ -127,7 +128,7 @@ const Details = ({ service }: { service: Service }) => {
     return (
         <Flex vertical gap={12} className="min-w-0" data-type-details={service}>
             <MonthSwitcher value={month} onChange={setMonth} />
-            <div className="min-w-0 overflow-hidden rounded-2xl border border-solid border-[#e6e6e6] bg-white">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
                 <Table<Row>
                     rowKey={r => r.employee.id}
                     columns={columns}

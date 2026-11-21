@@ -46,13 +46,13 @@ const isOpenTrail = (r: { withdrawn?: boolean; trail: ApprovalTrail }) => !r.wit
 const Row = ({ label, children }: { label: string; children: ReactNode }) => (
     <div className="grid grid-cols-[120px_1fr] gap-3 border-0 border-b border-solid border-gray-100 py-2 text-sm last:border-b-0">
         <Text type="secondary">{label}</Text>
-        <div className="min-w-0 break-words text-gray-900">{children}</div>
+        <div className="min-w-0 break-words text-[#121212]">{children}</div>
     </div>
 );
 
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
     <section className="flex flex-col gap-1">
-        <h4 className="m-0 text-sm font-medium text-gray-900">{title}</h4>
+        <h4 className="m-0 text-sm font-medium text-[#121212]">{title}</h4>
         {children}
     </section>
 );
@@ -272,8 +272,8 @@ const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView;
                     <ul className="m-0 list-none p-0" data-drawer-history>
                         {history.map(h => (
                             <li key={h.key} className="flex flex-col border-0 border-b border-solid border-gray-100 py-2 last:border-b-0">
-                                <span className="text-sm text-gray-900">{h.what}</span>
-                                <span className="text-xs text-gray-500">{dayjs(h.at).format('D MMM YYYY, h:mm A')}</span>
+                                <span className="text-sm text-[#121212]">{h.what}</span>
+                                <span className="text-xs text-[#8B8B8B]">{dayjs(h.at).format('D MMM YYYY, h:mm A')}</span>
                                 {h.comment && <span className="mt-0.5 text-xs text-gray-700">“{h.comment}”</span>}
                             </li>
                         ))}

@@ -81,7 +81,7 @@ const EssOverviewPage = () => {
             <div className="ess-ov">
                 {[0, 1, 2].map(i => (
                     <div key={i}>
-                        <div className="rounded-[32px] bg-white p-6 shadow-[0_1.66px_8.28px_rgba(0,0,0,0.06)]">
+                        <div className="rounded-lg bg-white p-6 shadow-[0_1.66px_8.28px_rgba(0,0,0,0.06)]">
                             <Skeleton active paragraph={{ rows: 5 }} />
                         </div>
                     </div>

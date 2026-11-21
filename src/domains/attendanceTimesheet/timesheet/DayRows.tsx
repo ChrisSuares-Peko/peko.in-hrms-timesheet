@@ -12,8 +12,9 @@
 import type { ReactNode } from 'react';
 
 import { CaretDownOutlined, CaretRightOutlined } from '@ant-design/icons';
-import { Empty, Tag } from 'antd';
+import { Empty } from 'antd';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { entryTimeText, formatDuration } from '@src/prototype/rules/attendance';
 
 import { DayStatusTag } from '../components/StatusTags';
@@ -106,8 +107,8 @@ export const DayRow = ({ day, mode, today, shift, overtime, expanded, axisEnd = 
                 disabled={!clickable}
                 className="flex cursor-pointer flex-row items-center gap-2 border-0 bg-transparent px-3.5 pt-2.5 text-left disabled:cursor-default md:flex-col md:items-start md:gap-[3px] md:px-4 md:py-3"
             >
-                <span className={`text-sm font-medium ${isToday ? 'text-red-500' : 'text-gray-900'}`}>{head.day}</span>
-                <span className="text-xs text-gray-500">{head.sub}</span>
+                <span className={`text-sm font-medium ${isToday ? 'text-red-500' : 'text-[#121212]'}`}>{head.day}</span>
+                <span className="text-xs text-[#8B8B8B]">{head.sub}</span>
                 {mode === 'both' && !['upcoming'].includes(day.attendance.status) && <DayStatusTag status={day.attendance.status} label={day.attendance.label} />}
             </button>
             {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
@@ -115,18 +116,18 @@ export const DayRow = ({ day, mode, today, shift, overtime, expanded, axisEnd = 
                 <div className="mb-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs tabular-nums text-gray-600" data-day-meta>
                     <span>{dayMeta(day, mode, shift, today)}</span>
                     <span>
-                        <b className="font-medium text-gray-900">{loggedText(day, mode)}</b>
-                        {untimed ? <span className="text-gray-500"> · {formatDuration(untimed)} without set times</span> : null}
+                        <b className="font-medium text-[#121212]">{loggedText(day, mode)}</b>
+                        {untimed ? <span className="text-[#8B8B8B]"> · {formatDuration(untimed)} without set times</span> : null}
                     </span>
                     {overtime > 0 && (
-                        <Tag color="orange" className="!m-0">
+                        <StatusTag color="orange" className="!m-0">
                             +{formatDuration(overtime)} OT
-                        </Tag>
+                        </StatusTag>
                     )}
                     {outside > 0 && (
-                        <Tag color="blue" className="!m-0">
+                        <StatusTag color="blue" className="!m-0">
                             {outsideChipText(day, outside)}
-                        </Tag>
+                        </StatusTag>
                     )}
                     <span className="flex-1" />
                     {clickable && <span className="text-gray-400">{caret}</span>}
@@ -149,7 +150,7 @@ const Axis = ({ axisEnd }: { axisEnd: number }) => (
                     </span>
                 ))}
             </div>
-            <div className="mb-1.5 mt-0.5 flex flex-wrap gap-3.5 text-[11px] text-gray-500">
+            <div className="mb-1.5 mt-0.5 flex flex-wrap gap-3.5 text-[11px] text-[#8B8B8B]">
                 <span className="inline-flex items-center gap-1.5">
                     <i className="inline-block h-2 w-3.5 rounded-sm bg-[#D9DDE3]" />
                     At work
@@ -190,7 +191,7 @@ export interface DayRowsProps {
 const DayRows = ({ days, mode, today, shift, view, selected, overtimeOf, onToggle, panel }: DayRowsProps) => {
     const axisEnd = axisEndFor(days);
     return (
-        <section aria-label="Days" className="min-w-0 overflow-hidden rounded-[32px] bg-white py-3 shadow-[0_1.66px_8.28px_rgba(0,0,0,0.06)]">
+        <section aria-label="Days" className="min-w-0 overflow-hidden rounded-lg bg-white py-3 shadow-[0_1.66px_8.28px_rgba(0,0,0,0.06)]">
             <Axis axisEnd={axisEnd} />
             {days.map(d => {
                 const expanded = view === 'day' || selected === d.date;

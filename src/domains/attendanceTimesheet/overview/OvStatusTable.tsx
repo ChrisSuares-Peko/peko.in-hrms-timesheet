@@ -14,12 +14,13 @@
 import { ReactNode } from 'react';
 
 
-import { Table, Tag } from 'antd';
+import { Table } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { Link } from 'react-router-dom';
 
 import { EssCard, EssSectionHeading } from '@src/components/ess/EssUi';
+import StatusTag from '@src/components/peko/StatusTag';
 import { hasCheckIn, hasTimesheets } from '@src/prototype/rules/attendance';
 
 import { displayTime, formatDuration } from '../components/format';
@@ -28,14 +29,14 @@ import type { AtsMode, AtsTab, OverviewDay } from '../types';
 const OT_COLOR = { pending: 'processing', approved: 'success', rejected: 'error', update_requested: 'warning' } as const;
 
 const Chip = ({ color, children }: { color: string; children: ReactNode }) => (
-    <Tag color={color} bordered={false} className="!m-0 inline-block whitespace-normal px-2 align-middle text-xs leading-4">
+    <StatusTag color={color} className="!m-0 inline-block whitespace-normal px-2 align-middle text-xs leading-4">
         {children}
-    </Tag>
+    </StatusTag>
 );
 
 const checkInCell = (d: OverviewDay, today: string) => {
     const a = d.attendance;
-    if (a.status === 'on-leave') return <Chip color="blue">Leave</Chip>;
+    if (a.status === 'on-leave') return <Chip color="purple">Leave</Chip>;
     if (a.checkIn) {
         return (
             <>
@@ -58,14 +59,14 @@ const checkOutCell = (d: OverviewDay) => {
             </>
         );
     }
-    if (a.checkIn) return <span className="text-[#9e9e9e]">{a.carried ? 'Still checked in' : 'Still in'}</span>;
+    if (a.checkIn) return <span className="text-[#8B8B8B]">{a.carried ? 'Still checked in' : 'Still in'}</span>;
     return null;
 };
 
 const workedCell = (d: OverviewDay, today: string) => {
     const a = d.attendance;
     if (!a.checkIn || a.status === 'on-leave' || a.status === 'absent') return null;
-    if (a.carried) return <span className="text-[#9e9e9e]">Not counted yet</span>;
+    if (a.carried) return <span className="text-[#8B8B8B]">Not counted yet</span>;
     if (!a.checkOut && d.date === today) return `${formatDuration(a.minutesAtWork)} so far`;
     return a.checkOut ? formatDuration(a.minutesAtWork) : null;
 };
@@ -120,9 +121,9 @@ const OvStatusTable = ({
             withDate: true,
             hint: `Open in ${dateTab === 'attendance' ? 'Attendance' : 'Timesheet'}`,
             cell: d => (
-                <span className={`whitespace-nowrap font-medium ${d.date === today ? 'text-[#FF4F4F]' : 'text-[#080808]'}`}>
+                <span className={`whitespace-nowrap font-medium ${d.date === today ? 'text-[#FF3A3A]' : 'text-[#121212]'}`}>
                     {dayjs(d.date).format('ddd D MMM')}
-                    {d.date === today && <span className="font-normal text-[#9e9e9e]"> today</span>}
+                    {d.date === today && <span className="font-normal text-[#8B8B8B]"> today</span>}
                 </span>
             ),
         },
@@ -148,7 +149,7 @@ const OvStatusTable = ({
                 to={linkTo(c.tab, c.withDate ? d.date : undefined)}
                 title={c.hint}
                 aria-label={`${dayjs(d.date).format('D MMM')}: ${c.hint}`}
-                className="block min-h-[44px] px-2 py-3 text-sm tabular-nums text-[#080808] decoration-[#c4c4c4] underline-offset-[3px] hover:bg-[#EEF3FF] hover:text-[#080808] hover:underline"
+                className="block min-h-[44px] px-2 py-3 text-sm tabular-nums text-[#121212] decoration-[#c4c4c4] underline-offset-[3px] hover:bg-[#EEF3FF] hover:text-[#121212] hover:underline"
             >
                 {c.cell(d)}
             </Link>
@@ -159,7 +160,7 @@ const OvStatusTable = ({
         <EssCard label="Recent days" heading={<EssSectionHeading title="Recent days" />} className={className}>
             {/* PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the table fills the card — its rows share the
                 spare height (ov-stretch-table) and, if there are more days than fit, it scrolls inside. */}
-            <div className="ov-stretch-table overflow-hidden rounded-[18px] border border-solid border-[#eff1f4] xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+            <div className="ov-stretch-table overflow-hidden rounded-lg border border-solid border-[#eff1f4] xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
                 <Table<OverviewDay>
                     rowKey="date"
                     columns={columns}

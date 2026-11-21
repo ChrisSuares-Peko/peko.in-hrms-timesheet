@@ -108,7 +108,7 @@ const MyTeamPage = () => {
                         label: (
                             <Flex gap={6} align="center">
                                 <span>{TAB_LABEL[tab]}</span>
-                                {tab === 'approvals' && waiting ? <Badge count={waiting} size="small" color="#FF4F4F" /> : null}
+                                {tab === 'approvals' && waiting ? <Badge count={waiting} size="small" color="#FF3A3A" /> : null}
                             </Flex>
                         ),
                         children: active === tab ? renderTab(tab) : null,

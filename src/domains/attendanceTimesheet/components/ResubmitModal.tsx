@@ -159,7 +159,7 @@ const ResubmitModal = ({
                             {dateBox('resubmit-from', v.half ? 'Date' : 'From', v.start, d => set({ start: d, ...(v.half || d > v.end ? { end: d } : {}) }))}
                             {!v.half && dateBox('resubmit-to', 'To', v.end, d => set({ end: d }))}
                         </div>
-                        {v.half && <Text className="text-xs text-gray-500">Half day ({v.half === 'FIRST' ? 'first' : 'second'} half) — one date.</Text>}
+                        {v.half && <Text className="text-xs text-[#8B8B8B]">Half day ({v.half === 'FIRST' ? 'first' : 'second'} half) — one date.</Text>}
                         <Field label="Reason">
                             <Input.TextArea aria-label="Reason" rows={2} maxLength={300} value={v.reason} onChange={e => set({ reason: e.target.value })} />
                         </Field>

@@ -50,7 +50,7 @@ export const EssSectionHeading = ({
                 </Link>
             )}
         </div>
-        {sub && <p className="m-0 mt-0.5 text-xs text-[#9e9e9e]">{sub}</p>}
+        {sub && <p className="m-0 mt-0.5 text-xs text-[#8B8B8B]">{sub}</p>}
     </div>
 );
 
@@ -100,7 +100,7 @@ export const EssStatusBlock = ({
     const t = TONE[tone];
     const ink: CSSProperties = { color: t.ink };
     return (
-        <div role={role} className="flex min-w-0 items-center gap-3 rounded-2xl px-4 py-3" style={{ backgroundColor: t.bg }}>
+        <div role={role} className="flex min-w-0 items-center gap-3 rounded-lg px-4 py-3" style={{ backgroundColor: t.bg }}>
             <span className="shrink-0 text-xl" style={{ color: t.icon }} aria-hidden>
                 {icon ?? <EnvironmentFilled />}
             </span>

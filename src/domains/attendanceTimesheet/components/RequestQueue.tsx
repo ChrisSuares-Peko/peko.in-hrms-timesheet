@@ -7,9 +7,11 @@
 import { Fragment, useState } from 'react';
 
 import { CheckOutlined, CloseOutlined, EditOutlined, LockOutlined } from '@ant-design/icons';
-import { Alert, Avatar, Button, Flex, Input, Modal, Tag, Tooltip, Typography } from 'antd';
+import { Alert, Avatar, Button, Flex, Input, Modal, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+
+import StatusTag from '@src/components/peko/StatusTag';
 
 
 import type { OvertimeContext, RequestItem } from '../types';
@@ -23,7 +25,7 @@ dayjs.extend(relativeTime);
 const ProfileChanges = ({ item }: { item: RequestItem }) => {
     const changes = item.profile?.changes ?? [];
     return (
-        <div className="max-w-[520px] rounded-xl bg-[#F9FAFB] px-3 py-2">
+        <div className="max-w-[520px] rounded-lg bg-[#F9FAFB] px-3 py-2">
             <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
                 {changes.map(c => (
                     <Fragment key={c.field}>
@@ -85,11 +87,11 @@ const CorrectionTimes = ({ item }: { item: RequestItem }) => {
         },
     ];
     return (
-        <div className="rounded-xl bg-[#F9FAFB] px-3 py-2 max-w-[420px]">
+        <div className="rounded-lg bg-[#F9FAFB] px-3 py-2 max-w-[420px]">
             <Flex gap={6} align="center" className="mb-1">
-                <Tag color="blue" className="!m-0">
+                <StatusTag color="blue" className="!m-0">
                     Correction
-                </Tag>
+                </StatusTag>
             </Flex>
             <div className="grid grid-cols-[auto_1fr_1fr] gap-x-4 gap-y-0.5 text-sm">
                 <span />
@@ -134,13 +136,13 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
     };
     return (
         <div
-                        className={`rounded-2xl border border-solid bg-white p-4 ${
-                item.waitingForYou ? 'border-[#FECDCA]' : 'border-[#EAECF0]'
+            className={`rounded-lg border border-solid bg-white p-4 ${
+                item.waitingForYou ? 'border-[#FFE4E4]' : 'border-[#EAEAEA]'
             }`}
         >
             <Flex gap={12} align="flex-start" wrap="wrap" justify="space-between">
                 <Flex gap={12} align="flex-start" className="min-w-0 flex-1 basis-[260px]">
-                    <Avatar className="!bg-[#FF4F4F] shrink-0">
+                    <Avatar className="!bg-[#FF3A3A] shrink-0">
                         {item.employee.name
                             .split(' ')
                             .slice(0, 2)
@@ -155,7 +157,7 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
                                 {item.employee.department ? ` · ${item.employee.department}` : ''}
                             </Typography.Text>
                         </Flex>
-                        <Typography.Text className="font-medium text-[#171717]">{item.title}</Typography.Text>
+                        <Typography.Text className="font-medium text-[#121212]">{item.title}</Typography.Text>
                         {item.correction && <CorrectionTimes item={item} />}
                         {item.profile && <ProfileChanges item={item} />}
                         {!item.correction && !item.profile && item.detail && <Typography.Text>{item.detail}</Typography.Text>}
@@ -198,16 +200,18 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
                     </Tooltip>
                     {item.waitingForYou && (
                         <Flex gap={8} wrap="wrap" justify="flex-end">
-                            <Button icon={<CloseOutlined />} onClick={() => onDecide('reject')}>
+                            {/* PROTOTYPE-SETUP (Design update): small row buttons; Approve is outlined green (peko-approve). */}
+                            <Button size="small" icon={<CloseOutlined />} onClick={() => onDecide('reject')}>
                                 Reject
                             </Button>
                             {/* PROTOTYPE-SETUP (My team, Slice 3): straight back to the employee, with a comment. */}
-                            <Button icon={<EditOutlined />} onClick={() => onDecide('update')} data-ask-update>
+                            <Button size="small" icon={<EditOutlined />} onClick={() => onDecide('update')} data-ask-update>
                                 Ask for update
                             </Button>
                             <Tooltip title={item.blockedReason}>
                                 <Button
-                                    type="primary"
+                                    size="small"
+                                    className="peko-approve"
                                     icon={<CheckOutlined />}
                                     disabled={Boolean(item.blockedReason)}
                                     onClick={approve}

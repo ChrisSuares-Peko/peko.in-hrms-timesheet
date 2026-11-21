@@ -10,10 +10,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
-import { Badge, Button, Empty, Flex, Skeleton, Tag, Tooltip, Typography } from 'antd';
+import { Badge, Button, Empty, Flex, Skeleton, Tooltip, Typography } from 'antd';
 import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import StatusTag from '@src/components/peko/StatusTag';
 import { addDays, addMonths, monthDates } from '@src/prototype/rules/attendance';
 import { typeLabel } from '@src/prototype/rules/leave';
 
@@ -37,13 +38,13 @@ export const offOn = (view: TeamLeaveView, date: string) =>
 /** "Also off: Rahul, Priya" (amber) or "No one else off" (green). */
 const ClashChip = ({ names }: { names: string[] }) =>
     names.length ? (
-        <Tag color="warning" className="!m-0 whitespace-normal" data-clash="amber">
+        <StatusTag color="warning" className="!m-0 whitespace-normal" data-clash="amber">
             Also off: {names.join(', ')}
-        </Tag>
+        </StatusTag>
     ) : (
-        <Tag color="success" className="!m-0" data-clash="green">
+        <StatusTag color="success" className="!m-0" data-clash="green">
             No one else off
-        </Tag>
+        </StatusTag>
     );
 
 /** Leave requests waiting for the manager (level 1), earliest first. */
@@ -51,9 +52,9 @@ const LeaveToApprove = ({ items, onShow, onDecide }: { items: RequestItem[] | nu
     <section aria-label="Leave to approve" className={`${ESS_CARD} flex h-full min-h-0 flex-col !px-0 !py-0`} data-leave-to-approve>
         <div className="px-4 pb-2 pt-4">
             <Flex align="center" gap={8}>
-                <h3 className="m-0 text-base font-medium text-gray-900">Leave to approve</h3>
+                <h3 className="m-0 text-base font-medium text-[#121212]">Leave to approve</h3>
                 <span className="flex-1" />
-                {items && items.length > 0 && <Badge count={items.length} color="#FF4F4F" data-approve-count />}
+                {items && items.length > 0 && <Badge count={items.length} color="#FF3A3A" data-approve-count />}
             </Flex>
             <Text type="secondary" className="text-xs">
                 Check who else is off before you approve.
@@ -160,7 +161,7 @@ const TeamLeaveCalendar = ({ onChanged, loadMonth, loadPending: pendingLoader, d
                 <div className={`${ESS_CARD} !p-2 overflow-x-auto`}>
                     <div className="grid min-w-[640px] grid-cols-7 gap-1">
                         {WEEKDAYS.map(d => (
-                            <div key={d} className="px-1 py-1 text-center text-xs font-medium text-gray-500">
+                            <div key={d} className="px-1 py-1 text-center text-xs font-medium text-[#8B8B8B]">
                                 {d}
                             </div>
                         ))}
@@ -171,11 +172,11 @@ const TeamLeaveCalendar = ({ onChanged, loadMonth, loadPending: pendingLoader, d
                             return (
                                 <div
                                     key={d}
-                                    className={`flex min-h-[86px] min-w-0 flex-col gap-1 rounded-lg border border-solid p-1.5 ${shaded ? 'border-transparent bg-[#F5F6F7]' : 'border-gray-100'} ${d === view.today ? '!border-[#FF4F4F]' : ''}`}
+                                    className={`flex min-h-[86px] min-w-0 flex-col gap-1 rounded-lg border border-solid p-1.5 ${shaded ? 'border-transparent bg-[#F5F6F7]' : 'border-gray-100'} ${d === view.today ? '!border-[#FF3A3A]' : ''}`}
                                     data-cal-day={d}
                                 >
                                     <div className="flex items-center justify-between">
-                                        <span className={`text-xs ${d === view.today ? 'font-semibold text-[#FF4F4F]' : 'text-gray-600'}`}>{dayjs(d).date()}</span>
+                                        <span className={`text-xs ${d === view.today ? 'font-semibold text-[#FF3A3A]' : 'text-gray-600'}`}>{dayjs(d).date()}</span>
                                         {off.length > 0 && <span className="text-[10px] font-medium text-[#5925DC]" data-off-count>{off.length} off</span>}
                                     </div>
                                     {off.map(({ person, leave }) => (

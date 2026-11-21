@@ -29,7 +29,7 @@ export const Panel = ({
             <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
                 <div className="min-w-0">
                     {title && <Text className={`block ${ESS_SECTION_TITLE}`}>{title}</Text>}
-                    {subtitle && <Text className="block text-xs text-[#9e9e9e]">{subtitle}</Text>}
+                    {subtitle && <Text className="block text-xs text-[#8B8B8B]">{subtitle}</Text>}
                 </div>
                 {extra}
             </div>
@@ -50,10 +50,10 @@ export const StatTile = ({
     tone?: string;
     hint?: ReactNode;
 }) => (
-    <div className={`rounded-2xl px-4 py-3 min-w-0 ${tone}`}>
-        <div className="text-lg sm:text-xl font-semibold leading-tight text-[#080808] tabular-nums">{value}</div>
-        <Text className="block text-xs text-[#616161] leading-snug">{label}</Text>
-        {hint && <Text className="block text-[11px] text-[#9e9e9e] leading-snug">{hint}</Text>}
+    <div className={`rounded-lg px-4 py-3 min-w-0 ${tone}`}>
+        <div className="text-lg sm:text-xl font-semibold leading-tight text-[#121212] tabular-nums">{value}</div>
+        <Text className="block text-xs text-[#8B8B8B] leading-snug">{label}</Text>
+        {hint && <Text className="block text-[11px] text-[#8B8B8B] leading-snug">{hint}</Text>}
     </div>
 );
 

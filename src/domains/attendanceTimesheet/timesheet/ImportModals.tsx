@@ -10,10 +10,11 @@
 // Rules and wording: src/prototype/rules/timesheetImport.ts.
 import { useEffect, useState } from 'react';
 
-import { Alert, Button, DatePicker, Modal, Segmented, Table, Tag, Typography } from 'antd';
+import { Alert, Button, DatePicker, Modal, Segmented, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { downloadSheet } from '@src/domains/dashboard/globalBusinessSetup/utils/excel/downloadSheet';
 import { useAppDispatch } from '@src/hooks/store';
 import { addDays, locationChip, weekStartOf } from '@src/prototype/rules/attendance';
@@ -278,23 +279,23 @@ export const UploadModal = ({
     const statusOf = (r: ImportRow) => {
         if (r.skipped) {
             return (
-                <Tag className="!m-0 whitespace-normal" data-skipped>
+                <StatusTag className="!m-0 whitespace-normal" data-skipped>
                     {r.skipped}
-                </Tag>
+                </StatusTag>
             );
         }
         if (!r.ready) {
             return (
-                <Tag color="error" className="!m-0 whitespace-normal">
+                <StatusTag color="error" className="!m-0 whitespace-normal">
                     {r.reason}
-                </Tag>
+                </StatusTag>
             );
         }
         return (
             <span className="flex flex-col gap-0.5">
-                <Tag color="success" className="!m-0 w-fit">
+                <StatusTag color="success" className="!m-0 w-fit">
                     Ready
-                </Tag>
+                </StatusTag>
                 {r.note && <span className="text-[11px] text-[#B54708]">{r.note}</span>}
             </span>
         );

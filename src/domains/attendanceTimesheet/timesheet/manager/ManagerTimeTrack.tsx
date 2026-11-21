@@ -115,7 +115,7 @@ const ManagerTimeTrack = ({ day, range, isToday, compact }: TimeTrackProps) => {
 
 /** Colour key for the track. */
 export const TimeTrackLegend = ({ windowKind }: { windowKind: TimesheetDay['window']['kind'] }) => (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-500">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[#8B8B8B]">
         {windowKind !== 'none' && (
             <span className="inline-flex items-center gap-1">
                 <span

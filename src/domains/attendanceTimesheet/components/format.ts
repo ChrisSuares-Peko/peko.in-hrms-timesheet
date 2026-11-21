@@ -30,14 +30,14 @@ export const fmtWeekRange = (weekStart: string) => {
 /** "7 Oct, 10:42 AM" for ISO timestamps (12-hour — HR rules, Slice 5) */
 export const fmtStamp = (iso: string) => dayjs(iso).format('D MMM, h:mm A');
 
-/** antd Tag colours per day status. */
+/** Status tag colours per day status (antd preset names, mapped onto the Peko pairs by StatusTag). */
 export const DAY_STATUS_COLOR: Record<DayStatus, string> = {
     present: 'success',
     late: 'warning',
     'half-day': 'orange',
     absent: 'error',
     'on-leave': 'purple',
-    holiday: 'cyan',
+    holiday: 'purple',
     'weekly-off': 'default',
     'worked-off-day': 'geekblue',
     'not-checked-in': 'default',
@@ -54,5 +54,6 @@ export const WEEK_STATUS: Record<TimesheetStatus, { label: string; color: string
     WITH_PAYROLL: { label: 'With Payroll', color: 'processing' },
     APPROVED: { label: 'Approved', color: 'success' },
     // PROTOTYPE-SETUP (My team, Slice 1): "Ask for update" — back with the employee (either level).
-    SENT_BACK: { label: 'Update requested', color: 'error' },
+    // PROTOTYPE-SETUP (Design update): update requested is the warning pair.
+    SENT_BACK: { label: 'Update requested', color: 'warning' },
 };

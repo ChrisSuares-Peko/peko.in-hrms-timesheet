@@ -11,8 +11,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { LockOutlined } from '@ant-design/icons';
-import { Button, Input, Popconfirm, Tag } from 'antd';
+import { Button, Input, Popconfirm } from 'antd';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import {
     DEFAULT_FILING,
     MINUTES_PER_DAY,
@@ -76,11 +77,11 @@ export const breakEntries = (day: TimesheetDay): TimesheetEntry[] => [
 const LeaveLine = ({ row }: { row: TimesheetLeaveRow }) => (
     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-0 border-b border-solid border-gray-100 bg-[#F5F3FF] px-1 py-1.5 text-[13px] last:border-b-0" data-leave-row={row.kind}>
         <span className="w-[140px] shrink-0 tabular-nums text-gray-700">{entryTimeText({ start: row.start, end: row.end })}</span>
-        <span className="w-[56px] shrink-0 tabular-nums text-gray-500">{formatDuration(row.minutes)}</span>
+        <span className="w-[56px] shrink-0 tabular-nums text-[#8B8B8B]">{formatDuration(row.minutes)}</span>
         <span className="order-last flex min-w-0 basis-full items-center gap-1.5 md:order-none md:flex-1 md:basis-0">
-            <Tag className="!m-0 !bg-[#EBDDFD] !text-[#5B21B6]" bordered={false}>
+            <StatusTag tone="leave">
                 {row.tag}
-            </Tag>
+            </StatusTag>
             <span className="min-w-0 break-words text-gray-700">{row.description}</span>
         </span>
     </div>
@@ -101,11 +102,11 @@ const BreakLine = ({ day, brk, editable, onSave }: { day: TimesheetDay; brk: Tim
             data-break-row
         >
             <span className="w-[140px] shrink-0 tabular-nums text-gray-700">{entryTimeText({ start: brk.start, end: brk.end })}</span>
-            <span className="w-[56px] shrink-0 tabular-nums text-gray-500">{formatDuration(brk.minutes)}</span>
+            <span className="w-[56px] shrink-0 tabular-nums text-[#8B8B8B]">{formatDuration(brk.minutes)}</span>
             <span className="order-last flex min-w-0 basis-full items-center gap-1.5 md:order-none md:flex-1 md:basis-0">
-                <Tag className="!m-0" bordered={false}>
+                <StatusTag className="!m-0">
                     Break{brk.running ? ' (now)' : ''}
-                </Tag>
+                </StatusTag>
                 {editing ? (
                     <Input
                         size="small"
@@ -190,42 +191,42 @@ const EntryLine = ({
             data-highlighted={highlighted || undefined}
         >
             {showTimes && (
-                <span className={`${entry.endNext ? 'w-[180px]' : 'w-[140px]'} shrink-0 tabular-nums ${isTimed(entry) ? 'font-medium text-gray-900' : 'italic text-gray-400'}`}>
+                <span className={`${entry.endNext ? 'w-[180px]' : 'w-[140px]'} shrink-0 tabular-nums ${isTimed(entry) ? 'font-medium text-[#121212]' : 'italic text-gray-400'}`}>
                     {entryTimeText(entry)}
                 </span>
             )}
-            <span className={`w-[56px] shrink-0 tabular-nums ${showTimes ? 'text-gray-500' : 'font-medium text-gray-900'}`}>{formatDuration(entryMins(entry))}</span>
+            <span className={`w-[56px] shrink-0 tabular-nums ${showTimes ? 'text-[#8B8B8B]' : 'font-medium text-[#121212]'}`}>{formatDuration(entryMins(entry))}</span>
             {/* PROTOTYPE-SETUP (V2): on phones the description gets its own full-width line under the times. */}
             <span className="order-last min-w-0 basis-full break-words text-gray-700 md:order-none md:flex-1 md:basis-0">
                 {/* PROTOTYPE-SETUP (Final batch, Slice 2): location and project chips. */}
-                <Tag bordered={false} className="!mr-1.5 align-middle !text-[11px]" data-location-chip>
+                <StatusTag className="!mr-1.5 align-middle !text-[11px]" data-location-chip>
                     {locationChip(entry.location, entry.client)}
-                </Tag>
+                </StatusTag>
                 {fields.projectCode && entry.projectCode && (
-                    <Tag color="blue" bordered={false} className="!mr-1.5 align-middle font-mono !text-[11px]" data-project-code>
+                    <StatusTag color="blue" className="!mr-1.5 align-middle font-mono !text-[11px]" data-project-code>
                         {entry.projectCode}
-                    </Tag>
+                    </StatusTag>
                 )}
                 {entry.description}
                 {outside && (
-                    <Tag color="blue" className="!ml-1.5 !mr-0 align-middle">
+                    <StatusTag color="blue" className="!ml-1.5 !mr-0 align-middle">
                         outside check-in
-                    </Tag>
+                    </StatusTag>
                 )}
                 {overlaps.map(o => (
-                    <Tag key={`${o.a}-${o.b}`} color="warning" className="!ml-1.5 !mr-0 align-middle" data-overlap-tag>
+                    <StatusTag key={`${o.a}-${o.b}`} color="warning" className="!ml-1.5 !mr-0 align-middle" data-overlap-tag>
                         Overlaps {rangeText(o.from, o.to)}
-                    </Tag>
+                    </StatusTag>
                 ))}
                 {showTimes && !isTimed(entry) && (
-                    <Tag color="error" className="!ml-1.5 !mr-0 align-middle">
+                    <StatusTag color="error" className="!ml-1.5 !mr-0 align-middle">
                         needs times
-                    </Tag>
+                    </StatusTag>
                 )}
                 {fields.projectCode && !entry.projectCode && (
-                    <Tag color="error" className="!ml-1.5 !mr-0 align-middle">
+                    <StatusTag color="error" className="!ml-1.5 !mr-0 align-middle">
                         needs a project code
-                    </Tag>
+                    </StatusTag>
                 )}
             </span>
             {editable && (
@@ -287,31 +288,31 @@ const EntriesPanel = ({
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div className="min-w-0" onClick={e => e.stopPropagation()}>
             {day.locked && (
-                <div className="mb-2 flex items-center gap-1.5 text-xs text-gray-500">
+                <div className="mb-2 flex items-center gap-1.5 text-xs text-[#8B8B8B]">
                     <LockOutlined /> Payroll processed for this month. Read-only.
                 </div>
             )}
             {showChips && (
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                     {outside > 0 && (
-                        <Tag color="blue" className="!m-0">
+                        <StatusTag color="blue" className="!m-0">
                             {outsideChipText(day, outside)}
-                        </Tag>
+                        </StatusTag>
                     )}
                     {outside > 0 && flag && !day.locked &&
                         (flag.pendingCorrection ? (
-                            <Tag color="processing" className="!m-0">
+                            <StatusTag color="processing" className="!m-0">
                                 Correction: {flag.pendingCorrection.statusLabel}
-                            </Tag>
+                            </StatusTag>
                         ) : (
                             <Button size="small" onClick={() => onFix(day)}>
                                 Request attendance correction
                             </Button>
                         ))}
                     {overtime > 0 && !overtimeRequest && (
-                        <Tag color="orange" className="!m-0">
+                        <StatusTag color="orange" className="!m-0">
                             {formatDuration(overtime)} overtime
-                        </Tag>
+                        </StatusTag>
                     )}
                     {overtime > 0 && !overtimeRequest && !day.locked && (
                         <Button size="small" onClick={() => onRequestOvertime(day, overtime)}>
@@ -320,13 +321,13 @@ const EntriesPanel = ({
                     )}
                     {overtimeRequest && <RequestStatusTag trail={overtimeRequest.trail} label={`Overtime: ${overtimeRequest.statusLabel}`} />}
                     {gaps.map(g => (
-                        <Tag key={g.from} color="warning" className="!m-0" data-gap-chip>
+                        <StatusTag key={g.from} color="warning" className="!m-0" data-gap-chip>
                             Not covered: {rangeText(g.from, g.to)} ({formatDuration(g.minutes)})
-                        </Tag>
+                        </StatusTag>
                     ))}
                 </div>
             )}
-            {rows.length === 0 && !editable && <div className="py-1 text-xs text-gray-500">No time logged.</div>}
+            {rows.length === 0 && !editable && <div className="py-1 text-xs text-[#8B8B8B]">No time logged.</div>}
             {rows.map(r => {
                 if (r.kind === 'leave') return <LeaveLine key={r.l.id} row={r.l} />;
                 if (r.kind === 'break') {

@@ -42,13 +42,13 @@ const changeText = (c: ProfileChange) => {
 const ReadOnly = ({ label, children }: { label: string; children: ReactNode }) => (
     <div className="min-w-0">
         <Text className={`block ${ESS_LABEL}`}>{label}</Text>
-        <Text className="block break-words text-base font-medium text-[#080808]">{children}</Text>
+        <Text className="block break-words text-base font-medium text-[#121212]">{children}</Text>
     </div>
 );
 
 const Field = ({ label, id, children, wide }: { label: string; id: string; children: ReactNode; wide?: boolean }) => (
     <div className={`flex min-w-0 flex-col gap-1 ${wide ? 'sm:col-span-2' : ''}`}>
-        <label htmlFor={id} className="text-xs text-gray-500">
+        <label htmlFor={id} className="text-xs text-[#8B8B8B]">
             {label}
         </label>
         {children}
@@ -198,7 +198,7 @@ const EssProfileEditor = () => {
         <>
             <section aria-label="Work details" className={CARD}>
                 <Text className={`block ${ESS_SECTION_TITLE}`}>Work details</Text>
-                <Text className="mb-5 block text-xs text-gray-500">Managed by HR. Ask HR if something here is wrong.</Text>
+                <Text className="mb-5 block text-xs text-[#8B8B8B]">Managed by HR. Ask HR if something here is wrong.</Text>
                 <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
                     <ReadOnly label="Employee ID">{work.employeeId}</ReadOnly>
                     <ReadOnly label="Work email">{work.workEmail}</ReadOnly>
@@ -210,7 +210,7 @@ const EssProfileEditor = () => {
                         {work.manager ? (
                             <>
                                 {work.manager.name}
-                                <span className="block text-xs font-normal text-gray-500">{work.manager.designation}</span>
+                                <span className="block text-xs font-normal text-[#8B8B8B]">{work.manager.designation}</span>
                             </>
                         ) : (
                             'No reporting manager'
@@ -224,7 +224,7 @@ const EssProfileEditor = () => {
 
             <section aria-label="Personal info" className={CARD}>
                 <Text className={`block ${ESS_SECTION_TITLE}`}>Personal info</Text>
-                <Text className="mb-5 block text-xs text-gray-500">
+                <Text className="mb-5 block text-xs text-[#8B8B8B]">
                     Changes go to HR for approval. Your profile updates once HR approves them.
                 </Text>
                 {banner && <div className="mb-5">{banner}</div>}
@@ -242,7 +242,7 @@ const EssProfileEditor = () => {
                                 </Button>
                             )}
                         </div>
-                        <Text className="text-xs text-gray-500">
+                        <Text className="text-xs text-[#8B8B8B]">
                             {locked ? 'Photo changes are locked while HR reviews your update.' : 'An image up to 1 MB.'}
                         </Text>
                         <input ref={fileInput} type="file" accept="image/*" className="hidden" aria-label="Upload a photo" onChange={onPhoto} />
@@ -284,12 +284,12 @@ const EssProfileEditor = () => {
                 )}
 
                 <div className="mt-6 flex flex-wrap items-center gap-3">
-                    <Button type="primary" danger disabled={!dirty || locked} loading={busy === 'send'} onClick={send}>
+                    <Button type="primary" disabled={!dirty || locked} loading={busy === 'send'} onClick={send}>
                         Send to HR for approval
                     </Button>
                     {dirty && !locked && <Button onClick={() => apply(view)}>Discard</Button>}
                     {!dirty && (
-                        <Text className="text-xs text-gray-500">
+                        <Text className="text-xs text-[#8B8B8B]">
                             {locked ? 'You can make more changes once HR responds.' : 'No unsaved changes'}
                         </Text>
                     )}

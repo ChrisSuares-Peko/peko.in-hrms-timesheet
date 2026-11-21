@@ -31,7 +31,6 @@ import {
     Skeleton,
     Switch,
     Table,
-    Tag,
     TimePicker,
     Typography,
 } from 'antd';
@@ -39,6 +38,7 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { DEFAULT_FILING, PROJECT_CODE_RE, WEEKDAYS, displayTime, filingFieldsError, formatDuration, hasCheckIn, normaliseApprover } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
@@ -242,7 +242,7 @@ const CategoriesCard = () => {
                             <div className="overflow-x-auto">
                                 <table className="w-full min-w-[520px] border-collapse text-sm">
                                     <thead>
-                                        <tr className="text-left text-xs text-gray-500">
+                                        <tr className="text-left text-xs text-[#8B8B8B]">
                                             <th className="py-1 pr-3 font-normal">Category</th>
                                             <th className="py-1 pr-3 font-normal">Monthly limit per employee</th>
                                             <th className="py-1 pr-3 font-normal">Receipt required</th>
@@ -332,8 +332,8 @@ const ModeCards = ({
                 <label
                     key={m.value}
                     htmlFor={`ats-mode-${m.value}`}
-                    className={`block cursor-pointer rounded-xl border border-solid p-4 transition-colors ${
-                        value === m.value ? 'border-[#ff4f4f] bg-[#FFF8F8]' : 'border-gray-200 bg-white'
+                    className={`block cursor-pointer rounded-lg border border-solid p-4 transition-colors ${
+                        value === m.value ? 'border-[#FF3A3A] bg-[#FFF8F8]' : 'border-gray-200 bg-white'
                     }`}
                 >
                     <Flex vertical gap={6}>
@@ -395,9 +395,9 @@ const ProjectCodeList = ({ value = [], onChange }: { value?: string[]; onChange?
             <Flex wrap gap={6} data-project-code-list>
                 {value.length === 0 && <Text type="secondary" className="text-xs">No codes yet.</Text>}
                 {value.map(c => (
-                    <Tag key={c} closable className="!m-0 font-mono" onClose={() => onChange?.(value.filter(x => x !== c))} closeIcon={<span aria-label={`Remove ${c}`}>×</span>}>
+                    <StatusTag key={c} closable className="!m-0 font-mono" onClose={() => onChange?.(value.filter(x => x !== c))} closeIcon={<span aria-label={`Remove ${c}`}>×</span>}>
                         {c}
-                    </Tag>
+                    </StatusTag>
                 ))}
             </Flex>
             <Flex gap={6}>
@@ -921,7 +921,7 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
                     <Button onClick={() => form.setFieldsValue(toForm(settings))} disabled={saving}>
                         Discard changes
                     </Button>
-                    <Button type="primary" danger htmlType="submit" loading={saving} disabled={Boolean(fieldsError) && !timesheetsOff}>
+                    <Button type="primary" htmlType="submit" loading={saving} disabled={Boolean(fieldsError) && !timesheetsOff}>
                         Save settings
                     </Button>
                 </Flex>

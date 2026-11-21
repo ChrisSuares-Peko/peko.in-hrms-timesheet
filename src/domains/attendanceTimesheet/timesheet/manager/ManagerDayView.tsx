@@ -6,8 +6,9 @@
 import { useState } from 'react';
 
 import { LockOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Tag, Tooltip } from 'antd';
+import { Button, Tooltip } from 'antd';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { formatDuration } from '@src/prototype/rules/attendance';
 import { findOverlaps } from '@src/prototype/rules/timesheetFiling';
 
@@ -82,7 +83,7 @@ const ManagerDayView = ({
     return (
         <div
             id={`ts-day-${day.date}`}
-            className={`flex min-w-0 flex-col gap-2.5 rounded-2xl border border-solid p-4 ${
+            className={`flex min-w-0 flex-col gap-2.5 rounded-lg border border-solid p-4 ${
                 isToday ? 'border-blue-300 shadow-sm' : 'border-gray-200'
             } ${noWindow && !day.entries.length ? 'bg-gray-50' : 'bg-white'}`}
         >
@@ -92,29 +93,29 @@ const ManagerDayView = ({
                         {onOpen ? (
                             <button
                                 type="button"
-                                className="cursor-pointer border-0 bg-transparent p-0 text-sm font-semibold text-gray-900 hover:text-blue-600"
+                                className="cursor-pointer border-0 bg-transparent p-0 text-sm font-semibold text-[#121212] hover:text-blue-600"
                                 onClick={() => onOpen(day.date)}
                             >
                                 {fmtDay(day.date)}
                             </button>
                         ) : (
-                            <span className="text-sm font-semibold text-gray-900">{fmtDay(day.date)}</span>
+                            <span className="text-sm font-semibold text-[#121212]">{fmtDay(day.date)}</span>
                         )}
                         {isToday && (
-                            <Tag color="blue" className="!m-0">
+                            <StatusTag color="blue" className="!m-0">
                                 Today
-                            </Tag>
+                            </StatusTag>
                         )}
                         {showStatus && <DayStatusTag status={status} label={day.attendance.label} />}
                         {day.locked && (
                             <Tooltip title={day.lockReason}>
-                                <Tag icon={<LockOutlined />} className="!m-0">
+                                <StatusTag icon={<LockOutlined />} className="!m-0">
                                     Read-only
-                                </Tag>
+                                </StatusTag>
                             </Tooltip>
                         )}
                     </div>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-[#8B8B8B]">
                         {day.window.label}
                         {/* PROTOTYPE-SETUP (HR rules, Slice 1): the day's breaks (they count as logged time). */}
                         {day.breaks.length > 0 && ` · Breaks ${formatDuration(day.breaks.reduce((s, b) => s + b.minutes, 0))}`}
@@ -142,7 +143,7 @@ const ManagerDayView = ({
             {!compact && <TimeTrackLegend windowKind={day.window.kind} />}
 
             {day.locked && day.lockReason && !compact && (
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-[#8B8B8B]">
                     <LockOutlined className="mr-1" />
                     {day.lockReason}
                 </span>

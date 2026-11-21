@@ -22,7 +22,7 @@ const TONE = {
     amber: 'bg-[#FFF6E0] border-[#FCE3A6]',
 } as const;
 
-const DOT = { pending: 'bg-[#2E62E8]', approved: 'bg-[#43B75D]', rejected: 'bg-[#FF4F4F]', update_requested: 'bg-[#F79009]' } as const;
+const DOT = { pending: 'bg-[#2E62E8]', approved: 'bg-[#43B75D]', rejected: 'bg-[#FF3A3A]', update_requested: 'bg-[#F79009]' } as const;
 
 const SHOWN_REQUESTS = 3;
 
@@ -81,7 +81,7 @@ const OvNotifications = ({
         <section aria-label="Notifications" className={`flex min-w-0 flex-col gap-5 ${ESS_PANEL} ${className}`}>
             <EssSectionHeading
                 title="Notifications"
-                extra={actions.length > 0 && <Badge count={`${actions.length} to do`} style={{ backgroundColor: '#FF4F4F' }} />}
+                extra={actions.length > 0 && <Badge count={`${actions.length} to do`} style={{ backgroundColor: '#FF3A3A' }} />}
             />
             {/* PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the feed scrolls inside the card, starting at the top. */}
             <div ref={feed} className="-mx-1 flex flex-col gap-5 px-1 pt-0.5 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
@@ -93,10 +93,10 @@ const OvNotifications = ({
                         dataSource={actions}
                         rowKey={a => `${a.kind}-${a.title}`}
                         renderItem={a => (
-                            <List.Item className={`!mb-2 !flex-col !items-stretch !gap-2 rounded-2xl border border-solid !px-4 !py-3 last:!mb-0 ${TONE[a.tone]}`}>
+                            <List.Item className={`!mb-2 !flex-col !items-stretch !gap-2 rounded-lg border border-solid !px-4 !py-3 last:!mb-0 ${TONE[a.tone]}`}>
                                 <div className="min-w-0">
-                                    <b className="block text-sm font-semibold text-[#080808]">{a.title}</b>
-                                    <span className="block text-xs text-[#616161]">{a.text}</span>
+                                    <b className="block text-sm font-semibold text-[#121212]">{a.title}</b>
+                                    <span className="block text-xs text-[#8B8B8B]">{a.text}</span>
                                 </div>
                                 <Button size="small" className="h-8 self-end px-3" onClick={() => onAction?.(a) || navigate(hrefOf(a.link))}>
                                     {a.button}
@@ -121,14 +121,14 @@ const OvNotifications = ({
                                 <button
                                     type="button"
                                     onClick={() => navigate(hrefOf(r.link))}
-                                    className="flex w-full cursor-pointer items-start gap-3 rounded-2xl border-0 bg-white px-4 py-3 text-left transition-shadow hover:shadow-sm"
+                                    className="flex w-full cursor-pointer items-start gap-3 rounded-lg border-0 bg-white px-4 py-3 text-left transition-shadow hover:shadow-sm"
                                 >
                                     <span aria-hidden className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${DOT[r.state]}`} />
                                     <span className="min-w-0 flex-1">
-                                        <span className="block text-sm font-medium text-[#080808]">
-                                            {r.title} <span className="font-normal text-[#616161]">{r.detail}</span>
+                                        <span className="block text-sm font-medium text-[#121212]">
+                                            {r.title} <span className="font-normal text-[#8B8B8B]">{r.detail}</span>
                                         </span>
-                                        <span className="block text-xs text-[#9e9e9e]">{r.statusText}</span>
+                                        <span className="block text-xs text-[#8B8B8B]">{r.statusText}</span>
                                     </span>
                                     <span className="shrink-0 rounded-full bg-[#ecfdf3] px-2.5 py-0.5 text-xs font-medium text-[#027a48]">
                                         {dayjs(r.at).format('D MMM')}
@@ -140,10 +140,10 @@ const OvNotifications = ({
                 </Group>
             )}
             {first && (
-                <div aria-label="Announcements" className="flex flex-col gap-2 rounded-2xl bg-white px-4 py-3">
+                <div aria-label="Announcements" className="flex flex-col gap-2 rounded-lg bg-white px-4 py-3">
                     <div className="flex items-baseline gap-2 text-sm">
-                        <span aria-hidden className="inline-block h-3 w-[3px] shrink-0 self-center rounded bg-[#FF4F4F]" />
-                        <span className="min-w-0 flex-1 text-[#080808]">{firstLine}</span>
+                        <span aria-hidden className="inline-block h-3 w-[3px] shrink-0 self-center rounded bg-[#FF3A3A]" />
+                        <span className="min-w-0 flex-1 text-[#121212]">{firstLine}</span>
                         {rest.length > 0 && (
                             <Button type="link" size="small" className="!h-auto !p-0 !text-xs" onClick={() => setAllNews(v => !v)} aria-expanded={allNews}>
                                 {allNews ? 'Show less' : `${rest.length} more`}
@@ -153,8 +153,8 @@ const OvNotifications = ({
                     {allNews &&
                         rest.map(n => (
                             <div key={n.title} className="pl-[11px]">
-                                <span className="block text-sm text-[#080808]">{n.title}</span>
-                                <span className="block text-xs text-[#616161]">{n.text}</span>
+                                <span className="block text-sm text-[#121212]">{n.title}</span>
+                                <span className="block text-xs text-[#8B8B8B]">{n.text}</span>
                             </div>
                         ))}
                 </div>

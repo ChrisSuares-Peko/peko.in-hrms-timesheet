@@ -30,7 +30,7 @@ const whyNot = (d: CompOffCalendarDay, data: CalendarData) => {
 
 const dayClass = (d: CompOffCalendarDay, selected: boolean) => {
     const base = 'relative h-[34px] rounded-lg border border-solid text-[13px] transition-colors';
-    const ring = selected ? 'border-[#FF4F4F] shadow-[0_0_0_1px_#FF4F4F]' : 'border-transparent';
+    const ring = selected ? 'border-[#FF3A3A] shadow-[0_0_0_1px_#FF3A3A]' : 'border-transparent';
     let tone = 'bg-transparent text-[#98A2B3]';
     if (d.kind === 'HOLIDAY') tone = d.available ? 'bg-[#FFF3C4] text-[#7A5B00]' : 'bg-[#FFF9E1] text-[#98A2B3]';
     else if (d.kind === 'WEEKLY_OFF') tone = d.available ? 'bg-[#EEF1F6] text-[#101828]' : 'bg-[#F4F6F9] text-[#98A2B3]';

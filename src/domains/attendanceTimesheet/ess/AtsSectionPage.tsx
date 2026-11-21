@@ -143,7 +143,7 @@ const AtsSectionPage = () => {
                         <span className="inline-flex items-center gap-1.5">
                             {TAB_LABEL[tab]}
                             {badgeFor(tab) > 0 && (
-                                <Badge count={badgeFor(tab)} size="small" color="#FF4F4F" />
+                                <Badge count={badgeFor(tab)} size="small" color="#FF3A3A" />
                             )}
                         </span>
                     ),

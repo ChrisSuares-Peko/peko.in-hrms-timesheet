@@ -143,7 +143,7 @@ export const CancelLeaveModal = ({
                         )}
                     </div>
                 )}
-                <div className="rounded-xl bg-[#F9FAFB] px-3 py-2">
+                <div className="rounded-lg bg-[#F9FAFB] px-3 py-2">
                     <Text type="secondary" className="block text-xs">
                         {hr && started ? 'Cancelling the rest of this leave' : 'Cancelling'}
                     </Text>
@@ -275,7 +275,7 @@ export const CompOffModal = ({
                     />
                 </div>
                 {check && !check.problem && (
-                    <div className="rounded-xl bg-[#ECFDF3] px-3 py-2 text-sm" data-comp-off-earns>
+                    <div className="rounded-lg bg-[#ECFDF3] px-3 py-2 text-sm" data-comp-off-earns>
                         <b className="font-medium">{daysText(check.days)} of comp off</b>
                         <span className="text-gray-600">
                             {' '}

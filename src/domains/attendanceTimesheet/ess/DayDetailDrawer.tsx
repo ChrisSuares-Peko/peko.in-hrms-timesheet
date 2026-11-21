@@ -7,9 +7,10 @@
 import { ReactNode } from 'react';
 
 import { InfoCircleOutlined, LockOutlined } from '@ant-design/icons';
-import { Alert, Button, Drawer, Popconfirm, Tag, Typography } from 'antd';
+import { Alert, Button, Drawer, Popconfirm, Typography } from 'antd';
 import dayjs from 'dayjs';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { locationDetailText } from '@src/prototype/rules/attendance';
 import { lateDayDetail } from '@src/prototype/rules/leave';
 
@@ -32,7 +33,7 @@ const STATE_COLOR: Record<string, string> = {
 
 const Row = ({ label, children }: { label: string; children: ReactNode }) => (
     <div className="flex items-center justify-between gap-3 py-2 border-b border-gray-100 last:border-b-0">
-        <Text className="text-sm text-[#616161]">{label}</Text>
+        <Text className="text-sm text-[#8B8B8B]">{label}</Text>
         <Text className="text-sm font-medium text-valueText text-right tabular-nums">{children}</Text>
     </div>
 );
@@ -75,11 +76,11 @@ const DayDetailDrawer = ({
             <div className="flex flex-col gap-5">
                 <div className="flex items-center gap-2 flex-wrap">
                     {beforeJoining ? (
-                        <Tag className="!m-0">{BEFORE_JOINING}</Tag>
+                        <StatusTag className="!m-0">{BEFORE_JOINING}</StatusTag>
                     ) : (
                         <DayStatusTag status={day.status} label={day.label} />
                     )}
-                    {showLabel && <Text className="text-sm text-[#616161]">{day.label}</Text>}
+                    {showLabel && <Text className="text-sm text-[#8B8B8B]">{day.label}</Text>}
                 </div>
 
                 {day.locked && (
@@ -92,7 +93,7 @@ const DayDetailDrawer = ({
                 )}
 
                 {!future && !beforeJoining && (
-                    <div className="rounded-2xl bg-[#F7F7F7] px-4 py-1">
+                    <div className="rounded-lg bg-[#F7F7F7] px-4 py-1">
                         <Row label="Check-in">{day.checkIn ? displayTime(day.checkIn) : '—'}</Row>
                         <Row label="Check-out">
                             {checkOutText}
@@ -127,20 +128,20 @@ const DayDetailDrawer = ({
                 )}
 
                 {day.correction && (
-                    <div className="flex flex-col gap-2 rounded-[26px] border border-solid border-[#e6e6e6] px-5 py-4">
+                    <div className="flex flex-col gap-2 rounded-lg border border-solid border-[#EAEAEA] px-5 py-4">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                             <Text className="text-sm font-semibold">Correction request</Text>
                             {correction ? (
                                 <RequestStatusTag trail={correction.trail} label={correction.statusLabel} />
                             ) : (
-                                <Tag color={STATE_COLOR[day.correction.state]} className="!m-0">
+                                <StatusTag color={STATE_COLOR[day.correction.state]} className="!m-0">
                                     {day.correction.statusLabel}
-                                </Tag>
+                                </StatusTag>
                             )}
                         </div>
                         {correction && (
                             <>
-                                <Text className="text-sm text-[#616161]">
+                                <Text className="text-sm text-[#8B8B8B]">
                                     Requested{' '}
                                     <b className="tabular-nums">
                                         {correction.requested.checkIn
@@ -152,7 +153,7 @@ const DayDetailDrawer = ({
                                             : '—'}
                                     </b>
                                 </Text>
-                                <Text className="text-sm text-[#616161] break-words">
+                                <Text className="text-sm text-[#8B8B8B] break-words">
                                     “{correction.reason}”
                                 </Text>
                                 <TrailSteps trail={correction.trail} />
@@ -176,33 +177,33 @@ const DayDetailDrawer = ({
                 )}
 
                 {future && !beforeJoining && (
-                    <Text className="text-sm text-[#616161]">
+                    <Text className="text-sm text-[#8B8B8B]">
                         <InfoCircleOutlined className="mr-1.5" />
                         This day hasn&apos;t happened yet.
                     </Text>
                 )}
                 {beforeJoining && (
-                    <Text className="text-sm text-[#616161]">
+                    <Text className="text-sm text-[#8B8B8B]">
                         <InfoCircleOutlined className="mr-1.5" />
                         This day is before you joined.
                     </Text>
                 )}
                 {pending && !day.locked && (
-                    <Text className="text-sm text-[#616161]">
+                    <Text className="text-sm text-[#8B8B8B]">
                         <InfoCircleOutlined className="mr-1.5" />A request for this day is waiting for
                         approval. Cancel it first if you need to change it.
                     </Text>
                 )}
 
                 {onClock && (
-                    <Text className="text-sm text-[#616161]">
+                    <Text className="text-sm text-[#8B8B8B]">
                         <InfoCircleOutlined className="mr-1.5" />
                         Use Check in / Check out for today.
                     </Text>
                 )}
                 {canAct && (
                     <div className="flex flex-col sm:flex-row gap-2">
-                        <Button type="primary" danger className="flex-1 h-10 rounded-lg font-medium" onClick={onRequest}>
+                        <Button type="primary" className="flex-1 font-medium" onClick={onRequest}>
                             Request correction
                         </Button>
                     </div>

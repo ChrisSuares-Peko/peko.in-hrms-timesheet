@@ -13,10 +13,11 @@
 //   Update requested . "{manager} asked for an update: {comment} Update it, then submit again." (My team, Slice 1)
 //   Approval off / payroll processed: an explanation, no action.
 import { LeftOutlined, RightOutlined, WarningOutlined } from '@ant-design/icons';
-import { Button, Skeleton, Tag } from 'antd';
+import { Button, Skeleton } from 'antd';
 import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import StatusTag from '@src/components/peko/StatusTag';
 import { displayTime, formatDuration } from '@src/prototype/rules/attendance';
 import { FREQUENCY_LABEL, PeriodReview, gapCount, periodKind } from '@src/prototype/rules/timesheetFiling';
 
@@ -24,12 +25,12 @@ import { WEEK_STATUS } from '../components/format';
 import type { TimesheetWeekView } from '../types';
 
 export const WeekChip = ({ view }: { view: TimesheetWeekView }) => {
-    if (!view.approvalEnabled) return <Tag className="!m-0">No approval needed</Tag>;
+    if (!view.approvalEnabled) return <StatusTag className="!m-0">No approval needed</StatusTag>;
     const chip = WEEK_STATUS[view.week.status];
     return (
-        <Tag color={chip.color} className="!m-0">
+        <StatusTag color={chip.color} className="!m-0">
             {chip.label}
-        </Tag>
+        </StatusTag>
     );
 };
 
@@ -112,8 +113,8 @@ const WeekStatusCard = ({ view, today, review, onStepPeriod, onReview, bare = fa
                     <Button size="small" type="text" icon={<LeftOutlined />} aria-label="Previous filing period" onClick={() => onStepPeriod(-1)} />
                 )}
                 <div className="min-w-0">
-                    <h3 className={`m-0 truncate font-medium text-gray-900 ${bare ? 'text-sm' : 'text-base'}`}>{filing.period.label}</h3>
-                    <span className="block text-[11px] text-[#9e9e9e]">
+                    <h3 className={`m-0 truncate font-medium text-[#121212] ${bare ? 'text-sm' : 'text-base'}`}>{filing.period.label}</h3>
+                    <span className="block text-[11px] text-[#8B8B8B]">
                         {FREQUENCY_LABEL[periodKind(filing.period.start, filing.period.end, filing.frequency)]} timesheet
                     </span>
                 </div>
@@ -123,7 +124,7 @@ const WeekStatusCard = ({ view, today, review, onStepPeriod, onReview, bare = fa
                 <span className="flex-1" />
                 <WeekChip view={view} />
             </div>
-            <p className="m-0 mt-2 text-xs text-gray-500" data-period-summary>
+            <p className="m-0 mt-2 text-xs text-[#8B8B8B]" data-period-summary>
                 {formatDuration(view.totals.loggedMinutes)} logged · {plural(entries, 'entry', 'entries')}
             </p>
             {warnings.length > 0 && (

@@ -144,7 +144,7 @@ const PayrollMonthPanel = () => {
 
                 {!target && (
                     <Flex align="start" gap={8}>
-                        <LockOutlined className="mt-1 text-gray-500" />
+                        <LockOutlined className="mt-1 text-[#8B8B8B]" />
                         <Text>Every month up to now is processed.</Text>
                     </Flex>
                 )}
@@ -195,7 +195,6 @@ const PayrollMonthPanel = () => {
                             </Flex>
                             <Button
                                 type="primary"
-                                danger
                                 size="large"
                                 disabled={!target.canProcess}
                                 loading={processing}

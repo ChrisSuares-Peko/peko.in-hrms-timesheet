@@ -72,7 +72,7 @@ export const breaksLine = (t: AtsOverview['today'], now: number) => {
     return `${t.breaks.length} break${t.breaks.length === 1 ? '' : 's'} today · ${formatDuration(total)}`;
 };
 
-const RED = { backgroundColor: '#FF4F4F', borderColor: '#FF4F4F', color: '#fff' };
+const RED = { backgroundColor: '#FF3A3A', borderColor: '#FF3A3A', color: '#fff' };
 const AMBER = { backgroundColor: '#FFFAEB', borderColor: '#F79009', color: '#B54708' };
 
 /**
@@ -176,7 +176,7 @@ export const AttendancePunch = ({
             {/* PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — "Working from". */}
             {overview.mode === 'attendance' && <LocationBar overview={overview} onOverview={onOverview} />}
             {t.checkIn && (
-                <div className="-mt-1 flex items-center justify-between gap-2 text-sm text-[#616161]" data-breaks-today>
+                <div className="-mt-1 flex items-center justify-between gap-2 text-sm text-[#8B8B8B]" data-breaks-today>
                     <span>{breaksLine(t, now)}</span>
                     {t.breaks.length > 0 && (
                         <Button type="link" size="small" className="!h-auto !p-0" onClick={() => setEditing(true)}>

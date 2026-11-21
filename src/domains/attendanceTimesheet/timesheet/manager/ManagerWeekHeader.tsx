@@ -6,8 +6,9 @@
 import type { ReactNode } from 'react';
 
 import { LockOutlined } from '@ant-design/icons';
-import { Alert, Tag } from 'antd';
+import { Alert } from 'antd';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { formatDuration } from '@src/prototype/rules/attendance';
 import { reviewPeriod, reviewSummary } from '@src/prototype/rules/timesheetFiling';
 
@@ -47,23 +48,23 @@ export const WeekStatusBar = ({ view, perspective, actions, note }: WeekStatusBa
     const checks = view.mode === 'none' ? '' : reviewSummary(reviewPeriod({ days: view.days, fields: view.filing.fields, mode: view.mode, today: todayIso() }));
 
     return (
-        <div className="flex min-w-0 flex-col gap-2 rounded-[26px] border border-solid border-[#e6e6e6] bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-solid border-[#EAEAEA] bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-gray-900">{view.filing.period.label}</span>
+                    <span className="text-sm font-semibold text-[#121212]">{view.filing.period.label}</span>
                     {view.approvalEnabled ? (
                         <WeekStatusTag status={week.status} changePending={changePending} />
                     ) : (
-                        <Tag className="!m-0">Recorded</Tag>
+                        <StatusTag className="!m-0">Recorded</StatusTag>
                     )}
                     {view.editMode === 'locked' && (
-                        <Tag icon={<LockOutlined />} className="!m-0">
+                        <StatusTag icon={<LockOutlined />} className="!m-0">
                             Locked
-                        </Tag>
+                        </StatusTag>
                     )}
                 </div>
                 <span className="text-xs text-gray-600">
-                    <span className="font-medium tabular-nums text-gray-900">
+                    <span className="font-medium tabular-nums text-[#121212]">
                         {formatDuration(totals.loggedMinutes)}
                     </span>{' '}
                     logged of {formatDuration(totals.expectedMinutes)} expected
@@ -76,7 +77,7 @@ export const WeekStatusBar = ({ view, perspective, actions, note }: WeekStatusBa
                         Check: {checks}
                     </span>
                 )}
-                {(note ?? defaultNote) && <span className="text-xs text-gray-500">{note ?? defaultNote}</span>}
+                {(note ?? defaultNote) && <span className="text-xs text-[#8B8B8B]">{note ?? defaultNote}</span>}
             </div>
             {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
         </div>
@@ -127,7 +128,7 @@ export const WeekNotices = ({ view, perspective }: WeekNoticesProps) => {
                     description={
                         <div className="flex flex-col gap-1">
                             {week.decision?.comment && (
-                                <span className="break-words text-base text-gray-900">“{week.decision.comment}”</span>
+                                <span className="break-words text-base text-[#121212]">“{week.decision.comment}”</span>
                             )}
                             <span className="text-xs text-gray-600">
                                 {employee

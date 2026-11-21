@@ -59,7 +59,7 @@ export const visibleTeamTabs = ({ mode }: Pick<TeamSettings, 'mode' | 'approvalO
 
 // ---- people ---------------------------------------------------------------------------------------------
 
-const AVATAR_COLORS = ['#FF4F4F', '#7A5AF8', '#12B76A', '#F79009', '#2E90FA', '#EE46BC'];
+const AVATAR_COLORS = ['#FF3A3A', '#7A5AF8', '#12B76A', '#F79009', '#2E90FA', '#EE46BC'];
 
 export const initialsOf = (name: string) =>
     name
@@ -91,7 +91,7 @@ export const PersonCell = ({
     <Flex gap={10} align="center" className="min-w-0">
         <PersonAvatar person={person} size={size} />
         <Flex vertical className="min-w-0">
-            <Typography.Text strong ellipsis className="text-[#171717]">
+            <Typography.Text strong ellipsis className="text-[#121212]">
                 {person.name}
             </Typography.Text>
             <Typography.Text type="secondary" ellipsis className="text-xs">
@@ -124,13 +124,13 @@ export const CountTile = ({
             </Typography.Text>
         </Flex>
     );
-    const cls = 'w-full text-left rounded-[26px] border border-solid border-[#e6e6e6] bg-white';
+    const cls = 'w-full text-left rounded-lg border border-solid border-[#EAEAEA] bg-white';
     if (!onClick) return <div className={cls}>{body}</div>;
     return (
         <button
             type="button"
             onClick={onClick}
-            className={`${cls} cursor-pointer transition-colors hover:border-[#FF4F4F] p-0`}
+            className={`${cls} cursor-pointer transition-colors hover:border-[#FF3A3A] p-0`}
         >
             {body}
         </button>

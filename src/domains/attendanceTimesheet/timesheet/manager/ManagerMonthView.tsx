@@ -46,8 +46,8 @@ const statusText = (d: MonthDay, atsMode: AtsMode) => {
 
 const Stat = ({ label, value, tone }: { label: string; value: string; tone?: string }) => (
     <div className="flex min-w-0 flex-col rounded-lg border border-solid border-gray-200 bg-white px-3 py-2">
-        <span className="text-xs text-gray-500">{label}</span>
-        <span className={`text-base font-semibold tabular-nums ${tone ?? 'text-gray-900'}`}>{value}</span>
+        <span className="text-xs text-[#8B8B8B]">{label}</span>
+        <span className={`text-base font-semibold tabular-nums ${tone ?? 'text-[#121212]'}`}>{value}</span>
     </div>
 );
 
@@ -75,8 +75,8 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                 <Stat label="Extra time" value={formatDuration(totals.extraMinutes)} />
             </div>
 
-            <div className="min-w-0 rounded-[26px] border border-solid border-[#e6e6e6] bg-white p-2 sm:p-3">
-                <div className="grid grid-cols-7 gap-1 pb-1 text-center text-[11px] font-medium uppercase text-gray-500">
+            <div className="min-w-0 rounded-lg border border-solid border-[#EAEAEA] bg-white p-2 sm:p-3">
+                <div className="grid grid-cols-7 gap-1 pb-1 text-center text-[11px] font-medium uppercase text-[#8B8B8B]">
                     {HEAD.map(h => (
                         <span key={h}>{h}</span>
                     ))}
@@ -85,7 +85,7 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                     {rows.map(({ w, tags }) => (
                         <div key={w.weekStart} className="flex flex-col gap-1">
                             <div className="flex flex-wrap items-center justify-between gap-1 px-0.5">
-                                <span className="text-xs text-gray-500">{fmtWeekRange(w.weekStart)}</span>
+                                <span className="text-xs text-[#8B8B8B]">{fmtWeekRange(w.weekStart)}</span>
                                 <span className="flex flex-wrap items-center gap-1">
                                     {tags.map(p => (
                                         <WeekStatusTag key={`${p.status}-${p.changePending}`} status={p.status} changePending={p.changePending} />
@@ -146,7 +146,7 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                                                 )}
                                             </span>
                                             {status && (
-                                                <span className="hidden w-full truncate text-[10px] leading-4 text-gray-500 md:block">
+                                                <span className="hidden w-full truncate text-[10px] leading-4 text-[#8B8B8B] md:block">
                                                     {status}
                                                 </span>
                                             )}
@@ -168,7 +168,7 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                     ))}
                 </div>
             </div>
-            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#8B8B8B]">
                 <span className="inline-flex items-center gap-1">
                     <span className="inline-block h-2.5 w-3 rounded-sm border border-solid border-gray-200 bg-red-50" />
                     Nothing logged

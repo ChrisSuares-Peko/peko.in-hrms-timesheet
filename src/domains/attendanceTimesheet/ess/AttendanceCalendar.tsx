@@ -85,7 +85,7 @@ const DayCell = ({
 }) => {
     const beforeJoining = day.label === BEFORE_JOINING;
     const look = DAY_LOOK[day.status];
-    const ring = (isSelected && 'ring-2 ring-[#1e293b]') || (isToday && 'ring-2 ring-[#FF4F4F]') || '';
+    const ring = (isSelected && 'ring-2 ring-[#1e293b]') || (isToday && 'ring-2 ring-[#FF3A3A]') || '';
     const dashed = day.status === 'not-checked-in' || day.status === 'upcoming';
     const pendingFix = day.correction?.state === 'pending';
     const times = cellTimes(day);
@@ -106,7 +106,7 @@ const DayCell = ({
             >
                 <span
                     className={`text-xs sm:text-sm leading-none tabular-nums ${
-                        isToday ? 'font-bold text-[#FF4F4F]' : 'font-medium text-valueText'
+                        isToday ? 'font-bold text-[#FF3A3A]' : 'font-medium text-valueText'
                     }`}
                 >
                     {dayjs(day.date).date()}
@@ -120,7 +120,7 @@ const DayCell = ({
                             {look.short}
                         </span>
                         {times && (
-                            <span className="hidden sm:block text-[10px] leading-tight tabular-nums text-[#616161]">
+                            <span className="hidden sm:block text-[10px] leading-tight tabular-nums text-[#8B8B8B]">
                                 {times}
                             </span>
                         )}
@@ -244,7 +244,7 @@ const AttendanceCalendar = ({
 
             <div className="flex flex-wrap gap-x-3 gap-y-1.5 pt-1">
                 {LEGEND.map(s => (
-                    <span key={s} className="inline-flex items-center gap-1.5 text-[11px] text-[#616161]">
+                    <span key={s} className="inline-flex items-center gap-1.5 text-[11px] text-[#8B8B8B]">
                         <span
                             className="inline-block w-3 h-3 rounded"
                             style={{ backgroundColor: DAY_LOOK[s].bg, border: `1px solid ${DAY_LOOK[s].fg}33` }}
@@ -255,11 +255,11 @@ const AttendanceCalendar = ({
                         {DAY_STATUS_LABEL[s]}
                     </span>
                 ))}
-                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#616161]">
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#8B8B8B]">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
                     Correction pending
                 </span>
-                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#616161]">
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#8B8B8B]">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
                     Still checked in
                 </span>

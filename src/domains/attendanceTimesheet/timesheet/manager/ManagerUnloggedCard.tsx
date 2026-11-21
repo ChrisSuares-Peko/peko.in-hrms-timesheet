@@ -39,14 +39,14 @@ const ManagerUnloggedCard = ({ periodLabel, items, loading, onOpenDay, perspecti
         >
             {loading && <Skeleton active paragraph={{ rows: 2 }} title={false} />}
             {!loading && !items.length && (
-                <div className="flex items-center gap-2 text-xs text-gray-500">
+                <div className="flex items-center gap-2 text-xs text-[#8B8B8B]">
                     <CheckCircleOutlined className="text-green-500" />
                     No unlogged hours on past days {periodLabel}.
                 </div>
             )}
             {!loading && items.length > 0 && (
                 <div className="flex flex-col">
-                    <span className="mb-1 text-xs text-gray-500">
+                    <span className="mb-1 text-xs text-[#8B8B8B]">
                         {perspective === 'employee'
                             ? `Past days ${periodLabel} with less logged than expected. Tap a day to fill it in.`
                             : `Past days ${periodLabel} with less logged than expected.`}
@@ -59,8 +59,8 @@ const ManagerUnloggedCard = ({ periodLabel, items, loading, onOpenDay, perspecti
                             className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-md border-0 bg-transparent px-1 py-1.5 text-left hover:bg-gray-50"
                         >
                             <span className="flex min-w-0 flex-col">
-                                <span className="text-sm text-gray-900">{fmtDay(i.date)}</span>
-                                <span className="text-[11px] text-gray-500">
+                                <span className="text-sm text-[#121212]">{fmtDay(i.date)}</span>
+                                <span className="text-[11px] text-[#8B8B8B]">
                                     {formatDuration(i.loggedMinutes)} of {formatDuration(i.expectedMinutes)} logged
                                 </span>
                             </span>

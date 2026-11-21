@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 
-import { Tabs, Typography } from 'antd';
+import { Tabs } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { PekoPageHeader } from '@src/components/peko/PageHeader';
 // PROTOTYPE-SETUP (Leave module): Leave Policies is rebuilt as Leave types · Public holidays · Configuration · Approvals.
 import LeavePoliciesTab from '@src/domains/attendanceTimesheet/leave/settings/LeavePoliciesTab';
 // PROTOTYPE-SETUP (Leave module, update): Payroll settings is opened from the dashboard's Quick actions too.
@@ -111,10 +112,9 @@ const OrganizationSettings = () => {
     return (
         <>
             <PayrollServiceBar active="settings" />
-            <Typography.Text className="font-normal text-lg sm:text-2xl">
-                Payroll Settings
-            </Typography.Text>
-            <Tabs className="mt-6" activeKey={activeTabKey} items={items} onChange={onChange} />
+            {/* PROTOTYPE-SETUP (Design update): the Peko page header. */}
+            <PekoPageHeader title="Payroll Settings" description="Rules for payroll and every service: leave, attendance, timesheet, overtime and reimbursements." />
+            <Tabs activeKey={activeTabKey} items={items} onChange={onChange} />
         </>
     );
 };

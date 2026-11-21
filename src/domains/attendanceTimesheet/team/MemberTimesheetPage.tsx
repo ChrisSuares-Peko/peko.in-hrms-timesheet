@@ -60,7 +60,7 @@ const AttendanceSummary = ({ employeeId, initialMonth }: { employeeId: number; i
         : [];
 
     return (
-        <div className="rounded-[26px] border border-solid border-[#e6e6e6] bg-white p-4">
+        <div className="rounded-lg border border-solid border-[#EAEAEA] bg-white p-4">
             <Flex justify="space-between" align="center" wrap="wrap" gap={8} className="mb-3">
                 <Typography.Text strong>Attendance</Typography.Text>
                 <Flex gap={6} align="center">
@@ -82,7 +82,7 @@ const AttendanceSummary = ({ employeeId, initialMonth }: { employeeId: number; i
             {data && (
                 <div className={`grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 gap-2 ${loading ? 'opacity-60' : ''}`}>
                     {tiles.map(t => (
-                        <CountTile key={t.label} label={t.label} value={t.value} color={t.color} />
+                        <CountTile key={t.label} label={t.label} value={t.value} />
                     ))}
                 </div>
             )}

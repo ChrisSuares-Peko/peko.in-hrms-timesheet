@@ -4,8 +4,9 @@
 // and offers "Request correction", or shows the correction already
 // raised. Makes clear this time is not overtime. Without `onAction` (manager view) it is informational.
 import { WarningFilled } from '@ant-design/icons';
-import { Alert, Button, Tag } from 'antd';
+import { Alert, Button } from 'antd';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { displayTime, displayTimeOn } from '@src/prototype/rules/attendance';
 
 import { entryTimeLabel } from './managerHelpers';
@@ -36,9 +37,9 @@ const ManagerOutsideFlagBanner = ({ day, perspective = 'employee', onAction }: O
     let action = null;
     if (flag.pendingCorrection) {
         action = (
-            <Tag color="processing" className="!m-0 whitespace-normal">
+            <StatusTag color="processing" className="!m-0 whitespace-normal">
                 Correction requested · {flag.pendingCorrection.statusLabel}
-            </Tag>
+            </StatusTag>
         );
     } else if (onAction && !day.locked) {
         action = (
@@ -69,7 +70,7 @@ const ManagerOutsideFlagBanner = ({ day, perspective = 'employee', onAction }: O
                     </ul>
                     <span className="text-gray-600">{explain}</span>
                     {!flag.pendingCorrection && perspective === 'employee' && (
-                        <span className="text-gray-500">Suggested: {suggestion}.</span>
+                        <span className="text-[#8B8B8B]">Suggested: {suggestion}.</span>
                     )}
                     {action && <div className="mt-0.5">{action}</div>}
                 </div>

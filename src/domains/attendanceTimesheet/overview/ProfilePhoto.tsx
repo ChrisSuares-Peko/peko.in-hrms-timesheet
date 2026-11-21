@@ -17,7 +17,7 @@ const ProfilePhoto = ({ name, photo, size = 56 }: { name: string; photo?: string
         <Avatar
             size={size}
             className="shrink-0 font-semibold"
-            style={{ backgroundColor: '#FFECEC', color: '#FF4F4F', fontSize: Math.round(size * 0.36) }}
+            style={{ backgroundColor: '#FFECEC', color: '#FF3A3A', fontSize: Math.round(size * 0.36) }}
             aria-label={name}
         >
             {initialsOf(name)}

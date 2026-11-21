@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 
 import { PlusCircleOutlined } from '@ant-design/icons';
-import { Button, Col, Flex, Row, Tabs, TabsProps, Typography, theme } from 'antd';
+import { Button, Col, Row, Tabs, TabsProps } from 'antd';
 import { Content } from 'antd/es/layout/layout';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+import { PekoPageHeader, PekoTabLabel } from '@src/components/peko/PageHeader';
 import AdminRequestsList from '@src/domains/attendanceTimesheet/payroll/admin/AdminRequestsList';
 import { PayrollServiceBar, useAdminCounts } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
 import { useAppDispatch, useAppSelector } from '@src/hooks/store';
@@ -30,9 +31,6 @@ import { resetEmployeeState } from '../slices/employeeSettings';
 function Employees() {
     // PROTOTYPE-SETUP (Developer notes): Payroll → Employees.
     useDevPage('pay:employees');
-    const {
-        token: { colorPrimary },
-    } = theme.useToken();
     // const [departmentCount, setDepartmentCount] = useState<number>(0);
     const dispatch = useAppDispatch();
     const [page, setPage] = useState<number>(1);
@@ -83,36 +81,14 @@ function Employees() {
     const [profileUpdatePendingCount, setProfileUpdatePendingCount] = useState(0);
     const [documentRequestPendingCount, setDocumentRequestPendingCount] = useState(0);
 
-    const tabLabel = (label: string, pendingCount: number) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ color: '#667085' }}>{label}</span>
-            {pendingCount > 0 && (
-                <span
-                    style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        minWidth: 20,
-                        height: 20,
-                        padding: '0 6px',
-                        borderRadius: 8,
-                        backgroundColor: '#FEF2F2',
-                        color: colorPrimary,
-                        fontSize: 12,
-                        fontWeight: 600,
-                    }}
-                >
-                    {pendingCount}
-                </span>
-            )}
-        </span>
-    );
+    // PROTOTYPE-SETUP (Design update): tab counts are small red pills (PekoTabLabel).
+    const tabLabel = (label: string, pendingCount: number) => <PekoTabLabel label={label} count={pendingCount} />;
 
     const adminCounts = useAdminCounts();
     const items: TabsProps['items'] = [
         {
             key: '1',
-            label: <span style={{ color: '#667085' }}>Active Employees</span>,
+            label: 'Active Employees',
             children: (
                 <EmployeesListTab
                     updateDepartmentCount={() => {}}
@@ -124,12 +100,12 @@ function Employees() {
         },
         {
             key: '2',
-            label: <span style={{ color: '#667085' }}>New Hire</span>,
+            label: 'New Hire',
             children: <NewHireTab />,
         },
         {
             key: '3',
-            label: <span style={{ color: '#667085' }}>Departments</span>,
+            label: 'Departments',
             children: (
                 <DepartmentTab
                     updateDepartmentCount={() => {}}
@@ -146,7 +122,7 @@ function Employees() {
         },
         {
             key: '4',
-            label: <span style={{ color: '#667085' }}>Past Employees</span>,
+            label: 'Past Employees',
             children: (
                 <EmployeesListTab
                     updateDepartmentCount={() => {}}
@@ -201,32 +177,18 @@ function Employees() {
     } else if (isDocumentRequestsTab) {
         pageTitle = 'Document Requests';
     }
-    const pageTitleClass = isEmployeeTab
-        ? 'text-neutral-700 text-xl font-medium xs:font-normal text-center md:mt-4'
-        : 'text-neutral-700 text-xl font-medium';
 
     let headerActions: React.ReactNode = null;
     if (isEmployeeTab) {
         headerActions = (
             <>
-                <Button
-                    type="primary"
-                    danger
-                    loading={isValidating}
-                    style={{
-                        backgroundColor: colorPrimary,
-                        color: 'white',
-                    }}
-                    onClick={handleNewEmployeeClick}
-                    icon={<PlusCircleOutlined />}
-                    className="md:w-36"
-                >
+                <Button type="primary" loading={isValidating} onClick={handleNewEmployeeClick} icon={<PlusCircleOutlined />}>
                     New Employee
                 </Button>
-                <Button danger onClick={() => setOpenBulkUploadModal(true)}>
+                <Button onClick={() => setOpenBulkUploadModal(true)}>
                     Upload Employees
                 </Button>
-                <Button danger onClick={() => setOpenSelectEmployeeModal(true)}>
+                <Button onClick={() => setOpenSelectEmployeeModal(true)}>
                     Offboard Employee
                 </Button>
             </>
@@ -235,7 +197,6 @@ function Employees() {
         headerActions = (
             <Button
                 type="primary"
-                danger
                 onClick={() => setOpenAddDepartmentModal(true)}
                 icon={<PlusCircleOutlined />}
             >
@@ -249,24 +210,10 @@ function Employees() {
             {/* PROTOTYPE-SETUP (Leave module, update): no service tabs — the way back to the dashboard. */}
             <PayrollServiceBar active="employees" />
             <PayrollAccessBanner />
-            <Row className="mt-2">
-                <Col span={24}>
-                    <Flex className="md:justify-between  md:flex-row xs:flex-col">
-                        <Typography.Paragraph className={pageTitleClass}>
-                            {pageTitle}
-                        </Typography.Paragraph>
-
-                        <Flex
-                            gap={8}
-                            className="md:justify-end xs:mt-1 xs:flex-col md:flex-row sm:w-32"
-                        >
-                            {headerActions}
-                        </Flex>
-                    </Flex>
-                </Col>
-            </Row>
+            {/* PROTOTYPE-SETUP (Design update): the Peko page header (title, one grey line, actions on the right). */}
+            <PekoPageHeader title={pageTitle} description="Employees, departments and profile updates." actions={headerActions} />
             <Row>
-                <Col xs={24} className="md:mt-10 mt-5">
+                <Col xs={24}>
                     <Tabs
                         defaultActiveKey="1"
                         activeKey={queryParams.get('tab') || '1'}

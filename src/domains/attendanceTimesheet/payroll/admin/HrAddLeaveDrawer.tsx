@@ -176,11 +176,11 @@ const HrAddLeaveDrawer = ({ open, onClose, onAdded }: { open: boolean; onClose: 
                         />
                     </Flex>
                 </div>
-                <div className="rounded-xl bg-[#F9FAFB] px-3 py-2" data-hr-duration>
+                <div className="rounded-lg bg-[#F9FAFB] px-3 py-2" data-hr-duration>
                     {count && count.working > 0 ? (
                         <Text className="text-sm">
                             <b className="font-medium">{halfOf ? `${count.working} half day${count.working === 1 ? '' : 's'} = ${daysText(count.days)}` : daysText(count.days)}</b>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-[#8B8B8B]">
                                 {count.sandwich ? ` · incl. ${count.sandwich} day${count.sandwich === 1 ? '' : 's'} off in between (sandwich rule)` : ' · weekly offs and public holidays aren’t counted'}
                             </span>
                         </Text>

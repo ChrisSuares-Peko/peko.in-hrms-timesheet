@@ -16,12 +16,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ArrowLeftOutlined, PlusOutlined } from '@ant-design/icons';
-import { Alert, Button, DatePicker, Empty, Segmented, Select, Skeleton, Table, Tag, Typography } from 'antd';
+import { Alert, Button, DatePicker, Empty, Segmented, Select, Skeleton, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { COMP_OFF, daysText, fmtDays, typeLabel } from '@src/prototype/rules/leave';
@@ -84,7 +85,7 @@ export const typeSummary = (b: LeaveBalance, v: Pick<LeaveView, 'rules'>) =>
         .join(' · ');
 
 const Stat = ({ label, value, sub }: { label: string; value: string; sub: string }) => (
-    <div className="flex min-w-0 flex-col gap-0.5 rounded-[20px] border border-solid border-[#eff1f4] bg-white px-4 py-3" data-type-stat={label}>
+    <div className="flex min-w-0 flex-col gap-0.5 rounded-lg border border-solid border-[#eff1f4] bg-white px-4 py-3" data-type-stat={label}>
         <Text type="secondary" className="text-xs">
             {label}
         </Text>
@@ -271,7 +272,7 @@ const MyRequests = ({ view, onOpen }: { view: LeaveView; onOpen: (it: DrawerItem
             render: (_, r) => (
                 <div className="flex flex-col">
                     <span className="whitespace-nowrap font-medium">{r.typeName}</span>
-                    {r.what && <span className="text-xs text-gray-500">{r.what}</span>}
+                    {r.what && <span className="text-xs text-[#8B8B8B]">{r.what}</span>}
                 </div>
             ),
         },
@@ -326,7 +327,7 @@ const MyRequests = ({ view, onOpen }: { view: LeaveView; onOpen: (it: DrawerItem
                     data-request-filter
                 />
             </div>
-            <div className="min-w-0 overflow-hidden rounded-[18px] border border-solid border-[#eff1f4] bg-white">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#eff1f4] bg-white">
                 <Table<ReqRow>
                     rowKey="key"
                     size="middle"
@@ -552,7 +553,7 @@ const EssLeavePage = () => {
                     </LeaveSection>
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <section aria-label="Upcoming leave" className={ESS_CARD} data-upcoming-leave>
-                            <h3 className="m-0 mb-2 text-base font-medium text-gray-900">Upcoming leave</h3>
+                            <h3 className="m-0 mb-2 text-base font-medium text-[#121212]">Upcoming leave</h3>
                             {upcoming.length === 0 && <Text type="secondary">Nothing planned.</Text>}
                             <ul className="m-0 list-none p-0">
                                 {upcoming.slice(0, 4).map(r => (
@@ -564,7 +565,7 @@ const EssLeavePage = () => {
                                         >
                                             <span className="text-sm">
                                                 {fmtRange(r.start, r.end)}{' '}
-                                                <span className="text-xs text-gray-500">
+                                                <span className="text-xs text-[#8B8B8B]">
                                                     · {typeLabel(r.typeName)}
                                                     {halfSuffix(r.half, false)}
                                                 </span>
@@ -581,7 +582,7 @@ const EssLeavePage = () => {
                             )}
                         </section>
                         <section aria-label="Next public holiday" className={ESS_CARD} data-next-holiday>
-                            <h3 className="m-0 mb-2 text-base font-medium text-gray-900">Next public holiday</h3>
+                            <h3 className="m-0 mb-2 text-base font-medium text-[#121212]">Next public holiday</h3>
                             {nextHoliday ? (
                                 <div>
                                     <Text className="block font-medium">{nextHoliday.name}</Text>
@@ -605,7 +606,7 @@ const EssLeavePage = () => {
 
             {sub === 'holidays' && (
                 <section aria-label="Public holidays" className={ESS_CARD} data-public-holidays>
-                    <h3 className="m-0 text-base font-medium text-gray-900">Public holidays {today.slice(0, 4)}</h3>
+                    <h3 className="m-0 text-base font-medium text-[#121212]">Public holidays {today.slice(0, 4)}</h3>
                     <Text type="secondary" className="mb-3 block text-xs">
                         {view.holidays.length} holidays · {view.holidays.filter(h => !h.weeklyOff).length} on your working days. You don’t need to apply for these.
                     </Text>
@@ -625,8 +626,8 @@ const EssLeavePage = () => {
                                     title: '',
                                     key: 's',
                                     render: (_, h) => {
-                                        if (nextHoliday && h.date === nextHoliday.date) return <Tag color="blue">Next</Tag>;
-                                        if (h.weeklyOff) return <Tag>Weekly off</Tag>;
+                                        if (nextHoliday && h.date === nextHoliday.date) return <StatusTag color="blue">Next</StatusTag>;
+                                        if (h.weeklyOff) return <StatusTag tone="leave">Weekly off</StatusTag>;
                                         return h.date < today ? <Text type="secondary">Past</Text> : null;
                                     },
                                 },

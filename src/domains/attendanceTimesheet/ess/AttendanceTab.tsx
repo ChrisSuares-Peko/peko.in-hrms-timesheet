@@ -48,9 +48,9 @@ interface TotalTileProps {
 /** PROTOTYPE-SETUP (Attendance layout, Slice 2): a compact month-total tile — 18px value, 12px label. */
 const TotalTile = ({ label, value, tone = 'bg-[#F7F7F7]', hint }: TotalTileProps) => {
     const tile = (
-        <div data-total-tile className={`flex min-w-0 flex-col justify-center rounded-xl px-3 py-2 ${tone}`}>
-            <span className="text-[18px] font-semibold leading-tight text-[#080808] tabular-nums">{value}</span>
-            <span className="text-xs leading-snug text-[#616161]">{label}</span>
+        <div data-total-tile className={`flex min-w-0 flex-col justify-center rounded-lg px-3 py-2 ${tone}`}>
+            <span className="text-[18px] font-semibold leading-tight text-[#121212] tabular-nums">{value}</span>
+            <span className="text-xs leading-snug text-[#8B8B8B]">{label}</span>
         </div>
     );
     return hint ? <Tooltip title={hint}>{tile}</Tooltip> : tile;
@@ -176,9 +176,9 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
             {/* PROTOTYPE-SETUP (Attendance final, Slice 1): a header row — a short line and the tab's one "Request
                 correction" (opens the popup with no date). Full-width button on phones. */}
             <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm text-[#616161]">Check in and out, see your month, and fix anything that’s wrong.</span>
+                <span className="text-sm text-[#8B8B8B]">Check in and out, see your month, and fix anything that’s wrong.</span>
                 <span className="hidden flex-1 md:block" />
-                <Button type="primary" className="w-full rounded-lg font-medium md:w-auto" onClick={requestCorrection}>
+                <Button type="primary" className="w-full font-medium md:w-auto" onClick={requestCorrection}>
                     Request correction
                 </Button>
             </div>
@@ -210,7 +210,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                             {Array.from({ length: 9 }, (_, i) => (
                                 <span
                                     key={i}
-                                    className="block h-[58px] rounded-xl bg-gray-100 animate-pulse"
+                                    className="block h-[58px] rounded-lg bg-gray-100 animate-pulse"
                                 />
                             ))}
                         </div>
@@ -240,7 +240,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                         onMonth={changeMonth}
                         hideNav
                     />
-                    <span className="mt-2 block text-xs text-[#9e9e9e]">Tap a day for details or to request a correction.</span>
+                    <span className="mt-2 block text-xs text-[#8B8B8B]">Tap a day for details or to request a correction.</span>
                 </Panel>
                 {/* Spans both rows; ≥1200px its content never makes the rows taller — the list scrolls inside. */}
                 <div className="att-req">

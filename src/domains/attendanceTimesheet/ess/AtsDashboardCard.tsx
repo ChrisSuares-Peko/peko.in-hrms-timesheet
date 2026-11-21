@@ -21,7 +21,7 @@ import type { AtsOverview, AtsTab } from '../types';
 const { Text } = Typography;
 
 const CARD =
-    'h-full flex flex-col gap-4 p-5 bg-white rounded-[32px] shadow-[0px_1.66px_8.28px_rgba(0,0,0,0.06)] min-w-0';
+    'h-full flex flex-col gap-4 p-5 bg-white rounded-lg shadow-[0px_1.66px_8.28px_rgba(0,0,0,0.06)] min-w-0';
 
 /** Off days and leave are worth a tag in timesheet mode; "Upcoming" / "Present" are not. */
 const TIMESHEET_TAG_STATUSES = ['on-leave', 'holiday', 'weekly-off', 'worked-off-day'];
@@ -37,7 +37,7 @@ const WeekProgress = ({ overview }: { overview: AtsOverview }) => {
         <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between gap-2 flex-wrap">
                 {/* PROTOTYPE-SETUP (Timesheet filing): the filing period covering today (a day, a week or a month). */}
-                <Text className="text-xs text-[#616161]">{PERIOD_TITLE[thisWeek.frequency]}</Text>
+                <Text className="text-xs text-[#8B8B8B]">{PERIOD_TITLE[thisWeek.frequency]}</Text>
                 {overview.approvalEnabled && <WeekStatusTag status={thisWeek.status} />}
             </div>
             <Text className="text-sm text-valueText">
@@ -97,7 +97,7 @@ const AtsDashboardCard = () => {
             <div className={CARD}>
                 {failed ? (
                     <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-                        <Text className="text-sm text-[#616161]">
+                        <Text className="text-sm text-[#8B8B8B]">
                             Couldn&apos;t load your attendance right now.
                         </Text>
                         <Button icon={<ReloadOutlined />} onClick={load}>
@@ -168,8 +168,8 @@ const AtsDashboardCard = () => {
             {punchMode && <TodayPunch overview={overview} onOverview={setOverview} />}
 
             {mode === 'timesheet' && (
-                <div className="flex flex-col gap-1 rounded-2xl bg-[#F7F7F7] px-4 py-3">
-                    <Text className="text-xs text-[#616161]">Logged today</Text>
+                <div className="flex flex-col gap-1 rounded-lg bg-[#F7F7F7] px-4 py-3">
+                    <Text className="text-xs text-[#8B8B8B]">Logged today</Text>
                     <Text className="text-2xl font-semibold text-valueText tabular-nums leading-tight">
                         {formatDuration(today.loggedMinutes)}
                     </Text>
@@ -181,7 +181,7 @@ const AtsDashboardCard = () => {
             {mode !== 'attendance' && (
                 <div className="flex flex-col gap-2">
                     {mode === 'both' && (
-                        <Text className="text-xs text-[#616161]">
+                        <Text className="text-xs text-[#8B8B8B]">
                             Logged today:{' '}
                             <span className="font-semibold text-valueText">
                                 {formatDuration(today.loggedMinutes)}
@@ -200,9 +200,9 @@ const AtsDashboardCard = () => {
                         key={c.key}
                         type="button"
                         onClick={stop(() => go(c.tab))}
-                        className={`text-left rounded-xl px-2.5 py-2 border border-solid cursor-pointer transition-colors min-w-0 ${
+                        className={`text-left rounded-lg px-2.5 py-2 border border-solid cursor-pointer transition-colors min-w-0 ${
                             c.value
-                                ? 'bg-[#FFF7F6] border-[#FFE4E4] hover:border-[#FF4F4F]'
+                                ? 'bg-[#FFF7F6] border-[#FFE4E4] hover:border-[#FF3A3A]'
                                 : 'bg-[#F7F7F7] border-transparent hover:border-gray-200'
                         }`}
                     >
@@ -213,7 +213,7 @@ const AtsDashboardCard = () => {
                         >
                             {c.value}
                         </span>
-                        <span className="block text-[11px] leading-snug text-[#616161]">
+                        <span className="block text-[11px] leading-snug text-[#8B8B8B]">
                             {c.label}
                         </span>
                     </button>

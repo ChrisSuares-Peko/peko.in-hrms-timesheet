@@ -13,10 +13,11 @@
 import { ReactNode, useState } from 'react';
 
 import { RightOutlined } from '@ant-design/icons';
-import { Button, Tag } from 'antd';
+import { Button } from 'antd';
 import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import StatusTag from '@src/components/peko/StatusTag';
 import { formatDuration } from '@src/prototype/rules/attendance';
 
 import { displayTime, fmtPeriod, fmtStamp } from '../components/format';
@@ -44,7 +45,7 @@ const TONE: Record<Notice['tone'], string> = {
 };
 
 const Group = ({ children }: { children: ReactNode }) => (
-    <div className="mx-1.5 mb-1.5 mt-3 text-[11px] font-medium uppercase tracking-wide text-[#9e9e9e]">{children}</div>
+    <div className="mx-1.5 mb-1.5 mt-3 text-[11px] font-medium uppercase tracking-wide text-[#8B8B8B]">{children}</div>
 );
 
 const who = (a: ActorRef) => (a.role === 'SYSTEM' ? 'System' : a.name);
@@ -113,16 +114,16 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
         <div className="ts-notices min-w-0">
             <section aria-label="Notices" className={`ts-notices-in ${ESS_CARD} !pb-3`}>
                 <div className="mb-1 flex items-center gap-2">
-                    <h3 className="m-0 text-base font-medium text-gray-900">Notices</h3>
+                    <h3 className="m-0 text-base font-medium text-[#121212]">Notices</h3>
                     <span className="flex-1" />
                     {items.length > 0 && (
-                        <Tag color="red" className="!m-0" data-todo-count>
+                        <StatusTag color="red" className="!m-0" data-todo-count>
                             {items.length} to do
-                        </Tag>
+                        </StatusTag>
                     )}
                 </div>
                 <div className="ts-notices-body -mx-1.5 px-1.5" data-notices-body>
-                    <div className="rounded-xl border border-solid border-gray-100 px-3 py-2.5">{week}</div>
+                    <div className="rounded-lg border border-solid border-gray-100 px-3 py-2.5">{week}</div>
 
                     {items.length > 0 && <Group>Needs your action</Group>}
                     {items.map(x => (
@@ -152,22 +153,22 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
                                     key={d.date}
                                     type="button"
                                     onClick={() => onPickDay(d.date)}
-                                    className="flex w-full cursor-pointer items-center justify-between gap-2 border-0 border-b border-solid border-gray-100 bg-transparent px-0 py-[7px] text-left text-[13px] text-gray-900 last:border-b-0 hover:text-blue-600"
+                                    className="flex w-full cursor-pointer items-center justify-between gap-2 border-0 border-b border-solid border-gray-100 bg-transparent px-0 py-[7px] text-left text-[13px] text-[#121212] last:border-b-0 hover:text-blue-600"
                                     data-unlogged={d.date}
                                 >
                                     <span className="min-w-0">
                                         {dayjs(d.date).format('ddd, D MMM')}
-                                        <span className="text-xs text-gray-500"> · {formatDuration(d.loggedMinutes)} logged</span>
+                                        <span className="text-xs text-[#8B8B8B]"> · {formatDuration(d.loggedMinutes)} logged</span>
                                     </span>
                                     <span className="whitespace-nowrap text-amber-700">
                                         {formatDuration(d.gap)} missing <RightOutlined className="text-[10px]" />
                                     </span>
                                 </button>
                             ))}
-                            {missing.length > MAX_UNLOGGED && <div className="text-xs text-gray-500">and {missing.length - MAX_UNLOGGED} more</div>}
+                            {missing.length > MAX_UNLOGGED && <div className="text-xs text-[#8B8B8B]">and {missing.length - MAX_UNLOGGED} more</div>}
                         </div>
                     ) : (
-                        <div className="px-1.5 pb-2 text-xs text-gray-500">Nothing missing in this {period}, after breaks.</div>
+                        <div className="px-1.5 pb-2 text-xs text-[#8B8B8B]">Nothing missing in this {period}, after breaks.</div>
                     )}
 
                     {events.length > 0 && (

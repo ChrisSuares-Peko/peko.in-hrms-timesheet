@@ -8,10 +8,12 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { LeftOutlined, RightOutlined } from '@ant-design/icons';
-import { Button, Flex, Grid, Segmented, Skeleton, Table, Tag, Tooltip, Typography } from 'antd';
+import { Button, Flex, Grid, Segmented, Skeleton, Table, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { useNavigate } from 'react-router-dom';
+
+import StatusTag from '@src/components/peko/StatusTag';
 
 import { getTeamMonth, getTeamWeek } from '../api';
 import { NoTeamEmpty, PersonCell } from './teamShared';
@@ -39,7 +41,7 @@ const MARKER: Record<GridMarker, { label: string; short: string; className: stri
 const CellView = ({ cell, compact }: { cell: Cell; compact?: boolean }) => {
     const future = cell.date > iso(dayjs());
     let content: ReactNode;
-    let cls = 'text-[#171717]';
+    let cls = 'text-[#121212]';
     if (cell.loggedMinutes > 0) {
         content = formatDuration(cell.loggedMinutes);
         if (cell.marker && cell.marker !== 'nothing-logged') cls = MARKER[cell.marker].className;
@@ -108,7 +110,7 @@ const WeekChips = ({ weeks, onOpen }: { weeks: MonthRow['weeks']; onOpen: (weekS
     <Flex gap={4} wrap="wrap">
         {weeks.map(w => (
             <Tooltip key={w.weekStart} title={`${fmtPeriod(w.weekStart, w.periodEnd)} · ${WEEK_STATUS[w.status].label}${w.changePending ? ' · change pending' : ''}`}>
-                <Tag
+                <StatusTag
                     color={w.changePending ? 'warning' : WEEK_STATUS[w.status].color}
                     className="!m-0 cursor-pointer"
                     onClick={e => {
@@ -118,7 +120,7 @@ const WeekChips = ({ weeks, onOpen }: { weeks: MonthRow['weeks']; onOpen: (weekS
                 >
                     {dayjs(w.weekStart).format('D MMM')}
                     {w.changePending ? ' •' : ''}
-                </Tag>
+                </StatusTag>
             </Tooltip>
         ))}
     </Flex>
@@ -277,7 +279,7 @@ const TeamTimesheets = ({ loadWeek, loadMonth, onOpenMember, empty }: TeamTimesh
                             key={r.employee.id}
                             type="button"
                             onClick={() => openMember(r.employee.id, week.weekStart)}
-                            className="w-full text-left cursor-pointer rounded-[26px] border border-solid border-[#e6e6e6] bg-white p-3"
+                            className="w-full text-left cursor-pointer rounded-lg border border-solid border-[#EAEAEA] bg-white p-3"
                         >
                             <Flex justify="space-between" align="center" gap={8} className="mb-2">
                                 <PersonCell person={r.employee} />
@@ -334,7 +336,7 @@ const TeamTimesheets = ({ loadWeek, loadMonth, onOpenMember, empty }: TeamTimesh
                             key={r.employee.id}
                             type="button"
                             onClick={() => openMember(r.employee.id, monthDate(month))}
-                            className="w-full text-left cursor-pointer rounded-[26px] border border-solid border-[#e6e6e6] bg-white p-3"
+                            className="w-full text-left cursor-pointer rounded-lg border border-solid border-[#EAEAEA] bg-white p-3"
                         >
                             <PersonCell person={r.employee} />
                             <div className="grid grid-cols-3 gap-2 my-3">

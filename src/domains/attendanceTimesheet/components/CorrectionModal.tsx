@@ -262,7 +262,7 @@ const CorrectionModal = ({ open, date, initial, current, fromTimesheet, shiftEnd
                 requiredMark={false}
                 className="flex flex-col gap-1 pt-1"
             >
-                <Text className="text-sm text-[#616161] mb-3">Enter the correct times.</Text>
+                <Text className="text-sm text-[#8B8B8B] mb-3">Enter the correct times.</Text>
 
                 {fromTimesheet && onEntryDay && (
                     <Alert type="info" showIcon className="mb-3" message="Pre-filled from time you logged outside your check-in hours." />
@@ -298,7 +298,7 @@ const CorrectionModal = ({ open, date, initial, current, fromTimesheet, shiftEnd
                 </Form.Item>
 
                 {picked && (
-                    <div className="rounded-2xl bg-[#F7F7F7] px-4 py-3 mb-4" data-recorded-now>
+                    <div className="rounded-lg bg-[#F7F7F7] px-4 py-3 mb-4" data-recorded-now>
                         <Text className="block text-[11px] uppercase tracking-wide text-titleText">Recorded now</Text>
                         {loadingDay && !recorded ? <Spin size="small" /> : <Text className="text-sm text-valueText">{recordedText(recorded)}</Text>}
                     </div>
@@ -359,16 +359,16 @@ const CorrectionModal = ({ open, date, initial, current, fromTimesheet, shiftEnd
                     <Input.TextArea rows={3} maxLength={300} showCount placeholder="e.g. Was at a client site in the morning" />
                 </Form.Item>
 
-                <Text className="mb-3 block text-xs text-[#616161]" data-correction-footer>
+                <Text className="mb-3 block text-xs text-[#8B8B8B]" data-correction-footer>
                     {approvalLine ? `${approvalLine} ` : ''}
                     {CORRECTION_FOOTER}
                 </Text>
 
                 <div className="flex gap-3 pt-1">
-                    <Button onClick={onClose} className="flex-1 h-10 rounded-lg">
+                    <Button onClick={onClose} className="flex-1">
                         Cancel
                     </Button>
-                    <Button type="primary" danger htmlType="submit" loading={saving} disabled={stillIn} className="flex-1 h-10 rounded-lg font-medium">
+                    <Button type="primary" htmlType="submit" loading={saving} disabled={stillIn} className="flex-1 font-medium">
                         Send for approval
                     </Button>
                 </div>

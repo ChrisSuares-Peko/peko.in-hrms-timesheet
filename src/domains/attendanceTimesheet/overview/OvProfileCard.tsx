@@ -9,7 +9,7 @@ import type { MyProfileView } from '../types';
 
 const Pair = ({ label, value, title }: { label: string; value: string; title?: string }) => (
     <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="truncate text-base font-medium text-[#080808]" title={title ?? value}>
+        <span className="truncate text-base font-medium text-[#121212]" title={title ?? value}>
             {value}
         </span>
         <span className={ESS_LABEL}>{label}</span>
@@ -35,8 +35,8 @@ const OvProfileCard = ({
             <div className="flex min-w-0 items-center gap-4">
                 <ProfilePhoto name={work.name} photo={personal.photo} size={72} />
                 <div className="min-w-0">
-                    <div className="truncate text-xl font-medium text-[#080808]">{work.name}</div>
-                    <div className="truncate text-sm text-[#616161]">{work.designation}</div>
+                    <div className="truncate text-xl font-medium text-[#121212]">{work.name}</div>
+                    <div className="truncate text-sm text-[#8B8B8B]">{work.designation}</div>
                 </div>
             </div>
             {/* PROTOTYPE-SETUP (Overview v5, Slice 1): two rows of two — Work email | Employee ID, Manager | Department —

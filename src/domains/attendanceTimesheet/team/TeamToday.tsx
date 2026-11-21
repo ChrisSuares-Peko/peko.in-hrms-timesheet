@@ -23,7 +23,7 @@ const Field = ({ label, value }: { label: string; value: string }) => (
         <Typography.Text type="secondary" className="text-xs">
             {label}
         </Typography.Text>
-        <Typography.Text className="font-medium text-[#171717]">{value}</Typography.Text>
+        <Typography.Text className="font-medium text-[#121212]">{value}</Typography.Text>
     </Flex>
 );
 
@@ -35,7 +35,7 @@ const MemberCard = ({ row, hasCheckIn, onOpen }: { row: TeamTodayRow; hasCheckIn
         <button
             type="button"
             onClick={onOpen}
-            className="w-full h-full text-left cursor-pointer rounded-[26px] border border-solid border-[#e6e6e6] bg-white p-4 transition-colors hover:border-[#FF4F4F]"
+            className="w-full h-full text-left cursor-pointer rounded-lg border border-solid border-[#EAEAEA] bg-white p-4 transition-colors hover:border-[#FF3A3A]"
         >
             <Flex vertical gap={12}>
                 <Flex justify="space-between" align="flex-start" gap={8}>
@@ -138,7 +138,7 @@ const TeamToday = ({ mode }: { mode: AtsMode }) => {
             <Row gutter={[12, 12]}>
                 {tiles.map(tile => (
                     <Col key={tile.label} xs={12} md={6}>
-                        <CountTile label={tile.label} value={Math.max(0, tile.value)} color={tile.color} />
+                        <CountTile label={tile.label} value={Math.max(0, tile.value)} />
                     </Col>
                 ))}
             </Row>

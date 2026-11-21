@@ -9,8 +9,9 @@
 // Ask for update always goes straight back to the employee; when they resubmit, it comes back here.
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Button, Checkbox, Empty, Flex, Segmented, Skeleton, Tag, Typography } from 'antd';
+import { Button, Checkbox, Empty, Flex, Segmented, Skeleton, Typography } from 'antd';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { hasCheckIn, hasTimesheets } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
@@ -165,7 +166,7 @@ const TeamApprovalsInbox = ({ settings, onChanged }: { settings: TeamSettings; o
                 options={FILTERS.filter(f => f.key === 'all' || kinds.includes(f.key)).map(f => ({ value: f.key, label: `${f.label} (${count(f.key)})` }))}
             />
             {list.length > 0 && (
-                <Flex align="center" gap={10} wrap="wrap" className="rounded-xl border border-solid border-[#EAECF0] bg-[#F9FAFB] px-3 py-2" data-bulk-bar>
+                <Flex align="center" gap={10} wrap="wrap" className="rounded-lg border border-solid border-[#EAECF0] bg-[#F9FAFB] px-3 py-2" data-bulk-bar>
                     <Checkbox
                         checked={allOn}
                         indeterminate={!allOn && chosen.length > 0}
@@ -180,7 +181,7 @@ const TeamApprovalsInbox = ({ settings, onChanged }: { settings: TeamSettings; o
                 </Flex>
             )}
             {list.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[#EAECF0] py-10">
+                <div className="rounded-lg border border-dashed border-[#EAECF0] py-10">
                     <Empty
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description={
@@ -202,14 +203,14 @@ const TeamApprovalsInbox = ({ settings, onChanged }: { settings: TeamSettings; o
                                 onChange={e => setSel({ ...sel, [x.key]: e.target.checked })}
                             />
                             {x.ts ? (
-                                <div className="rounded-2xl border border-solid border-[#FECDCA] bg-white p-4">
+                                <div className="rounded-lg border border-solid border-[#FECDCA] bg-white p-4">
                                     <Flex gap={12} justify="space-between" align="flex-start" wrap="wrap">
                                         <Flex vertical gap={6} className="min-w-0 flex-1 basis-[240px]">
                                             <PersonCell person={x.ts.employee} />
                                             <Flex gap={6} align="center" wrap="wrap">
-                                                <Tag color="blue" className="!m-0">
+                                                <StatusTag color="blue" className="!m-0">
                                                     Timesheet
-                                                </Tag>
+                                                </StatusTag>
                                                 <Text strong>{fmtPeriod(x.ts.weekStart, x.ts.periodEnd)}</Text>
                                             </Flex>
                                             <Text type="secondary" className="text-sm">
@@ -220,9 +221,9 @@ const TeamApprovalsInbox = ({ settings, onChanged }: { settings: TeamSettings; o
                                         </Flex>
                                         <Flex gap={8} align="center">
                                             {x.ts.editedAfter && (
-                                                <Tag color="gold" className="!m-0">
+                                                <StatusTag color="gold" className="!m-0">
                                                     Edited
-                                                </Tag>
+                                                </StatusTag>
                                             )}
                                             <Button type="primary" onClick={() => setReview({ employeeId: x.ts!.employee.id, date: x.ts!.weekStart })}>
                                                 Review

@@ -95,7 +95,7 @@ const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnable
     };
     return (
         <div className={`min-w-0 ${side ? 'hidden md:block' : ''}`}>
-            <div className="mb-1 text-center text-[12px] font-medium text-gray-900">{dayjs(`${month}-01`).format('MMMM YYYY')}</div>
+            <div className="mb-1 text-center text-[12px] font-medium text-[#121212]">{dayjs(`${month}-01`).format('MMMM YYYY')}</div>
             {!view ? (
                 <Skeleton active title={false} paragraph={{ rows: 5 }} />
             ) : (
@@ -125,7 +125,7 @@ const MiniMonth = ({ month, view, side, today, selected, inRange, approvalEnable
                                 aria-pressed={date === selected}
                                 onClick={() => onPick(date)}
                                 className={`relative h-[24px] cursor-pointer rounded-[5px] border-0 p-0 text-[11px] tabular-nums ${
-                                    st ? CELL[st] : 'bg-transparent text-gray-900'
+                                    st ? CELL[st] : 'bg-transparent text-[#121212]'
                                 } ${date === today ? '!font-bold !text-[#DC2626]' : ''}`}
                                 style={ring ? { boxShadow: ring } : undefined}
                                 data-day-state={st || undefined}
@@ -181,7 +181,7 @@ const Legend = ({ approvalEnabled }: { approvalEnabled: boolean }) => (
 const Calendar3 = ({ month, months, today, selected, inRange, approvalEnabled, onPick, onShift, onToday }: Calendar3Props) => (
         <section aria-label="Calendar" className={`min-w-0 ${ESS_CARD}`}>
             <div className="mb-2.5 flex items-center gap-1">
-                <h3 className="m-0 text-base font-medium text-gray-900">Calendar</h3>
+                <h3 className="m-0 text-base font-medium text-[#121212]">Calendar</h3>
                 <span className="flex-1" />
                 <Button size="small" icon={<LeftOutlined />} aria-label="Earlier months" onClick={() => onShift(-1)} />
                 <Button size="small" type="text" onClick={onToday}>

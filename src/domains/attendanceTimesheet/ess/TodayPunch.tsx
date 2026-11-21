@@ -83,7 +83,7 @@ const lookFor = (overview: AtsOverview, onClock: boolean): BoxLook => {
     }
     return {
         bg: '#F7F7F7',
-        accent: '#ff4f4f',
+        accent: '#FF3A3A',
         icon: <EnvironmentFilled />,
         title: 'Not checked in yet',
         sub: `${shiftLine} · ${overview.graceMinutes} min grace`,
@@ -140,7 +140,7 @@ const TodayPunch = ({ overview, onOverview }: TodayPunchProps) => {
     return (
         <div className="flex flex-col gap-4 min-w-0">
             <div
-                className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3 min-w-0"
+                className="flex items-center justify-between gap-3 rounded-lg px-4 py-3 min-w-0"
                 style={{ backgroundColor: look.bg }}
             >
                 <div className="flex items-center gap-3 min-w-0">
@@ -154,7 +154,7 @@ const TodayPunch = ({ overview, onOverview }: TodayPunchProps) => {
                         >
                             {look.title}
                         </Text>
-                        <Text className="block text-xs text-[#616161] truncate">{look.sub}</Text>
+                        <Text className="block text-xs text-[#8B8B8B] truncate">{look.sub}</Text>
                     </div>
                 </div>
                 {onClock && (
@@ -188,8 +188,8 @@ const TodayPunch = ({ overview, onOverview }: TodayPunchProps) => {
                             block
                             icon={<ClockCircleOutlined />}
                             onClick={open('in')}
-                            className="h-11 rounded-lg font-medium"
-                            style={{ backgroundColor: '#FF4F4F', borderColor: '#FF4F4F' }}
+                            className="font-medium"
+                            style={{ backgroundColor: '#FF3A3A', borderColor: '#FF3A3A' }}
                         >
                             Check in
                         </Button>
@@ -198,14 +198,14 @@ const TodayPunch = ({ overview, onOverview }: TodayPunchProps) => {
                         <Button
                             block
                             onClick={open('out')}
-                            className="h-11 rounded-lg font-medium"
-                            style={{ color: '#FF4F4F', borderColor: '#FF4F4F' }}
+                            className="font-medium"
+                            style={{ color: '#FF3A3A', borderColor: '#FF3A3A' }}
                         >
                             Check out
                         </Button>
                     )}
                     {/* PROTOTYPE-SETUP (HR rules, Slice 5): no automatic check-out — remind them to check out. */}
-                    {t.canCheckOut && <Text className="text-xs text-center text-[#616161]">{REMEMBER_CHECK_OUT_NOTE}</Text>}
+                    {t.canCheckOut && <Text className="text-xs text-center text-[#8B8B8B]">{REMEMBER_CHECK_OUT_NOTE}</Text>}
                     {t.hint && (
                         <Text className="text-xs text-center text-titleText">{t.hint}</Text>
                     )}

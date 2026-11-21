@@ -3,6 +3,7 @@ import { lazy } from 'react';
 import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom';
 
 // PROTOTYPE-SETUP: ESS Service 1 — the gate reads the new Attendance & Timesheet settings (was V1 ModeGate).
+import PekoScope from '@src/components/peko/PekoScope';
 import AtsModeGate from '@src/domains/attendanceTimesheet/payroll/AtsModeGate';
 
 import { paths } from '../paths';
@@ -170,7 +171,7 @@ export const payrollRoutes = [
     },
 
     { element: <ActivityCalendarPage />, path: paths.payroll.activityCalendar },
-    { element: <OrganizationSettingsPage />, path: paths.payroll.payrollSettings },
+    { element: <PekoScope><OrganizationSettingsPage /></PekoScope>, path: paths.payroll.payrollSettings },
     { element: <ComplianceSettingsPage />, path: paths.payroll.complianceSettings },
     // PROTOTYPE-SETUP (Payroll admin, Slice 3): Employee leave is folded into Payroll → Leave.
     { element: <Redirect to={P(paths.payroll.serviceLeave)} />, path: paths.payroll.employeeLeave },
@@ -183,7 +184,9 @@ export const payrollRoutes = [
                 title="Attendance tracking is off"
                 subTitle="Your company doesn't track check-in and check-out in its current Attendance & Timesheet mode."
             >
-                <TimesheetPage />
+                <PekoScope>
+                    <TimesheetPage />
+                </PekoScope>
             </AtsModeGate>
         ),
         path: paths.payroll.timesheet,
@@ -191,6 +194,7 @@ export const payrollRoutes = [
     { element: <ReportsPage />, path: paths.payroll.reports },
     { element: <CtcCalculatorPage />, path: paths.payroll.ctcCalculator },
     // PROTOTYPE-SETUP (Payroll admin, Slice 1): retired pages redirect; the service tabs.
+    // PROTOTYPE-SETUP (Design update): every Payroll service page and Payroll settings renders in the Peko scope.
     { element: <Redirect to={`${P(paths.payroll.serviceTimesheet)}?view=requests`} />, path: paths.payroll.approvals },
     { element: <Redirect to={`${P(paths.payroll.serviceTimesheet)}?view=overview`} />, path: paths.payroll.timesheets },
     {
@@ -200,7 +204,9 @@ export const payrollRoutes = [
                 title="Timesheets are off"
                 subTitle="Your company doesn't log timesheets in its current Attendance & Timesheet mode."
             >
-                <AdminTimesheetPage />
+                <PekoScope>
+                    <AdminTimesheetPage />
+                </PekoScope>
             </AtsModeGate>
         ),
         path: paths.payroll.serviceTimesheet,
@@ -212,9 +218,9 @@ export const payrollRoutes = [
     { element: <Redirect to={P(paths.payroll.employees)} />, path: 'services/employees' },
     { element: <Redirect to={P(paths.payroll.payrollSettings)} />, path: 'services/settings' },
     { element: <Redirect to={P(paths.payroll.payrollSettings)} />, path: 'services/payroll-settings' },
-    { element: <AdminLeavePage />, path: paths.payroll.serviceLeave },
-    { element: <AdminServicePage key="overtime" service="overtime" />, path: paths.payroll.serviceOvertime },
-    { element: <AdminServicePage key="reimbursement" service="reimbursement" />, path: paths.payroll.serviceReimbursements },
+    { element: <PekoScope><AdminLeavePage /></PekoScope>, path: paths.payroll.serviceLeave },
+    { element: <PekoScope><AdminServicePage key="overtime" service="overtime" /></PekoScope>, path: paths.payroll.serviceOvertime },
+    { element: <PekoScope><AdminServicePage key="reimbursement" service="reimbursement" /></PekoScope>, path: paths.payroll.serviceReimbursements },
 
     {
         element: <EmployeeOnboardPage />,
@@ -228,7 +234,7 @@ export const payrollRoutes = [
         element: <NewHireProfilePage />,
         path: `${paths.payroll.employees}/${paths.payroll.newHireProfile}`,
     },
-    { element: <EmployeesPage />, path: paths.payroll.employees },
+    { element: <PekoScope><EmployeesPage /></PekoScope>, path: paths.payroll.employees },
     {
         element: <EmployeeBulkUpload />,
         path: `${paths.payroll.employees}/${paths.payroll.bulkUpload}`,

@@ -93,7 +93,7 @@ const BreaksModal = ({ open, overview, onClose, onSaved }: { open: boolean; over
             centered
             width={560}
         >
-            <Text className="mb-3 block text-sm text-[#616161]">You can change today’s breaks yourself. For an earlier day, request a correction.</Text>
+            <Text className="mb-3 block text-sm text-[#8B8B8B]">You can change today’s breaks yourself. For an earlier day, request a correction.</Text>
             <div className="flex flex-col gap-2" data-breaks-editor>
                 {rows.map((b, i) => (
                     <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-2 sm:grid-cols-[110px_110px_minmax(0,1fr)_auto]">
@@ -127,7 +127,7 @@ const BreaksModal = ({ open, overview, onClose, onSaved }: { open: boolean; over
                         />
                     </div>
                 ))}
-                {!rows.length && <Text className="text-sm text-[#9e9e9e]">No breaks today.</Text>}
+                {!rows.length && <Text className="text-sm text-[#8B8B8B]">No breaks today.</Text>}
             </div>
             {error && <Alert type="error" showIcon className="mt-3" message={error} />}
         </Modal>

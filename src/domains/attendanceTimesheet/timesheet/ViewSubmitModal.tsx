@@ -9,9 +9,10 @@
 // Day view, filing longer than a day: "Approvals go week by week / per filing period, so the rest of that week / period
 // goes too." (Daily filing submits only that day.) The period checks (missing details, overlaps, gaps, unlogged
 // hours) still run for each period after this.
-import { Button, Modal, Tag, Typography } from 'antd';
+import { Button, Modal, Typography } from 'antd';
 import dayjs from 'dayjs';
 
+import StatusTag from '@src/components/peko/StatusTag';
 import { formatDuration } from '@src/prototype/rules/attendance';
 import { periodLabel } from '@src/prototype/rules/timesheetFiling';
 
@@ -108,9 +109,9 @@ const ViewSubmitModal = ({
                                 {changed.map(d => (
                                     <li key={d} className="flex items-center justify-between gap-2 border-0 border-b border-solid border-gray-100 py-1.5 text-sm last:border-b-0" data-changed-date={d}>
                                         <span>{dayjs(d).format('ddd, D MMM')}</span>
-                                        <Tag color="blue" bordered={false} className="!m-0">
+                                        <StatusTag color="blue" className="!m-0">
                                             Saved
-                                        </Tag>
+                                        </StatusTag>
                                     </li>
                                 ))}
                             </ul>

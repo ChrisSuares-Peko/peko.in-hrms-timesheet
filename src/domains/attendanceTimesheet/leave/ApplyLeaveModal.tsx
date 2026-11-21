@@ -220,7 +220,7 @@ const ApplyLeaveModal = ({
                     </Text>
                 )}
                 {was && (
-                    <div className="rounded-xl bg-[#F9FAFB] px-3 py-2" data-change-was>
+                    <div className="rounded-lg bg-[#F9FAFB] px-3 py-2" data-change-was>
                         <Text type="secondary" className="block text-xs">
                             Was (approved)
                         </Text>
@@ -244,13 +244,13 @@ const ApplyLeaveModal = ({
                         data-leave-type
                     />
                     {b && (
-                        <div className={`flex flex-col rounded-xl px-3 py-2 ${notAvailable ? 'bg-[#FFFAEB]' : 'bg-[#F9FAFB]'}`} data-available-line>
+                        <div className={`flex flex-col rounded-lg px-3 py-2 ${notAvailable ? 'bg-[#FFFAEB]' : 'bg-[#F9FAFB]'}`} data-available-line>
                             {notAvailable ? (
                                 <Text className="text-sm !text-[#B54708]">Not available during probation</Text>
                             ) : (
                                 <Text className="text-sm">
                                     <b className="font-medium">{daysText(available)} available</b>
-                                    <span className="text-gray-500"> {b.type === COMP_OFF ? 'of comp off' : `of ${fmtDays(b.allocated)} this year`}</span>
+                                    <span className="text-[#8B8B8B]"> {b.type === COMP_OFF ? 'of comp off' : `of ${fmtDays(b.allocated)} this year`}</span>
                                 </Text>
                             )}
                             {pending > 0 && (
