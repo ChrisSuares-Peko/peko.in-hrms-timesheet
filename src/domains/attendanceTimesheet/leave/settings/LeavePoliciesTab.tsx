@@ -16,6 +16,7 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
+import { PekoTabRow } from '@src/components/peko/PageHeader';
 import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
@@ -36,10 +37,22 @@ type Sub = 'types' | 'holidays' | 'config' | 'approvals';
 
 const USED_TIP = 'Already used in leave requests, so it can’t be deleted. Open Edit to deactivate it instead.';
 
-const LeaveTypes = ({ view, onView }: { view: LeaveSettingsView; onView: (v: LeaveSettingsView | false, msg?: string) => boolean }) => {
+type Editing = { type: LeaveTypeConfig | null } | null;
+
+// PROTOTYPE-SETUP (Design update): the drawer state lives in the tab, so "Add leave type" can sit on the sub-tab row.
+const LeaveTypes = ({
+    view,
+    onView,
+    editing,
+    setEditing,
+}: {
+    view: LeaveSettingsView;
+    onView: (v: LeaveSettingsView | false, msg?: string) => boolean;
+    editing: Editing;
+    setEditing: (e: Editing) => void;
+}) => {
     const scope = usePayrollScope();
     const [q, setQ] = useState('');
-    const [editing, setEditing] = useState<{ type: LeaveTypeConfig | null } | null>(null);
     const [viewing, setViewing] = useState<LeaveTypeConfig | null>(null);
     const used = (id: string) => (view.usage[id]?.requests ?? 0) > 0;
     const text = q.trim().toLowerCase();
@@ -47,8 +60,8 @@ const LeaveTypes = ({ view, onView }: { view: LeaveSettingsView; onView: (v: Lea
     const columns: ColumnsType<LeaveTypeConfig> = [
         { title: 'Leave type', key: 'n', render: (_, t) => <Text className="font-medium">{t.name}</Text> },
         { title: 'Days per year', key: 'd', render: (_, t) => `${fmtDays(t.daysPerYear)} days` },
-        { title: 'Credited', key: 'c', render: (_, t) => CREDIT_LABEL[t.credit] },
-        { title: 'Accrual rate', key: 'r', render: (_, t) => accrualText(t) },
+        { title: 'Credited', key: 'c', render: (_, t) => <span className="block max-w-[170px] whitespace-normal">{CREDIT_LABEL[t.credit]}</span> },
+        { title: 'Accrual rate', key: 'r', render: (_, t) => <span className="block max-w-[150px] whitespace-normal">{accrualText(t)}</span> },
         { title: 'Carry forward', key: 'cf', render: (_, t) => carryText(t) },
         { title: 'Applies to', key: 'a', render: (_, t) => APPLIES_LABEL[t.appliesTo] },
         {
@@ -104,12 +117,9 @@ const LeaveTypes = ({ view, onView }: { view: LeaveSettingsView; onView: (v: Lea
                         are loss of pay.
                     </Text>
                 </div>
-                <Flex gap={8} wrap="wrap" className="w-full sm:w-auto">
-                    <Input allowClear prefix={<SearchOutlined />} placeholder="Search by name" aria-label="Search leave types" className="w-full sm:w-[220px]" value={q} onChange={e => setQ(e.target.value)} />
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing({ type: null })} data-add-type>
-                        Add leave type
-                    </Button>
-                </Flex>
+                <div className="w-full sm:w-[240px]">
+                    <Input allowClear prefix={<SearchOutlined />} placeholder="Search by name" aria-label="Search leave types" value={q} onChange={e => setQ(e.target.value)} />
+                </div>
             </Flex>
             <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
                 <Table<LeaveTypeConfig>
@@ -417,10 +427,20 @@ const LeavePoliciesTab = () => {
         if (message) dispatch(showToast({ variant: 'success', description: message }));
         return true;
     };
+    const [editing, setEditing] = useState<Editing>(null);
     if (!view) return failed ? <Alert type="error" showIcon message="Couldn’t load the leave policies. Refresh the page to try again." /> : <Skeleton active paragraph={{ rows: 8 }} />;
     return (
         <Flex vertical gap={16} className="w-full min-w-0" data-leave-policies>
-            <div className="max-w-full overflow-x-auto">
+            <PekoTabRow
+                className=""
+                actions={
+                    sub === 'types' && (
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing({ type: null })} data-add-type>
+                            Add leave type
+                        </Button>
+                    )
+                }
+            >
                 <Segmented<Sub>
                     value={sub}
                     onChange={v => {
@@ -437,8 +457,8 @@ const LeavePoliciesTab = () => {
                     ]}
                     data-leave-policy-subtabs
                 />
-            </div>
-            {sub === 'types' && <LeaveTypes view={view} onView={onView} />}
+            </PekoTabRow>
+            {sub === 'types' && <LeaveTypes view={view} onView={onView} editing={editing} setEditing={setEditing} />}
             {sub === 'holidays' && <Holidays view={view} onView={onView} />}
             {sub === 'config' && <Configuration view={view} onView={onView} />}
             {sub === 'approvals' && <AtsSettingsTab section="leave" />}

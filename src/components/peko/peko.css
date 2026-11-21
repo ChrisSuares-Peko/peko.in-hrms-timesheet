@@ -145,3 +145,12 @@
     line-height: 20px;
     padding-inline: 8px;
 }
+
+/* Switches (rule 12): primary red when on. The platform's index.css paints every checked switch green with
+   !important; inside the scope the Peko red wins. */
+.ant-switch.peko-switch.ant-switch-checked {
+    background: #ff3a3a !important;
+}
+.ant-switch.peko-switch.ant-switch-checked:hover:not(.ant-switch-disabled) {
+    background: #ff6963 !important;
+}

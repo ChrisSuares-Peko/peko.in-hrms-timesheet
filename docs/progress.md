@@ -16,7 +16,7 @@ design asks for, listed under Decisions). Rules: `docs/design/peko-design-langua
 | 0 — Shared pieces: PekoScope (one theme layer), StatusTag, page header, sweep of radii/borders/greys/red | Design: shared Peko scope, status tag and page header | done |
 | 1 — Payroll dashboard: Quick actions as cards | Design: Payroll dashboard quick actions | done |
 | 2 — Payroll Leave: all sub-tabs + Add leave drawer | Design: Payroll Leave | done |
-| 3 — Payroll settings: Leave sub-tabs, Attendance/timesheet/overtime, Reimbursements | | |
+| 3 — Payroll settings: Leave sub-tabs, Attendance/timesheet/overtime, Reimbursements | Design: Payroll settings | done |
 | 4 — ESS Leave: Overview, type details, My requests + drawer, Public holidays, Apply and comp off modals | | |
 | 5 — My team | | |
 | 6 — Remaining ESS and Payroll screens in scope | | |
@@ -65,6 +65,15 @@ Decisions:
     (were bold). antd `Form.Item` labels already follow the theme.
 15. **Generic greys** left from the prototype (Tailwind gray-400…800, #475467, #667085, #98A2B3, #F9FAFB, #EAECF0)
     are mapped onto the Peko neutrals (#121212, #404040, #595959, #8B8B8B, #FAFAFA, #F5F5F5, #F0F0F0, #EAEAEA).
+16. **"Add leave type"** sits right-aligned on the Leave policies sub-tab row (the drawer's open state moved up into
+    the tab; same drawer, same save). "Add holiday" stays beside the date and name fields it submits.
+17. **Middle-size tables** (most tables in scope) use 14px top/bottom and 12px left/right cell padding, so the leave
+    types table fits at 1440 without scrolling; default-size tables keep 16px. Long "Credited" / "Accrual rate" values wrap.
+18. **Switches**: the platform's `src/index.css` paints every checked switch green (`!important`); inside the Peko scope
+    the switch is primary red (#FF3A3A, hover #FF6963) as the rules ask. Elsewhere in the platform switches stay green.
+19. **Card padding**: antd `Card` (also `size="small"`, used by the settings cards) has 20–24px header and body padding.
+20. **Leave type drawer**: field labels are 14px regular; the section headings ("When an employee joins"…) are 16px
+    medium.
 13. **Content width**: the scope caps content at 1320px; the dashboard layout already gives ~40px side padding on
     desktop, so it isn't changed.
 

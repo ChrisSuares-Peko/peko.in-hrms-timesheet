@@ -28,7 +28,7 @@ const { Text } = Typography;
 
 const SectionHeading = ({ title, note }: { title: string; note: string }) => (
     <div className="border-0 border-t border-solid border-[#F0F0F0] pt-3" data-lt-section={title}>
-        <Text className="block text-sm font-medium text-[#121212]">{title}</Text>
+        <Text className="block text-base font-medium text-[#121212]">{title}</Text>
         <Text type="secondary" className="text-xs">
             {note}
         </Text>
@@ -37,7 +37,7 @@ const SectionHeading = ({ title, note }: { title: string; note: string }) => (
 
 const Field = ({ label, help, children, htmlFor }: { label: string; help: string; children: React.ReactNode; htmlFor?: string }) => (
     <Flex vertical gap={4}>
-        <label htmlFor={htmlFor} className="text-sm font-semibold text-[#121212]">
+        <label htmlFor={htmlFor} className="text-sm text-[#121212]">
             {label}
         </label>
         <Text type="secondary" className="text-xs">

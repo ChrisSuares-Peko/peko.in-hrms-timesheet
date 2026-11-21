@@ -52,6 +52,10 @@ export const pekoTheme: ThemeConfig = {
             colorBorderSecondary: PEKO_COLOR.border,
             paddingLG: 24,
             padding: 20,
+            bodyPadding: 24,
+            bodyPaddingSM: 20,
+            headerPadding: 24,
+            headerPaddingSM: 20,
             headerFontSize: 16,
             headerFontSizeSM: 16,
             fontWeightStrong: 500,
@@ -67,7 +71,7 @@ export const pekoTheme: ThemeConfig = {
             cellPaddingBlock: 14,
             cellPaddingInline: 16,
             cellPaddingBlockMD: 12,
-            cellPaddingInlineMD: 16,
+            cellPaddingInlineMD: 12,
             cellFontSize: 14,
             fontWeightStrong: 500,
         },
@@ -117,6 +121,7 @@ const PekoScope = ({ children, className = '' }: { children: ReactNode; classNam
         tag={{ className: 'peko-tag' }}
         segmented={{ className: 'peko-segmented' }}
         tabs={{ className: 'peko-tabs' }}
+        switch={{ className: 'peko-switch' }}
     >
         <div className={`peko-scope w-full min-w-0 ${className}`}>{children}</div>
     </ConfigProvider>
