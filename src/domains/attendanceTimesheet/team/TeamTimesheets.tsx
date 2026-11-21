@@ -214,11 +214,11 @@ const TeamTimesheets = ({ loadWeek, loadMonth, onOpenMember, empty }: TeamTimesh
         {
             title: 'Extra',
             key: 'extra',
-            width: 70,
+            width: 90,
             align: 'right',
             render: (_, r) =>
                 r.extraMinutes > 0 ? (
-                    <Typography.Text className="!text-[#027A48]">+{formatDuration(r.extraMinutes)}</Typography.Text>
+                    <Typography.Text className="whitespace-nowrap !text-[#027A48]">+{formatDuration(r.extraMinutes)}</Typography.Text>
                 ) : (
                     <Typography.Text type="secondary">—</Typography.Text>
                 ),
@@ -256,7 +256,7 @@ const TeamTimesheets = ({ loadWeek, loadMonth, onOpenMember, empty }: TeamTimesh
             key: 'extra',
             width: 90,
             align: 'right',
-            render: (_, r) => (r.extraMinutes > 0 ? <Typography.Text className="!text-[#027A48]">+{formatDuration(r.extraMinutes)}</Typography.Text> : '—'),
+            render: (_, r) => (r.extraMinutes > 0 ? <Typography.Text className="whitespace-nowrap !text-[#027A48]">+{formatDuration(r.extraMinutes)}</Typography.Text> : '—'),
         },
         {
             title: 'Weeks',

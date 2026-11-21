@@ -12,6 +12,7 @@ import { Button, Empty, Flex, Segmented, Skeleton, Typography } from 'antd';
 import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import { PEKO_CARD, PEKO_STAT_LABEL, PEKO_STAT_VALUE } from '@src/components/peko/pekoTokens';
 import { addMonths } from '@src/prototype/rules/attendance';
 
 import { getTeamReimbursements } from '../api';
@@ -30,14 +31,11 @@ export const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
 const claimsText = (n: number) => `${n} claim${n === 1 ? '' : 's'}`;
 
-const Total = ({ label, total, accent }: { label: string; total: { amount: number; count: number }; accent?: string }) => (
-    <div className="flex min-w-0 flex-col gap-0.5 rounded-lg border border-solid border-[#EAEAEA] bg-white px-4 py-3" data-reimb-total={label}>
-        <Text type="secondary" className="text-xs">
-            {label}
-        </Text>
-        <Text className="truncate text-xl font-semibold tabular-nums" style={{ color: accent ?? '#171717' }}>
-            {inr(total.amount)}
-        </Text>
+/** PROTOTYPE-SETUP (Design update, rule 5): a stat card — label 13px #8B8B8B, value 24px medium #121212. */
+const Total = ({ label, total }: { label: string; total: { amount: number; count: number } }) => (
+    <div className={`flex min-w-0 flex-col gap-1 ${PEKO_CARD} !p-5`} data-reimb-total={label}>
+        <span className={PEKO_STAT_LABEL}>{label}</span>
+        <span className={`truncate leading-8 tabular-nums ${PEKO_STAT_VALUE}`}>{inr(total.amount)}</span>
         <Text type="secondary" className="text-xs">
             {claimsText(total.count)}
         </Text>
@@ -91,11 +89,11 @@ const TeamReimbursements = ({ onChanged }: { onChanged?: () => void }) => {
                 <Skeleton active paragraph={{ rows: 6 }} />
             ) : (
                 <>
-                    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                         <Total label="Claimed this month" total={view.totals.claimed} />
-                        <Total label="Waiting for you" total={view.totals.waiting} accent={view.totals.waiting.count ? '#B42318' : undefined} />
+                        <Total label="Waiting for you" total={view.totals.waiting} />
                         <Total label={`With ${l2}`} total={view.totals.withLevel2} />
-                        <Total label="Approved" total={view.totals.approved} accent={view.totals.approved.count ? '#067647' : undefined} />
+                        <Total label="Approved" total={view.totals.approved} />
                     </div>
                     {view.byPerson.length > 0 && (
                         <section aria-label="By team member" className={`${ESS_CARD} !py-4`}>

@@ -53,7 +53,7 @@ const LateNotesPanel = ({ reloadKey, onDispute }: { reloadKey: number; onDispute
                             </>
                         );
                     } else if (d.dispute?.state === 'pending') {
-                        tone = 'bg-[#EEF3FF]';
+                        tone = 'bg-[#E6F4FF]';
                         body = (
                             <>
                                 <b className="font-medium">
@@ -63,7 +63,7 @@ const LateNotesPanel = ({ reloadKey, onDispute }: { reloadKey: number; onDispute
                             </>
                         );
                     } else if (d.dispute?.state === 'update_requested') {
-                        tone = 'bg-[#FFFAEB]';
+                        tone = 'bg-[#FFF6EA]';
                         body = (
                             <>
                                 <b className="font-medium">Dispute for {fmtDay(d.date)} is waiting for your update.</b> {d.dispute.by ? `${d.dispute.by}: “${d.dispute.comment}”. ` : ''}
@@ -71,7 +71,7 @@ const LateNotesPanel = ({ reloadKey, onDispute }: { reloadKey: number; onDispute
                             </>
                         );
                     } else if (d.dispute?.state === 'rejected') {
-                        tone = 'bg-[#FEF3F2]';
+                        tone = 'bg-[#FFF1F0]';
                         body = (
                             <>
                                 <b className="font-medium">

@@ -120,16 +120,16 @@ const TeamToday = ({ mode }: { mode: AtsMode }) => {
     const loggedSome = rows.filter(r => r.loggedMinutesToday > 0).length;
     const tiles = hasCheckIn
         ? [
-              { label: 'Checked in', value: counts.checkedIn, color: '#12B76A' },
-              { label: 'Late', value: counts.late, color: '#F79009' },
-              { label: 'Not checked in', value: counts.notCheckedIn, color: '#F04438' },
-              { label: 'On leave', value: counts.onLeave, color: '#7A5AF8' },
+              { label: 'Checked in', value: counts.checkedIn },
+              { label: 'Late', value: counts.late },
+              { label: 'Not checked in', value: counts.notCheckedIn },
+              { label: 'On leave', value: counts.onLeave },
           ]
         : [
               { label: 'In the team', value: rows.length },
-              { label: 'Logged time today', value: loggedSome, color: '#12B76A' },
-              { label: 'Nothing logged yet', value: rows.length - loggedSome - counts.onLeave, color: '#F79009' },
-              { label: 'On leave', value: counts.onLeave, color: '#7A5AF8' },
+              { label: 'Logged time today', value: loggedSome },
+              { label: 'Nothing logged yet', value: rows.length - loggedSome - counts.onLeave },
+              { label: 'On leave', value: counts.onLeave },
           ];
 
     return (

@@ -38,7 +38,8 @@ export const Panel = ({
     </section>
 );
 
-/** A labelled number, e.g. "Present · 14". */
+/** A labelled number, e.g. "Present · 14". PROTOTYPE-SETUP (Design update, rule 5): label 13px grey first, value 24px
+ * medium; `tone` is the status tint (the Peko status pair backgrounds). */
 export const StatTile = ({
     label,
     value,
@@ -51,8 +52,8 @@ export const StatTile = ({
     hint?: ReactNode;
 }) => (
     <div className={`rounded-lg px-4 py-3 min-w-0 ${tone}`}>
-        <div className="text-lg sm:text-xl font-semibold leading-tight text-[#121212] tabular-nums">{value}</div>
-        <Text className="block text-xs text-[#8B8B8B] leading-snug">{label}</Text>
+        <Text className="block text-[13px] leading-snug !text-[#8B8B8B]">{label}</Text>
+        <div className="text-2xl font-medium leading-8 text-[#121212] tabular-nums">{value}</div>
         {hint && <Text className="block text-[11px] text-[#8B8B8B] leading-snug">{hint}</Text>}
     </div>
 );

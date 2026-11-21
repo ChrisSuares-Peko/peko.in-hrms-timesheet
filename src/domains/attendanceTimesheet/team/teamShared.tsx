@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 
 import { Avatar, Empty, Flex, Typography } from 'antd';
 
+import { PEKO_STAT_LABEL, PEKO_STAT_VALUE } from '@src/components/peko/pekoTokens';
 import { hasCheckIn, hasTimesheets } from '@src/prototype/rules/attendance';
 
 import { getAtsSettings } from '../api';
@@ -103,35 +104,18 @@ export const PersonCell = ({
 
 // ---- layout bits ------------------------------------------------------------------------------------------
 
-export const CountTile = ({
-    label,
-    value,
-    color,
-    onClick,
-}: {
-    label: string;
-    value: number | string;
-    color?: string;
-    onClick?: () => void;
-}) => {
+/** PROTOTYPE-SETUP (Design update, rule 5): a stat card — label 13px #8B8B8B, value 24px medium #121212. */
+export const CountTile = ({ label, value, onClick }: { label: string; value: number | string; onClick?: () => void }) => {
     const body = (
-        <Flex vertical gap={2} className="px-4 py-3">
-            <Typography.Text className="text-2xl font-bold leading-tight" style={{ color: color ?? '#171717' }}>
-                {value}
-            </Typography.Text>
-            <Typography.Text type="secondary" className="text-xs sm:text-sm">
-                {label}
-            </Typography.Text>
+        <Flex vertical gap={4} className="px-5 py-4">
+            <span className={PEKO_STAT_LABEL}>{label}</span>
+            <span className={`leading-8 tabular-nums ${PEKO_STAT_VALUE}`}>{value}</span>
         </Flex>
     );
-    const cls = 'w-full text-left rounded-lg border border-solid border-[#EAEAEA] bg-white';
+    const cls = 'w-full text-left rounded-lg border border-solid border-[#EAEAEA] bg-white font-[inherit] shadow-[0px_1px_12px_1px_rgba(122,122,122,0.06)]';
     if (!onClick) return <div className={cls}>{body}</div>;
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            className={`${cls} cursor-pointer transition-colors hover:border-[#FF3A3A] p-0`}
-        >
+        <button type="button" onClick={onClick} className={`${cls} cursor-pointer p-0 transition-colors hover:border-[#FFE4E4]`}>
             {body}
         </button>
     );

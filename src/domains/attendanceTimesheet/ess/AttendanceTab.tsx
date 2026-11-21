@@ -155,12 +155,12 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
     const tiles: TotalTileProps[] = totals
         ? [
               { label: 'Present', value: totals.present, tone: 'bg-[#ECFDF3]' },
-              { label: 'Late', value: totals.late, tone: 'bg-[#FFFAEB]' },
-              { label: 'Half day', value: totals.halfDay, tone: 'bg-[#FFFAEB]' },
-              { label: 'Absent', value: totals.absent, tone: 'bg-[#FEF3F2]' },
-              { label: 'On leave', value: totals.onLeave, tone: 'bg-[#EEF3FF]' },
-              { label: 'Holidays', value: totals.holidays, tone: 'bg-[#EEF3FF]' },
-              { label: 'Worked off-days', value: totals.workedOffDays, tone: 'bg-[#FFFAEB]' },
+              { label: 'Late', value: totals.late, tone: 'bg-[#FFF6EA]' },
+              { label: 'Half day', value: totals.halfDay, tone: 'bg-[#FFF6EA]' },
+              { label: 'Absent', value: totals.absent, tone: 'bg-[#FFF1F0]' },
+              { label: 'On leave', value: totals.onLeave, tone: 'bg-[#F9F0FB]' },
+              { label: 'Holidays', value: totals.holidays, tone: 'bg-[#F9F0FB]' },
+              { label: 'Worked off-days', value: totals.workedOffDays, tone: 'bg-[#FFF6EA]' },
               { label: 'Break time', value: formatDuration(totals.breakMinutes), tone: 'bg-[#EFF1F4]' },
               {
                   label: `worked, ${totals.overtimeMinutes ? `${formatDuration(totals.overtimeMinutes)} overtime` : 'no overtime'}`,

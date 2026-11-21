@@ -18,7 +18,7 @@ design asks for, listed under Decisions). Rules: `docs/design/peko-design-langua
 | 2 — Payroll Leave: all sub-tabs + Add leave drawer | Design: Payroll Leave | done |
 | 3 — Payroll settings: Leave sub-tabs, Attendance/timesheet/overtime, Reimbursements | Design: Payroll settings | done |
 | 4 — ESS Leave: Overview, type details, My requests + drawer, Public holidays, Apply and comp off modals | Design: ESS Leave | done |
-| 5 — My team | | |
+| 5 — My team | Design: My team | done |
 | 6 — Remaining ESS and Payroll screens in scope | | |
 | 7 — VERIFY 1–8, build, push | | |
 
@@ -81,6 +81,11 @@ Decisions:
     modals keep their buttons inside the form (submit), drawn as a footer row: full-width #F0F0F0 divider,
     right-aligned, no longer two full-width buttons.
 23. **Section spacing**: ESS Leave and the type details page use 24px between sections, 16px between cards in a row.
+24. **Stat tiles everywhere in scope** (Payroll service totals, My team Team today / Team reimbursements, ESS leave
+    type details, ESS attendance and overtime totals) show the label first (13px #8B8B8B) and the value 24px medium
+    #121212. The ESS attendance/overtime totals keep their status tint, moved onto the Peko pair backgrounds (late /
+    half day → #FFF6EA, absent → #FFF1F0, on leave / holidays → #F9F0FB). Accent-coloured values (red "Waiting for
+    you", green "Approved") are #121212 now.
 13. **Content width**: the scope caps content at 1320px; the dashboard layout already gives ~40px side padding on
     desktop, so it isn't changed.
 

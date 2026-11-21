@@ -164,7 +164,7 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                     <StatTile
                         label="Waiting for approval"
                         value={stats.waitingCount}
-                        tone="bg-[#FFFAEB]"
+                        tone="bg-[#FFF6EA]"
                     />
                     <StatTile
                         label="Suggested to claim"
