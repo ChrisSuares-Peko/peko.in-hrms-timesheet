@@ -63,6 +63,9 @@ export interface CardProps {
     iconWidth?: number;
     /** PROTOTYPE-SETUP (Leave module, update): what's waiting for the admin in this service (Quick actions). */
     badge?: number;
+    /** PROTOTYPE-SETUP (Design update): the tile's icon (drawn in #EA3639) and its one grey line. */
+    iconNode?: React.ReactNode;
+    description?: string;
 }
 export type filterState = {
     searchText: string;

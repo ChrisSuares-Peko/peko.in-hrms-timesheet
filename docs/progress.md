@@ -1,9 +1,68 @@
-# Progress — Developer notes panel, page-by-page version
+# Progress — Design update: Peko design language
 
 PROTOTYPE-SETUP. Run log. Sources: `docs/dev-notes/dev-notes.json` (the notes) and
 `docs/prototypes/leave-prototype.html` (the panel's look and behaviour). If a run stops, continue from the first step
 that isn't **done**. The previous run (Leave module updates + module-grouped notes panel, `c34e05f`–`9b91229`) is
 finished and pushed; its log is in git history (`git show 9b91229:docs/progress.md`).
+
+## Design update: Peko design language for the ESS & Payroll redesign screens — in progress
+
+Look only: no behaviour, data, route, validation or wording changes (apart from the new one-line descriptions the
+design asks for, listed under Decisions). Rules: `docs/design/peko-design-language.md`. Screenshots:
+`docs/design/screens/before/` and `docs/design/screens/after/`.
+
+| Step | Commit | Status |
+|---|---|---|
+| 0 — Shared pieces: PekoScope (one theme layer), StatusTag, page header, sweep of radii/borders/greys/red | Design: shared Peko scope, status tag and page header | done |
+| 1 — Payroll dashboard: Quick actions as cards | Design: Payroll dashboard quick actions | done |
+| 2 — Payroll Leave: all sub-tabs + Add leave drawer | | |
+| 3 — Payroll settings: Leave sub-tabs, Attendance/timesheet/overtime, Reimbursements | | |
+| 4 — ESS Leave: Overview, type details, My requests + drawer, Public holidays, Apply and comp off modals | | |
+| 5 — My team | | |
+| 6 — Remaining ESS and Payroll screens in scope | | |
+| 7 — VERIFY 1–8, build, push | | |
+
+Decisions:
+1. **Reference.** `docs/prototypes/leave-prototype.html` is the same file as the last run (no Peko palette: it uses
+   #E30000 red, blue links, 12px panels, a dark segmented control). Where it disagrees with the design rules in the
+   brief or the Peko theme, the rules and the theme win; the prototype is used for layout (what sits where).
+2. **No `src/whitelabel/peko.ts` in this code base.** Its values (hover #FF6963, active #E02B2B, surface #FFF7F6, border
+   #FFE4E4) are taken from the brief and kept in `src/components/peko/pekoTokens.ts`, next to the antd.config and
+   tailwind values they sit with.
+3. **One theme layer.** The ESS layout already nested a ConfigProvider (`EssThemeProvider`, with its own #FF4F4F red and
+   32px cards). It now renders `PekoScope`, which nests in the global theme and keeps its values (#FF3A3A, #121212,
+   36px controls, radius 6); the global `src/antd.config.tsx` is untouched. The same scope wraps every Payroll service
+   page and Payroll settings (in `src/routes/sections/payroll.tsx`), so their modals and drawers get it through the
+   ConfigProvider context. Payroll settings is wrapped as a whole page, so its other tabs (Company Profile, Payroll Cycle…)
+   also get the Peko tabs, table header and card details.
+4. **Modal and drawer dividers, card shadow, tag pills** come from ConfigProvider class names (`modal`, `drawer`,
+   `card`, `tag`, `alert`, `segmented`, `tabs`) styled in `src/components/peko/peko.css`, because they reach portals.
+5. **StatusTag** maps the antd preset colours screens already used onto the six pairs, so every `<Tag>` in scope became
+   `<StatusTag>` without changing which status gets which meaning. Two maps moved to match the rules: holiday days
+   (cyan → leave pair) and "Update requested" timesheet periods (red → warning pair). The "Leave" chip on the Overview
+   status table and leave-type chips use the leave pair.
+6. **Stat values are #121212.** CountTile no longer colours values (blue "Waiting for you", green "Approved"); the
+   label/value/line carry the meaning.
+7. **`danger` on primary buttons removed** (Send for approval, Save settings, Add leave type, Edit…): with the theme's
+   primary already red, `danger` only swapped #FF3A3A for #FF4D4F. Destructive buttons (Delete, Cancel request, remove
+   break) keep `danger`.
+8. **Request rows**: Reject / Ask for update / Approve are small (28px); Approve is outlined green (`peko-approve`).
+   "Approve anyway" in the Not enough leave dialog stays primary (it's a dialog footer, not a row).
+9. **Quick actions** are cards with an antd outline icon in #EA3639 (the old illustrated PNG/SVG icons can't take the
+   icon colour) and one grey line each. Service lines are the prototype's ("Leave, requests and balances", "Expense
+   claims"…); the other tiles got short new lines (Salary "Salaries and pay runs", Company Documents "Policies and
+   company files", Reports & Forms "Payroll reports and statutory forms", Announcements "News for your employees",
+   Download Payslip "Payslips for any month", CTC Calculator "Work out salary from CTC"). The waiting count is the red
+   badge top right ("N waiting" as its label and tooltip) instead of a line under the name.
+10. **Page header descriptions** that didn't exist before: Attendance "Everyone’s daily attendance, monthly summary,
+    holidays, shifts and correction requests.", Employees "Employees, departments and profile updates.", Payroll
+    Settings "Rules for payroll and every service: leave, attendance, timesheet, overtime and reimbursements."
+11. **Page actions on the tab row**: Leave ("Add leave"), Attendance ("Mark Attendance", "Add Holiday", now primary).
+    Employees keeps its three actions beside the title: its tab row has seven tabs and no room.
+12. **Main-tab counts** are small red pills (antd Badge): Attendance "Requests", Employees "Profile Update Request",
+    "Document Requests", "Profile updates". Segmented sub-tabs keep their "Requests (1)" text.
+13. **Content width**: the scope caps content at 1320px; the dashboard layout already gives ~40px side padding on
+    desktop, so it isn't changed.
 
 ## Leave settings + comp off calendar + approvers — done
 

@@ -2,6 +2,21 @@
 import { useEffect, useRef, useState } from 'react';
 
 import {
+    AccountBookOutlined,
+    BarChartOutlined,
+    CalculatorOutlined,
+    CalendarOutlined,
+    ClockCircleOutlined,
+    FieldTimeOutlined,
+    FileTextOutlined,
+    FolderOpenOutlined,
+    HistoryOutlined,
+    NotificationOutlined,
+    SettingOutlined,
+    TeamOutlined,
+    WalletOutlined,
+} from '@ant-design/icons';
+import {
     Button,
     Col,
     Flex,
@@ -282,6 +297,8 @@ const Dash = () => {
         {
             icon: employee,
             title: 'Employees & Departments',
+            iconNode: <TeamOutlined />,
+            description: 'Employees, departments and profile updates',
             isActive: true,
             link: serviceLinks.employees,
             ref: employeesRef,
@@ -290,6 +307,8 @@ const Dash = () => {
         {
             icon: salaryIcon,
             title: 'Salary',
+            iconNode: <WalletOutlined />,
+            description: 'Salaries and pay runs',
             isActive: true,
             link: `/${paths.payroll.index}/${paths.payroll.employeesSalary}`,
             ref: salaryRef,
@@ -297,6 +316,8 @@ const Dash = () => {
         {
             icon: leaveIcon,
             title: 'Leave',
+            iconNode: <CalendarOutlined />,
+            description: 'Leave, requests and balances',
             isActive: true,
             // PROTOTYPE-SETUP (Payroll admin, Slice 1): the Leave service.
             link: serviceLinks.leave,
@@ -306,6 +327,8 @@ const Dash = () => {
         {
             icon: timesheetIcon,
             title: 'Attendance',
+            iconNode: <ClockCircleOutlined />,
+            description: 'Attendance corrections',
             isActive: true,
             link: serviceLinks.attendance,
             ref: timesheetRef,
@@ -314,6 +337,8 @@ const Dash = () => {
         {
             icon: reimbursementIcon,
             title: 'Reimbursements',
+            iconNode: <AccountBookOutlined />,
+            description: 'Expense claims',
             isActive: true,
             link: serviceLinks.reimbursement,
             ref: reimbursementRef,
@@ -323,6 +348,8 @@ const Dash = () => {
         {
             icon: timesheetIcon,
             title: 'Timesheet',
+            iconNode: <FieldTimeOutlined />,
+            description: 'Review and approve timesheets',
             isActive: true,
             link: serviceLinks.timesheet,
             badge: waitingOn('timesheet'),
@@ -330,6 +357,8 @@ const Dash = () => {
         {
             icon: timesheetIcon,
             title: 'Overtime',
+            iconNode: <HistoryOutlined />,
+            description: 'Overtime claims',
             isActive: true,
             link: serviceLinks.overtime,
             badge: waitingOn('overtime'),
@@ -338,6 +367,8 @@ const Dash = () => {
         {
             icon: settingsIcon,
             title: 'Payroll settings',
+            iconNode: <SettingOutlined />,
+            description: 'Rules for every service',
             isActive: true,
             link: serviceLinks.settings,
             iconWidth: 44,
@@ -345,6 +376,8 @@ const Dash = () => {
         {
             icon: companyDocumentIcon,
             title: 'Company Documents',
+            iconNode: <FolderOpenOutlined />,
+            description: 'Policies and company files',
             isActive: true,
             link: `/${paths.payroll.index}/${paths.payroll.allDocuments}`,
             ref: documentRef,
@@ -352,6 +385,8 @@ const Dash = () => {
         {
             icon: reportsIcon,
             title: 'Reports & Forms',
+            iconNode: <BarChartOutlined />,
+            description: 'Payroll reports and statutory forms',
             isActive: true,
             link: `/${paths.payroll.index}/${paths.payroll.reports}`,
             ref: reportsRef,
@@ -359,6 +394,8 @@ const Dash = () => {
         {
             icon: announcementIcon,
             title: 'Announcements ',
+            iconNode: <NotificationOutlined />,
+            description: 'News for your employees',
             isActive: true,
             link: `/${paths.payroll.index}/${paths.payroll.announcements}`,
             ref: announcementsRef,
@@ -366,6 +403,8 @@ const Dash = () => {
         {
             icon: payslipIcon,
             title: 'Download Payslip',
+            iconNode: <FileTextOutlined />,
+            description: 'Payslips for any month',
             isActive: true,
             link: ``,
             onClick: () => setOpenPayslipModal(true),
@@ -374,6 +413,8 @@ const Dash = () => {
         {
             icon: ctcCalculatorIcon,
             title: 'CTC Calculator',
+            iconNode: <CalculatorOutlined />,
+            description: 'Work out salary from CTC',
             isActive: true,
             link: `/${paths.payroll.index}/${paths.payroll.ctcCalculator}`,
             // This icon's artwork is wider than tall (landscape illustration) — a larger
@@ -473,50 +514,26 @@ const Dash = () => {
 
                         {/* PROTOTYPE-SETUP (Leave module, update): Quick actions — every Payroll service opens from here. */}
                         <div id={QUICK_ACTIONS_ID} className="w-full scroll-mt-4" data-quick-actions>
-                            <Typography.Text className="mb-2 block text-base font-medium">Quick actions</Typography.Text>
+                            <Typography.Text className="mb-4 block text-base font-medium !text-[#121212]">Quick actions</Typography.Text>
                         </div>
-                        {md ? (
-                            <div className="w-full flex flex-col gap-4">
-                                <Row className="w-full" gutter={[8, 16]}>
-                                    {navMenuDetails.map((item, i) => (
-                                        <Col
-                                            key={i}
-                                            span={4}
-                                            className="flex justify-center p-1 lg:p-1"
-                                        >
-                                            <NavigationCards
-                                                icon={item.icon}
-                                                title={item.title}
-                                                isActive={item.isActive}
-                                                link={item.link}
-                                                reference={item.ref}
-                                                onClick={item.onClick}
-                                                iconWidth={item.iconWidth}
-                                                badge={item.badge}
-                                            />
-                                        </Col>
-                                    ))}
-                                </Row>
-                            </div>
-                        ) : (
-                            <Flex justify="center">
-                                <Row gutter={[0, 15]} justify="start">
-                                    {navMenuDetails.map((item, index) => (
-                                        <Col xs={6} key={index}>
-                                            <NavigationCards
-                                                icon={item.icon}
-                                                title={item.title}
-                                                isActive={item.isActive}
-                                                link={item.link}
-                                                onClick={item.onClick}
-                                                iconWidth={item.iconWidth}
-                                                badge={item.badge}
-                                            />
-                                        </Col>
-                                    ))}
-                                </Row>
-                            </Flex>
-                        )}
+                        {/* PROTOTYPE-SETUP (Design update: Peko design language, rule 13): Quick actions as cards. */}
+                        <div className="mb-6 grid w-full grid-cols-2 gap-4 md:grid-cols-3 2xl:grid-cols-4" data-quick-grid>
+                            {navMenuDetails.map(item => (
+                                <NavigationCards
+                                    key={item.title}
+                                    icon={item.icon}
+                                    iconNode={item.iconNode}
+                                    title={item.title}
+                                    description={item.description}
+                                    isActive={item.isActive}
+                                    link={item.link}
+                                    reference={item.ref}
+                                    onClick={item.onClick}
+                                    iconWidth={item.iconWidth}
+                                    badge={item.badge}
+                                />
+                            ))}
+                        </div>
 
                         {/* Employee count / progress section — skeleton while loading */}
                         {(summaryLoading || countLoading) && (

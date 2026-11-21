@@ -1,104 +1,54 @@
 import React from 'react';
 
-import { Badge, Flex, Image, Typography } from 'antd';
+import { Image, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 
 import { CardProps } from '@domains/dashboard/Payroll/types/types';
 
-// PROTOTYPE-SETUP (Leave module, update): a service tile shows what's waiting for the admin (red count + "N waiting").
-const NavigationCards = ({ icon, title, link, isActive, reference, onClick, iconWidth = 50, badge = 0 }: CardProps) => {
+// PROTOTYPE-SETUP (Leave module, update): a service tile shows what's waiting for the admin.
+// PROTOTYPE-SETUP (Design update: Peko design language, rule 13): a Quick actions card — 1px #EAEAEA, 8px radius, 18px
+// padding; the icon in a 40px rounded square (#FFF7F7, icon #EA3639); the name in medium weight; one grey line; what's
+// waiting as a red count badge top right. Hover: #FFE4E4 border and a slightly stronger shadow.
+const NavigationCards = ({ icon, iconNode, title, description, link, isActive, reference, onClick, iconWidth = 50, badge = 0 }: CardProps) => {
     const isActionOnly = !link && typeof onClick === 'function';
 
-    const handleClick = () => {
-        if (isActionOnly) onClick?.();
-    };
-
-    const desktopCard = (
-        <Flex
-            ref={reference}
-            vertical
-            gap={18}
-            align="center"
-            justify="center"
-            onClick={handleClick}
-            role={isActionOnly ? 'button' : undefined}
-            tabIndex={isActionOnly ? 0 : undefined}
-            onKeyDown={
-                isActionOnly
-                    ? e => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              onClick?.();
-                          }
-                      }
-                    : undefined
-            }
-            className="xs:hidden md:flex transition duration-300 transform hover:scale-110 cursor-pointer"
-        >
-            <Badge count={badge} size="small" offset={[-6, 6]} color="#FF4F4F">
-                <Flex
-                    className="h-[90px] w-[90px] bg-[#F9F6F5] rounded-3xl"
-                    align="center"
-                    justify="center"
-                >
-                    <Image width={iconWidth} preview={false} src={icon} />
-                </Flex>
-            </Badge>
-            <Typography.Text
-                {...(!isActive && { disabled: true })}
-                className="text-[13px] md:text-center w-24 break-normal min-h-10"
-            >
-                {title}
-                {badge > 0 && (
-                    <span className="block text-[11px] font-medium text-[#FF4F4F]" data-tile-waiting>
-                        {badge} waiting
-                    </span>
-                )}
-            </Typography.Text>
-        </Flex>
-    );
-
-    const mobileCard = (
-        <Flex
-            align="center"
-            justify="center"
-            gap="middle"
-            vertical
-            onClick={handleClick}
-            role={isActionOnly ? 'button' : undefined}
-            tabIndex={isActionOnly ? 0 : undefined}
-            onKeyDown={
-                isActionOnly
-                    ? e => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              onClick?.();
-                          }
-                      }
-                    : undefined
-            }
-            className="md:hidden xs:flex my-2 cursor-pointer"
-        >
-            <Badge count={badge} size="small" offset={[-4, 4]} color="#FF4F4F">
-                <Flex className="min-w-[4rem] h-14 bg-[#F9F6F5] rounded-xl justify-center">
-                    <Image width={iconWidth / 2} preview={false} src={icon} className="mt-5" />
-                </Flex>
-            </Badge>
-            <Typography.Text
-                {...(!isActive && { disabled: true })}
-                className="text-[.69rem] mt-2 w-full font-medium text-center"
-            >
-                {title}
-                {badge > 0 && <span className="block text-[.65rem] text-[#FF4F4F]">{badge} waiting</span>}
-            </Typography.Text>
-        </Flex>
-    );
-
-    return (
+    const className =
+        'relative flex h-full w-full min-w-0 cursor-pointer flex-col items-start gap-1 rounded-lg border border-solid border-[#EAEAEA] bg-white p-[18px] text-left font-[inherit] shadow-[0px_1px_12px_1px_rgba(122,122,122,0.06)] transition-[border-color,box-shadow] duration-200 hover:border-[#FFE4E4] hover:shadow-[0px_4px_16px_2px_rgba(122,122,122,0.12)]';
+    const body = (
         <>
-            {isActionOnly ? desktopCard : <Link to={link}>{desktopCard}</Link>}
-            {isActionOnly ? mobileCard : <Link to={link}>{mobileCard}</Link>}
+            <span className="mb-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FFF7F7] text-xl text-[#EA3639]" aria-hidden>
+                {iconNode ?? <Image width={Math.min(iconWidth, 28)} preview={false} src={icon} />}
+            </span>
+            <Typography.Text {...(!isActive && { disabled: true })} className="text-sm font-medium !text-[#121212]">
+                {title}
+            </Typography.Text>
+            {description && <Typography.Text className="text-[13px] leading-[18px] !text-[#8B8B8B]">{description}</Typography.Text>}
+            {badge > 0 && (
+                <span
+                    className="absolute right-3 top-3 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#FF3A3A] px-1.5 text-xs font-medium leading-none text-white"
+                    aria-label={`${badge} waiting`}
+                    title={`${badge} waiting`}
+                    data-tile-waiting
+                >
+                    {badge}
+                </span>
+            )}
         </>
+    );
+
+    if (isActionOnly) {
+        return (
+            <button type="button" ref={reference as React.Ref<HTMLButtonElement>} onClick={() => onClick?.()} className={className} data-quick-tile={title.trim()}>
+                {body}
+            </button>
+        );
+    }
+    return (
+        <Link to={link} className="block h-full">
+            <div ref={reference} className={className} data-quick-tile={title.trim()}>
+                {body}
+            </div>
+        </Link>
     );
 };
 
