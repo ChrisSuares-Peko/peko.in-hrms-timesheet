@@ -14,7 +14,7 @@ guide.shared) and `docs/prototypes/leave-prototype.html`. Goal: HR can set up Pe
 | Step | Commit | Status |
 |---|---|---|
 | 1 + 5 — Leave type model, migration, engine rules and tests | Leave: leave type model and policy engine | done |
-| 2 — Payroll settings → Leave types: table, drawer, view, confirmation | Leave: leave types settings for yearly and per-event leave | |
+| 2 — Payroll settings → Leave types: table, drawer, view, confirmation | Leave: leave types settings for yearly and per-event leave | done |
 | 3 — Configuration: credit date, rounding, loss of pay | | |
 | 4 — Approvals: extra approval for longer leave | | |
 | 6 — ESS Leave: Request LOP, Apply for per-event / calendar types, overview grid | | |
@@ -62,6 +62,11 @@ Decisions:
     (Operations head). Imran's longer leave goes Divya → Manish (endorsement) → Admin / HR.
 12. **Endorsement on edits:** approvers stay as fixed at submission; on resubmit (edit or update requested) it restarts
     at level 1 and the endorsement step is added or removed for the new number of days.
+14. **Leave types drawer:** Kind and Count first; the yearly sections (Days per year, Credited, joins, year end, leaves)
+    or the per-event section (Up to N days/weeks, event date label, window) show for the kind picked. Confirmation also
+    covers kind, counting, year end and the event limit (the employee count is everyone the type applies to now).
+    The View popup lists every rule in plain language (`leaveTypeRules`).
+15. **Late-deduction order** (Attendance settings) only offers yearly types.
 13. **Tests that assumed Maternity was a yearly, probation-blocked type** now use Sick set to "Not available" during
     probation; the exit-settlement demo lists the yearly types only. The HR-cancel test expected "yesterday"; on a
     weekend the leave correctly ends on Friday, so it now checks "before today".

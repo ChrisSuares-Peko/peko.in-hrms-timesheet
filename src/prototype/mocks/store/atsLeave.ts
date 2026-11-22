@@ -1091,7 +1091,7 @@ export const adminEmployeeLeaveTypes = (mode: DataMode, employeeId: string | num
 // ---- Payroll settings → Leave Policies ----------------------------------------------------------------------------------
 
 const MIGRATION_NOTE =
-    'Annual, Casual and Sick keep the days, credit and carry-forward the employee balances already used. Maternity and Paternity come from the earlier leave policies list. Every type is paid: the earlier “Unpaid leave” option is gone, and loss of pay only happens when a balance runs out.';
+    'Annual, Casual and Sick keep the days, credit and carry-forward the employee balances already used. Maternity and Paternity are per-event leave (no yearly balance). Every type is paid: loss of pay is the only unpaid leave, requested from ESS → Leave → Request LOP.';
 
 export const leaveSettingsView = (mode: DataMode): LeaveSettingsView => {
     const s = getSettings(mode);

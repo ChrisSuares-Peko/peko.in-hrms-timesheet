@@ -352,7 +352,8 @@ const ModeCards = ({
 
 /** PROTOTYPE-SETUP (Settings): "Deduct from {type} then {type} then loss of pay" (active leave types only). */
 const LateOrderField = ({ value = [], onChange, types }: { value?: string[]; onChange?: (next: string[]) => void; types: LeaveTypeConfig[] }) => {
-    const active = types.filter(t => t.active);
+    // PROTOTYPE-SETUP (Leave policy settings): per-event types have no balance to deduct from.
+    const active = types.filter(t => t.active && t.kind !== 'event');
     return (
         <Flex align="center" gap={8} wrap="wrap" className="mt-3" data-late-order>
             <Text className="text-sm">Deduct from</Text>

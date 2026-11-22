@@ -20,7 +20,7 @@ import { PekoTabRow } from '@src/components/peko/PageHeader';
 import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
-import { APPLIES_LABEL, CREDIT_LABEL, accrualText, carryText, fmtDays } from '@src/prototype/rules/leave';
+import { APPLIES_LABEL, COUNT_LABEL, creditedText, entitlementText, exitText, fmtDays, yearEndText } from '@src/prototype/rules/leave';
 import { showToast } from '@src/slices/apiSlice';
 
 import { LeaveTypeDrawer, LeaveTypeView } from './LeaveTypeDrawer';
@@ -59,10 +59,12 @@ const LeaveTypes = ({
     const rows = view.policy.types.filter(t => !text || t.name.toLowerCase().includes(text));
     const columns: ColumnsType<LeaveTypeConfig> = [
         { title: 'Leave type', key: 'n', render: (_, t) => <Text className="font-medium">{t.name}</Text> },
-        { title: 'Days per year', key: 'd', render: (_, t) => `${fmtDays(t.daysPerYear)} days` },
-        { title: 'Credited', key: 'c', render: (_, t) => <span className="block max-w-[170px] whitespace-normal">{CREDIT_LABEL[t.credit]}</span> },
-        { title: 'Accrual rate', key: 'r', render: (_, t) => <span className="block max-w-[150px] whitespace-normal">{accrualText(t)}</span> },
-        { title: 'Carry forward', key: 'cf', render: (_, t) => carryText(t) },
+        // PROTOTYPE-SETUP (Leave policy settings): Entitlement · Credited · Counted in · Year end · On leaving.
+        { title: 'Entitlement', key: 'd', render: (_, t) => <span className="block max-w-[150px] whitespace-normal" data-entitlement={t.id}>{entitlementText(t)}</span> },
+        { title: 'Credited', key: 'c', render: (_, t) => <span className="block max-w-[170px] whitespace-normal">{creditedText(t)}</span> },
+        { title: 'Counted in', key: 'ci', render: (_, t) => COUNT_LABEL[t.count] },
+        { title: 'Year end', key: 'ye', render: (_, t) => <span className="block max-w-[150px] whitespace-normal">{yearEndText(t)}</span> },
+        { title: 'On leaving', key: 'ol', render: (_, t) => <span className="block max-w-[170px] whitespace-normal">{exitText(t)}</span> },
         { title: 'Applies to', key: 'a', render: (_, t) => APPLIES_LABEL[t.appliesTo] },
         {
             title: 'Status',
@@ -113,8 +115,8 @@ const LeaveTypes = ({
                 <div className="min-w-0 flex-1 basis-[280px]">
                     <Text className="block text-base font-medium">Leave types</Text>
                     <Text type="secondary" className="text-xs">
-                        These settings decide what employees see and can apply for in ESS. Every type is paid: when someone runs out of a type, any extra days
-                        are loss of pay.
+                        These settings decide what employees see and can apply for in ESS. Yearly types build a balance; per-event types (maternity,
+                        paternity) allow up to a limit per event. All leave is paid: loss of pay is the only unpaid leave.
                     </Text>
                 </div>
                 <div className="w-full sm:w-[240px]">
