@@ -46,7 +46,7 @@ import { showToast } from '@src/slices/apiSlice';
 import { getApproverPeople, runAutoSubmitNow, updateAtsSettings } from '../api';
 import { usePayrollScope, useAtsSettings } from './usePayrollAts';
 import { fmtStamp } from '../components/format';
-import type { AtsMode, AtsSettings, FilingFrequency, LeavePolicy, LeaveTypeConfig, Level1Approver, Level2Approver, Level2ConfigurableType, Weekday, ReimbursementCategory } from '../types';
+import type { AtsMode, AtsSettings, FilingFrequency, LeaveEndorsement, LeavePolicy, LeaveTypeConfig, Level1Approver, Level2Approver, Level2ConfigurableType, Weekday, ReimbursementCategory } from '../types';
 
 dayjs.extend(customParseFormat);
 
@@ -73,6 +73,8 @@ interface FormValues {
     /** PROTOTYPE-SETUP (Final batch, Slice 1): auto-submit time, "23:00". */
     submissionTime: string;
     level1: Record<Level2Key, Level1Approver>;
+    /** PROTOTYPE-SETUP (Leave policy settings): extra approval for longer leave (Leave → Approvals). */
+    endorsement: LeaveEndorsement;
     level2: Record<Level2Key, Level2Approver>;
     /** PROTOTYPE-SETUP (Settings, Slice 4): half-day leave (edited in Leave Policies → Configuration). */
     leaveRules: { halfDay: boolean };
@@ -175,6 +177,7 @@ const toForm = (s: AtsSettings): FormValues => ({
     submissionWeekday: s.timesheetApproval.submissionWeekday,
     submissionTime: s.timesheetApproval.submissionTime,
     level1: levelsOf(s.level1),
+    endorsement: { ...s.leaveEndorsement },
     level2: levelsOf({
         attendance: s.level2.attendance,
         overtime: s.level2.overtime,
@@ -208,6 +211,7 @@ const fromForm = (v: FormValues): SettingsBody => ({
     timesheetApproval: { enabled: v.approvalEnabled, submissionWeekday: v.submissionWeekday, submissionTime: v.submissionTime || '23:00' },
     level1: { ...v.level1 },
     level2: { ...v.level2 },
+    ...(v.endorsement ? { leaveEndorsement: { enabled: Boolean(v.endorsement.enabled), overDays: Number(v.endorsement.overDays ?? 5), endorser: v.endorsement.endorser } } : {}),
     leaveRules: { halfDay: Boolean(v.leaveRules.halfDay) },
     reimbursements: { claimWindowDays: v.reimbursements.claimWindowDays ?? 60, categories: v.reimbursements.categories },
     timesheetFiling: {
@@ -438,6 +442,7 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
 
     const mode = Form.useWatch('mode', form);
     const approvalEnabled = Form.useWatch('approvalEnabled', form);
+    const endorsementOn = Form.useWatch(['endorsement', 'enabled'], form);
     const shiftStart = Form.useWatch('shiftStart', form);
     const shiftEnd = Form.useWatch('shiftEnd', form);
     const breakMinutes = Form.useWatch('breakMinutes', form);
@@ -893,6 +898,52 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
                 )}
 
                 {section === 'leave' && approvals}
+
+                {/* PROTOTYPE-SETUP (Leave policy settings): an endorsement step for longer leave, after level 1 and
+                    before level 2, for leave and leave changes. */}
+                {section === 'leave' && (
+                    <Card title="Extra approval for longer leave" size="small" data-endorsement-card>
+                        <Flex vertical gap={12}>
+                            <Flex align="center" gap={12}>
+                                <Text type="secondary" className="min-w-0 flex-1 text-xs">
+                                    Longer leave gets an extra endorsement after level 1 and before level 2 (leave and leave changes). It waits in the
+                                    endorser’s My team → Approvals and shows in the chain as “{'{name}'} (endorsement)”. Skipped when the endorser is the level 1
+                                    approver or the employee. Asking for an update or resubmitting starts again at level 1.
+                                </Text>
+                                <Form.Item name={['endorsement', 'enabled']} valuePropName="checked" noStyle>
+                                    <Switch aria-label="Extra approval for longer leave" data-endorsement-on />
+                                </Form.Item>
+                            </Flex>
+                            {endorsementOn && (
+                                <Flex vertical gap={10}>
+                                    <Flex align="center" gap={8} wrap="wrap">
+                                        <Text className="text-sm">When a request is longer than</Text>
+                                        <Form.Item name={['endorsement', 'overDays']} noStyle>
+                                            <InputNumber min={0} max={365} className="!w-[80px]" aria-label="Longer than (days)" data-endorsement-days />
+                                        </Form.Item>
+                                        <Text className="text-sm">days</Text>
+                                    </Flex>
+                                    <Flex align="center" gap={8} wrap="wrap">
+                                        <Text className="text-sm">Endorsed by</Text>
+                                        <Form.Item name={['endorsement', 'endorser']} noStyle>
+                                            <Select
+                                                className="min-w-[260px]"
+                                                popupMatchSelectWidth={false}
+                                                aria-label="Endorsed by"
+                                                data-endorser
+                                                options={[{ value: 'DEPT_HEAD', label: 'Department head (of the employee’s department)' }, peopleGroup(people)]}
+                                            />
+                                        </Form.Item>
+                                    </Flex>
+                                    <Text type="secondary" className="text-xs">
+                                        Department head = the person in the employee’s department whose own manager is outside it (usually the department
+                                        manager).
+                                    </Text>
+                                </Flex>
+                            )}
+                        </Flex>
+                    </Card>
+                )}
 
                 {section === 'reimbursements' && (
                     <>

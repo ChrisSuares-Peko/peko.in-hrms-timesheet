@@ -16,7 +16,7 @@ guide.shared) and `docs/prototypes/leave-prototype.html`. Goal: HR can set up Pe
 | 1 + 5 — Leave type model, migration, engine rules and tests | Leave: leave type model and policy engine | done |
 | 2 — Payroll settings → Leave types: table, drawer, view, confirmation | Leave: leave types settings for yearly and per-event leave | done |
 | 3 — Configuration: credit date, rounding, loss of pay | Leave: credit date, rounding and loss of pay settings | done |
-| 4 — Approvals: extra approval for longer leave | | |
+| 4 — Approvals: extra approval for longer leave | Leave: extra approval for longer leave | done |
 | 6 — ESS Leave: Request LOP, Apply for per-event / calendar types, overview grid | | |
 | 7 — Developer notes check, VERIFY 1–5, build, push | | |
 
@@ -70,6 +70,12 @@ Decisions:
 16. **Configuration panels** sit in this order: Leave year (the roll-forward note now names each type's year-end
     rule) · Credit date · Rounding · Leave requests (half days) · Loss of pay · Sandwich rule · Comp off. They save
     with the existing "Save settings" (PUT leave-settings/config, now also creditDate, creditDay, rounding, lop).
+17. **Extra approval** is stored on the settings (`leaveEndorsement`), saved with the approvals (PUT ats settings),
+    validated server-side (days 0–365; endorser DEPT_HEAD or an existing person). The step is a person step
+    (`role: 'MANAGER'`, `endorsement: true`, level 1) inserted after level 1, so it uses the same person queue, decide
+    and "Ask for update" code; level 2 only sees the request once every level-1 step (endorsement included) approved.
+    The chain shows "{name} (endorsement)"; the employee's "Approval:" line names the usual approvers (the endorsement
+    depends on the request's length).
 13. **Tests that assumed Maternity was a yearly, probation-blocked type** now use Sick set to "Not available" during
     probation; the exit-settlement demo lists the yearly types only. The HR-cancel test expected "yesterday"; on a
     weekend the leave correctly ends on Friday, so it now checks "before today".
