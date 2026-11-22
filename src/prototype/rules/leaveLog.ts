@@ -69,10 +69,13 @@ const ENTRY_OF: Record<LedgerKind, string> = {
     TAKEN: 'Leave taken',
     LATE: 'Late check-in',
     LATE_REVERSED: 'Late deduction reversed',
+    ENCASHED: 'Encashed at year end',
 };
 
 const ledgerStatus = (k: LedgerKind): { status: string; statusKind: LogStatus; group: LogGroup } => {
     if (k === 'LAPSED') return { status: 'Lapsed', statusKind: 'lapsed', group: 'deduction' };
+    // PROTOTYPE-SETUP (Leave policy settings): year-end encashment (paid by payroll).
+    if (k === 'ENCASHED') return { status: 'Encashed', statusKind: 'lapsed', group: 'deduction' };
     if (k === 'COMP_OFF_EXPIRED') return { status: 'Expired', statusKind: 'expired', group: 'deduction' };
     if (k === 'LATE') return { status: 'Deducted', statusKind: 'deducted', group: 'deduction' };
     if (k === 'LATE_REVERSED') return { status: 'Reversed', statusKind: 'reversed', group: 'deduction' };
@@ -113,7 +116,7 @@ const ledgerRows = (b: LeaveBalance, today: string): LeaveLogRow[] =>
             what: x.text,
             period: '',
             days: x.amount,
-            reason: x.kind === 'LAPSED' || x.kind === 'LATE' || x.kind === 'LATE_REVERSED' ? x.text : '',
+            reason: x.kind === 'LAPSED' || x.kind === 'ENCASHED' || x.kind === 'LATE' || x.kind === 'LATE_REVERSED' ? x.text : '',
             ...ledgerStatus(x.kind),
         }));
 

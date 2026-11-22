@@ -70,6 +70,7 @@ import {
     compOffCheck,
     createCompOff,
     createLeaveRequest,
+    createLopRequest,
     hrAddLeave,
     hrCancelLeave,
     leaveSettingsView,
@@ -250,6 +251,8 @@ export const atsRoutes: MockRoute[] = [
     // PROTOTYPE-SETUP (Settings, Slice 5): the claim form's categories, limits, receipts and window.
     route('GET', `${A}/reimbursement-rules`, ess((ctx, me) => reimbursementRulesOf(ctx.mode, me))),
     route('POST', `${A}/leave/requests`, ess((ctx, me) => createLeaveRequest(ctx.mode, me, ctx.body))),
+    // PROTOTYPE-SETUP (Leave policy settings): loss of pay (unpaid leave) — a leave request with lop = true.
+    route('POST', `${A}/leave/lop`, ess((ctx, me) => createLopRequest(ctx.mode, me, ctx.body))),
     route('POST', `${A}/leave/requests/:id/withdraw`, ess((ctx, me) => withdrawLeaveRequest(ctx.mode, me, ctx.params.id!))),
     route('POST', `${A}/leave/requests/:id/resubmit`, ess((ctx, me) => resubmitLeaveRequest(ctx.mode, me, ctx.params.id!, ctx.body))),
     // PROTOTYPE-SETUP (Leave module): cancel approved leave (a cancellation request), and comp off.

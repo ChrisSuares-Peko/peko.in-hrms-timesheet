@@ -43,6 +43,14 @@ export type Level1Approver = 'MANAGER' | ApproverTeam | PersonApprover;
  * PROTOTYPE-SETUP (Settings, Slice 4): what employees can ask for when they apply for leave.
  * PROTOTYPE-SETUP (Leave module): the supporting-document rule moved onto each leave type (proofAfterDays).
  */
+/** An endorsement step after level 1 and before level 2 when a leave request is longer than `overDays`. */
+export interface LeaveEndorsement {
+    enabled: boolean;
+    overDays: number;
+    /** The department head of the employee's department, or a specific person ("person:{id}"). */
+    endorser: 'DEPT_HEAD' | `person:${number}`;
+}
+
 export interface LeaveRequestRules {
     /** Off = the form only offers full days. */
     halfDay: boolean;
@@ -124,6 +132,8 @@ export interface AtsSettings {
     level2: Record<Level2ConfigurableType, Level2Approver>;
     /** PROTOTYPE-SETUP (Settings, Slice 4): half-day leave on/off. */
     leaveRules: LeaveRequestRules;
+    /** PROTOTYPE-SETUP (Leave policy settings): "Extra approval for longer leave" (leave and leave changes). */
+    leaveEndorsement: LeaveEndorsement;
     /** PROTOTYPE-SETUP (Settings, Slice 5): reimbursement categories and the claim window. */
     reimbursements: ReimbursementRules;
     updatedAt: string;
@@ -279,6 +289,8 @@ export interface ApprovalStep {
     approverName?: string;
     /** Level 1 skipped because the employee has no reporting manager (the CEO). */
     skipped?: boolean;
+    /** PROTOTYPE-SETUP (Leave policy settings): the endorsement step for longer leave (after level 1, before level 2). */
+    endorsement?: boolean;
     decision?: 'APPROVED' | 'REJECTED' | 'UPDATE_REQUESTED';
     comment?: string;
     at?: string;
@@ -918,6 +930,11 @@ export interface RequestItem {
      */
     leaveKind?: 'leave' | 'cancel' | 'compoff' | 'change';
     leaveBalance?: { typeName: string; availableNow: number; after: number; days: number };
+    /** PROTOTYPE-SETUP (Leave policy settings): loss of pay — approvers see "Unpaid: payroll treats these days as loss
+     *  of pay." instead of a balance line (and no short-balance warning). */
+    unpaid?: boolean;
+    /** Per-event leave: "Up to 7 days per event · Date of birth or adoption: Tue 3 Nov" instead of a balance line. */
+    eventLine?: string;
     waitingForYou: boolean;
 }
 
@@ -1121,11 +1138,33 @@ export interface LeaveTypeConfig {
     daysPerYear: number;
     credit: LeaveCredit;
     probation: LeaveProbationRule;
-    /** Unused days carried into the next cycle, up to this (0 = none); the rest lapses. */
+    /**
+     * PROTOTYPE-SETUP (Leave policy settings): 'yearly' = a yearly balance (credited, carried, settled on leaving);
+     * 'event' = statutory per-event leave (maternity, paternity): up to `limit` per event, no balance. Older data: yearly.
+     */
+    kind: LeaveKind;
+    /** 'working' = the employee's working days only; 'calendar' = every day in the range (weekly offs and holidays too). */
+    count: LeaveCount;
+    /** Yearly: at the end of the leave cycle, unused days carry forward (up to `carryForward`), are encashed, or lapse.
+     *  Older data: carryForward > 0 → 'carry', else 'lapse'. */
+    yearEnd: LeaveYearEnd;
+    /** The carry-forward limit in days when yearEnd is 'carry' (the spec's `carry`). */
     carryForward: number;
-    /** PROTOTYPE-SETUP (Leave types, "When an employee leaves"): what happens to unused days. Stored only: full &
-     *  final settlement is a later module. Older data's encashOnExit maps true → ENCASH, false → BRING_FORWARD. */
-    onLeaving: LeaveOnLeaving;
+    /**
+     * Yearly: when an employee leaves, unused days (pro-rated to the last working day) can be encashed in full & final
+     * settlement and/or used to bring the last working day forward. Both = the employee chooses; none = they lapse.
+     * Stored only (F&F is a later module). Older data: onLeaving / encashOnExit ENCASH → ['encash'], else ['prepone'].
+     */
+    exitOpts: LeaveExitOpt[];
+    /** Per event: up to this much per event (null for yearly types). */
+    limit: number | null;
+    limitUnit: 'days' | 'weeks';
+    /** Per event: the event date asked on the request, e.g. "Date of birth or adoption". */
+    eventLabel: string;
+    /** Per event: leave can start this many days before the event (null = no limit)… */
+    windowBefore: number | null;
+    /** …and must end within this many days after it (null = no limit). */
+    windowAfter: number | null;
     /** A request longer than this many days needs a supporting document (null = never, 0 = always). */
     proofAfterDays: number | null;
     appliesTo: LeaveAppliesTo;
@@ -1133,8 +1172,17 @@ export interface LeaveTypeConfig {
     active: boolean;
 }
 
-/** Unused leave when someone leaves: encashed in full & final settlement, or used to bring the last working day forward. */
-export type LeaveOnLeaving = 'ENCASH' | 'BRING_FORWARD';
+export type LeaveKind = 'yearly' | 'event';
+export type LeaveCount = 'working' | 'calendar';
+export type LeaveYearEnd = 'carry' | 'encash' | 'lapse';
+/** Unused leave when someone leaves: encash in full & final settlement · use it to bring the last working day forward. */
+export type LeaveExitOpt = 'encash' | 'prepone';
+/** PROTOTYPE-SETUP (Leave policy settings): when monthly credits land. */
+export type LeaveCreditDate = 'START' | 'END' | 'CUSTOM';
+/** Rounding of credited-so-far and the year's total. */
+export type LeaveRounding = 'NONE' | 'HALF' | 'DAY';
+/** Loss of pay: only once paid leave is used up, or any time. */
+export type LopRule = 'USED_UP' | 'ANY_TIME';
 
 /** Days off between two leave days of the same request: never · weekly offs · weekly offs and public holidays. */
 export type SandwichRule = 'OFF' | 'WEEKLY_OFFS' | 'WEEKLY_OFFS_AND_HOLIDAYS';
@@ -1149,6 +1197,11 @@ export interface LeavePolicy {
     compOff: { enabled: boolean; /** Unused comp off expires this many days after the day worked (0 = never). */ expiryDays: number };
     /** Late check-in deductions come from these types in order, then loss of pay. */
     lateOrder: LeaveType[];
+    /** PROTOTYPE-SETUP (Leave policy settings): the day monthly credits land (CUSTOM = `creditDay`, 1–28). */
+    creditDate: LeaveCreditDate;
+    creditDay: number;
+    rounding: LeaveRounding;
+    lop: LopRule;
 }
 
 export type LeaveHalf = 'FIRST' | 'SECOND';
@@ -1178,6 +1231,10 @@ export interface LeaveRequest {
     cancellation?: { from: string; at: string; by: string; reason: string; originalEnd: string; originalDays: number };
     /** Days approved beyond the balance at the time (an approver approved anyway): flagged as loss of pay. */
     lossOfPayDays?: number;
+    /** PROTOTYPE-SETUP (Leave policy settings): per-event types — the event date (birth, adoption…). */
+    eventDate?: string;
+    /** Loss of pay (unpaid leave, type "Loss of pay"): no balance, no limit; payroll reads it as LOP. */
+    lop?: boolean;
     /** PROTOTYPE-SETUP (Leave module): what it was before an approved change request replaced it ("Was"). */
     changedFrom?: LeaveWas & { at: string; changeId: string };
     createdAt: string;
@@ -1208,6 +1265,8 @@ export interface LeaveChange {
     days: number;
     reason: string;
     proof?: { name: string };
+    /** Per-event types: the event date. */
+    eventDate?: string;
     /** The approved leave as it was when the change was asked for. */
     was: LeaveWas;
     trail: ApprovalTrail;
@@ -1223,6 +1282,8 @@ export interface LeaveRequestInput {
     half?: LeaveHalf | null;
     reason: string;
     proof?: { name: string } | null;
+    /** Per-event types: the event date. */
+    eventDate?: string | null;
 }
 
 /**
@@ -1273,7 +1334,9 @@ export type LedgerKind =
     | 'COMP_OFF_EXPIRED'
     | 'TAKEN'
     | 'LATE'
-    | 'LATE_REVERSED';
+    | 'LATE_REVERSED'
+    /** PROTOTYPE-SETUP (Leave policy settings): year end — unused days encashed (paid out by payroll). */
+    | 'ENCASHED';
 
 export interface LedgerEntry {
     date: string;
@@ -1339,6 +1402,11 @@ export interface LeaveSettlement {
     encash: number;
     /** Unused days that can bring the last working day forward (types set to BRING_FORWARD). */
     bringForward: number;
+    /** PROTOTYPE-SETUP (Leave policy settings): both options ticked — the employee chooses (encash and bringForward
+     *  then hold the same days). */
+    choice?: boolean;
+    /** Neither option ticked: unused days lapse. */
+    lapse?: number;
     /** Days taken beyond what was earned, recovered in the final settlement. */
     recover: number;
 }
@@ -1407,7 +1475,15 @@ export interface LeaveView {
     managerName: string | null;
     /** "Arjun Mehta (manager), then HR team" — who approves a new leave, cancellation or comp off request. */
     approvalPath: string;
-    rules: { halfDay: boolean; sandwich: SandwichRule; compOff: { enabled: boolean; expiryDays: number } };
+    rules: {
+        halfDay: boolean;
+        sandwich: SandwichRule;
+        compOff: { enabled: boolean; expiryDays: number };
+        /** PROTOTYPE-SETUP (Leave policy settings): loss of pay — only once paid leave is used up, or any time. */
+        lop: LopRule;
+    };
+    /** PROTOTYPE-SETUP (Leave policy settings): the per-event types the employee can apply for (no balance). */
+    eventTypes: LeaveTypeConfig[];
     calendar: LeaveCalendarInfo;
     /** Public holidays this calendar year. */
     holidays: { date: string; name: string; weeklyOff: boolean }[];
@@ -1588,6 +1664,8 @@ export interface LeaveSettingsView {
     nextRollForward: string | null;
     /** Where the original leave policy records went (shown once in the Leave types sub-tab's help). */
     migrationNote: string;
+    /** PROTOTYPE-SETUP (Leave policy settings): extra approval for longer leave (saved with the approvals). */
+    endorsement: LeaveEndorsement;
 }
 
 /** Add / edit a leave type (the id is generated for a new one). */

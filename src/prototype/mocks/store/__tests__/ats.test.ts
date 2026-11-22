@@ -900,8 +900,8 @@ describe('final batch: leave requests and the leave page', () => {
         const v = setEmployeeLife(M, sneha, { dateOfJoin: join, exitDate: exit });
         expect(v.dateOfJoin).toBe(join);
         expect(v.exit?.date).toBe(exit);
-        // Sneha is female: Maternity applies to her (Paternity doesn't).
-        expect(v.exit?.settlement.map(x => x.type)).toEqual(['ANNUAL', 'CASUAL', 'SICK', 'MATERNITY']);
+        // PROTOTYPE-SETUP (Leave policy settings): only yearly types settle; Maternity / Paternity are per event.
+        expect(v.exit?.settlement.map(x => x.type)).toEqual(['ANNUAL', 'CASUAL', 'SICK']);
     });
 });
 

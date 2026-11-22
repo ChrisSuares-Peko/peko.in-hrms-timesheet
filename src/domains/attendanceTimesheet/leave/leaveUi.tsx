@@ -194,6 +194,13 @@ export const settlementText = (v: Pick<LeaveView, 'exit'>) => {
     if (!v.exit) return '';
     const parts = v.exit.settlement.flatMap(s => {
         const out: string[] = [];
+        // PROTOTYPE-SETUP (Leave policy settings): both options ticked = the employee's choice; none = the days lapse.
+        if (s.choice && s.encash > 0) {
+            out.push(`${s.name}: ${daysText(s.encash)} unused, your choice: encash them in the final settlement or use them to bring your last working day forward.`);
+            if (s.recover > 0) out.push(`${s.name}: ${daysText(s.recover)} more than earned, recovered in the final settlement.`);
+            return out;
+        }
+        if ((s.lapse ?? 0) > 0) out.push(`${s.name}: ${daysText(s.lapse!)} unused ${(s.lapse ?? 0) <= 1 ? 'lapses' : 'lapse'} when you leave.`);
         if (s.encash > 0) out.push(`${s.name}: ${fmtDays(s.encash)} unused ${s.encash <= 1 ? 'day' : 'days'} encashed in the final settlement.`);
         if (s.bringForward > 0) out.push(`${s.name}: ${daysText(s.bringForward)} can be used to bring your last working day forward.`);
         if (s.recover > 0) out.push(`${s.name}: ${daysText(s.recover)} more than earned, recovered in the final settlement.`);

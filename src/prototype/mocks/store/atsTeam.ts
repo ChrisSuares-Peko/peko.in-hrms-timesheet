@@ -36,6 +36,7 @@ import type {
     TeamReimbursementsView,
     ApprovalTrail,
     Level1Approver,
+    LeaveEndorsement,
     ReimbursementRules,
 } from '@src/domains/attendanceTimesheet/types';
 import {
@@ -72,7 +73,7 @@ import {
     approverPersonId,
     isApproverTeam,
 } from '@src/prototype/rules/attendance';
-import { daysText, shortDate, typeLabel } from '@src/prototype/rules/leave';
+import { daysText, eventInfoText, shortDate, typeLabel } from '@src/prototype/rules/leave';
 import { isAutoSubmitDue, periodEndOf, periodsDueForSubmission } from '@src/prototype/rules/timesheetFiling';
 
 import { attendanceMonthOf, autoSubmitNote, submitWeekRecord, timesheetMonthOf } from './atsEss';
@@ -508,6 +509,13 @@ const leaveStatusLabel = (l: LeaveRequest) => {
     return l.cancellation && l.trail.status === 'CANCELLED' ? 'Cancelled' : trailLabel(l.trail);
 };
 
+/** Per-event leave: "Up to 7 days per event · Date of birth or adoption: Tue 3 Nov". */
+const eventLineOf = (mode: DataMode, l: Pick<LeaveRequest, 'type' | 'eventDate'>) => {
+    const t = getSettings(mode).leavePolicy.types.find(x => x.id === l.type);
+    if (!t || t.kind !== 'event') return null;
+    return `${eventInfoText(t)}${l.eventDate ? ` · ${t.eventLabel || 'Event date'}: ${shortDate(l.eventDate)}` : ''}`;
+};
+
 /** PROTOTYPE-SETUP (Leave module): a leave request; while it waits, the balance line ("Annual: 7 available now · 6.5 after this"). */
 const leaveItem = (mode: DataMode, l: LeaveRequest, viewer: ApproverRole, cache?: Parameters<typeof leaveBalanceLine>[2]): RequestItem | null => {
     const e = findEmployee(l.employeeId);
@@ -530,7 +538,10 @@ const leaveItem = (mode: DataMode, l: LeaveRequest, viewer: ApproverRole, cache?
             .filter(Boolean)
             .join(' · '),
         leave: { start: l.start, end: l.end, half: l.half ?? null },
-        ...(balance ? { leaveBalance: balance } : {}),
+        ...(balance && !l.lop ? { leaveBalance: balance } : {}),
+        // PROTOTYPE-SETUP (Leave policy settings): loss of pay and per-event leave have no balance line.
+        ...(l.lop ? { unpaid: true } : {}),
+        ...(eventLineOf(mode, l) ? { eventLine: eventLineOf(mode, l)! } : {}),
         notes: l.reason,
         at: l.createdAt,
         trail: l.trail,
@@ -580,6 +591,7 @@ const changeItem = (mode: DataMode, c: LeaveChange, viewer: ApproverRole): Reque
         detail: `${daysText(c.days)} of leave · was ${typeLabel(leaveTypeName(mode, c.was.type))}, ${range(c.was.start, c.was.end, c.was.half)} (${daysText(c.was.days)}) · the approved leave stays until this is approved`,
         leave: { start: c.start, end: c.end, half: c.half ?? null },
         ...(balance ? { leaveBalance: balance } : {}),
+        ...(eventLineOf(mode, c) ? { eventLine: eventLineOf(mode, c)! } : {}),
         notes: c.reason,
         at: c.createdAt,
         trail: c.trail,
@@ -1127,6 +1139,19 @@ const approverOk = (v: unknown, level: 1 | 2): boolean => {
     return pid !== null && Boolean(findEmployee(pid));
 };
 
+/** PROTOTYPE-SETUP (Leave policy settings): extra approval for longer leave — on/off, over N days (0–365), endorsed by
+ *  the department head or a specific person who is an employee. Invalid values keep the current ones. */
+const endorsementFrom = (b: Partial<LeaveEndorsement> | undefined, cur: LeaveEndorsement): LeaveEndorsement => {
+    const days = Number(b?.overDays);
+    const pid = approverPersonId(b?.endorser);
+    const endorserOk = b?.endorser === 'DEPT_HEAD' || (pid !== null && Boolean(findEmployee(pid)));
+    return {
+        enabled: typeof b?.enabled === 'boolean' ? b.enabled : cur.enabled,
+        overDays: Number.isFinite(days) && days >= 0 && days <= 365 ? Math.round(days) : cur.overDays,
+        endorser: endorserOk ? (b!.endorser as LeaveEndorsement['endorser']) : cur.endorser,
+    };
+};
+
 /** PROTOTYPE-SETUP (Settings, Slice 5): categories — a name, a monthly limit (0 = none) and whether a receipt is needed. */
 const reimbursementsFrom = (b: Partial<ReimbursementRules> | undefined, cur: ReimbursementRules): ReimbursementRules => {
     let { categories } = cur;
@@ -1224,6 +1249,7 @@ export const updateSettings = (mode: DataMode, body: Partial<AtsSettings> | unde
         level1: { attendance: l1('attendance'), overtime: l1('overtime'), leave: l1('leave'), reimbursement: l1('reimbursement'), timesheet: l1('timesheet') },
         leaveRules: { halfDay: typeof b.leaveRules?.halfDay === 'boolean' ? b.leaveRules.halfDay : cur.leaveRules.halfDay },
         reimbursements: reimbursementsFrom(b.reimbursements, cur.reimbursements),
+        leaveEndorsement: endorsementFrom(b.leaveEndorsement, cur.leaveEndorsement),
         // PROTOTYPE-SETUP (Final batch, Slice 1): leave deducted per late check-in (0 = off), and the leave policy.
         lateDeductionDays: Number.isFinite(Number(b.lateDeductionDays)) && Number(b.lateDeductionDays) >= 0 && Number(b.lateDeductionDays) <= 5
             ? Math.round(Number(b.lateDeductionDays) * 4) / 4

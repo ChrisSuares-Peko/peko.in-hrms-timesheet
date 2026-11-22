@@ -266,6 +266,8 @@ export const getReimbursementRules = (s: AtsScope) =>
 export const getApprovalLines = (s: AtsScope) =>
     call<Record<'attendance' | 'overtime' | 'leave' | 'reimbursement' | 'timesheet', string>>(s, 'get', 'approval-lines');
 export const applyForLeave = (s: AtsScope, body: LeaveRequestInput) => call<LeaveView>(s, 'post', 'leave/requests', { body });
+/** PROTOTYPE-SETUP (Leave policy settings): request loss of pay (Full / Half days, From, To, Which half, Reason). */
+export const requestLop = (s: AtsScope, body: Omit<LeaveRequestInput, 'type' | 'proof' | 'eventDate'>) => call<LeaveView>(s, 'post', 'leave/lop', { body });
 export const withdrawLeave = (s: AtsScope, id: string) => call<LeaveView>(s, 'post', `leave/requests/${id}/withdraw`);
 export const resubmitLeave = (s: AtsScope, id: string, body: { type?: string; start: string; end: string; half: LeaveHalf | null; reason: string; proof?: { name: string } | null }) =>
     call<LeaveView>(s, 'post', `leave/requests/${id}/resubmit`, { body });

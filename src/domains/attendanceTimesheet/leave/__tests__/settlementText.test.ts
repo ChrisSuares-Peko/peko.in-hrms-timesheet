@@ -20,6 +20,19 @@ describe('settlementText (ESS leaving banner)', () => {
         expect(text).toContain('Casual: 2 days can be used to bring your last working day forward.');
         expect(text).toContain('Sick: 1.5 days more than earned, recovered in the final settlement.');
     });
+    it('both options ticked: the employee’s choice; none: the days lapse', () => {
+        const text = settlementText({
+            exit: {
+                date: '2026-12-18',
+                settlement: [
+                    { type: 'EL', name: 'Earned', encash: 4, bringForward: 4, recover: 0, choice: true },
+                    { type: 'CL', name: 'Casual', encash: 0, bringForward: 0, recover: 0, lapse: 2 },
+                ],
+            },
+        });
+        expect(text).toContain('Earned: 4 days unused, your choice: encash them in the final settlement or use them to bring your last working day forward.');
+        expect(text).toContain('Casual: 2 days unused lapse when you leave.');
+    });
     it('nothing left over: "Nothing to settle."', () => {
         expect(settlementText({ exit: { date: '2026-12-18', settlement: [{ type: 'CASUAL', name: 'Casual', encash: 0, bringForward: 0, recover: 0 }] } })).toMatch(/Nothing to settle\.$/);
     });

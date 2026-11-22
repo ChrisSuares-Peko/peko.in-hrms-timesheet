@@ -216,7 +216,15 @@ export const CEO_CODE = 'ACME-021';
 const departmentOf = (name: DepartmentName) => DEPARTMENTS.find(d => d.name === name)!;
 
 /** Department heads report to the CEO; the CEO (head of Leadership) has no reporting manager. */
+/**
+ * PROTOTYPE-SETUP (Leave policy settings): one two-level line in the org, so the department-head endorsement for longer
+ * leave has a case to show — Imran Shaikh (Logistics Coordinator) reports to Divya Menon (Operations Executive), who
+ * reports to Manish Patel (Operations Manager, the department head). Everyone else reports to their department manager.
+ */
+const TEAM_LEADS: Record<string, string> = { 'ACME-014': 'ACME-013' };
+
 const reportingManagerOf = (employeeId: string, isDepartmentManager: boolean, departmentManager: string) => {
+    if (TEAM_LEADS[employeeId]) return TEAM_LEADS[employeeId];
     if (!isDepartmentManager) return departmentManager;
     return employeeId === CEO_CODE ? null : CEO_CODE;
 };

@@ -191,12 +191,54 @@ export const DEFAULT_FILING: TimesheetFilingSettings = {
 // PROTOTYPE-SETUP (Final batch, Slice 1): the leave policy defaults. PROTOTYPE-SETUP (Leave module): HR's leave types
 // (rules: ./leave.ts). Annual / Casual / Sick are the live policy the ESS balances already used; Maternity and Paternity
 // come from the original Payroll leave policies. Every type is paid.
+// PROTOTYPE-SETUP (Leave policy settings): Maternity and Paternity are per-event leave (statutory): up to 26 weeks in
+// calendar days from 56 days before the delivery date, and up to 7 working days from 30 days before to 90 days after
+// the birth or adoption; both need a document. Yearly types keep their year-end and leaving rules.
+const YEARLY = { kind: 'yearly', count: 'working', limit: null, limitUnit: 'days', eventLabel: '', windowBefore: null, windowAfter: null } as const;
 export const DEFAULT_LEAVE_TYPES: LeaveTypeConfig[] = [
-    { id: 'ANNUAL', name: 'Annual', daysPerYear: 12, credit: 'MONTHLY', probation: 'MONTHLY', carryForward: 30, onLeaving: 'ENCASH', proofAfterDays: null, appliesTo: 'ALL', active: true },
-    { id: 'CASUAL', name: 'Casual', daysPerYear: 8, credit: 'CYCLE_START', probation: 'MONTHLY', carryForward: 0, onLeaving: 'BRING_FORWARD', proofAfterDays: null, appliesTo: 'ALL', active: true },
-    { id: 'SICK', name: 'Sick', daysPerYear: 6, credit: 'CYCLE_START', probation: 'FULL', carryForward: 0, onLeaving: 'BRING_FORWARD', proofAfterDays: 3, appliesTo: 'ALL', active: true },
-    { id: 'MATERNITY', name: 'Maternity', daysPerYear: 182, credit: 'CYCLE_START', probation: 'NONE', carryForward: 0, onLeaving: 'BRING_FORWARD', proofAfterDays: 0, appliesTo: 'FEMALE', active: true },
-    { id: 'PATERNITY', name: 'Paternity', daysPerYear: 5, credit: 'CYCLE_START', probation: 'NONE', carryForward: 0, onLeaving: 'BRING_FORWARD', proofAfterDays: null, appliesTo: 'MALE', active: true },
+    { id: 'ANNUAL', name: 'Annual', ...YEARLY, daysPerYear: 12, credit: 'MONTHLY', probation: 'MONTHLY', yearEnd: 'carry', carryForward: 30, exitOpts: ['encash'], proofAfterDays: null, appliesTo: 'ALL', active: true },
+    { id: 'CASUAL', name: 'Casual', ...YEARLY, daysPerYear: 8, credit: 'CYCLE_START', probation: 'MONTHLY', yearEnd: 'lapse', carryForward: 0, exitOpts: ['prepone'], proofAfterDays: null, appliesTo: 'ALL', active: true },
+    { id: 'SICK', name: 'Sick', ...YEARLY, daysPerYear: 6, credit: 'CYCLE_START', probation: 'FULL', yearEnd: 'lapse', carryForward: 0, exitOpts: ['prepone'], proofAfterDays: 3, appliesTo: 'ALL', active: true },
+    {
+        id: 'MATERNITY',
+        name: 'Maternity',
+        kind: 'event',
+        count: 'calendar',
+        limit: 26,
+        limitUnit: 'weeks',
+        eventLabel: 'Expected or actual date of delivery',
+        windowBefore: 56,
+        windowAfter: null,
+        daysPerYear: 0,
+        credit: 'CYCLE_START',
+        probation: 'FULL',
+        yearEnd: 'lapse',
+        carryForward: 0,
+        exitOpts: [],
+        proofAfterDays: 0,
+        appliesTo: 'FEMALE',
+        active: true,
+    },
+    {
+        id: 'PATERNITY',
+        name: 'Paternity',
+        kind: 'event',
+        count: 'working',
+        limit: 7,
+        limitUnit: 'days',
+        eventLabel: 'Date of birth or adoption',
+        windowBefore: 30,
+        windowAfter: 90,
+        daysPerYear: 0,
+        credit: 'CYCLE_START',
+        probation: 'FULL',
+        yearEnd: 'lapse',
+        carryForward: 0,
+        exitOpts: [],
+        proofAfterDays: 0,
+        appliesTo: 'MALE',
+        active: true,
+    },
 ];
 
 /** Company leave cycle from 1 April; sandwich rule off; comp off on (expires after 60 days); late deductions Annual, then Casual. */
@@ -207,6 +249,12 @@ export const DEFAULT_LEAVE_POLICY: LeavePolicy = {
     sandwich: 'OFF',
     compOff: { enabled: true, expiryDays: 60 },
     lateOrder: ['ANNUAL', 'CASUAL'],
+    // PROTOTYPE-SETUP (Leave policy settings): monthly credits at the start of the month (as before), no rounding, loss
+    // of pay only once paid leave is used up.
+    creditDate: 'START',
+    creditDay: 1,
+    rounding: 'NONE',
+    lop: 'USED_UP',
 };
 
 /** Late check-ins deduct this many days by default (0 = off). */
@@ -239,6 +287,8 @@ export const DEFAULT_SETTINGS: AtsSettings = {
     // PROTOTYPE-SETUP (Settings, Slice 1): level 1 is the reporting manager for everything by default.
     level1: { attendance: 'MANAGER', overtime: 'MANAGER', timesheet: 'MANAGER', leave: 'MANAGER', reimbursement: 'MANAGER' },
     leaveRules: { halfDay: true },
+    // PROTOTYPE-SETUP (Leave policy settings): extra approval for longer leave is off by default.
+    leaveEndorsement: { enabled: false, overDays: 5, endorser: 'DEPT_HEAD' },
     reimbursements: { categories: DEFAULT_REIMBURSEMENT_CATEGORIES, claimWindowDays: 60 },
     timesheetFiling: DEFAULT_FILING,
     updatedAt: '',
@@ -1183,8 +1233,9 @@ export const routeStep = (
     return isApproverTeam(value) ? { level, role: value } : null;
 };
 
-/** Who a step is with: "Priya Nair" / "Admin / HR". */
-export const stepName = (s: Pick<ApprovalStep, 'role' | 'approverName'>) => (s.role === 'MANAGER' ? s.approverName ?? 'Manager' : TEAM_NAME[s.role]);
+/** Who a step is with: "Priya Nair" / "Admin / HR" / "Ritu Sharma (endorsement)" (PROTOTYPE-SETUP: Leave policy settings). */
+export const stepName = (s: Pick<ApprovalStep, 'role' | 'approverName'> & Pick<Partial<ApprovalStep>, 'endorsement'>) =>
+    s.role === 'MANAGER' ? `${s.approverName ?? 'Manager'}${s.endorsement ? ' (endorsement)' : ''}` : TEAM_NAME[s.role];
 
 /** The step a trail is waiting on (the first undecided, non-skipped one while pending). */
 export const pendingStep = (trail: ApprovalTrail) => (trail.status.startsWith('PENDING') ? trail.steps.find(s => !s.decision && !s.skipped) ?? null : null);
@@ -1217,11 +1268,13 @@ export const startTrail = (
 
 /** "Arjun Mehta (manager), then HR team" / "Payroll team" / "HR team" (no manager) — who a new request goes to. */
 export const approvalPathText = (trail: ApprovalTrail, managerId: number | null) => {
-    const [first, second] = trail.steps;
+    const [first, ...others] = trail.steps;
     if (first.level === 2) return stepName(first); // HR only (profile updates)
     const one = first.skipped ? null : `${stepName(first)}${first.role === 'MANAGER' && first.approverId === managerId ? ' (manager)' : ''}`;
-    if (!one) return second ? stepName(second) : 'Approved automatically';
-    return second ? `${one}, then ${stepName(second)}` : one;
+    // PROTOTYPE-SETUP (Leave policy settings): an endorsement step sits between the two levels.
+    const rest = others.map(stepName).join(', then ');
+    if (!one) return rest || 'Approved automatically';
+    return rest ? `${one}, then ${rest}` : one;
 };
 
 /** "Approval: Arjun Mehta (manager), then HR team." — the line on the employee's forms. */
@@ -1341,7 +1394,8 @@ const restartRound = (trail: ApprovalTrail, at: string, by: string, action: 'Upd
 export const reachedLevel2 = (trail: ApprovalTrail) => {
     const first = trail.steps[0];
     if (!first || first.level === 2) return true; // HR-only (profile updates)
-    return Boolean(first.skipped || first.decision === 'APPROVED');
+    // PROTOTYPE-SETUP (Leave policy settings): and the endorsement step (a second level-1 step) too.
+    return trail.steps.filter(s => s.level === 1).every(s => Boolean(s.skipped || s.decision === 'APPROVED'));
 };
 
 export const cancelTrail = (trail: ApprovalTrail): ApprovalTrail => {

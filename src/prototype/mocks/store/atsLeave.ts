@@ -36,6 +36,7 @@ import {
     hasCheckIn,
     hasTimesheets,
     pendingStep,
+    nextStatus,
     restartTrail,
     stepName,
     toMinutes,
@@ -61,15 +62,20 @@ import {
     isWeeklyOffFor,
     isWorkingDayFor,
     leaveYearOf,
+    departmentHead,
+    exitOptsOf,
+    isEventType,
     lossOfPayOnApproval,
+    needsEndorsement,
     newTypeId,
-    onLeavingOf,
     pastLeaveProblem,
     removedPastDays,
     rollForwardDay,
     shortDate,
     typeLabel,
     validateLeave,
+    validateLop,
+    withEndorsement,
     type LateMark,
     type WorkEvidence,
 } from '@src/prototype/rules/leave';
@@ -110,8 +116,45 @@ export const calendarOf = (mode: DataMode, e: MockEmployee): WorkCalendar => ({
     isHoliday: d => Boolean(publicHolidayOn(mode, d)),
 });
 
-const recountFor = (mode: DataMode, e: MockEmployee) => (start: string, end: string, half: LeaveRequest['half']) =>
-    countLeaveDays(start, end, half, calendarOf(mode, e), getSettings(mode).leavePolicy.sandwich).days;
+// PROTOTYPE-SETUP (Leave policy settings): counted the way the leave's type counts (working or calendar days).
+const recountFor = (mode: DataMode, e: MockEmployee, type?: string) => (start: string, end: string, half: LeaveRequest['half']) => {
+    const t = getSettings(mode).leavePolicy.types.find(x => x.id === type);
+    const calendar = t?.count === 'calendar';
+    return countLeaveDays(start, end, half, calendarOf(mode, e), calendar || isEventType(t) ? 'OFF' : getSettings(mode).leavePolicy.sandwich, calendar ? 'calendar' : 'working').days;
+};
+
+// ---- extra approval for longer leave (PROTOTYPE-SETUP: Leave policy settings) ---------------------------------------
+
+/**
+ * The endorser for someone's longer leave: the department head of their department (the person in it whose own manager
+ * is outside it, or who has none — rules/leave.ts departmentHead), or the specific person in the settings.
+ */
+export const endorserFor = (mode: DataMode, e: MockEmployee): { id: number; name: string } | null => {
+    const cfg = getSettings(mode).leaveEndorsement;
+    if (cfg.endorser !== 'DEPT_HEAD') {
+        const p = findEmployee(Number(String(cfg.endorser).slice(7)));
+        return p ? { id: p.id, name: p.fullName } : null;
+    }
+    const people = employeesFor(mode).map(x => ({ id: x.id, department: x.department as string, managerId: x.managerEmployeeId ? findEmployee(x.managerEmployeeId)?.id ?? null : null, name: x.fullName }));
+    const head = departmentHead(people, e.department);
+    return head ? { id: head.id, name: head.name } : null;
+};
+
+/** Steps without the endorsement, then the endorsement again when this many days need it. */
+const endorse = (mode: DataMode, e: MockEmployee, trail: ApprovalTrail, days: number): ApprovalTrail => {
+    const steps = trail.steps.filter(s => !s.endorsement);
+    const base = steps.length === trail.steps.length ? trail : { ...trail, steps };
+    return needsEndorsement(getSettings(mode).leaveEndorsement, days) ? withEndorsement(base, endorserFor(mode, e), e.id) : base;
+};
+
+/** A new leave (or leave change) request's chain: the leave approvers, plus the endorsement for longer leave. */
+const leaveTrail = (mode: DataMode, e: MockEmployee, days: number) => endorse(mode, e, newTrail(mode, LEAVE_ROUTE, e), days);
+
+/** Resubmitted: back to level 1 with the same approvers; the endorsement follows the new number of days. */
+const restartLeaveTrail = (mode: DataMode, e: MockEmployee, trail: ApprovalTrail, days: number, at: string) => {
+    const next = endorse(mode, e, restartTrail(trail, at, e.fullName), days);
+    return { ...next, status: nextStatus(next.steps) };
+};
 
 // ---- request states --------------------------------------------------------------------------------------------
 
@@ -274,7 +317,29 @@ const applicableTypes = (mode: DataMode, e: MockEmployee): LeaveTypeConfig[] => 
     const policy = getSettings(mode).leavePolicy;
     const own = policy.types.filter(t => t.active && appliesTo(t, e.gender));
     return policy.compOff.enabled
-        ? [...own, { id: COMP_OFF, name: 'Comp off', daysPerYear: 0, credit: 'CYCLE_START', probation: 'FULL', carryForward: 0, onLeaving: 'ENCASH', proofAfterDays: null, appliesTo: 'ALL', active: true }]
+        ? [
+              ...own,
+              {
+                  id: COMP_OFF,
+                  name: 'Comp off',
+                  kind: 'yearly',
+                  count: 'working',
+                  daysPerYear: 0,
+                  credit: 'CYCLE_START',
+                  probation: 'FULL',
+                  yearEnd: 'lapse',
+                  carryForward: 0,
+                  exitOpts: ['encash'],
+                  limit: null,
+                  limitUnit: 'days',
+                  eventLabel: '',
+                  windowBefore: null,
+                  windowAfter: null,
+                  proofAfterDays: null,
+                  appliesTo: 'ALL',
+                  active: true,
+              },
+          ]
         : own;
 };
 
@@ -331,7 +396,7 @@ export const leaveViewOf = (mode: DataMode, e: MockEmployee): LeaveView => {
         year: { ...y.year, basis: settings.leavePolicy.year },
         dateOfJoin: life.dateOfJoin,
         exit: life.exitDate && y.settlement ? { date: life.exitDate, settlement: y.settlement } : null,
-        balances: y.balances.map(({ entitlement: _e, onLeaving: _x, ...b }) => b),
+        balances: y.balances.map(({ entitlement: _e, exitOpts: _x, ...b }) => b),
         lateDeductions: y.lateDeductions
             .map(d => {
                 const dispute = disputeOf(mode, e, d.date);
@@ -356,7 +421,8 @@ export const leaveViewOf = (mode: DataMode, e: MockEmployee): LeaveView => {
         managerName: managerRef(e)?.name ?? null,
         // PROTOTYPE-SETUP (Settings, Slice 1): who a new request would go to, by name (cancellations and comp off too).
         approvalPath: approvalPathText(newTrail(mode, LEAVE_ROUTE, e), managerRef(e)?.id ?? null),
-        rules: { halfDay: settings.leaveRules.halfDay, sandwich: settings.leavePolicy.sandwich, compOff: settings.leavePolicy.compOff },
+        rules: { halfDay: settings.leaveRules.halfDay, sandwich: settings.leavePolicy.sandwich, compOff: settings.leavePolicy.compOff, lop: settings.leavePolicy.lop },
+        eventTypes: settings.leavePolicy.types.filter(x => x.active && isEventType(x) && appliesTo(x, e.gender)),
         calendar: { weeklyOff: cal.weeklyOff, shift: scheduleOf(mode, e).shift, holidays: holidayRange(mode, addDays(t, -400), addDays(t, 400)) },
         holidays: holidaysOf(mode)
             .filter(h => h.date.slice(0, 4) === year)
@@ -365,6 +431,12 @@ export const leaveViewOf = (mode: DataMode, e: MockEmployee): LeaveView => {
 };
 
 // ---- applying, withdrawing, resubmitting ---------------------------------------------------------------------------
+
+/** Per-event leave already booked (approved or in request) for a type and event date, a request left out. */
+const eventBookedFor = (mode: DataMode, e: MockEmployee, exclude?: string) => (type: string, eventDate: string) =>
+    leaveRequestsOf(mode, e.id)
+        .filter(l => l.id !== exclude && l.type === type && l.eventDate === eventDate && leaveState(l) !== null)
+        .reduce((n, l) => n + l.days, 0);
 
 const checkLeave = (mode: DataMode, e: MockEmployee, input: Partial<LeaveRequestInput> | undefined, exclude?: string, who?: string) => {
     const settings = getSettings(mode);
@@ -378,6 +450,7 @@ const checkLeave = (mode: DataMode, e: MockEmployee, input: Partial<LeaveRequest
         available: b.available,
         pending: b.pending,
         onProbation: lifeOf(mode, e).status === 'PROBATION',
+        eventBooked: eventBookedFor(mode, e, exclude),
         ...(who ? { who, reasonMessage: LEAVE_MESSAGES.note } : {}),
     });
 };
@@ -386,7 +459,32 @@ const checkLeave = (mode: DataMode, e: MockEmployee, input: Partial<LeaveRequest
 export const createLeaveRequest = (mode: DataMode, e: MockEmployee, input: LeaveRequestInput | undefined) => {
     const clean = checkLeave(mode, e, input);
     const at = nowIso();
-    const request: LeaveRequest = { id: uid('lv'), employeeId: e.id, ...clean, trail: newTrail(mode, LEAVE_ROUTE, e), createdAt: at, updatedAt: at };
+    const request: LeaveRequest = { id: uid('lv'), employeeId: e.id, ...clean, trail: leaveTrail(mode, e, clean.days), createdAt: at, updatedAt: at };
+    atsLeaveRequests.update(mode, list => [request, ...list]);
+    return leaveViewOf(mode, e);
+};
+
+export const LOP_MESSAGES = {
+    noEdit: 'Loss of pay can only be withdrawn or cancelled. Withdraw it and request it again with the new dates.',
+} as const;
+
+/**
+ * PROTOTYPE-SETUP (Leave policy settings): request loss of pay (unpaid leave). A leave request with type "Loss of pay"
+ * and lop = true: working days only, the overlap check, the LOP rule (only once paid leave is used up, or any time), a
+ * reason; no balance and no limit; the leave approvers (and the endorsement for longer leave).
+ */
+export const createLopRequest = (mode: DataMode, e: MockEmployee, input: Partial<LeaveRequestInput> | undefined) => {
+    const settings = getSettings(mode);
+    const y = leaveYearFor(mode, e);
+    const clean = validateLop(input ?? {}, {
+        cal: calendarOf(mode, e),
+        halfDayAllowed: settings.leaveRules.halfDay,
+        existing: existingFor(mode, e),
+        rule: settings.leavePolicy.lop,
+        balances: y.balances.map(b => ({ name: b.name, available: b.available })),
+    });
+    const at = nowIso();
+    const request: LeaveRequest = { id: uid('lv'), employeeId: e.id, ...clean, trail: leaveTrail(mode, e, clean.days), createdAt: at, updatedAt: at };
     atsLeaveRequests.update(mode, list => [request, ...list]);
     return leaveViewOf(mode, e);
 };
@@ -399,10 +497,11 @@ export const resubmitLeaveRequest = (mode: DataMode, e: MockEmployee, id: string
     const l = leaveRequestsOf(mode, e.id).find(x => x.id === id);
     if (!l) throw new RuleError('Leave request not found.', 404);
     if (!isOpenItem(l)) throw new RuleError('Only an open request can be edited.');
-    const merged = { type: l.type, start: l.start, end: l.end, half: l.half, reason: l.reason, proof: l.proof ?? null, ...(input ?? {}) };
+    if (l.lop) throw new RuleError(LOP_MESSAGES.noEdit, 409);
+    const merged = { type: l.type, start: l.start, end: l.end, half: l.half, reason: l.reason, proof: l.proof ?? null, eventDate: l.eventDate ?? null, ...(input ?? {}) };
     const clean = checkLeave(mode, e, merged, id);
     const at = nowIso();
-    const trail = restartTrail(l.trail, at, e.fullName);
+    const trail = restartLeaveTrail(mode, e, l.trail, clean.days, at);
     atsLeaveRequests.update(mode, list => list.map(x => (x.id === id ? { ...x, ...clean, trail, updatedAt: at } : x)));
     return leaveViewOf(mode, e);
 };
@@ -426,7 +525,7 @@ const applyCancel = (mode: DataMode, leaveId: string, from: string, by: string, 
     const e = findEmployee(l.employeeId);
     if (!e) return;
     const at = nowIso();
-    const res = applyCancellation(l, from, recountFor(mode, e));
+    const res = applyCancellation(l, from, recountFor(mode, e, l.type));
     const cancellation = { from, at, by, reason, originalEnd: l.end, originalDays: l.days };
     atsLeaveRequests.update(mode, list =>
         list.map(x => {
@@ -474,7 +573,7 @@ export const leaveCancelCheck = (mode: DataMode, e: MockEmployee, leaveId: strin
     const from = fromAsked && /^\d{4}-\d{2}-\d{2}$/.test(fromAsked) ? fromAsked : l.start;
     if (from < l.start || from > l.end) return { from, to: l.end, whole: false, days: 0, problem: CANCEL_FROM_MESSAGES.outside };
     const whole = from <= l.start;
-    const days = recountFor(mode, e)(from, l.end, l.half);
+    const days = recountFor(mode, e, l.type)(from, l.end, l.half);
     if (days <= 0) return { from, to: l.end, whole, days: 0, problem: CANCEL_FROM_MESSAGES.nothing };
     const problem = pastProblem(mode, e, l, whole ? null : { start: l.start, end: addDays(from, -1), half: l.half });
     return { from, to: l.end, whole, days, problem };
@@ -539,7 +638,8 @@ const CHANGE_MESSAGES = {
 
 /** A change, checked like a new request with the original left out (its days count as free again). */
 const checkChange = (mode: DataMode, e: MockEmployee, l: LeaveRequest, input: Partial<LeaveRequestInput> | undefined) => {
-    const merged = { type: l.type, start: l.start, end: l.end, half: l.half, reason: '', proof: l.proof ?? null, ...(input ?? {}) };
+    if (l.lop) throw new RuleError(LOP_MESSAGES.noEdit, 409);
+    const merged = { type: l.type, start: l.start, end: l.end, half: l.half, reason: '', proof: l.proof ?? null, eventDate: l.eventDate ?? null, ...(input ?? {}) };
     const clean = checkLeave(mode, e, merged, l.id);
     if (clean.type === l.type && clean.start === l.start && clean.end === l.end && clean.half === l.half) throw new RuleError(CHANGE_MESSAGES.same, 400);
     const problem = pastProblem(mode, e, l, clean);
@@ -564,7 +664,7 @@ export const requestLeaveChange = (mode: DataMode, e: MockEmployee, leaveId: str
         leaveId,
         ...clean,
         was: { type: l.type, start: l.start, end: l.end, half: l.half, days: l.days },
-        trail: newTrail(mode, LEAVE_ROUTE, e),
+        trail: leaveTrail(mode, e, clean.days),
         createdAt: at,
         updatedAt: at,
     };
@@ -588,9 +688,9 @@ export const resubmitLeaveChange = (mode: DataMode, e: MockEmployee, id: string,
     if (!isOpenItem(c)) throw new RuleError('Only an open request can be edited.');
     const l = leaveRequestsOf(mode, e.id).find(x => x.id === c.leaveId);
     if (!l || l.trail.status !== 'APPROVED') throw new RuleError(CHANGE_MESSAGES.notApproved);
-    const clean = checkChange(mode, e, l, { type: c.type, start: c.start, end: c.end, half: c.half, reason: c.reason, proof: c.proof ?? null, ...(input ?? {}) });
+    const clean = checkChange(mode, e, l, { type: c.type, start: c.start, end: c.end, half: c.half, reason: c.reason, proof: c.proof ?? null, eventDate: c.eventDate ?? null, ...(input ?? {}) });
     const at = nowIso();
-    const trail = restartTrail(c.trail, at, e.fullName);
+    const trail = restartLeaveTrail(mode, e, c.trail, clean.days, at);
     atsLeaveChanges.update(mode, list => list.map(x => (x.id === id ? { ...x, ...clean, trail, updatedAt: at } : x)));
     return leaveViewOf(mode, e);
 };
@@ -602,8 +702,9 @@ const applyChange = (mode: DataMode, id: string) => {
     const l = atsLeaveRequests.get(mode).find(x => x.id === c.leaveId);
     const e = findEmployee(c.employeeId);
     if (!l || !e || l.trail.status !== 'APPROVED') return;
-    const left = balancesFor(mode, e, l.id).left[c.type] ?? 0;
-    const lop = lossOfPayOnApproval(left, c.days);
+    const left = balancesFor(mode, e, l.id).left[c.type];
+    // PROTOTYPE-SETUP (Leave policy settings): per-event types have no balance, so nothing is flagged.
+    const lop = left === undefined ? 0 : lossOfPayOnApproval(left, c.days);
     const at = nowIso();
     atsLeaveRequests.update(mode, list =>
         list.map(x => {
@@ -618,6 +719,7 @@ const applyChange = (mode: DataMode, id: string) => {
                 half: c.half,
                 days: c.days,
                 ...(c.proof ? { proof: c.proof } : {}),
+                ...(c.eventDate ? { eventDate: c.eventDate } : {}),
                 ...(lop > 0 ? { lossOfPayDays: lop } : {}),
                 changedFrom: { ...c.was, at, changeId: c.id },
                 updatedAt: at,
@@ -767,7 +869,11 @@ export const applyLeaveDecision = (mode: DataMode, kind: 'leave' | 'cancel' | 'c
     if (!l || l.trail.status !== 'APPROVED') return;
     const e = findEmployee(l.employeeId);
     if (!e) return;
-    const left = balancesFor(mode, e, l.id).left[l.type] ?? 0;
+    // PROTOTYPE-SETUP (Leave policy settings): loss of pay is unpaid already (lop = true); per-event types have no
+    // balance — nothing to flag for either.
+    if (l.lop) return;
+    const left = balancesFor(mode, e, l.id).left[l.type];
+    if (left === undefined) return;
     const lop = lossOfPayOnApproval(left, l.days);
     if (lop > 0) atsLeaveRequests.update(mode, list => list.map(x => (x.id === id ? { ...x, lossOfPayDays: lop } : x)));
 };
@@ -820,7 +926,7 @@ export const hrCancelLeave = (mode: DataMode, leaveId: string, body: { reason?: 
     const reason = body?.reason?.trim() ?? '';
     if (!reason) throw new RuleError(CANCEL_MESSAGES.reason, 400);
     const e = findEmployee(l.employeeId)!;
-    const days = recountFor(mode, e)(range.from, range.to, l.half);
+    const days = recountFor(mode, e, l.type)(range.from, range.to, l.half);
     applyCancel(mode, leaveId, range.from, 'HR team', reason);
     // Any cancellation the employee had asked for is now moot.
     atsLeaveCancels.update(mode, list => list.map(c => (c.leaveId === leaveId && isOpenItem(c) ? { ...c, trail: cancelTrail(c.trail), withdrawn: true } : c)));
@@ -932,7 +1038,7 @@ export const adminLeaveEntries = (mode: DataMode): AdminLeaveEntry[] => {
                     addedBy: l.addedByHr ? ('HR' as const) : ('Employee' as const),
                     state: entryState(l, t),
                     cancelFrom: range?.from ?? null,
-                    cancelDays: range ? recountFor(mode, e)(range.from, range.to, l.half) : 0,
+                    cancelDays: range ? recountFor(mode, e, l.type)(range.from, range.to, l.half) : 0,
                     ...(l.lossOfPayDays ? { lossOfPayDays: l.lossOfPayDays } : {}),
                 },
             ];
@@ -943,7 +1049,7 @@ export const adminLeaveEntries = (mode: DataMode): AdminLeaveEntry[] => {
 /** Payroll → Leave → Balances: every employee, their status, and per type available / allocated. */
 export const adminLeaveBalances = (mode: DataMode): AdminLeaveBalances => {
     const policy = getSettings(mode).leavePolicy;
-    const columns = [...policy.types.filter(t => t.active).map(t => ({ id: t.id, name: t.name })), ...(policy.compOff.enabled ? [{ id: COMP_OFF, name: 'Comp off' }] : [])];
+    const columns = [...policy.types.filter(t => t.active && !isEventType(t)).map(t => ({ id: t.id, name: t.name })), ...(policy.compOff.enabled ? [{ id: COMP_OFF, name: 'Comp off' }] : [])];
     return {
         types: columns,
         rows: employeesFor(mode).map(e => {
@@ -1007,6 +1113,7 @@ export const leaveSettingsView = (mode: DataMode): LeaveSettingsView => {
             ? rollForwardDay(companyCycle.end, d => !s.weeklyOff.includes((['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'] as const)[new Date(`${d}T00:00:00`).getDay()]) && !publicHolidayOn(mode, d))
             : null,
         migrationNote: MIGRATION_NOTE,
+        endorsement: s.leaveEndorsement,
     };
 };
 
@@ -1019,35 +1126,56 @@ export const TYPE_MESSAGES = {
     name: 'Give the leave type a name.',
     duplicate: 'A leave type with that name already exists.',
     days: 'Enter the days per year.',
+    limit: 'Enter how much can be taken per event.',
     renameUsed: 'This leave type has been used, so its name can’t change.',
     removeUsed: 'This leave type has been used, so it can only be made inactive.',
     last: 'Keep at least one leave type.',
     notFound: 'Leave type not found.',
 } as const;
 
-/** The body's leaving choice; older clients may still send encashOnExit (true → ENCASH, false → BRING_FORWARD). */
-const onLeavingFrom = (body: Partial<LeaveTypeInput> | undefined, cur?: LeaveTypeConfig) => {
-    const b = body as { onLeaving?: unknown; encashOnExit?: unknown } | undefined;
-    if (b && (b.onLeaving === 'ENCASH' || b.onLeaving === 'BRING_FORWARD' || typeof b.encashOnExit === 'boolean')) return onLeavingOf(b);
-    return cur?.onLeaving ?? 'BRING_FORWARD';
+/** The body's leaving options; older clients may still send onLeaving or encashOnExit (mapped as in exitOptsOf). */
+const exitOptsFrom = (body: Partial<LeaveTypeInput> | undefined, cur?: LeaveTypeConfig) => {
+    const b = body as { exitOpts?: unknown; onLeaving?: unknown; encashOnExit?: unknown } | undefined;
+    if (b && (Array.isArray(b.exitOpts) || b.onLeaving === 'ENCASH' || b.onLeaving === 'BRING_FORWARD' || typeof b.encashOnExit === 'boolean')) return exitOptsOf(b);
+    return cur?.exitOpts ?? ['prepone'];
+};
+
+const numOrNull = (v: unknown, max: number) => {
+    if (v === null || v === undefined || v === '') return null;
+    const n = Math.round(Number(v));
+    return Number.isFinite(n) && n >= 0 ? Math.min(n, max) : null;
 };
 
 const cleanType = (body: Partial<LeaveTypeInput> | undefined, cur?: LeaveTypeConfig): Omit<LeaveTypeConfig, 'id'> => {
     const name = String(body?.name ?? cur?.name ?? '').trim();
     if (!name) throw new RuleError(TYPE_MESSAGES.name, 400);
-    const days = Number(body?.daysPerYear ?? cur?.daysPerYear);
-    if (!(days > 0) || days > 366) throw new RuleError(TYPE_MESSAGES.days, 400);
     const pick = <T extends string>(v: unknown, ok: readonly T[], fallback: T): T => (ok.includes(v as T) ? (v as T) : fallback);
     const carry = Number(body?.carryForward ?? cur?.carryForward ?? 0);
     const proofRaw = body && 'proofAfterDays' in body ? body.proofAfterDays : cur?.proofAfterDays ?? null;
     const proof = proofRaw === null || proofRaw === undefined || (proofRaw as unknown) === '' ? null : Math.max(0, Math.round(Number(proofRaw)));
+    // PROTOTYPE-SETUP (Leave policy settings): kind, counting, year end, leaving options and the per-event fields.
+    const kind = pick(body?.kind, ['yearly', 'event'] as const, cur?.kind ?? 'yearly');
+    const days = kind === 'event' ? 0 : Number(body?.daysPerYear ?? cur?.daysPerYear);
+    if (kind === 'yearly' && (!(days > 0) || days > 366)) throw new RuleError(TYPE_MESSAGES.days, 400);
+    const limitUnit = pick(body?.limitUnit, ['days', 'weeks'] as const, cur?.limitUnit ?? 'days');
+    const limit = kind === 'event' ? numOrNull(body && 'limit' in body ? body.limit : cur?.limit, limitUnit === 'weeks' ? 52 : 366) : null;
+    if (kind === 'event' && !(limit && limit > 0)) throw new RuleError(TYPE_MESSAGES.limit, 400);
+    const yearEnd = pick(body?.yearEnd, ['carry', 'encash', 'lapse'] as const, cur?.yearEnd ?? (carry > 0 ? 'carry' : 'lapse'));
     return {
         name,
+        kind,
+        count: pick(body?.count, ['working', 'calendar'] as const, cur?.count ?? 'working'),
         daysPerYear: Math.round(days * 2) / 2,
         credit: pick(body?.credit, ['CYCLE_START', 'MONTHLY', 'DAILY'] as const, cur?.credit ?? 'MONTHLY'),
         probation: pick(body?.probation, ['MONTHLY', 'FULL', 'NONE'] as const, cur?.probation ?? 'MONTHLY'),
-        carryForward: Number.isFinite(carry) ? Math.max(0, Math.min(366, carry)) : 0,
-        onLeaving: onLeavingFrom(body, cur),
+        yearEnd: kind === 'event' ? 'lapse' : yearEnd,
+        carryForward: kind === 'yearly' && yearEnd === 'carry' && Number.isFinite(carry) ? Math.max(0, Math.min(366, carry)) : 0,
+        exitOpts: kind === 'event' ? [] : exitOptsFrom(body, cur),
+        limit,
+        limitUnit,
+        eventLabel: kind === 'event' ? String(body?.eventLabel ?? cur?.eventLabel ?? '').trim() || 'Event date' : '',
+        windowBefore: kind === 'event' ? numOrNull(body && 'windowBefore' in body ? body.windowBefore : cur?.windowBefore, 366) : null,
+        windowAfter: kind === 'event' ? numOrNull(body && 'windowAfter' in body ? body.windowAfter : cur?.windowAfter, 366) : null,
         proofAfterDays: Number.isFinite(proof as number) || proof === null ? proof : null,
         appliesTo: pick(body?.appliesTo, ['ALL', 'FEMALE', 'MALE'] as const, cur?.appliesTo ?? 'ALL'),
         active: typeof body?.active === 'boolean' ? body.active : cur?.active ?? true,
@@ -1072,7 +1200,8 @@ export const updateLeaveType = (mode: DataMode, id: string, body: Partial<LeaveT
     const t = cleanType(body, cur);
     if (t.name !== cur.name && usedCount(mode, id) > 0) throw new RuleError(TYPE_MESSAGES.renameUsed, 409);
     if (types.some(x => x.id !== id && x.name.toLowerCase() === t.name.toLowerCase())) throw new RuleError(TYPE_MESSAGES.duplicate, 409);
-    savePolicy(mode, p => ({ ...p, types: p.types.map(x => (x.id === id ? { id, ...t } : x)) }));
+    // PROTOTYPE-SETUP (Leave policy settings): a per-event type can't be in the late-deduction order.
+    savePolicy(mode, p => ({ ...p, types: p.types.map(x => (x.id === id ? { id, ...t } : x)), lateOrder: t.kind === 'event' ? p.lateOrder.filter(x => x !== id) : p.lateOrder }));
     return leaveSettingsView(mode);
 };
 
@@ -1097,7 +1226,7 @@ export const removeLeaveType = (mode: DataMode, id: string) => {
 export const updateLeaveConfig = (
     mode: DataMode,
     body:
-        | Partial<Pick<LeavePolicy, 'year' | 'cycleStart' | 'sandwich' | 'lateOrder'>> & {
+        | Partial<Pick<LeavePolicy, 'year' | 'cycleStart' | 'sandwich' | 'lateOrder' | 'creditDate' | 'creditDay' | 'rounding' | 'lop'>> & {
               compOff?: Partial<LeavePolicy['compOff']>;
               halfDay?: boolean;
               lateDeductionDays?: number;
@@ -1110,7 +1239,8 @@ export const updateLeaveConfig = (
     const cycleOk = typeof b.cycleStart === 'string' && /^(0[1-9]|1[0-2])-(0[1-9]|1\d|2[0-8])$/.test(b.cycleStart);
     const expiry = Number(b.compOff?.expiryDays);
     const late = Number(b.lateDeductionDays);
-    const ids = p.types.filter(t => t.active).map(t => t.id);
+    const ids = p.types.filter(t => t.active && !isEventType(t)).map(t => t.id);
+    const creditDay = Number(b.creditDay);
     const order = Array.isArray(b.lateOrder) ? [...new Set(b.lateOrder.filter(x => ids.includes(x)))] : p.lateOrder;
     const next: LeavePolicy = {
         ...p,
@@ -1122,6 +1252,11 @@ export const updateLeaveConfig = (
             expiryDays: Number.isFinite(expiry) && expiry >= 0 && expiry <= 365 ? Math.round(expiry) : p.compOff.expiryDays,
         },
         lateOrder: order.length ? order : p.lateOrder,
+        // PROTOTYPE-SETUP (Leave policy settings): credit date, rounding and loss of pay.
+        creditDate: b.creditDate === 'START' || b.creditDate === 'END' || b.creditDate === 'CUSTOM' ? b.creditDate : p.creditDate,
+        creditDay: Number.isInteger(creditDay) && creditDay >= 1 && creditDay <= 28 ? creditDay : p.creditDay,
+        rounding: b.rounding === 'NONE' || b.rounding === 'HALF' || b.rounding === 'DAY' ? b.rounding : p.rounding,
+        lop: b.lop === 'USED_UP' || b.lop === 'ANY_TIME' ? b.lop : p.lop,
     };
     atsSettings.set(mode, {
         ...atsSettings.get(mode),

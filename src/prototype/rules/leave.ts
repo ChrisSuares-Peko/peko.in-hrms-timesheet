@@ -19,16 +19,34 @@
 //   cancellation ...... whole, or from today if it has started
 //   late deduction .... each late mark from the first type in the order with enough left, else loss of pay; reversed
 //                       when a dispute (correction) is approved
+//   PROTOTYPE-SETUP (Leave policy settings):
+//   kinds ............. yearly balance types, and per-event types (maternity, paternity): up to N days/weeks per event,
+//                       within a window around the event date, no balance, never in balance tables or deduction orders
+//   counting .......... per type: working days (the employee's own) or calendar days (every day in the range)
+//   credit date ....... monthly credits land at the start / end of the month or on a custom day (1–28); a joiner's first
+//                       credit lands on that date in their first counted month
+//   rounding .......... none / nearest half day / nearest day, on credited-so-far and the year's total
+//   year end .......... carry forward up to a limit / encash / lapse (a ledger line says which)
+//   leaving ........... encash and/or bring the last working day forward (both = the employee's choice; none = lapses)
+//   loss of pay ....... the only unpaid leave: only once every yearly balance and comp off is at 0, or any time
+//   endorsement ....... longer leave gets an extra step after level 1 (department head or a person)
 //   routing ........... the approval chain is rules/attendance.ts (startTrail / decide / resubmitTrail); leave
 //                       cancellations and comp off use the leave approvers (routeTypeOf)
 import type {
     ApprovalType,
     LateDeduction,
     LeaveAppliesTo,
+    ApprovalStep,
+    ApprovalTrail,
+    LeaveCount,
     LeaveCredit,
+    LeaveCreditDate,
+    LeaveExitOpt,
     LeaveHalf,
-    LeaveOnLeaving,
     LeavePolicy,
+    LeaveRounding,
+    LeaveYearEnd,
+    LopRule,
     LeaveProbationRule,
     LeaveTypeConfig,
     LedgerEntry,
@@ -38,7 +56,7 @@ import type {
     Weekday,
 } from '@src/domains/attendanceTimesheet/types';
 
-import { DEFAULT_LEAVE_POLICY, DEFAULT_LEAVE_TYPES, RuleError, addDays, approverPersonId, weekdayOf } from './attendance';
+import { DEFAULT_LEAVE_POLICY, DEFAULT_LEAVE_TYPES, RuleError, addDays, approverPersonId, nextStatus, weekdayOf } from './attendance';
 
 // ---- defaults --------------------------------------------------------------------------------------------------
 
@@ -61,20 +79,61 @@ export interface LegacyLeavePolicy {
     types: Record<string, { daysPerYear: number; credit: 'UPFRONT' | 'MONTHLY'; carryForward: number; encashOnExit: boolean }>;
 }
 
-/** A stored type from before "Unused leave on leaving": encashOnExit true → ENCASH, false → BRING_FORWARD. */
-export const onLeavingOf = (t: { onLeaving?: unknown; encashOnExit?: unknown }): LeaveOnLeaving => {
-    if (t.onLeaving === 'ENCASH' || t.onLeaving === 'BRING_FORWARD') return t.onLeaving;
-    return t.encashOnExit ? 'ENCASH' : 'BRING_FORWARD';
-};
-const withOnLeaving = (t: LeaveTypeConfig): LeaveTypeConfig => {
-    const rest: LeaveTypeConfig & { encashOnExit?: boolean } = { ...t, onLeaving: onLeavingOf(t) };
-    delete rest.encashOnExit;
-    return rest;
+/**
+ * PROTOTYPE-SETUP (Leave policy settings): the leaving options of a stored type. Current data has exitOpts; the run
+ * before stored onLeaving (ENCASH / BRING_FORWARD); older data stored encashOnExit. ENCASH / true → ['encash'];
+ * BRING_FORWARD / false → ['prepone'].
+ */
+export const exitOptsOf = (t: { exitOpts?: unknown; onLeaving?: unknown; encashOnExit?: unknown }): LeaveExitOpt[] => {
+    if (Array.isArray(t.exitOpts)) return (['encash', 'prepone'] as const).filter(o => (t.exitOpts as unknown[]).includes(o));
+    if (t.onLeaving === 'ENCASH' || t.onLeaving === 'BRING_FORWARD') return t.onLeaving === 'ENCASH' ? ['encash'] : ['prepone'];
+    return t.encashOnExit ? ['encash'] : ['prepone'];
 };
 
-export const ON_LEAVING_LABEL: Record<LeaveOnLeaving, string> = {
-    ENCASH: 'Encash in full & final settlement',
-    BRING_FORWARD: 'Use it to bring the last working day forward',
+const yearEndOf = (t: { yearEnd?: unknown; carryForward?: number }): LeaveYearEnd => {
+    if (t.yearEnd === 'carry' || t.yearEnd === 'encash' || t.yearEnd === 'lapse') return t.yearEnd;
+    return (t.carryForward ?? 0) > 0 ? 'carry' : 'lapse';
+};
+
+/**
+ * A stored type in the current shape. Missing fields get the yearly defaults: kind yearly, working days, year end
+ * 'carry' when a carry-forward limit is set (else 'lapse'), and the old leaving fields become exitOpts.
+ */
+export const migrateLeaveType = (stored: unknown): LeaveTypeConfig => {
+    const t = stored as Partial<LeaveTypeConfig> & { onLeaving?: unknown; encashOnExit?: unknown };
+    const kind = t.kind === 'event' ? 'event' : 'yearly';
+    const out: LeaveTypeConfig & { onLeaving?: unknown; encashOnExit?: unknown } = {
+        ...(t as LeaveTypeConfig),
+        kind,
+        count: t.count === 'calendar' ? 'calendar' : 'working',
+        yearEnd: yearEndOf(t),
+        carryForward: t.carryForward ?? 0,
+        exitOpts: kind === 'event' ? [] : exitOptsOf(t),
+        limit: kind === 'event' ? t.limit ?? null : null,
+        limitUnit: t.limitUnit === 'weeks' ? 'weeks' : 'days',
+        eventLabel: t.eventLabel ?? '',
+        windowBefore: t.windowBefore ?? null,
+        windowAfter: t.windowAfter ?? null,
+    };
+    delete out.onLeaving;
+    delete out.encashOnExit;
+    return out;
+};
+
+/** "Encash in F&F" / "Bring last working day forward" / both / "Lapses" — the table's "On leaving". */
+export const exitText = (t: Pick<LeaveTypeConfig, 'exitOpts' | 'kind'>) => {
+    if (t.kind === 'event') return '—';
+    const e = t.exitOpts.includes('encash');
+    const p = t.exitOpts.includes('prepone');
+    if (e && p) return 'Encash in F&F or bring last working day forward (employee’s choice)';
+    if (e) return 'Encash in F&F';
+    if (p) return 'Bring last working day forward';
+    return 'Lapses';
+};
+
+export const EXIT_OPT_LABEL: Record<LeaveExitOpt, string> = {
+    encash: 'Encash in full & final settlement',
+    prepone: 'Use it to bring the last working day forward',
 };
 
 const isLegacy = (p: unknown): p is LegacyLeavePolicy => Boolean(p && typeof p === 'object' && !Array.isArray((p as LeavePolicy).types));
@@ -92,7 +151,7 @@ export const migrateLeavePolicy = (stored: unknown, legacyProofDays?: number): L
         return {
             ...DEFAULT_POLICY,
             ...p,
-            types: (p.types ?? DEFAULT_POLICY.types).map(withOnLeaving),
+            types: (p.types ?? DEFAULT_POLICY.types).map(migrateLeaveType),
             compOff: { ...DEFAULT_POLICY.compOff, ...p.compOff },
             lateOrder: p.lateOrder ?? DEFAULT_POLICY.lateOrder,
         };
@@ -105,8 +164,9 @@ export const migrateLeavePolicy = (stored: unknown, legacyProofDays?: number): L
             ...d,
             daysPerYear: o.daysPerYear,
             credit: (o.credit === 'UPFRONT' ? 'CYCLE_START' : 'MONTHLY') as LeaveCredit,
+            yearEnd: (o.carryForward > 0 ? 'carry' : 'lapse') as LeaveYearEnd,
             carryForward: o.carryForward,
-            onLeaving: (o.encashOnExit ? 'ENCASH' : 'BRING_FORWARD') as LeaveOnLeaving,
+            exitOpts: (o.encashOnExit ? ['encash'] : ['prepone']) as LeaveExitOpt[],
             ...(d.id === 'SICK' && legacyProofDays !== undefined ? { proofAfterDays: legacyProofDays } : {}),
         };
     });
@@ -126,7 +186,7 @@ export const daysAmount = (n: number) => (n === 0.5 ? 'Half a day' : daysText(n)
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /** "Annual leave", "Bereavement leave", "Comp off" — a name that already says leave (or Comp off) is kept. */
-export const typeLabel = (name: string) => (/leave$/i.test(name.trim()) || name === COMP_OFF_NAME ? name : `${name} leave`);
+export const typeLabel = (name: string) => (/leave$/i.test(name.trim()) || name === COMP_OFF_NAME || name === 'Loss of pay' ? name : `${name} leave`);
 
 export const CREDIT_LABEL: Record<LeaveCredit, string> = { CYCLE_START: 'At the start of the leave cycle', MONTHLY: 'Monthly', DAILY: 'Daily' };
 export const PROBATION_LABEL: Record<LeaveProbationRule, string> = {
@@ -145,7 +205,83 @@ export const accrualText = (t: Pick<LeaveTypeConfig, 'credit' | 'daysPerYear'>) 
     return `≈ ${fmtDays(m)} a month, accrued daily`;
 };
 /** "Yes, up to 30 days" / "No" */
-export const carryText = (t: Pick<LeaveTypeConfig, 'carryForward'>) => (t.carryForward ? `Yes, up to ${daysText(t.carryForward)}` : 'No');
+export const carryText = (t: Pick<LeaveTypeConfig, 'carryForward'> & Partial<Pick<LeaveTypeConfig, 'yearEnd'>>) =>
+    (t.yearEnd ?? 'carry') === 'carry' && t.carryForward ? `Yes, up to ${daysText(t.carryForward)}` : 'No';
+
+// ---- per-event and yearly wording (PROTOTYPE-SETUP: Leave policy settings) --------------------------------------
+
+export const COUNT_LABEL: Record<LeaveCount, string> = { working: 'Working days', calendar: 'Calendar days' };
+export const isEventType = (t: Pick<LeaveTypeConfig, 'kind'> | undefined | null) => t?.kind === 'event';
+/** A per-event limit in days (weeks × 7). */
+export const eventLimitDays = (t: Pick<LeaveTypeConfig, 'limit' | 'limitUnit'>) => (t.limit ?? 0) * (t.limitUnit === 'weeks' ? 7 : 1);
+/** "26 weeks" / "7 days" */
+export const limitText = (t: Pick<LeaveTypeConfig, 'limit' | 'limitUnit'>) => {
+    const n = t.limit ?? 0;
+    return t.limitUnit === 'weeks' ? `${fmtDays(n)} week${n === 1 ? '' : 's'}` : daysText(n);
+};
+/** "18 days a year" / "Up to 26 weeks per event" */
+export const entitlementText = (t: Pick<LeaveTypeConfig, 'kind' | 'daysPerYear' | 'limit' | 'limitUnit'>) =>
+    t.kind === 'event' ? `Up to ${limitText(t)} per event` : `${fmtDays(t.daysPerYear)} ${dayWord(t.daysPerYear)} a year`;
+/** "Monthly · 1.5 days a month" / "Per event" */
+export const creditedText = (t: Pick<LeaveTypeConfig, 'kind' | 'credit' | 'daysPerYear'>) => (t.kind === 'event' ? 'Per event' : `${CREDIT_LABEL[t.credit]} · ${accrualText(t)}`);
+/** "Carry forward up to 45 days" / "Encashed" / "Lapses" */
+export const yearEndText = (t: Pick<LeaveTypeConfig, 'kind' | 'yearEnd' | 'carryForward'>) => {
+    if (t.kind === 'event') return '—';
+    if (t.yearEnd === 'carry') return t.carryForward > 0 ? `Carry forward up to ${daysText(t.carryForward)}` : 'Lapses';
+    return t.yearEnd === 'encash' ? 'Encashed' : 'Lapses';
+};
+/** "Up to 7 days per event · Working days" */
+export const eventInfoText = (t: Pick<LeaveTypeConfig, 'limit' | 'limitUnit' | 'count'>) => `Up to ${limitText(t)} per event · ${COUNT_LABEL[t.count]}`;
+/** "From 30 days before to 90 days after the date of birth or adoption" / "Any time" */
+export const windowText = (t: Pick<LeaveTypeConfig, 'windowBefore' | 'windowAfter' | 'eventLabel'>) => {
+    const ev = (t.eventLabel || 'event date').toLowerCase();
+    const before = t.windowBefore;
+    const after = t.windowAfter;
+    if (before === null && after === null) return 'Any time';
+    if (before !== null && after !== null) return `From ${daysText(before)} before to ${daysText(after)} after the ${ev}`;
+    if (before !== null) return `From ${daysText(before)} before the ${ev}`;
+    return `Up to ${daysText(after as number)} after the ${ev}`;
+};
+
+// ---- credit date and rounding (PROTOTYPE-SETUP: Leave policy settings) -------------------------------------------
+
+export const CREDIT_DATE_LABEL: Record<LeaveCreditDate, string> = { START: 'Start of the month', END: 'End of the month', CUSTOM: 'Custom date' };
+export const ROUNDING_LABEL: Record<LeaveRounding, string> = { NONE: 'No rounding', HALF: 'Nearest half day', DAY: 'Nearest day' };
+export const LOP_RULE_LABEL: Record<LopRule, string> = { USED_UP: 'Only once paid leave is used up', ANY_TIME: 'Any time, even with paid leave left' };
+
+/** The day a month's credit lands: the month's first day, its last day, or the custom day (1–28) within it. */
+export const creditDateIn = (m: { start: string; end: string }, rule: LeaveCreditDate = 'START', day = 1) => {
+    if (rule === 'END') return m.end;
+    if (rule === 'CUSTOM') {
+        for (let d = m.start; d <= m.end; d = addDays(d, 1)) if (dayOf(d) === day) return d;
+        return m.end;
+    }
+    return m.start;
+};
+
+/** 1.1667 → 1 (nearest half day) or 1 (nearest day); 1.3 → 1.5 or 1. */
+export const roundDays = (n: number, mode: LeaveRounding = 'NONE') => {
+    if (mode === 'HALF') return Math.round(n * 2 + 1e-9) / 2;
+    if (mode === 'DAY') return Math.round(n + 1e-9);
+    return n;
+};
+
+/**
+ * Credits with rounding applied to the running total: each credit becomes the change in the rounded total, so the
+ * ledger adds up to the rounded credited-so-far (14 a year by month, nearest half day: 1, 1.5, 1, 1.5, …).
+ */
+export const roundCredits = <C extends { amount: number }>(credits: C[], mode: LeaveRounding) => {
+    if (mode === 'NONE') return credits;
+    let raw = 0;
+    let shown = 0;
+    return credits.map(c => {
+        raw += c.amount;
+        const next = roundDays(raw, mode);
+        const amount = r2(next - shown);
+        shown = next;
+        return { ...c, amount };
+    });
+};
 /** "Never" / "Always" / "When longer than 3 days" */
 export const proofText = (t: Pick<LeaveTypeConfig, 'proofAfterDays'>) => {
     if (t.proofAfterDays === null || t.proofAfterDays === undefined) return 'Never';
@@ -276,7 +412,13 @@ export interface Credit {
  * confirmed, for start-of-cycle types); "full" types ignore probation; "not available" types get nothing until
  * confirmed, then the months from confirmation (a month counts if confirmed on or before the 15th).
  */
-export const creditSchedule = (type: Pick<LeaveTypeConfig, 'daysPerYear' | 'credit' | 'probation'>, year: { start: string; end: string }, facts: EmploymentFacts) => {
+export const creditSchedule = (
+    type: Pick<LeaveTypeConfig, 'daysPerYear' | 'credit' | 'probation'>,
+    year: { start: string; end: string },
+    facts: EmploymentFacts,
+    /** PROTOTYPE-SETUP (Leave policy settings): when monthly credits land (default: the start of the month). */
+    when: { creditDate?: LeaveCreditDate; creditDay?: number } = {}
+) => {
     const { dateOfJoin: doj } = facts;
     const exit = facts.exitDate ?? null;
     // Probation lasts until HR marks the employee Active.
@@ -306,7 +448,7 @@ export const creditSchedule = (type: Pick<LeaveTypeConfig, 'daysPerYear' | 'cred
     let given = 0;
     months.forEach(m => {
         if (type.credit === 'MONTHLY' || inProb(m)) {
-            credits.push({ date: maxIso(doj, m.start), kind: inProb(m) ? 'PROBATION_MONTHLY' : 'MONTHLY', amount: monthly, text: inProb(m) ? 'Monthly credit during probation' : 'Monthly credit' });
+            credits.push({ date: maxIso(doj, creditDateIn(m, when.creditDate, when.creditDay)), kind: inProb(m) ? 'PROBATION_MONTHLY' : 'MONTHLY', amount: monthly, text: inProb(m) ? 'Monthly credit during probation' : 'Monthly credit' });
             given += monthly;
         }
     });
@@ -342,12 +484,51 @@ export const creditedBy = (schedule: ReturnType<typeof creditSchedule>, type: Pi
 /** Available = credited so far − approved leave − late deductions − leave still in request. 10 − 4 − 0 − 2 = 4. */
 export const availableBalance = (b: { credited: number; approved: number; late: number; inRequest: number }) => r2(b.credited - b.approved - b.late - b.inRequest);
 
-/** Exit: unused days are encashed or bring the last working day forward (the type's choice; stored only, full & final
- *  settlement is a later module); days taken beyond what was earned are recovered. */
-export const exitSettlement = (b: { earned: number; approved: number; late: number }, onLeaving: LeaveOnLeaving) => {
+/**
+ * Exit: unused days (pro-rated to the last working day) follow the type's leaving options — encashed in full & final
+ * settlement, used to bring the last working day forward, both (the employee chooses: `choice`, the same days in both)
+ * or neither (they lapse). Stored only: F&F is a later module. Days taken beyond what was earned are recovered.
+ */
+export const exitSettlement = (b: { earned: number; approved: number; late: number }, exitOpts: LeaveExitOpt[]) => {
     const left = r2(b.earned - b.approved - b.late);
     const unused = left > 0 ? left : 0;
-    return { encash: onLeaving === 'ENCASH' ? unused : 0, bringForward: onLeaving === 'BRING_FORWARD' ? unused : 0, recover: left < 0 ? -left : 0 };
+    const encash = exitOpts.includes('encash');
+    const prepone = exitOpts.includes('prepone');
+    return {
+        encash: encash ? unused : 0,
+        bringForward: prepone ? unused : 0,
+        recover: left < 0 ? -left : 0,
+        ...(encash && prepone ? { choice: true } : {}),
+        ...(!encash && !prepone ? { lapse: unused } : {}),
+    };
+};
+
+/**
+ * PROTOTYPE-SETUP (Leave policy settings): the end of a leave cycle for one yearly type (employees still working; run
+ * automatically on the last working day): carry forward up to the limit (the rest lapses), encash (paid out by
+ * payroll, the balance restarts) or lapse.
+ */
+export const yearEndRule = (unused: number, t: Pick<LeaveTypeConfig, 'yearEnd' | 'carryForward'>) => {
+    const u = Math.max(0, r2(unused));
+    if (t.yearEnd === 'carry') {
+        const cf = carryForward(u, t.carryForward);
+        return { carried: cf.carried, encashed: 0, lapsed: cf.lapsed };
+    }
+    if (t.yearEnd === 'encash') return { carried: 0, encashed: u, lapsed: 0 };
+    return { carried: 0, encashed: 0, lapsed: u };
+};
+
+/** The ledger lines a year end leaves on the new cycle's first day: carried / encashed / lapsed. */
+export const yearEndLedger = (date: string, unused: number, t: Pick<LeaveTypeConfig, 'yearEnd' | 'carryForward'>): LedgerEntry[] => {
+    const y = yearEndRule(unused, t);
+    const lines: LedgerEntry[] = [];
+    if (y.carried > 0) lines.push({ date, kind: 'CARRIED', amount: y.carried, text: 'Carried forward from last year' });
+    if (y.encashed > 0) lines.push({ date, kind: 'ENCASHED', amount: null, text: `${fmtDays(y.encashed)} unused ${dayWord(y.encashed)} encashed at the end of last year (paid by payroll)` });
+    if (y.lapsed > 0) {
+        const why = t.yearEnd === 'carry' && t.carryForward > 0 ? `carry-forward limit ${fmtDays(t.carryForward)}` : 'no carry forward';
+        lines.push({ date, kind: 'LAPSED', amount: null, text: `${fmtDays(y.lapsed)} unused ${dayWord(y.lapsed)} lapsed (${why})` });
+    }
+    return lines;
 };
 
 // ---- counting leave days ----------------------------------------------------------------------------------------
@@ -367,9 +548,18 @@ export const isWorkingDayFor = (cal: WorkCalendar, date: string) => !isWeeklyOff
  * last working day of the request count too — weekly offs (and, with "weekly offs and holidays", public holidays on
  * working weekdays); never days off at the edges.
  */
-export const countLeaveDays = (start: string, end: string, half: LeaveHalf | null, cal: WorkCalendar, sandwich: SandwichRule = 'OFF') => {
+export const countLeaveDays = (
+    start: string,
+    end: string,
+    half: LeaveHalf | null,
+    cal: WorkCalendar,
+    sandwich: SandwichRule = 'OFF',
+    /** PROTOTYPE-SETUP (Leave policy settings): 'calendar' = every day in the range counts (statutory leave). */
+    count: LeaveCount = 'working'
+) => {
     const all: string[] = [];
     if (start && end && end >= start) for (let d = start; d <= end; d = addDays(d, 1)) all.push(d);
+    if (count === 'calendar') return { working: all.length, sandwich: 0, days: all.length * (half ? 0.5 : 1), workDates: all, calendar: true as const };
     const work = all.filter(d => isWorkingDayFor(cal, d));
     if (half) return { working: work.length, sandwich: 0, days: work.length * 0.5, workDates: work };
     let sand = 0;
@@ -385,8 +575,10 @@ export const countLeaveDays = (start: string, end: string, half: LeaveHalf | nul
 };
 
 /** "3 working days (weekly offs and public holidays aren’t counted)." / "4 days: 2 working days + 2 days off in between (sandwich rule)." */
-export const durationText = (c: { working: number; sandwich: number; days: number }, half: LeaveHalf | null) => {
+export const durationText = (c: { working: number; sandwich: number; days: number; calendar?: boolean }, half: LeaveHalf | null) => {
     if (!c.working) return '';
+    // PROTOTYPE-SETUP (Leave policy settings): calendar-day types count every day.
+    if (c.calendar && !half) return `${c.working} calendar day${c.working === 1 ? '' : 's'}, weekends and public holidays included.`;
     if (half) return `${c.working} half day${c.working === 1 ? '' : 's'} = ${daysText(c.days)} of leave. ${half === 'FIRST' ? 'You start work at mid-shift each day.' : 'You finish at mid-shift each day.'}`;
     if (c.sandwich) return `${fmtDays(c.days)} days: ${c.working} working day${c.working === 1 ? '' : 's'} + ${c.sandwich} day${c.sandwich === 1 ? '' : 's'} off in between (sandwich rule).`;
     return `${c.working} working day${c.working === 1 ? '' : 's'} (weekly offs and public holidays aren’t counted).`;
@@ -436,7 +628,7 @@ export const LEAVE_MESSAGES = {
  * request) · supporting document · reason. `who` words the messages for HR adding leave for someone.
  */
 export const validateLeave = (
-    input: { type?: string; start?: string; end?: string; half?: LeaveHalf | null; reason?: string; proof?: { name: string } | null },
+    input: { type?: string; start?: string; end?: string; half?: LeaveHalf | null; reason?: string; proof?: { name: string } | null; eventDate?: string | null },
     ctx: {
         types: LeaveTypeConfig[];
         cal: WorkCalendar;
@@ -449,6 +641,9 @@ export const validateLeave = (
         onProbation: boolean;
         who?: string;
         reasonMessage?: string;
+        /** PROTOTYPE-SETUP (Leave policy settings): per-event types — days already booked for this type and event date
+         *  (approved or in request; the request itself left out). */
+        eventBooked?: (type: string, eventDate: string) => number;
     }
 ) => {
     const type = ctx.types.find(t => t.id === input.type);
@@ -461,18 +656,153 @@ export const validateLeave = (
     const half = input.half === 'FIRST' || input.half === 'SECOND' ? input.half : null;
     if (half && !ctx.halfDayAllowed) throw new RuleError(LEAVE_MESSAGES.halfOff, 400);
     if (end < start) throw new RuleError(LEAVE_MESSAGES.endBeforeStart, 400);
-    const count = countLeaveDays(start, end, half, ctx.cal, ctx.sandwich);
+    const event = isEventType(type);
+    const count = countLeaveDays(start, end, half, ctx.cal, event || type.count === 'calendar' ? 'OFF' : ctx.sandwich, type.count ?? 'working');
     if (!count.working) throw new RuleError(LEAVE_MESSAGES.noWorkingDays, 400);
     const clash = ctx.existing.find(x => leavesClash(x, { start, end, half }));
     if (clash) throw new RuleError(LEAVE_MESSAGES.overlap(clash.summary, ctx.who), 409);
     const label = typeLabel(type.name);
     if (ctx.onProbation && type.probation === 'NONE' && type.id !== COMP_OFF) throw new RuleError(LEAVE_MESSAGES.probation(label, ctx.who), 409);
-    const available = ctx.available[type.id] ?? 0;
-    if (count.days > available + 1e-9) throw new RuleError(LEAVE_MESSAGES.balance(available, label, ctx.pending[type.id] ?? 0, ctx.who), 409);
+    let eventDate: string | null = null;
+    if (event) {
+        // PROTOTYPE-SETUP (Leave policy settings): per-event leave has no balance; it's limited per event instead.
+        eventDate = input.eventDate && iso.test(input.eventDate) ? input.eventDate : null;
+        const problem = eventProblem(type, { start, end, days: count.days, eventDate, booked: eventDate ? ctx.eventBooked?.(type.id, eventDate) ?? 0 : 0 }, ctx.who);
+        if (problem) throw new RuleError(problem, eventDate ? 409 : 400);
+    } else {
+        const available = ctx.available[type.id] ?? 0;
+        if (count.days > available + 1e-9) throw new RuleError(LEAVE_MESSAGES.balance(available, label, ctx.pending[type.id] ?? 0, ctx.who), 409);
+    }
     if (needsProof(type, count.days) && !input.proof?.name) throw new RuleError(LEAVE_MESSAGES.proof(label, type.proofAfterDays!), 400);
     const reason = input.reason?.trim() ?? '';
     if (!reason) throw new RuleError(ctx.reasonMessage ?? LEAVE_MESSAGES.reason, 400);
-    return { type: type.id, start, end, half, days: count.days, reason, ...(input.proof?.name ? { proof: { name: input.proof.name } } : {}) };
+    return {
+        type: type.id,
+        start,
+        end,
+        half,
+        days: count.days,
+        reason,
+        ...(input.proof?.name ? { proof: { name: input.proof.name } } : {}),
+        ...(eventDate ? { eventDate } : {}),
+    };
+};
+
+// ---- per-event leave (PROTOTYPE-SETUP: Leave policy settings) ----------------------------------------------------
+
+export const EVENT_MESSAGES = {
+    eventDate: (eventLabel: string) => `Add the ${(eventLabel || 'event date').toLowerCase()}.`,
+    tooEarly: (label: string, before: number, eventLabel: string, from: string) =>
+        `${label} can start at most ${daysText(before)} before the ${(eventLabel || 'event date').toLowerCase()} (from ${shortDate(from)}).`,
+    tooLate: (label: string, after: number, eventLabel: string, by: string) =>
+        `${label} has to end within ${daysText(after)} after the ${(eventLabel || 'event date').toLowerCase()} (by ${shortDate(by)}).`,
+    beforeEvent: (label: string, eventLabel: string) => `${label} can’t start before the ${(eventLabel || 'event date').toLowerCase()}.`,
+    afterEvent: (label: string, eventLabel: string) => `${label} can’t be taken after the ${(eventLabel || 'event date').toLowerCase()}.`,
+    limit: (label: string, limit: string, booked: number, who?: string) =>
+        `${label} is up to ${limit} per event.${booked > 0 ? ` ${fmtDays(booked)} ${dayWord(booked)} already booked for this event.` : ''} Apply for fewer days.`,
+} as const;
+
+/**
+ * A per-event request: the event date is required; the leave must sit in the window (N days before to M days after the
+ * event; null = no limit that side); and this request plus leave already booked for the same event date can't go over
+ * the per-event limit (weeks × 7 days). Null when it's fine.
+ */
+export const eventProblem = (
+    t: Pick<LeaveTypeConfig, 'name' | 'limit' | 'limitUnit' | 'eventLabel' | 'windowBefore' | 'windowAfter'>,
+    r: { start: string; end: string; days: number; eventDate: string | null; booked: number },
+    who?: string
+) => {
+    const label = typeLabel(t.name);
+    if (!r.eventDate) return EVENT_MESSAGES.eventDate(t.eventLabel);
+    if (t.windowBefore !== null && t.windowBefore !== undefined) {
+        const from = addDays(r.eventDate, -t.windowBefore);
+        if (r.start < from) return t.windowBefore === 0 ? EVENT_MESSAGES.beforeEvent(label, t.eventLabel) : EVENT_MESSAGES.tooEarly(label, t.windowBefore, t.eventLabel, from);
+    }
+    if (t.windowAfter !== null && t.windowAfter !== undefined) {
+        const by = addDays(r.eventDate, t.windowAfter);
+        if (r.end > by) return t.windowAfter === 0 ? EVENT_MESSAGES.afterEvent(label, t.eventLabel) : EVENT_MESSAGES.tooLate(label, t.windowAfter, t.eventLabel, by);
+    }
+    const limit = eventLimitDays(t);
+    if (limit > 0 && r.booked + r.days > limit + 1e-9) return EVENT_MESSAGES.limit(label, limitText(t), r.booked, who);
+    return null;
+};
+
+// ---- loss of pay (PROTOTYPE-SETUP: Leave policy settings) ---------------------------------------------------------
+
+/** Loss of pay: the only unpaid leave. A leave request with this type and lop = true. */
+export const LOP = 'LOP';
+export const LOP_NAME = 'Loss of pay';
+export const LOP_UNPAID_LINE = 'Unpaid: payroll treats these days as loss of pay.';
+
+/** The paid balances still above 0 (yearly types and comp off; per-event types have no balance). */
+export const paidLeaveLeft = (balances: { name: string; label?: string; available: number }[]) => balances.filter(b => b.available > 1e-9);
+
+/** "You still have paid leave: 9.5 Annual · 6.5 Casual. …" when the rule is "only once paid leave is used up". */
+export const lopProblem = (rule: LopRule, balances: { name: string; available: number }[]) => {
+    if (rule === 'ANY_TIME') return null;
+    const left = paidLeaveLeft(balances);
+    if (!left.length) return null;
+    return `You still have paid leave: ${left.map(b => `${fmtDays(b.available)} ${b.name}`).join(' · ')}. Loss of pay is only once all of it is used up.`;
+};
+
+/**
+ * A loss-of-pay request: dates · half days · working days only · overlap with other leave · the LOP rule · reason. No
+ * balance and no limit. Same approvers as leave.
+ */
+export const validateLop = (
+    input: { start?: string; end?: string; half?: LeaveHalf | null; reason?: string },
+    ctx: { cal: WorkCalendar; halfDayAllowed: boolean; existing: ExistingLeave[]; rule: LopRule; balances: { name: string; available: number }[] }
+) => {
+    const iso = /^\d{4}-\d{2}-\d{2}$/;
+    if (!iso.test(input.start ?? '')) throw new RuleError(LEAVE_MESSAGES.date, 400);
+    const start = input.start!;
+    const end = input.end || start;
+    if (!iso.test(end)) throw new RuleError(LEAVE_MESSAGES.date, 400);
+    const half = input.half === 'FIRST' || input.half === 'SECOND' ? input.half : null;
+    if (half && !ctx.halfDayAllowed) throw new RuleError(LEAVE_MESSAGES.halfOff, 400);
+    if (end < start) throw new RuleError(LEAVE_MESSAGES.endBeforeStart, 400);
+    const count = countLeaveDays(start, end, half, ctx.cal, 'OFF');
+    if (!count.working) throw new RuleError(LEAVE_MESSAGES.noWorkingDays, 400);
+    const clash = ctx.existing.find(x => leavesClash(x, { start, end, half }));
+    if (clash) throw new RuleError(LEAVE_MESSAGES.overlap(clash.summary), 409);
+    const problem = lopProblem(ctx.rule, ctx.balances);
+    if (problem) throw new RuleError(problem, 409);
+    const reason = input.reason?.trim() ?? '';
+    if (!reason) throw new RuleError(LEAVE_MESSAGES.reason, 400);
+    return { type: LOP, lop: true as const, start, end, half, days: count.days, reason };
+};
+
+// ---- endorsement for longer leave (PROTOTYPE-SETUP: Leave policy settings) ----------------------------------------
+
+/** Does a leave request of this many days need the extra endorsement step? */
+export const needsEndorsement = (cfg: { enabled: boolean; overDays: number } | undefined, days: number) => Boolean(cfg?.enabled && days > cfg.overDays + 1e-9);
+
+/**
+ * The department head: the person in the department whose own manager is outside it (or who has none). Several such
+ * people → the one with the most people in the department reporting to them (directly or further down), then the
+ * lowest id. Null for a department with nobody in it.
+ */
+export const departmentHead = <P extends { id: number; department: string; managerId: number | null }>(people: P[], department: string): P | null => {
+    const inDept = people.filter(p => p.department === department);
+    const ids = new Set(inDept.map(p => p.id));
+    const heads = inDept.filter(p => p.managerId === null || !ids.has(p.managerId));
+    if (!heads.length) return null;
+    const below = (id: number): number => inDept.filter(p => p.managerId === id).reduce((n, p) => n + 1 + below(p.id), 0);
+    return [...heads].sort((a, b) => below(b.id) - below(a.id) || a.id - b.id)[0];
+};
+
+/**
+ * Adds the endorsement step after level 1 and before level 2 — unless the endorser is the employee, or is the level 1
+ * approver. Shown in the chain as "{name} (endorsement)"; it waits in that person's My team → Approvals.
+ */
+export const withEndorsement = (trail: ApprovalTrail, endorser: { id: number; name: string } | null, employeeId: number): ApprovalTrail => {
+    if (!endorser || endorser.id === employeeId) return trail;
+    const [l1, ...rest] = trail.steps;
+    if (!l1 || l1.level === 2) return trail;
+    if (!l1.skipped && l1.role === 'MANAGER' && l1.approverId === endorser.id) return trail;
+    const step: ApprovalStep = { level: 1, role: 'MANAGER', approverId: endorser.id, approverName: endorser.name, endorsement: true };
+    const steps = [l1, step, ...rest];
+    return { ...trail, steps, status: nextStatus(steps) };
 };
 
 // ---- cancelling approved leave ------------------------------------------------------------------------------------
@@ -756,27 +1086,24 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
     const { policy, facts } = input;
     const asOf = asOfDate(input.today, facts.exitDate);
     const year = leaveYearOf(asOf, policy, facts.dateOfJoin);
-    const types = typesForEmployee(policy, facts.gender);
+    // PROTOTYPE-SETUP (Leave policy settings): per-event types have no yearly balance.
+    const types = typesForEmployee(policy, facts.gender).filter(t => !isEventType(t));
+    const rounding = policy.rounding ?? 'NONE';
     const inYear = (l: { start: string; end: string }) => l.end >= year.start && l.start <= year.end;
     const sumOf = (type: string, state: 'approved' | 'in_request') =>
         input.leave.filter(l => l.type === type && l.state === state && (type === COMP_OFF || inYear(l))).reduce((s, l) => s + l.days, 0);
     const onProbation = facts.status === 'PROBATION';
 
     const base = types.map(t => {
-        const sched = creditSchedule(t, year, facts);
+        const raw = creditSchedule(t, year, facts, { creditDate: policy.creditDate, creditDay: policy.creditDay });
+        // PROTOTYPE-SETUP (Leave policy settings): rounding applies to credited-so-far and the year's total.
+        const sched = { ...raw, entitlement: roundDays(raw.entitlement, rounding), credits: raw.daily ? raw.credits : roundCredits(raw.credits, rounding) };
         const ledger: LedgerEntry[] = [];
         let carried = 0;
         if (facts.dateOfJoin < year.start) {
-            const cf = carryForward(input.opening[t.id] ?? 0, t.carryForward);
-            ({ carried } = cf);
-            if (cf.carried > 0) ledger.push({ date: year.start, kind: 'CARRIED', amount: cf.carried, text: 'Carried forward from last year' });
-            if (cf.lapsed > 0)
-                ledger.push({
-                    date: year.start,
-                    kind: 'LAPSED',
-                    amount: null,
-                    text: `${fmtDays(cf.lapsed)} unused ${dayWord(cf.lapsed)} lapsed (${t.carryForward ? `carry-forward limit ${fmtDays(t.carryForward)}` : 'no carry forward'})`,
-                });
+            // The year-end rule of the type: carried forward (up to the limit), encashed or lapsed.
+            ({ carried } = yearEndRule(input.opening[t.id] ?? 0, t));
+            ledger.push(...yearEndLedger(year.start, input.opening[t.id] ?? 0, t));
         }
         if (sched.daily) {
             const { amountOf, months } = sched.daily;
@@ -789,7 +1116,7 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
         input.leave
             .filter(l => l.type === t.id && l.state === 'approved' && inYear(l))
             .forEach(l => ledger.push({ date: l.start, kind: 'TAKEN', amount: -l.days, text: takenText(l) }));
-        const credited = carried + creditedBy(sched, t, asOf, year, facts.dateOfJoin);
+        const credited = carried + (sched.daily ? roundDays(creditedBy(sched, t, asOf, year, facts.dateOfJoin), rounding) : creditedBy(sched, t, asOf, year, facts.dateOfJoin));
         const nextCredit = sched.daily ? null : sched.credits.find(c => c.date > asOf) ?? null;
         return {
             t,
@@ -846,7 +1173,7 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
             notAvailable: onProbation && b.t.probation === 'NONE',
             ledger: b.ledger.sort((x, y) => y.date.localeCompare(x.date)),
             entitlement: b.entitlement,
-            onLeaving: b.t.onLeaving,
+            exitOpts: b.t.exitOpts,
         };
     });
 
@@ -879,7 +1206,7 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
             notAvailable: false,
             ledger,
             entitlement: co.earned,
-            onLeaving: 'ENCASH' as LeaveOnLeaving,
+            exitOpts: ['encash'] as LeaveExitOpt[],
         });
     }
 
@@ -887,7 +1214,7 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
     const settlement = exit
         ? balances
               .filter(b => b.type !== COMP_OFF)
-              .map(b => ({ type: b.type, name: b.name, ...exitSettlement({ earned: b.entitlement + b.carried, approved: b.approved, late: b.late }, b.onLeaving) }))
+              .map(b => ({ type: b.type, name: b.name, ...exitSettlement({ earned: b.entitlement + b.carried, approved: b.approved, late: b.late }, b.exitOpts) }))
         : null;
 
     return { year, asOf, balances, lateDeductions: late.deductions, lossOfPay: late.lossOfPay, settlement };

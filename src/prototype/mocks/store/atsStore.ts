@@ -54,7 +54,7 @@ import {
     type RouteContext,
     stepName,
 } from '@src/prototype/rules/attendance';
-import { COMP_OFF, COMP_OFF_NAME, migrateLeavePolicy, typeLabel } from '@src/prototype/rules/leave';
+import { COMP_OFF, COMP_OFF_NAME, LOP, LOP_NAME, migrateLeavePolicy, typeLabel } from '@src/prototype/rules/leave';
 import {
     autoSubmitDateFor,
     canSubmitPeriod,
@@ -132,6 +132,8 @@ export const getSettings = (mode: DataMode): AtsSettings => {
         // PROTOTYPE-SETUP (Leave module): half days only; the old sick-leave proof threshold moves onto Sick.
         leaveRules: { halfDay: s.leaveRules?.halfDay ?? DEFAULT_SETTINGS.leaveRules.halfDay },
         reimbursements: { ...DEFAULT_SETTINGS.reimbursements, ...s.reimbursements },
+        // PROTOTYPE-SETUP (Leave policy settings): extra approval for longer leave (off when never saved).
+        leaveEndorsement: { ...DEFAULT_SETTINGS.leaveEndorsement, ...s.leaveEndorsement },
         // PROTOTYPE-SETUP (Leave module): a policy stored in the earlier shape is mapped to the current one.
         leavePolicy: migrateLeavePolicy(s.leavePolicy, (s.leaveRules as { proofDays?: number } | undefined)?.proofDays),
         lateDeductionDays: s.lateDeductionDays ?? DEFAULT_SETTINGS.lateDeductionDays,
@@ -223,8 +225,12 @@ export const scheduleOf = (mode: DataMode, e: Pick<MockEmployee, 'workSchedule'>
 export const settingsFor = (mode: DataMode, e: Pick<MockEmployee, 'workSchedule'>): AtsSettings => ({ ...getSettings(mode), ...scheduleOf(mode, e) });
 
 /** A leave type's name ("Annual", "Comp off"; an id no longer configured shows as itself). */
-export const leaveTypeName = (mode: DataMode, id: string) =>
-    id === COMP_OFF ? COMP_OFF_NAME : getSettings(mode).leavePolicy.types.find(t => t.id === id)?.name ?? id;
+export const leaveTypeName = (mode: DataMode, id: string) => {
+    if (id === COMP_OFF) return COMP_OFF_NAME;
+    // PROTOTYPE-SETUP (Leave policy settings): loss of pay is a leave request with its own type.
+    if (id === LOP) return LOP_NAME;
+    return getSettings(mode).leavePolicy.types.find(t => t.id === id)?.name ?? id;
+};
 
 /** "Annual leave", "Comp off". */
 export const leaveTypeLabel = (mode: DataMode, id: string) => typeLabel(leaveTypeName(mode, id));

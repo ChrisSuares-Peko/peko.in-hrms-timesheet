@@ -1,9 +1,70 @@
-# Progress — Design update: Peko design language
+# Progress — Leave: policy settings, per-event leave, LOP and overview layout
 
 PROTOTYPE-SETUP. Run log. Sources: `docs/dev-notes/dev-notes.json` (the notes) and
 `docs/prototypes/leave-prototype.html` (the panel's look and behaviour). If a run stops, continue from the first step
 that isn't **done**. The previous run (Leave module updates + module-grouped notes panel, `c34e05f`–`9b91229`) is
 finished and pushed; its log is in git history (`git show 9b91229:docs/progress.md`).
+
+## Leave: policy settings, per-event leave, LOP and overview layout — in progress
+
+Spec: `docs/dev-notes/dev-notes.json` (pay:settings:leave:types / config / approvals, ess:leave:overview / requests,
+guide.shared) and `docs/prototypes/leave-prototype.html`. Goal: HR can set up Peko's own Leave & Attendance Policy
+(June 2026) through settings alone.
+
+| Step | Commit | Status |
+|---|---|---|
+| 1 + 5 — Leave type model, migration, engine rules and tests | Leave: leave type model and policy engine | done |
+| 2 — Payroll settings → Leave types: table, drawer, view, confirmation | Leave: leave types settings for yearly and per-event leave | |
+| 3 — Configuration: credit date, rounding, loss of pay | | |
+| 4 — Approvals: extra approval for longer leave | | |
+| 6 — ESS Leave: Request LOP, Apply for per-event / calendar types, overview grid | | |
+| 7 — Developer notes check, VERIFY 1–5, build, push | | |
+
+Mapping of existing leave types (`migrateLeaveType`, run on every settings read; nothing is rewritten in storage
+until HR saves):
+- `kind` → 'yearly' for every stored type; `count` → 'working'.
+- `yearEnd` → 'carry' when `carryForward` > 0, else 'lapse'. The limit stays in `carryForward` (the brief's `carry`).
+- `exitOpts` ← `onLeaving` (last run) or `encashOnExit` (older): ENCASH / true → ['encash'], BRING_FORWARD / false →
+  ['prepone']. The old fields are dropped from the type.
+- Per-event fields default to `limit: null, limitUnit: 'days', eventLabel: '', windowBefore: null, windowAfter: null`.
+- Policy: `creditDate: 'START'`, `creditDay: 1`, `rounding: 'NONE'`, `lop: 'USED_UP'` when missing (START keeps the
+  old monthly credit on the 1st). Settings: `leaveEndorsement: { enabled: false, overDays: 5, endorser: 'DEPT_HEAD' }`.
+- Requests: `eventDate` and `lop` are optional, so every stored request reads as before.
+
+Decisions:
+1. **Field names.** The brief's values are used as given (`kind: 'yearly' | 'event'`, `count`, `yearEnd`, `exitOpts:
+   ['encash' | 'prepone']`, `limit`, `limitUnit`, `eventLabel`, `windowBefore`, `windowAfter`). The carry limit keeps
+   its existing name `carryForward` so stored data and the API don't need renaming; `yearEnd: 'carry'` uses it.
+2. **Stored Maternity / Paternity stay yearly** if a company already saved its policy: the migration can't know HR
+   wants them per event. New companies (and the demo, which starts from the defaults) get the per-event defaults; HR
+   can switch an existing type to "Per event" in the drawer.
+3. **Weeks are 7 days.** "26 weeks per event" = 182 days whatever the counting (calendar for Maternity).
+4. **Per-event types** skip the balance check, the sandwich rule and settlement, aren't in balance tables or the late
+   deduction order (they're dropped from `lateOrder` when a type is switched to per event), and never flag loss of pay
+   on approval. The probation rule still applies (default "Full entitlement").
+5. **Rounding** is applied to the running total of each type's credits (each ledger line is the change in the rounded
+   total), so the ledger always adds up to the rounded credited-so-far; the year's total is rounded the same way.
+   Daily accrual: credited-so-far is rounded, the monthly ledger lines aren't. Pro-rating stays unrounded until then.
+6. **Credit date** moves monthly credits (and probation monthly credits) to the start / end / custom day of each leave
+   month; never before the joining date. Start-of-cycle and daily credits are unaffected.
+7. **Year end:** encash writes an information ledger line ("6 unused days encashed at the end of last year (paid by
+   payroll)", kind ENCASHED); payroll's payout is another team's.
+8. **Leaving banner:** both options → "your choice: encash them in the final settlement or use them to bring your last
+   working day forward"; none → "N days unused lapse when you leave".
+9. **Loss of pay** is stored as a leave request with `type: 'LOP'`, `lop: true` ("Loss of pay"). It has no balance and
+   no `lossOfPayDays` flag (lop itself is the flag). Edit and Change are refused ("Loss of pay can only be withdrawn or
+   cancelled"); an LOP sent back for an update can only be withdrawn.
+10. **Department head** (rules/leave.ts `departmentHead`): the person in the employee's department whose own manager is
+    outside it, or who has none; several → the one with the most people in the department under them, then the lowest
+    id. From the org data: managerEmployeeId → that person's department.
+11. **Demo org:** every reporting manager was also their department head, so the endorsement would always be skipped.
+    One two-level line is added: Imran Shaikh (ACME-014) reports to Divya Menon (ACME-013), who reports to Manish Patel
+    (Operations head). Imran's longer leave goes Divya → Manish (endorsement) → Admin / HR.
+12. **Endorsement on edits:** approvers stay as fixed at submission; on resubmit (edit or update requested) it restarts
+    at level 1 and the endorsement step is added or removed for the new number of days.
+13. **Tests that assumed Maternity was a yearly, probation-blocked type** now use Sick set to "Not available" during
+    probation; the exit-settlement demo lists the yearly types only. The HR-cancel test expected "yesterday"; on a
+    weekend the leave correctly ends on Friday, so it now checks "before today".
 
 ## Design update: Peko design language for the ESS & Payroll redesign screens — done
 

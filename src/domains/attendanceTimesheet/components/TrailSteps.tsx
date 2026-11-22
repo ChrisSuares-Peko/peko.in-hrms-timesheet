@@ -20,7 +20,9 @@ const iconFor = (trail: ApprovalTrail, s: ApprovalStep) => {
     if (s.skipped) return <MinusCircleOutlined className="text-[#8B8B8B]" />;
     if (s.decision === 'APPROVED') return <CheckCircleFilled className="text-green-500" />;
     if (s.decision === 'REJECTED') return <CloseCircleFilled className="text-red-500" />;
-    if (PENDING[trail.status] === s.role) return <ClockCircleOutlined className="text-amber-500" />;
+    // PROTOTYPE-SETUP (Leave policy settings): only the step it's waiting on (two person steps with an endorsement).
+    const waiting = trail.steps.find(x => !x.decision && !x.skipped);
+    if (PENDING[trail.status] === s.role && waiting === s) return <ClockCircleOutlined className="text-amber-500" />;
     return <ClockCircleOutlined className="text-gray-300" />;
 };
 
@@ -33,15 +35,17 @@ const tooltipFor = (s: ApprovalStep) => {
 const TrailSteps = ({ trail }: { trail: ApprovalTrail }) => (
     <Flex gap={6} align="center" wrap="wrap">
         {trail.steps.map((s, i) => (
-            <Flex key={s.level} gap={4} align="center">
+            <Flex key={`${s.level}-${i}`} gap={4} align="center">
                 {i > 0 && <Typography.Text type="secondary">→</Typography.Text>}
                 <Tooltip title={tooltipFor(s)}>
                     <Flex gap={4} align="center">
                         {iconFor(trail, s)}
                         <Typography.Text className="text-xs">
                             {/* PROTOTYPE-SETUP (Overview, Slice 4): profile updates go straight to the HR team. */}
-                            {trail.type === 'profile' && s.role === 'HR' ? 'HR team' : ROLE[s.role]}
-                            {s.role === 'MANAGER' && s.approverName ? ` (${s.approverName})` : ''}
+                            {/* PROTOTYPE-SETUP (Leave policy settings): the endorsement step is "{name} (endorsement)". */}
+                            {s.endorsement && `${s.approverName ?? 'Department head'} (endorsement)`}
+                            {!s.endorsement && (trail.type === 'profile' && s.role === 'HR' ? 'HR team' : ROLE[s.role])}
+                            {!s.endorsement && s.role === 'MANAGER' && s.approverName ? ` (${s.approverName})` : ''}
                             {s.skipped ? ' — skipped' : ''}
                         </Typography.Text>
                     </Flex>

@@ -63,8 +63,8 @@ const balance = (type: string, e = sneha) => leaveViewOf(M, e).balances.find(b =
 
 describe('1 · leave types', () => {
     it('a daily-credit type and a female-only type behave in ESS (hidden for men)', () => {
-        addLeaveType(M, { name: 'Study', daysPerYear: 6, credit: 'DAILY', probation: 'FULL', carryForward: 0, onLeaving: 'BRING_FORWARD', proofAfterDays: null, appliesTo: 'ALL' });
-        addLeaveType(M, { name: 'Menstrual leave', daysPerYear: 12, credit: 'MONTHLY', probation: 'FULL', carryForward: 0, onLeaving: 'BRING_FORWARD', proofAfterDays: null, appliesTo: 'FEMALE' });
+        addLeaveType(M, { name: 'Study', daysPerYear: 6, credit: 'DAILY', probation: 'FULL', carryForward: 0, exitOpts: ['prepone'], proofAfterDays: null, appliesTo: 'ALL' });
+        addLeaveType(M, { name: 'Menstrual leave', daysPerYear: 12, credit: 'MONTHLY', probation: 'FULL', carryForward: 0, exitOpts: ['prepone'], proofAfterDays: null, appliesTo: 'FEMALE' });
         const study = balance('LT-STUDY')!;
         expect(study.credit).toBe('DAILY');
         expect(study.credited).toBeGreaterThan(0);
@@ -85,17 +85,17 @@ describe('1 · leave types', () => {
     // PROTOTYPE-SETUP (Leave types drawer): "Show to employees" off = deactivated, saved with the rest of the type.
     it('"Show to employees" off hides a type from employees (nothing deleted); on brings it back; the leaving choice is stored', () => {
         const usedBefore = leaveSettingsView(M).usage.SICK.requests;
-        updateLeaveType(M, 'SICK', { active: false, onLeaving: 'ENCASH' });
+        updateLeaveType(M, 'SICK', { active: false, exitOpts: ['encash'] });
         expect(balance('SICK')).toBeUndefined();
         expect(() => createLeaveRequest(M, sneha, { type: 'SICK', start: working(s.today, 5), reason: 'x' })).toThrow('Pick a leave type.');
         const t = leaveSettingsView(M).policy.types.find(x => x.id === 'SICK')!;
-        expect(t).toMatchObject({ active: false, onLeaving: 'ENCASH' });
+        expect(t).toMatchObject({ active: false, exitOpts: ['encash'] });
         expect(leaveSettingsView(M).usage.SICK.requests).toBe(usedBefore);
         updateLeaveType(M, 'SICK', { active: true });
         expect(balance('SICK')).toBeDefined();
         // older clients sending the encash flag still map: false → bring forward
         updateLeaveType(M, 'SICK', { encashOnExit: false } as never);
-        expect(leaveSettingsView(M).policy.types.find(x => x.id === 'SICK')!.onLeaving).toBe('BRING_FORWARD');
+        expect(leaveSettingsView(M).policy.types.find(x => x.id === 'SICK')!.exitOpts).toEqual(['prepone']);
     });
 });
 
@@ -166,7 +166,9 @@ describe('5 · cancelling approved leave', () => {
         const res = hrCancelLeave(M, 'lv-started', { reason: 'Back early' });
         expect(res.message).toMatch(/cancelled from/);
         const l = atsLeaveRequests.get(M).find(x => x.id === 'lv-started')!;
-        expect(l).toMatchObject({ start, end: addDays(s.today, -1), trail: { status: 'APPROVED' }, cancellation: { from: s.today, by: 'HR team' } });
+        // Ends on the last working day before today (yesterday, or Friday when today is a weekend day).
+        expect(l).toMatchObject({ start, trail: { status: 'APPROVED' }, cancellation: { from: s.today, by: 'HR team' } });
+        expect(l.end < s.today && l.end >= addDays(s.today, -3)).toBe(true);
     });
 });
 
@@ -221,17 +223,21 @@ describe('6 · comp off', () => {
 });
 
 describe('7 · probation', () => {
+    // PROTOTYPE-SETUP (Leave policy settings): Maternity is per-event now (no balance), so a yearly type is set to
+    // "Not available" during probation for this check.
     it('a "Not available" type can’t be used on probation; Mark active makes it available', () => {
         expect(leaveViewOf(M, kavya).status).toBe('PROBATION');
-        const mat = balance('MATERNITY', kavya)!;
-        expect(mat).toMatchObject({ notAvailable: true, available: 0 });
+        updateLeaveType(M, 'SICK', { probation: 'NONE' });
+        const sick = balance('SICK', kavya)!;
+        expect(sick.notAvailable).toBe(true);
+        expect(sick.available).toBeLessThanOrEqual(0);
         const d = working(s.today, 8);
-        expect(() => hrAddLeave(M, { employeeId: kavya.id, type: 'MATERNITY', start: d, end: d, note: 'x' })).toThrow('Maternity leave isn’t available while Kavya is on probation.');
+        expect(() => hrAddLeave(M, { employeeId: kavya.id, type: 'SICK', start: d, end: d, note: 'x' })).toThrow('Sick leave isn’t available while Kavya is on probation.');
         markActive(M, kavya.id);
-        const after = balance('MATERNITY', kavya)!;
+        const after = balance('SICK', kavya)!;
         expect(after.notAvailable).toBe(false);
         expect(after.available).toBeGreaterThan(0);
-        expect(() => hrAddLeave(M, { employeeId: kavya.id, type: 'MATERNITY', start: d, end: d, note: 'x', attachment: { name: 'note.pdf' } })).not.toThrow();
+        expect(() => hrAddLeave(M, { employeeId: kavya.id, type: 'SICK', start: d, end: d, note: 'x' })).not.toThrow();
         expect(adminLeaveEntries(M).find(x => x.employee.id === kavya.id)).toMatchObject({ addedBy: 'HR', state: 'upcoming' });
     });
 });
