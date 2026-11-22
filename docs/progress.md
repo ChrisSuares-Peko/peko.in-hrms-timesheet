@@ -5,7 +5,7 @@ PROTOTYPE-SETUP. Run log. Sources: `docs/dev-notes/dev-notes.json` (the notes) a
 that isn't **done**. The previous run (Leave module updates + module-grouped notes panel, `c34e05f`–`9b91229`) is
 finished and pushed; its log is in git history (`git show 9b91229:docs/progress.md`).
 
-## Leave: policy settings, per-event leave, LOP and overview layout — in progress
+## Leave: policy settings, per-event leave, LOP and overview layout — done
 
 Spec: `docs/dev-notes/dev-notes.json` (pay:settings:leave:types / config / approvals, ess:leave:overview / requests,
 guide.shared) and `docs/prototypes/leave-prototype.html`. Goal: HR can set up Peko's own Leave & Attendance Policy
@@ -18,7 +18,7 @@ guide.shared) and `docs/prototypes/leave-prototype.html`. Goal: HR can set up Pe
 | 3 — Configuration: credit date, rounding, loss of pay | Leave: credit date, rounding and loss of pay settings | done |
 | 4 — Approvals: extra approval for longer leave | Leave: extra approval for longer leave | done |
 | 6 — ESS Leave: Request LOP, Apply for per-event / calendar types, overview grid | Leave: request LOP, per-event leave in ESS and the overview grid | done |
-| 7 — Developer notes check, VERIFY 1–5, build, push | | |
+| 7 — Developer notes check, VERIFY 1–5, build, push | Leave: verification and API notes | done |
 
 Mapping of existing leave types (`migrateLeaveType`, run on every settings read; nothing is rewritten in storage
 until HR saves):
@@ -96,6 +96,46 @@ Decisions:
 13. **Tests that assumed Maternity was a yearly, probation-blocked type** now use Sick set to "Not available" during
     probation; the exit-settlement demo lists the yearly types only. The HR-cancel test expected "yesterday"; on a
     weekend the leave correctly ends on Friday, so it now checks "before today".
+
+VERIFY (Chrome, scripted; settings changed through the screens, results read from the same live store):
+1. **Peko's policy through settings — pass.**
+   - Configuration: leave year 1 Jan, credit date End of the month, rounding Nearest half day, sandwich off.
+   - Attendance settings: late deduction 0.
+   - Leave types: Casual = 14, monthly, Lapse, leaving: lapses. Annual = 18, monthly, carry forward 45, leaving:
+     encash. Sick deactivated. Maternity / Paternity are the per-event defaults.
+   - Approvals: Reporting manager → Admin / HR, plus extra approval over 5 days by the department head.
+   - The settings read back exactly. Kavya (joined 1 Nov) has 0 Casual credited on 22 Nov, the next credit 1 day on
+     30 Nov (14/12 rounded to the half day), 2.5 for the year.
+   - Imran's 6-day Annual request goes Divya Menon → Manish Patel (endorsement) → Admin / HR, and Payroll → Leave →
+     Requests shows "Manish Patel (endorsement)" in the chain. The store test walks the approvals through to Approved.
+   - Maternity: 182 calendar days are accepted; 183, or one more day for the same delivery date, are refused ("up to
+     26 weeks per event. 182 days already booked"). Paternity 40 days before or 95 days after the birth is refused
+     with the window message.
+2. **Year end and leaving — pass.** Annual ledger "Carried forward from last year"; Casual "2 unused days lapsed (no
+   carry forward)"; with Casual set to Encash, "2 unused days encashed at the end of last year (paid by payroll)".
+   With a leaving date: Annual encash 18 / Casual lapse 10; with both options ticked on Annual the banner reads
+   "Annual: 18 days unused, your choice: encash them … or use them to bring your last working day forward. Casual: 10
+   days unused lapse when you leave."
+3. **Loss of pay — pass.** Default rule: "You still have paid leave: 15 Annual · 5.5 Casual", Send disabled. "Any time":
+   sent ("Loss of pay", lop = true, 1 day, With Arjun Mehta); the drawer offers Withdraw only; Arjun's My team →
+   Approvals shows "Unpaid: payroll treats these days as loss of pay." and no balance line.
+4. **Overview grid — pass.** 4 leave cards (Peko setup): 3 columns, side cards in column 3 rows 1–2. 2 cards: one row
+   of 4, side cards in columns 3–4. 6 cards: 4 columns, side cards in column 4 rows 1–2 (also at 1024). 7 cards: same,
+   a third row of leave cards. 375: 2 columns, side cards after the leave cards. Every row has equal heights. Upcoming
+   leave shows one item, the next leave; after the manager rejected it, it still shows it with "Rejected".
+5. **Existing data — pass.** Earlier flows still run (`flows.cjs`: edit and resubmit, change, approve at both levels,
+   cancellation rules, withdraw; `flow2.cjs`: apply 8 → 9 requests, HR Add leave 25 → 26, Configuration save and
+   restore). Old types and requests load through `migrateLeaveType`. No console errors.
+   - The Developer notes panel shows the updated text on pay:settings:leave:types / config / approvals and
+     ess:leave:overview / requests.
+   - In the scripts, the prototype's "Developer notes" pill sat over the Half-day switch and the Save button at the
+     bottom edge, so those are clicked directly (prototype-only overlay; it doesn't ship).
+
+Checks: type-check clean; ESLint only the 3 existing errors in `requestStores.ts`; production build passes. Tests:
+5762 passed, 357 failed in 159 files — no failing file that wasn't failing in the last run (171 then; the load-related
+timeouts in other domains passed this time). New: `rules/__tests__/leavePolicy.test.ts` (23) and
+`mocks/store/__tests__/atsLeavePolicy.test.ts` (12). In the leave / attendance suites the only failures are the two
+known date ones ("off today", "Excel round trip").
 
 ## Design update: Peko design language for the ESS & Payroll redesign screens — done
 

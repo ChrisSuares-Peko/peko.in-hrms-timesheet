@@ -200,3 +200,58 @@ Read live from approved leave (`atsStore.ts`), using each employee's own weekly 
 | Original Payroll leave policies: Casual 12 / Sick 12 / Annual 18 (monthly 1.5, carry 45) | Already superseded by the live policy in the Final batch; the live values (8 / 6 / 12, carry 30) are kept. |
 | "Unpaid Leave" | Removed: every type is paid. |
 | Static public holidays (`time-calendar.ts`, category public) | Seeded into the editable `ats-holidays` collection (last, this and next year). |
+
+## Leave policy settings, per-event leave and loss of pay (PROTOTYPE-SETUP: this run)
+
+Spec: `docs/dev-notes/dev-notes.json` (pay:settings:leave:types / config / approvals, ess:leave:overview / requests).
+Rules: `src/prototype/rules/leave.ts` (tests: `rules/__tests__/leavePolicy.test.ts`, store:
+`mocks/store/__tests__/atsLeavePolicy.test.ts`).
+
+### New fields
+
+| Where | Field | Values | Notes |
+|---|---|---|---|
+| `LeaveTypeConfig` | `kind` | `'yearly' \| 'event'` | Per-event types have no balance, aren't in balance tables or `lateOrder`, never flag loss of pay. |
+| | `count` | `'working' \| 'calendar'` | Calendar = every day in the range (no sandwich rule). |
+| | `yearEnd` | `'carry' \| 'encash' \| 'lapse'` | Yearly only. `carryForward` keeps the carry limit (the spec's `carry`). |
+| | `exitOpts` | `('encash' \| 'prepone')[]` | Both = the employee chooses; none = lapses. Stored only (F&F is a later module). Replaces `onLeaving` / `encashOnExit`. |
+| | `limit`, `limitUnit` | number, `'days' \| 'weeks'` | Per event; weeks × 7 days. |
+| | `eventLabel` | string | The event date asked on the request. |
+| | `windowBefore`, `windowAfter` | days or `null` | `null` = no limit that side. |
+| `LeavePolicy` | `creditDate`, `creditDay` | `'START' \| 'END' \| 'CUSTOM'`, 1–28 | When monthly credits land; never before joining. |
+| | `rounding` | `'NONE' \| 'HALF' \| 'DAY'` | On the running total of credits and the year's total. |
+| | `lop` | `'USED_UP' \| 'ANY_TIME'` | When loss of pay can be requested. |
+| `AtsSettings` | `leaveEndorsement` | `{ enabled, overDays, endorser: 'DEPT_HEAD' \| 'person:{id}' }` | Saved with the approvals (PUT settings). |
+| `LeaveRequest` / `LeaveChange` | `eventDate` | ISO date | Required for per-event types. |
+| `LeaveRequest` | `lop` | `true` | Loss of pay: `type: 'LOP'`, "Loss of pay". Payroll's LOP calculation reads this flag. |
+| `ApprovalStep` | `endorsement` | `true` | The endorsement step (a person step after level 1). |
+| `LedgerKind` | `ENCASHED` | | Year-end encashment (information line). |
+| `LeaveSettlement` | `choice`, `lapse` | | Both leaving options ticked / none ticked. |
+| `LeaveView` | `eventTypes`, `rules.lop` | | The per-event types the employee can apply for; the LOP rule. |
+| `LeaveSettingsView` | `endorsement` | | The current extra-approval setting. |
+| `RequestItem` | `unpaid`, `eventLine` | | Approvers: "Unpaid: payroll treats these days as loss of pay." / "Up to 7 days per event · Date of birth or adoption: Tue 3 Nov". |
+
+### New endpoint
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `leave/lop` | `{ start, end?, half?, reason }` | `LeaveView`. Working days only; overlap check; with `lop: 'USED_UP'`, 409 "You still have paid leave: 9.5 Annual · 6.5 Casual. …" while any yearly balance or comp off is above 0. Same approvers (and endorsement) as leave. Resubmit and change are refused (409): withdraw or cancel only. |
+
+Changed bodies: `POST leave/requests` (and resubmit / change) take `eventDate`; `PUT leave-settings/config` takes
+`creditDate`, `creditDay`, `rounding`, `lop`; leave type add / edit take the new type fields (older clients sending
+`onLeaving` or `encashOnExit` are mapped).
+
+### Per-event checks (after the overlap and probation checks)
+
+1. No event date → "Add the {event label}." (400)
+2. Starts more than `windowBefore` days before the event → "… can start at most N days before …" (409)
+3. Ends more than `windowAfter` days after it → "… has to end within N days after …" (409)
+4. This request + leave already booked for the same type and event date (approved or in request) > the limit → "… is up to
+   26 weeks per event. N days already booked for this event." (409)
+
+### Department head (endorser)
+
+The person in the employee's department whose own manager is outside it, or who has none (from `managerEmployeeId`
+and each person's department). Several → the one with the most people in the department under them, then the lowest
+id. The step is skipped when the endorser is the employee or the level 1 approver. Backend: the same rule over the
+org chart; when the org has explicit department heads, use those instead.
