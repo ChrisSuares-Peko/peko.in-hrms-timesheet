@@ -10,6 +10,9 @@
 // PROTOTYPE-SETUP (Leave module, update): the same form edits an open request (saved in place, back to Level 1),
 // changes approved leave ("Change leave": a change request; the original stays until it's approved, shown as "Was")
 // and edits an open change request. Past days a change would remove are checked by the server (worked days only).
+// PROTOTYPE-SETUP (Leave policy settings): per-event types (maternity, paternity) are listed too: their box says "Up to
+// N per event · counted in working / calendar days" and an event date field appears (with the window). Calendar-day
+// types count every day. The footer note points to "Request LOP" for unpaid leave.
 import { useEffect, useMemo, useState } from 'react';
 
 import { UploadOutlined } from '@ant-design/icons';
@@ -17,7 +20,20 @@ import { Alert, Button, DatePicker, Input, Modal, Radio, Select, Typography, Upl
 import dayjs, { type Dayjs } from 'dayjs';
 
 import { RuleError } from '@src/prototype/rules/attendance';
-import { COMP_OFF, countLeaveDays, daysText, durationText, fmtDays, needsProof, typeLabel, validateLeave, type WorkCalendar } from '@src/prototype/rules/leave';
+import {
+    COMP_OFF,
+    COUNT_LABEL,
+    countLeaveDays,
+    daysText,
+    durationText,
+    fmtDays,
+    limitText,
+    needsProof,
+    typeLabel,
+    validateLeave,
+    windowText,
+    type WorkCalendar,
+} from '@src/prototype/rules/leave';
 
 import { applyForLeave, changeLeave, resubmitLeave, resubmitLeaveChange } from '../api';
 import { halfSuffix } from './leaveUi';
@@ -79,6 +95,7 @@ const ApplyLeaveModal = ({
     changing,
     editingChange,
     initialType,
+    onRequestLop,
 }: {
     open: boolean;
     view: LeaveView;
@@ -93,11 +110,15 @@ const ApplyLeaveModal = ({
     editingChange?: LeaveChangeRow | null;
     /** Opened from a type's page: start with that type. */
     initialType?: string | null;
+    /** PROTOTYPE-SETUP (Leave policy settings): "Request LOP" from the footer note. */
+    onRequestLop?: () => void;
 }) => {
     const scope = useAtsScope();
     const cal = useMemo(() => calendarFrom(view.calendar), [view.calendar]);
     const types = view.balances;
+    const eventTypes = view.eventTypes ?? [];
     const [type, setType] = useState<string>('');
+    const [eventDate, setEventDate] = useState<Dayjs | null>(null);
     const [duration, setDuration] = useState<'full' | 'half'>('full');
     const [from, setFrom] = useState<Dayjs | null>(null);
     const [to, setTo] = useState<Dayjs | null>(null);
@@ -121,10 +142,13 @@ const ApplyLeaveModal = ({
             setHalf(startFrom.half ?? 'FIRST');
             setProof(startFrom.proof ?? null);
             setReason(changing ? '' : startFrom.reason);
+            setEventDate(startFrom.eventDate ? dayjs(startFrom.eventDate) : null);
         } else {
             const first = nextWorkingDay(today, cal);
             const fallback = types.find(b => b.type === 'CASUAL') ?? types[0];
-            setType(initialType && types.some(b => b.type === initialType) ? initialType : fallback?.type ?? '');
+            const known = initialType && (types.some(b => b.type === initialType) || eventTypes.some(t => t.id === initialType));
+            setType(known ? initialType : fallback?.type ?? '');
+            setEventDate(null);
             setDuration('full');
             setFrom(first);
             setTo(first);
@@ -138,28 +162,40 @@ const ApplyLeaveModal = ({
     }, [open]);
 
     const b = types.find(x => x.type === type);
+    const ev = eventTypes.find(t => t.id === type) ?? null;
     const start = iso(from);
     const end = iso(to) || start;
     const halfDays = duration === 'half';
-    const count = start && end >= start ? countLeaveDays(start, end, halfDays ? half : null, cal, view.rules.sandwich) : null;
+    const calendarCount = ev?.count === 'calendar';
+    const count = start && end >= start ? countLeaveDays(start, end, halfDays ? half : null, cal, ev ? 'OFF' : view.rules.sandwich, calendarCount ? 'calendar' : 'working') : null;
     // Resubmitting: the request itself is in "in request" — leave it out of what's available. Changing approved leave:
     // its days count as free again.
     const ownDays = editing && editing.type === type ? editing.days : 0;
     const originalDays = original && original.type === type ? original.days : 0;
     const available = b ? b.available + ownDays + originalDays : 0;
     const pending = b ? b.inRequest - ownDays : 0;
-    const proofNeeded = Boolean(b && count && needsProof({ proofAfterDays: b.proofAfterDays }, count.days));
+    const proofRule = ev ? ev.proofAfterDays : b?.proofAfterDays ?? null;
+    const proofNeeded = Boolean((b || ev) && count && needsProof({ proofAfterDays: proofRule }, count.days));
+    const typeLabelNow = ev ? typeLabel(ev.name) : b?.label ?? '';
     const notAvailable = Boolean(b?.notAvailable);
 
     const submit = async () => {
         const existing = view.requests
             .filter(r => r.id !== editing?.id && r.id !== original?.id && (r.state === 'approved' || r.state === 'pending' || r.state === 'update_requested'))
             .map(r => ({ start: r.start, end: r.end, half: r.half, summary: summaryOf(r) }));
+        // Per-event leave already booked for the same event date (the request itself and the leave a change is about
+        // left out).
+        const eventBooked = (t: string, date: string) =>
+            view.requests
+                .filter(r => r.id !== editing?.id && r.id !== original?.id && r.type === t && r.eventDate === date)
+                .filter(r => r.state === 'approved' || r.state === 'pending' || r.state === 'update_requested')
+                .reduce((n, r) => n + r.days, 0);
         try {
             validateLeave(
-                { type, start, end, half: halfDays ? half : null, reason, proof },
+                { type, start, end, half: halfDays ? half : null, reason, proof, eventDate: iso(eventDate) || null },
                 {
-                    types: types.map(typeOf),
+                    types: [...types.map(typeOf), ...eventTypes],
+                    eventBooked,
                     cal,
                     sandwich: view.rules.sandwich,
                     halfDayAllowed: view.rules.halfDay,
@@ -177,7 +213,7 @@ const ApplyLeaveModal = ({
             throw e;
         }
         setBusy(true);
-        const body = { type, start, end, half: halfDays ? half : null, reason: reason.trim(), proof };
+        const body = { type, start, end, half: halfDays ? half : null, reason: reason.trim(), proof, ...(ev ? { eventDate: iso(eventDate) } : {}) };
         let res: LeaveView | false;
         if (editing) res = await resubmitLeave(scope, editing.id, body);
         else if (editingChange) res = await resubmitLeaveChange(scope, editingChange.id, body);
@@ -248,9 +284,20 @@ const ApplyLeaveModal = ({
                         value={type || undefined}
                         onChange={pickType}
                         aria-label="Leave type"
-                        options={types.map(x => ({ value: x.type, label: x.label }))}
+                        options={[...types.map(x => ({ value: x.type, label: x.label })), ...eventTypes.map(t => ({ value: t.id, label: typeLabel(t.name) }))]}
                         data-leave-type
                     />
+                    {ev && (
+                        <div className="flex flex-col rounded-lg bg-[#FAFAFA] px-3 py-2" data-event-line>
+                            <Text className="text-sm">
+                                <b className="font-medium">Up to {limitText(ev)} per event</b>
+                                <span className="text-[#8B8B8B]"> · counted in {COUNT_LABEL[ev.count].toLowerCase()}</span>
+                            </Text>
+                            <Text type="secondary" className="text-xs">
+                                {windowText(ev)}. No yearly balance: leave already booked for the same event counts towards the limit.
+                            </Text>
+                        </div>
+                    )}
                     {b && (
                         <div className={`flex flex-col rounded-lg px-3 py-2 ${notAvailable ? 'bg-[#FFFBE6]' : 'bg-[#FAFAFA]'}`} data-available-line>
                             {notAvailable ? (
@@ -288,6 +335,27 @@ const ApplyLeaveModal = ({
                             ]}
                             aria-label="Duration"
                         />
+                    </div>
+                )}
+
+                {ev && (
+                    <div className="flex flex-col gap-1" data-event-date-field>
+                        <Text className="text-sm">{ev.eventLabel || 'Event date'}</Text>
+                        <DatePicker
+                            value={eventDate}
+                            format={DATE_FORMATS}
+                            aria-label={ev.eventLabel || 'Event date'}
+                            onChange={d => {
+                                setEventDate(d);
+                                setError('');
+                            }}
+                            data-event-date
+                        />
+                        <Text type="secondary" className="text-xs">
+                            {windowText(ev)}
+                            {eventDate && ev.windowBefore !== null ? ` (leave from ${eventDate.subtract(ev.windowBefore, 'day').format('ddd D MMM')})` : ''}
+                            {eventDate && ev.windowAfter !== null ? ` (until ${eventDate.add(ev.windowAfter, 'day').format('ddd D MMM')})` : ''}.
+                        </Text>
                     </div>
                 )}
 
@@ -346,9 +414,10 @@ const ApplyLeaveModal = ({
                 <Text type="secondary" className="-mt-1 text-xs" data-duration>
                     {count && count.working > 0 && durationText(count, halfDays ? half : null)}
                     {count && count.working === 0 && 'Those dates are all weekly offs or holidays.'}
+                    {count && count.working > 0 && calendarCount && halfDays && ` ${fmtDays(count.days)} days, weekends and public holidays included.`}
                 </Text>
 
-                {proofNeeded && b && (
+                {proofNeeded && (b || ev) && (
                     <div className="flex flex-col gap-1" data-proof-field>
                         <Text className="text-sm">
                             Supporting document
@@ -367,9 +436,7 @@ const ApplyLeaveModal = ({
                             <Button icon={<UploadOutlined />}>Attach a document</Button>
                         </Upload>
                         <Text type="secondary" className="text-xs">
-                            {b.proofAfterDays === 0
-                                ? `Needed for every ${b.label.toLowerCase()} request.`
-                                : `Needed for ${b.label.toLowerCase()} longer than ${daysText(b.proofAfterDays ?? 0)}.`}
+                            {proofRule === 0 ? `Needed for every ${typeLabelNow.toLowerCase()} request.` : `Needed for ${typeLabelNow.toLowerCase()} longer than ${daysText(proofRule ?? 0)}.`}
                         </Text>
                     </div>
                 )}
@@ -392,6 +459,19 @@ const ApplyLeaveModal = ({
                 <Text type="secondary" className="text-xs">
                     Approval: {view.approvalPath}. Once approved, your attendance and timesheet update automatically.
                 </Text>
+                {!editing && !changing && !editingChange && (
+                    <Text type="secondary" className="text-xs" data-lop-note>
+                        Need unpaid leave (loss of pay)?{' '}
+                        {onRequestLop ? (
+                            <Button type="link" size="small" className="!h-auto !p-0 text-xs" onClick={onRequestLop} data-lop-link>
+                                Use Request LOP
+                            </Button>
+                        ) : (
+                            'Use Request LOP'
+                        )}
+                        {view.rules.lop === 'USED_UP' ? ' once all your paid leave is used up.' : '.'}
+                    </Text>
+                )}
                 {(changing || editingChange) && (
                     <Text type="secondary" className="text-xs">
                         Past days can only be taken off your leave if you worked them (checked in, or logged timesheet hours).

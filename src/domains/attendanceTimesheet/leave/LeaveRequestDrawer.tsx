@@ -102,6 +102,9 @@ const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView;
                 <Row label="Duration">{daysText(r.days)}</Row>
                 <Row label="Reason">{r.reason || '–'}</Row>
                 {r.proof && <Row label="Document">{r.proof.name}</Row>}
+                {/* PROTOTYPE-SETUP (Leave policy settings): per-event leave shows its event date; loss of pay is unpaid. */}
+                {r.eventDate && <Row label="Event date">{fmtDay(r.eventDate)}</Row>}
+                {r.lop && <Row label="Pay">Unpaid: payroll treats these days as loss of pay</Row>}
                 {r.changedFrom && <Row label="Was">{wasText({ ...r.changedFrom, typeName: r.changedFromTypeName ?? r.typeName })}</Row>}
                 {r.cancellation && (
                     <Row label="Cancelled">
@@ -123,7 +126,12 @@ const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView;
                     {withdraw('request')}
                 </>
             );
-        if (state === 'update_requested')
+        // PROTOTYPE-SETUP (Leave policy settings): loss of pay — Withdraw (open) or Cancel (approved) only.
+        if (r.lop) {
+            if (state === 'pending' || state === 'update_requested') buttons = withdraw('loss of pay request');
+            else buttons = null;
+        }
+        if (!r.lop && state === 'update_requested')
             buttons = (
                 <>
                     <Button type="primary" onClick={() => actions.onEdit(r)} data-drawer-edit>
@@ -132,7 +140,13 @@ const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView;
                     {withdraw('request')}
                 </>
             );
-        if (state === 'approved' && r.canChange)
+        if (state === 'approved' && r.canChange && r.lop)
+            buttons = (
+                <Button onClick={() => actions.onCancel(r)} data-drawer-cancel>
+                    Cancel loss of pay
+                </Button>
+            );
+        if (state === 'approved' && r.canChange && !r.lop)
             buttons = (
                 <>
                     <Button type="primary" onClick={() => actions.onChange(r)} data-drawer-change>

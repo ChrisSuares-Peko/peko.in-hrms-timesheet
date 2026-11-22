@@ -17,7 +17,7 @@ guide.shared) and `docs/prototypes/leave-prototype.html`. Goal: HR can set up Pe
 | 2 — Payroll settings → Leave types: table, drawer, view, confirmation | Leave: leave types settings for yearly and per-event leave | done |
 | 3 — Configuration: credit date, rounding, loss of pay | Leave: credit date, rounding and loss of pay settings | done |
 | 4 — Approvals: extra approval for longer leave | Leave: extra approval for longer leave | done |
-| 6 — ESS Leave: Request LOP, Apply for per-event / calendar types, overview grid | | |
+| 6 — ESS Leave: Request LOP, Apply for per-event / calendar types, overview grid | Leave: request LOP, per-event leave in ESS and the overview grid | done |
 | 7 — Developer notes check, VERIFY 1–5, build, push | | |
 
 Mapping of existing leave types (`migrateLeaveType`, run on every settings read; nothing is rewritten in storage
@@ -76,6 +76,23 @@ Decisions:
     and "Ask for update" code; level 2 only sees the request once every level-1 step (endorsement included) approved.
     The chain shows "{name} (endorsement)"; the employee's "Approval:" line names the usual approvers (the endorsement
     depends on the request's length).
+18. **Apply footer note** follows the brief, not the notes: "Need unpaid leave (loss of pay)? Use Request LOP once all your
+    paid leave is used up." (the notes still say "Email Admin / HR to arrange it"; the brief asks for the pointer to
+    Request LOP). With "Any time" the "once …" part is dropped.
+19. **Request LOP** is a separate modal (RequestLopModal) with the same fields as Apply minus the type; Send is disabled
+    and the paid balances are listed while the rule blocks it. The drawer offers Withdraw (pending / update requested)
+    or "Cancel loss of pay" (approved) only, and shows "Pay: Unpaid …". Approvers see the unpaid line in amber instead
+    of a balance line, so there's no "Not enough leave" dialog.
+20. **Per-event types in ESS** come from a new `eventTypes` list on the Leave view (active, for the employee's gender).
+    Apply lists them after the yearly types; the box shows "Up to N per event · counted in …" with the window; an event
+    date field appears with the window hint. The overview shows them as grey info cards ("Up to … per event ·
+    Working/Calendar days · apply when needed", with "Apply ›"). Approvers see "Up to … per event · {event label}: {date}".
+21. **Overview grid** (`OverviewGrid`): desktop from antd `lg` (1024px) — N ≤ 2: 4 columns, leave cards then the two side
+    cards in columns 3–4; 3–4: 3 columns, leave cards 2 per row, side cards stacked in column 3; 5+: 4 columns, leave
+    cards 3 per row, side cards stacked in column 4 (rows 1–2). Below lg: 2 columns, side cards after. Comp off counts
+    as a leave card when it's on. The old separate Upcoming / Holiday section is gone; Recent activity sits below.
+22. **Upcoming leave** = the earliest-starting leave request (any type, LOP included) that hasn't ended and isn't
+    withdrawn or cancelled, whatever its status, with its status pill; ties → the newest request.
 13. **Tests that assumed Maternity was a yearly, probation-blocked type** now use Sick set to "Not available" during
     probation; the exit-settlement demo lists the yearly types only. The HR-cancel test expected "yesterday"; on a
     weekend the leave correctly ends on Friday, so it now checks "before today".

@@ -12,6 +12,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 import StatusTag from '@src/components/peko/StatusTag';
+import { LOP_UNPAID_LINE } from '@src/prototype/rules/leave';
 
 
 import type { OvertimeContext, RequestItem } from '../types';
@@ -162,6 +163,18 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
                         {item.profile && <ProfileChanges item={item} />}
                         {!item.correction && !item.profile && item.detail && <Typography.Text>{item.detail}</Typography.Text>}
                         {lb && <LeaveBalanceLine b={lb} />}
+                        {/* PROTOTYPE-SETUP (Leave policy settings): loss of pay has no balance (and no short-balance warning);
+                            per-event leave shows its limit and event date instead. */}
+                        {item.unpaid && (
+                            <Typography.Text className="text-sm !text-[#D48806]" data-unpaid-line>
+                                {LOP_UNPAID_LINE}
+                            </Typography.Text>
+                        )}
+                        {item.eventLine && (
+                            <Typography.Text className="text-sm !text-[#595959]" data-event-line>
+                                {item.eventLine}
+                            </Typography.Text>
+                        )}
                         {item.overtimeContext && (
                             <Typography.Text
                                 type="secondary"

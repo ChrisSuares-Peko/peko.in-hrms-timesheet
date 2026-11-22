@@ -11,10 +11,10 @@ import dayjs from 'dayjs';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
 import StatusTag from '@src/components/peko/StatusTag';
-import { COMP_OFF, fmtDays } from '@src/prototype/rules/leave';
+import { COMP_OFF, COUNT_LABEL, fmtDays, limitText, typeLabel } from '@src/prototype/rules/leave';
 import type { LeaveLogRow, LogItemKind, LogStatus } from '@src/prototype/rules/leaveLog';
 
-import type { LeaveBalance } from '../types';
+import type { LeaveBalance, LeaveTypeConfig } from '../types';
 
 const { Text } = Typography;
 
@@ -41,6 +41,60 @@ export const TypeCard = ({ b, onOpen }: { b: LeaveBalance; onOpen: () => void })
         <span className="mt-0.5 text-[13px] font-medium text-[#FF3A3A]">View details ›</span>
     </button>
 );
+
+/**
+ * PROTOTYPE-SETUP (Leave policy settings; notes ess:leave:overview): a per-event type as a grey info card — no balance,
+ * just "Up to 7 days per event · Working days · apply when needed".
+ */
+export const EventTypeCard = ({ t, onApply }: { t: LeaveTypeConfig; onApply: () => void }) => (
+    <div className="flex min-w-0 flex-col items-start gap-1 rounded-lg border border-solid border-[#EAEAEA] bg-[#FAFAFA] p-4 sm:px-5" data-event-card={t.id}>
+        <Text className="w-full truncate text-[13px] !text-[#8B8B8B]">{typeLabel(t.name)}</Text>
+        <Text className="text-sm font-medium !text-[#121212]">Up to {limitText(t)} per event</Text>
+        <Text className="text-[13px] !text-[#8B8B8B]">{COUNT_LABEL[t.count]} · apply when needed</Text>
+        <button type="button" onClick={onApply} className="mt-0.5 cursor-pointer border-0 bg-transparent p-0 text-[13px] font-medium text-[#FF3A3A] font-[inherit]">
+            Apply ›
+        </button>
+    </div>
+);
+
+/**
+ * PROTOTYPE-SETUP (Leave policy settings): the overview's one card grid. Desktop (lg and up), by the number of leave
+ * cards N: N ≤ 2 → one row of 4, the side cards at the right end; 3–4 → 3 columns, leave cards 2×2 on the left, side
+ * cards stacked in the right column; 5+ → 4 columns, leave cards 3 a row on the left (more rows for 7+), side cards
+ * stacked at the top of the right column. Phones and small tablets: 2 columns, side cards after the leave cards. Cards
+ * in a row share a height (grid stretch).
+ */
+export const OverviewGrid = ({ leaveCards, side, desktop }: { leaveCards: ReactNode[]; side: [ReactNode, ReactNode]; desktop: boolean }) => {
+    const n = leaveCards.length;
+    if (!desktop) {
+        return (
+            <div className="grid w-full grid-cols-2 gap-4" data-balance-cards data-overview-grid="2">
+                {leaveCards}
+                {side}
+            </div>
+        );
+    }
+    let cols = 4;
+    if (n >= 3 && n <= 4) cols = 3;
+    const left = n <= 2 ? 2 : cols - 1;
+    const place = (i: number) => ({ gridColumn: (i % left) + 1, gridRow: Math.floor(i / left) + 1 });
+    return (
+        <div className="grid w-full gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }} data-balance-cards data-overview-grid={cols}>
+            {leaveCards.map((c, i) => (
+                // eslint-disable-next-line react/no-array-index-key
+                <div key={i} className="flex min-w-0 [&>*]:w-full" style={place(i)}>
+                    {c}
+                </div>
+            ))}
+            <div className="flex min-w-0 [&>*]:w-full" style={n <= 2 ? { gridColumn: 3, gridRow: 1 } : { gridColumn: cols, gridRow: 1 }} data-side-card="upcoming">
+                {side[0]}
+            </div>
+            <div className="flex min-w-0 [&>*]:w-full" style={n <= 2 ? { gridColumn: 4, gridRow: 1 } : { gridColumn: cols, gridRow: 2 }} data-side-card="holiday">
+                {side[1]}
+            </div>
+        </div>
+    );
+};
 
 const STATUS_COLOR: Record<LogStatus, string> = {
     in_progress: 'processing',

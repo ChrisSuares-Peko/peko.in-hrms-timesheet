@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ArrowLeftOutlined, PlusOutlined } from '@ant-design/icons';
-import { Alert, Button, DatePicker, Empty, Segmented, Select, Skeleton, Table, Typography } from 'antd';
+import { Alert, Button, DatePicker, Empty, Grid, Segmented, Select, Skeleton, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
@@ -42,9 +42,10 @@ import {
 } from '../api';
 import ApplyLeaveModal from './ApplyLeaveModal';
 import { CancelLeaveModal, CancelTarget, CompOffModal, ReasonModal } from './LeaveActionModals';
-import { LeaveLogTable, LeaveSection, TypeCard, availableOfTotal } from './leaveLogUi';
+import { EventTypeCard, LeaveLogTable, LeaveSection, OverviewGrid, TypeCard, availableOfTotal } from './leaveLogUi';
 import LeaveRequestDrawer, { type DrawerItem, stateOfTrail } from './LeaveRequestDrawer';
 import { ExitBanner, LeaveStatusTag, ProbationBanner, fmtDay, fmtRange, halfSuffix, leaveYearLine } from './leaveUi';
+import RequestLopModal from './RequestLopModal';
 import { useAtsScope } from '../hooks/useAtsScope';
 import type { CompOffRow, LeaveBalance, LeaveCancellationRow, LeaveChangeRow, LeaveRequestRow, LeaveView } from '../types';
 
@@ -360,6 +361,9 @@ const EssLeavePage = () => {
     const [editingChange, setEditingChange] = useState<LeaveChangeRow | null>(null);
     const [cancelling, setCancelling] = useState<CancelTarget | null>(null);
     const [compOff, setCompOff] = useState<{ editing?: CompOffRow | null } | null>(null);
+    // PROTOTYPE-SETUP (Leave policy settings): the Request LOP modal; the overview grid's desktop layout from lg (1024).
+    const [lop, setLop] = useState(false);
+    const screens = Grid.useBreakpoint();
     const [editCancel, setEditCancel] = useState<LeaveCancellationRow | null>(null);
     const today = dayjs().format('YYYY-MM-DD');
     const sub = (['overview', 'requests', 'holidays'] as Sub[]).includes(params.get('tab') as Sub) ? (params.get('tab') as Sub) : 'overview';
@@ -398,8 +402,15 @@ const EssLeavePage = () => {
         return true;
     };
 
+    // PROTOTYPE-SETUP (Leave policy settings): only the next leave the employee applied for that hasn't ended, whatever
+    // its status (pending, approved, update requested or rejected); withdrawn and cancelled don't count.
     const upcoming = useMemo(
-        () => (view ? view.requests.filter(r => (r.state === 'approved' || r.state === 'pending' || r.state === 'update_requested') && r.end >= today).sort((a, b) => a.start.localeCompare(b.start)) : []),
+        () =>
+            view
+                ? view.requests
+                      .filter(r => r.state !== 'withdrawn' && r.state !== 'cancelled' && r.end >= today)
+                      .sort((a, b) => a.start.localeCompare(b.start) || b.createdAt.localeCompare(a.createdAt))[0] ?? null
+                : null,
         [view, today]
     );
     const activity = useMemo(() => (view ? recentActivity(view, today, 10) : []), [view, today]);
@@ -418,6 +429,10 @@ const EssLeavePage = () => {
                     Request comp off
                 </Button>
             )}
+            {/* PROTOTYPE-SETUP (Leave policy settings): loss of pay, the only unpaid leave. */}
+            <Button onClick={() => setLop(true)} data-request-lop>
+                Request LOP
+            </Button>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setApplying({ type: typePage })} data-apply-for-leave>
                 Apply for leave
             </Button>
@@ -441,6 +456,10 @@ const EssLeavePage = () => {
                 changing={changing}
                 editingChange={editingChange}
                 initialType={applying?.type ?? null}
+                onRequestLop={() => {
+                    closeForm();
+                    setLop(true);
+                }}
                 onClose={closeForm}
                 onApplied={next => {
                     let message = 'Leave request sent';
@@ -448,6 +467,16 @@ const EssLeavePage = () => {
                     else if (changing) message = 'Change sent for approval. Your leave stays as it is until it’s approved.';
                     closeForm();
                     done(next, message);
+                }}
+            />
+            <RequestLopModal
+                open={lop}
+                view={view}
+                today={today}
+                onClose={() => setLop(false)}
+                onSent={next => {
+                    setLop(false);
+                    done(next, 'Loss of pay request sent');
                 }}
             />
             <CancelLeaveModal
@@ -543,62 +572,65 @@ const EssLeavePage = () => {
                     {view.lossOfPayDays > 0 && (
                         <Alert type="error" showIcon data-lop message={`${daysText(view.lossOfPayDays)} of loss of pay from late check-ins with no leave left.`} />
                     )}
-                    <div className="grid w-full grid-cols-2 gap-4 lg:grid-cols-4" data-balance-cards>
-                        {view.balances.map(b => (
-                            <TypeCard key={b.type} b={b} onOpen={() => setParam('type', b.type)} />
-                        ))}
-                    </div>
+                    {/* PROTOTYPE-SETUP (Leave policy settings; notes ess:leave:overview): one card grid — yearly leave cards and
+                        grey per-event cards on the left, "Upcoming leave" and "Next public holiday" always in the
+                        right-hand column. */}
+                    <OverviewGrid
+                        desktop={Boolean(screens.lg)}
+                        leaveCards={[
+                            ...view.balances.map(b => <TypeCard key={b.type} b={b} onOpen={() => setParam('type', b.type)} />),
+                            ...view.eventTypes.map(t => <EventTypeCard key={t.id} t={t} onApply={() => setApplying({ type: t.id })} />),
+                        ]}
+                        side={[
+                            <section key="upcoming" aria-label="Upcoming leave" className={`${PEKO_CARD} !p-5 flex h-full min-w-0 flex-col gap-2`} data-upcoming-leave>
+                                <h3 className="m-0 text-[13px] font-normal text-[#8B8B8B]">Upcoming leave</h3>
+                                {upcoming ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => openItem({ kind: 'leave', id: upcoming.id })}
+                                        className="flex w-full cursor-pointer flex-col items-start gap-1 border-0 bg-transparent p-0 text-left font-[inherit]"
+                                        data-upcoming-item={upcoming.state}
+                                    >
+                                        <span className="text-sm font-medium text-[#121212]">{fmtRange(upcoming.start, upcoming.end)}</span>
+                                        <span className="text-xs text-[#8B8B8B]">
+                                            {typeLabel(upcoming.typeName)}
+                                            {halfSuffix(upcoming.half, false)} · {daysText(upcoming.days)}
+                                        </span>
+                                        <LeaveStatusTag r={upcoming} />
+                                    </button>
+                                ) : (
+                                    <Text type="secondary" className="text-sm">
+                                        Nothing planned.
+                                    </Text>
+                                )}
+                                <Button type="link" size="small" className="mt-auto !h-auto self-start !px-0 text-[13px]" onClick={() => setParam('tab', 'requests')} data-see-all-requests>
+                                    See all requests ›
+                                </Button>
+                            </section>,
+                            <section key="holiday" aria-label="Next public holiday" className={`${PEKO_CARD} !p-5 flex h-full min-w-0 flex-col gap-2`} data-next-holiday>
+                                <h3 className="m-0 text-[13px] font-normal text-[#8B8B8B]">Next public holiday</h3>
+                                {nextHoliday ? (
+                                    <div className="flex flex-col gap-0.5">
+                                        <Text className="text-sm font-medium">{nextHoliday.name}</Text>
+                                        <Text type="secondary" className="text-xs">
+                                            {dayjs(nextHoliday.date).format('ddd D MMM')}
+                                            {nextHoliday.date === today ? ' · today' : ` · in ${dayjs(nextHoliday.date).diff(dayjs(today), 'day')} days`}
+                                        </Text>
+                                    </div>
+                                ) : (
+                                    <Text type="secondary" className="text-sm">
+                                        No more holidays this year.
+                                    </Text>
+                                )}
+                                <Button type="link" size="small" className="mt-auto !h-auto self-start !px-0 text-[13px]" onClick={() => setParam('tab', 'holidays')} data-see-all-holidays>
+                                    See all holidays ›
+                                </Button>
+                            </section>,
+                        ]}
+                    />
                     <LeaveSection title="Recent activity" extra={<Text type="secondary" className="text-xs">The last 10 changes, newest first</Text>}>
                         <LeaveLogTable rows={activity} mode="activity" onOpen={openItem} empty="Nothing has happened on your leave yet." />
                     </LeaveSection>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <section aria-label="Upcoming leave" className={ESS_CARD} data-upcoming-leave>
-                            <h3 className="m-0 mb-2 text-base font-medium text-[#121212]">Upcoming leave</h3>
-                            {upcoming.length === 0 && <Text type="secondary">Nothing planned.</Text>}
-                            <ul className="m-0 list-none p-0">
-                                {upcoming.slice(0, 4).map(r => (
-                                    <li key={r.id} className="border-0 border-b border-solid border-[#F0F0F0] last:border-b-0">
-                                        <button
-                                            type="button"
-                                            onClick={() => openItem({ kind: 'leave', id: r.id })}
-                                            className="flex w-full cursor-pointer flex-wrap items-center justify-between gap-2 border-0 bg-transparent px-0 py-2 text-left"
-                                        >
-                                            <span className="text-sm">
-                                                {fmtRange(r.start, r.end)}{' '}
-                                                <span className="text-xs text-[#8B8B8B]">
-                                                    · {typeLabel(r.typeName)}
-                                                    {halfSuffix(r.half, false)}
-                                                </span>
-                                            </span>
-                                            <LeaveStatusTag r={r} />
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                            {view.requests.length > 0 && (
-                                <Button type="link" className="!px-0" onClick={() => setParam('tab', 'requests')}>
-                                    See all requests
-                                </Button>
-                            )}
-                        </section>
-                        <section aria-label="Next public holiday" className={ESS_CARD} data-next-holiday>
-                            <h3 className="m-0 mb-2 text-base font-medium text-[#121212]">Next public holiday</h3>
-                            {nextHoliday ? (
-                                <div>
-                                    <Text className="block font-medium">{nextHoliday.name}</Text>
-                                    <Text type="secondary" className="text-sm">
-                                        {dayjs(nextHoliday.date).format('dddd, D MMMM')}
-                                        {nextHoliday.date === today ? ' · today' : ` · in ${dayjs(nextHoliday.date).diff(dayjs(today), 'day')} days`}
-                                    </Text>
-                                </div>
-                            ) : (
-                                <Text type="secondary">No more holidays this year.</Text>
-                            )}
-                            <Button type="link" className="!block !px-0" onClick={() => setParam('tab', 'holidays')}>
-                                See all holidays
-                            </Button>
-                        </section>
-                    </div>
                 </>
             )}
 
