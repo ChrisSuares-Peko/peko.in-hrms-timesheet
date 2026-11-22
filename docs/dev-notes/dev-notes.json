@@ -8,12 +8,11 @@
     [
      "What’s on the page",
      [
-      "Sub-tabs at the top: Overview (this page) · My requests (shows the count of open requests) · Public holidays.",
-      "\"Apply for leave\" pinned top right on every sub-tab; \"Request comp off\" next to it only when comp off is turned on in settings.",
-      "Banners above the cards when they apply: on probation (\"each type follows the probation rule until HR confirms you\"), and leaving date set (settlement: encash / recover).",
-      "Leave cards: one per leave type that applies to this employee. Up to 4 per row on desktop, 2 on phones. Each card shows ONLY the type name, \"available / total days\" (e.g. 9.5 / 17 days) and \"View details\". Clicking opens the type details page.",
-      "Recent activity: the last 10 leave changes across all types, newest change first. Columns: Date (when the change happened), Leave type, What happened, Period, Days (+/−), Status. Leave rows open the request drawer.",
-      "Upcoming leave (next 4 approved or pending, with status) and Next public holiday (\"Diwali · in 4 days\"), each linking to its sub-tab."
+      "Sub-tabs: Overview · My requests (count of open) · Public holidays. Top right: \"Request comp off\" (when on) · \"Request LOP\" · \"Apply for leave\" (primary).",
+      "Banners when they apply: on probation; leaving date set (settlement per each type’s leaving rule).",
+      "One card grid: a card per yearly leave type (name, \"available / total days\", View details) and a grey info card per per-event type (\"Up to 7 days per event · Working days · apply when needed\") on the left, and two side cards always in the right-hand column: \"Upcoming leave\" (only the next leave the employee applied for that hasn’t ended, whatever its status: pending, approved, update requested or rejected; not withdrawn or cancelled; with its status pill and See all requests) and \"Next public holiday\" (name, date, \"in N days\", See all holidays).",
+      "Layout by number of leave cards: 1–2 → one row (leave cards, then the two side cards at the right end); 3–4 → 3 columns: leave cards in a 2×2 block on the left, side cards stacked in the right column; 5–6 → 4 columns: leave cards 3×2 on the left, side cards stacked on the right; 7+ → same, leave cards continue in more rows. Phones: 2 columns, side cards after the leave cards. Cards in a row are the same height.",
+      "Recent activity below the grid: last 10 changes, newest first; leave rows open the request drawer."
      ]
     ],
     [
@@ -31,7 +30,18 @@
       "Fields: Leave type → the available balance appears immediately (\"7 days available of 17 this year\", plus \"2 days waiting for approval are already taken off\"); Full days / Half days; From; To; Which half (half days only, applies to every working day in the range); Supporting document (only when the type’s rule needs it for that duration); Reason.",
       "Duration line: working days only (employee’s own schedule; weekly offs and public holidays not counted). Half days = 0.5 per working day. With the sandwich rule on: \"+ N days off in between\".",
       "Refuse with a clear message: end before start; no working days; dates overlapping existing leave (approved, pending or update requested); not enough available; type \"not available\" during probation; document missing when required; no reason.",
-      "Sends a leave request into the approval chain (leave approvers from settings). Footer line names the approvers."
+      "Sends a leave request into the approval chain (leave approvers from settings). Footer line names the approvers.",
+      "Per-event types: the balance box shows \"Up to N days/weeks per event · counted in working / calendar days\", and an event date field appears (with the window, if set). Refused: no event date, dates outside the window, or more than the limit for that event (including leave already booked for the same event date).",
+      "Calendar-day types count every day in the range (\"12 calendar days, weekends and public holidays included\").",
+      "Footer note: \"Need unpaid leave (loss of pay)? That’s only once all your paid leave is used. Email Admin / HR to arrange it.\""
+     ]
+    ],
+    [
+     "Request LOP (modal)",
+     [
+      "Loss of pay is the only unpaid leave. Same form as a regular leave without the type: Full / Half days, From, To, Which half, Reason. Working days only. Box: \"Unpaid leave · these days are deducted from your salary\".",
+      "Setting (Leave → Configuration → Loss of pay): \"Only once paid leave is used up\" (default) or \"Any time\". With the default, if any yearly balance (incl. comp off; per-event types don’t count) is above 0, the modal shows \"You still have paid leave: 9.5 Annual · 6.5 Casual…\" and Send is disabled.",
+      "Creates a leave request with leaveType \"Loss of pay\" (lop = true): same approvers, same overlap check, no balance and no limit. Approvers see \"Unpaid: payroll treats these days as loss of pay.\" instead of a balance line. In the drawer: Withdraw / Cancel only (no Edit or Change). Attendance and timesheet show the days as leave; payroll/LOP (owned by another team) reads them as loss of pay."
      ]
     ],
     [
@@ -50,7 +60,7 @@
      ]
     ]
    ],
-   "prompt": "Build: ESS → Leave → Overview\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Leave module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: The employee’s leave home: balances at a glance, recent leave activity, upcoming leave and the next public holiday. Also where they start a leave or comp off request.\n\nBuild or change:\n- The Overview sub-tab of the ESS Leave page as described in these notes: compact leave cards (available / total + View details, 4 per row), Recent activity (last 10 changes), Upcoming leave, Next public holiday, banners.\n- The Apply for leave modal and the Request comp off modal with every rule and message listed.\n- Balance and activity calculations as tested functions.\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Cards show only \"available / total\" and View details; 4 per row on desktop, 2 on phone.\n- Available excludes leave in request (10 credited, 4 taken, 2 requested shows 4).\n- Recent activity shows the 10 latest changes, newest first; a leave row opens the request drawer.\n- Apply form shows the balance on type pick, counts half days over a range, applies the sandwich rule, and shows the document field only when required.\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
+   "prompt": "Build: ESS → Leave → Overview\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Leave module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: The employee’s leave home: balances at a glance, recent leave activity, upcoming leave and the next public holiday. Also where they start a leave or comp off request.\n\nBuild or change:\n- The Overview sub-tab of the ESS Leave page as described in these notes: compact leave cards (available / total + View details, 4 per row), Recent activity (last 10 changes), Upcoming leave, Next public holiday, banners.\n- The Apply for leave, Request comp off and Request LOP modals with every rule and message listed, and the dynamic card grid (yearly + per-event cards + Upcoming leave + Next public holiday).\n- Balance and activity calculations as tested functions.\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Cards show only \"available / total\" and View details; 4 per row on desktop, 2 on phone.\n- Available excludes leave in request (10 credited, 4 taken, 2 requested shows 4).\n- Recent activity shows the 10 latest changes, newest first; a leave row opens the request drawer.\n- Apply form shows the balance on type pick, counts half days over a range, applies the sandwich rule, and shows the document field only when required.\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
   },
   "ess:leave:type": {
    "title": "ESS → Leave → Leave type details",
@@ -300,20 +310,22 @@
      "What’s on the page",
      [
       "Search by name, \"Add leave type\".",
-      "Table: Leave type · Days per year · Credited · Accrual rate (\"1 day a month\", \"All 8 days at once\", \"≈ 0.5 a month, accrued daily\") · Carry forward (\"Yes, up to 30 days\" / \"No\") · Applies to · Status (Active / Inactive) · Action.",
-      "Action column: View · Edit · Delete. Delete only works for a type that has never been used; for a used type it’s disabled with the tooltip \"Already used in leave requests, so it can’t be deleted. Open Edit to deactivate it instead.\"",
-      "View: every setting in plain language + how many requests used it, with Edit."
+      "Table: Leave type · Entitlement (\"18 days a year\" / \"Up to 26 weeks per event\") · Credited (method + rate, or \"Per event\") · Counted in (working / calendar days) · Year end (\"Carry forward up to 45 days\" / \"Encashed\" / \"Lapses\") · On leaving (\"Encash in F&F\", \"Bring last working day forward\", both, or \"Lapses\") · Applies to · Status · Action (View, Edit, Delete; Delete disabled for used types).",
+      "Defaults include Maternity (per event, 26 weeks, calendar days, female, document always) and Paternity (per event, 7 working days, male, 30 days before to 90 days after, document always)."
      ]
     ],
     [
-     "Add / Edit drawer (help text under every field)",
+     "Add / Edit panel",
      [
-      "Top: Name (locked once used), Days per year (shows the monthly amount), Credited: At the start of the leave cycle / Monthly / Daily.",
-      "\"When an employee joins\": joiners get a pro-rated share for the rest of the cycle; During probation: Credited monthly / Full entitlement / Not available (applies while the employee’s status is Probation).",
-      "\"When an employee leaves\": leave is pro-rated for the year up to the last working day; Unused leave on leaving: \"Encash in full & final settlement\" or \"Use it to bring the last working day forward\". Full & final settlement is a separate module that comes later: store the choice only, don’t build settlement or payroll changes now.",
-      "\"Other\": Carry forward up to N days (0 = none), Supporting document needed when longer than N days (empty = never, 0 = always), Applies to (All / Female / Male), Show to employees (on/off). Turning \"Show to employees\" off deactivates the type: hidden from employees, nothing deleted, balances and history kept.",
-      "All leave types are paid; there is no unpaid option. Loss of pay only when a balance runs out.",
-      "Changing days, credit method, probation rule, carry forward or applies-to asks for confirmation with the number of employees affected."
+      "Name; Kind: Yearly balance / Per event; Count leave in: Working days (skip the employee’s weekly offs and holidays) / Calendar days (every day in the range, as statutory leave like maternity).",
+      "Yearly balance: Days per year; Credited (start of the leave cycle / monthly / daily; the day of the month for monthly credits is a Configuration setting).",
+      "\"When an employee joins\": pro-rated share; During probation (credited monthly / full entitlement / not available).",
+      "\"At the end of the leave cycle\" (employees still working, runs automatically on the last working day): Carry forward (up to N days, rest lapses) / Encash (paid out by payroll, balance restarts) / Lapse.",
+      "\"When an employee leaves\": pro-rated to the last working day, then checkboxes: Encash in full & final settlement, Use it to bring the last working day forward. Both = the employee chooses; none = lapses. Store the rule only; F&F is a later module.",
+      "Per event: Up to N days or weeks per event; the event date asked on the request (label, e.g. \"Date of birth or adoption\"); when it can be taken (N days before to M days after the event, empty = any time). No yearly balance, accrual, carry forward or leaving rule.",
+      "\"Other\": supporting document (longer than N days; empty = never, 0 = always), Applies to (all / female / male), Show to employees (off = deactivated).",
+      "All leave is paid. There are no unpaid types: unpaid leave is loss of pay, arranged by email with Admin / HR once paid leave is used.",
+      "Changing kind, counting, days, credit, probation, year-end, carry forward, applies-to or the event limit asks for confirmation with the number of employees affected."
      ]
     ]
    ],
@@ -347,10 +359,13 @@
     [
      "Panels",
      [
-      "Leave year: company cycle (start day + month) or each employee’s joining date. Note: balances roll forward automatically on the last working day of the cycle (carry forward up to each type’s limit, the rest lapses). No manual action.",
+      "Credit date: Start of the month / End of the month / Custom date (day 1–28). When monthly credits land; end of month = earned once the month is worked. A joiner’s first credit lands on this date in their first counted month.",
+      "Rounding: No rounding / Nearest half day / Nearest day. Applied to credited-so-far and the year’s total (e.g. 14 a year = 1.167 a month).",
+      "Leave year: company cycle (start day + month) or each employee’s joining date. Balances roll forward automatically on the last working day of the cycle, following each type’s year-end rule.",
       "Leave requests: Half-day leave on/off.",
-      "Sandwich rule: Off / Weekly offs count / Weekly offs and holidays count (days off strictly between two leave days in the same request).",
-      "Comp off: on/off + expires after N days (0 = never). Half a shift = 0.5 day, full shift = 1 day; a day can be overtime or comp off, not both."
+      "Loss of pay (unpaid leave): \"Only once paid leave is used up\" / \"Any time, even with paid leave left\". \"Used up\" = all yearly balances (and comp off) at 0; per-event leave doesn’t count. LOP has no limit and follows the leave approvers.",
+      "Sandwich rule: Off / Weekly offs count / Weekly offs and holidays count.",
+      "Comp off: on/off + expires after N days."
      ]
     ],
     [
@@ -375,7 +390,8 @@
       "Level 1 and Level 2 each offer: Reporting manager · Admin / HR (decided in that service in Payroll) · a specific person (managers and the CEO). Level 2 also has None (level 1 is final).",
       "Typical setup: Reporting manager → Admin / HR. The manager approves first, then it comes to Payroll → Leave → Requests for the final approval.",
       "\"Reporting manager\" at Level 2 resolves to the employee’s manager when Level 1 approves; if that’s the same person who approved Level 1, the request is final.",
-      "Approvers are fixed on each request when it’s submitted, so changing this doesn’t move requests in flight. Leave cancellations, changes and comp off use the same approvers. Older team values (Payroll, HR, Admin, Finance) all show as Admin / HR."
+      "Approvers are fixed on each request when it’s submitted, so changing this doesn’t move requests in flight. Leave cancellations, changes and comp off use the same approvers. Older team values (Payroll, HR, Admin, Finance) all show as Admin / HR.",
+      "Extra approval for longer leave (on/off): when a request is longer than N days, an endorsement step is added after Level 1 and before Level 2. Endorser: Department head of the employee’s department, or a specific person. Skipped if the endorser is the Level 1 approver or the employee. Shown in the approval chain as \"{name} (endorsement)\"; the item waits in that person’s My team → Approvals. Applies to leave and leave changes."
      ]
     ]
    ],
