@@ -297,7 +297,11 @@ export const resubmitCompOff = (s: AtsScope, id: string, body: { date: string; r
 export const getLeaveSettings = (s: AtsScope) => call<LeaveSettingsView>(s, 'get', 'leave-settings');
 export const updateLeaveConfig = (
     s: AtsScope,
-    body: Partial<Pick<LeavePolicy, 'year' | 'cycleStart' | 'sandwich' | 'lateOrder'>> & { compOff?: Partial<LeavePolicy['compOff']>; halfDay?: boolean; lateDeductionDays?: number }
+    body: Partial<Pick<LeavePolicy, 'year' | 'cycleStart' | 'sandwich' | 'lateOrder' | 'creditDate' | 'creditDay' | 'rounding' | 'lop'>> & {
+        compOff?: Partial<LeavePolicy['compOff']>;
+        halfDay?: boolean;
+        lateDeductionDays?: number;
+    }
 ) => call<LeaveSettingsView>(s, 'put', 'leave-settings/config', { body });
 export const addLeaveType = (s: AtsScope, body: LeaveTypeInput) => call<LeaveSettingsView>(s, 'post', 'leave-settings/types', { body });
 export const updateLeaveType = (s: AtsScope, id: string, body: Partial<LeaveTypeInput>) => call<LeaveSettingsView>(s, 'put', `leave-settings/types/${id}`, { body });

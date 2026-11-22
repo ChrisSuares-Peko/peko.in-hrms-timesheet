@@ -20,7 +20,7 @@ import { PekoTabRow } from '@src/components/peko/PageHeader';
 import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
-import { APPLIES_LABEL, COUNT_LABEL, creditedText, entitlementText, exitText, fmtDays, yearEndText } from '@src/prototype/rules/leave';
+import { APPLIES_LABEL, COUNT_LABEL, CREDIT_DATE_LABEL, LOP_RULE_LABEL, ROUNDING_LABEL, creditedText, entitlementText, exitText, yearEndText } from '@src/prototype/rules/leave';
 import { showToast } from '@src/slices/apiSlice';
 
 import { LeaveTypeDrawer, LeaveTypeView } from './LeaveTypeDrawer';
@@ -271,6 +271,11 @@ interface Config {
     sandwich: SandwichRule;
     compOn: boolean;
     expiry: number;
+    // PROTOTYPE-SETUP (Leave policy settings): credit date, rounding, loss of pay.
+    creditDate: LeavePolicy['creditDate'];
+    creditDay: number;
+    rounding: LeavePolicy['rounding'];
+    lop: LeavePolicy['lop'];
 }
 
 const configOf = (v: LeaveSettingsView): Config => ({
@@ -281,6 +286,10 @@ const configOf = (v: LeaveSettingsView): Config => ({
     sandwich: v.policy.sandwich,
     compOn: v.policy.compOff.enabled,
     expiry: v.policy.compOff.expiryDays,
+    creditDate: v.policy.creditDate,
+    creditDay: v.policy.creditDay,
+    rounding: v.policy.rounding,
+    lop: v.policy.lop,
 });
 
 const Configuration = ({ view, onView }: { view: LeaveSettingsView; onView: (v: LeaveSettingsView | false, msg?: string) => boolean }) => {
@@ -298,6 +307,10 @@ const Configuration = ({ view, onView }: { view: LeaveSettingsView; onView: (v: 
             halfDay: c.halfDay,
             sandwich: c.sandwich,
             compOff: { enabled: c.compOn, expiryDays: c.expiry },
+            creditDate: c.creditDate,
+            creditDay: c.creditDay,
+            rounding: c.rounding,
+            lop: c.lop,
         });
         setBusy(false);
         onView(res, 'Leave configuration saved.');
@@ -334,9 +347,46 @@ const Configuration = ({ view, onView }: { view: LeaveSettingsView; onView: (v: 
                 )}
                 <Text type="secondary" className="mt-3 block text-xs" data-roll-forward>
                     Balances roll forward automatically on the last working day of each leave cycle
-                    {view.nextRollForward && view.policy.year === 'COMPANY' ? ` (next: ${dayjs(view.nextRollForward).format('ddd D MMM YYYY')})` : ''}: unused days carry forward
-                    up to each type’s limit, and the rest lapses. Nothing to run by hand.
+                    {view.nextRollForward && view.policy.year === 'COMPANY' ? ` (next: ${dayjs(view.nextRollForward).format('ddd D MMM YYYY')})` : ''}: unused days follow
+                    each type’s year-end rule (carry forward up to its limit, encash, or lapse). Nothing to run by hand.
                 </Text>
+            </Card>
+            <Card title="Credit date" size="small" data-config-credit-date>
+                <Text type="secondary" className="mb-3 block text-xs">
+                    When monthly credits land. End of the month = earned once the month is worked. A joiner’s first credit lands on this date in their first
+                    counted month.
+                </Text>
+                <Flex align="center" gap={8} wrap="wrap">
+                    <Radio.Group
+                        optionType="button"
+                        value={c.creditDate}
+                        onChange={e => set('creditDate', e.target.value)}
+                        aria-label="Credit date"
+                        options={(['START', 'END', 'CUSTOM'] as const).map(v => ({ value: v, label: CREDIT_DATE_LABEL[v] }))}
+                    />
+                    {c.creditDate === 'CUSTOM' && (
+                        <Flex align="center" gap={8}>
+                            <Text className="text-sm">Day</Text>
+                            <InputNumber min={1} max={28} value={c.creditDay} onChange={n => set('creditDay', Number(n ?? 1))} className="!w-[72px]" aria-label="Credit day" data-credit-day />
+                            <Text type="secondary" className="text-xs">
+                                of each month (1–28)
+                            </Text>
+                        </Flex>
+                    )}
+                </Flex>
+            </Card>
+            <Card title="Rounding" size="small" data-config-rounding>
+                <Text type="secondary" className="mb-3 block text-xs">
+                    Applied to credited-so-far and the year’s total. Example: 14 days a year is 1.167 a month; with “Nearest half day” the balance reads 1, 2.5,
+                    3.5 …
+                </Text>
+                <Radio.Group
+                    optionType="button"
+                    value={c.rounding}
+                    onChange={e => set('rounding', e.target.value)}
+                    aria-label="Rounding"
+                    options={(['NONE', 'HALF', 'DAY'] as const).map(v => ({ value: v, label: ROUNDING_LABEL[v] }))}
+                />
             </Card>
             <Card title="Leave requests" size="small">
                 <Flex align="center" gap={12}>
@@ -350,6 +400,19 @@ const Configuration = ({ view, onView }: { view: LeaveSettingsView; onView: (v: 
                     </div>
                     <Switch checked={c.halfDay} onChange={v => set('halfDay', v)} aria-label="Half-day leave" />
                 </Flex>
+            </Card>
+            <Card title="Loss of pay (unpaid leave)" size="small" data-config-lop>
+                <Text type="secondary" className="mb-3 block text-xs">
+                    When employees can request loss of pay (ESS → Leave → Request LOP). “Used up” means every yearly balance and comp off is at 0; per-event leave
+                    doesn’t count. Loss of pay has no limit and follows the leave approvers.
+                </Text>
+                <Radio.Group
+                    value={c.lop}
+                    onChange={e => set('lop', e.target.value)}
+                    aria-label="Loss of pay"
+                    className="flex flex-col gap-1.5"
+                    options={(['USED_UP', 'ANY_TIME'] as const).map(v => ({ value: v, label: LOP_RULE_LABEL[v] }))}
+                />
             </Card>
             <Card title="Sandwich rule" size="small">
                 <Text type="secondary" className="mb-3 block text-xs">
