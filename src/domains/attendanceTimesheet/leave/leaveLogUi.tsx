@@ -81,7 +81,7 @@ export const OverviewGrid = ({ leaveCards, side, desktop }: { leaveCards: ReactN
     return (
         <div className="grid w-full gap-4" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }} data-balance-cards data-overview-grid={cols}>
             {leaveCards.map((c, i) => (
-                // eslint-disable-next-line react/no-array-index-key
+                 
                 <div key={i} className="flex min-w-0 [&>*]:w-full" style={place(i)}>
                     {c}
                 </div>

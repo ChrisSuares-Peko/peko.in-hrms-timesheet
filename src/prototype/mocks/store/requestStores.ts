@@ -70,11 +70,14 @@ const seededTrail = (
     return { component, status: 'PENDING_MANAGER', steps: steps(l1, l2 ?? undefined) };
 };
 
-const leaveState = (s: LeaveStatus) => (s === 'applied' ? 'pending' : s === 'approved' ? 'approved' : 'rejected');
-const reimbursementState = (s: ReimbursementStatus) =>
-    s === 'requestedByEmployee' ? 'pending' : s === 'approved' ? 'approved' : 'rejected';
-const disputeState = (s: DisputeStatus) =>
-    s === 'requestedByEmployee' ? 'pending' : s === 'approved' ? 'approved' : 'rejected';
+/** An old status → pending / approved / rejected (`pendingAs` is the old "waiting" value). */
+const stateOf = (s: string, pendingAs: string) => {
+    if (s === pendingAs) return 'pending';
+    return s === 'approved' ? 'approved' : 'rejected';
+};
+const leaveState = (s: LeaveStatus) => stateOf(s, 'applied');
+const reimbursementState = (s: ReimbursementStatus) => stateOf(s, 'requestedByEmployee');
+const disputeState = (s: DisputeStatus) => stateOf(s, 'requestedByEmployee');
 
 export const leaveRequests = createCollection<StoredLeave[]>('leave-requests', mode =>
     mode === 'empty'

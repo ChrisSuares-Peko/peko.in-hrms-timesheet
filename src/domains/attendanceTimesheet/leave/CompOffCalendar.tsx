@@ -94,7 +94,7 @@ export const CompOffCalendar = ({
             {shown && (
                 <div className="grid grid-cols-7 gap-1" role="grid" aria-label={`Days in ${m.format('MMMM YYYY')}`}>
                     {HEAD.map((h, i) => (
-                        // eslint-disable-next-line react/no-array-index-key -- the weekday letters repeat
+                         
                         <span key={`h${i}`} className="text-center text-[11px] text-[var(--peko-muted)]">
                             {h}
                         </span>
