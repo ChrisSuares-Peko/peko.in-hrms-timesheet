@@ -6,6 +6,12 @@
    "what": "The employee’s leave home: balances at a glance, recent leave activity, upcoming leave and the next public holiday. Also where they start a leave or comp off request.",
    "sections": [
     [
+     "Design notes",
+     [
+      "Field explanations, panel descriptions, worked examples and policy notes on this page are tooltips (info icon next to the label or title), not visible text. Keep only values, choices, statuses and errors always visible."
+     ]
+    ],
+    [
      "What’s on the page",
      [
       "Sub-tabs: Overview · My requests (count of open) · Public holidays. Top right: \"Request comp off\" (when on) · \"Request LOP\" · \"Apply for leave\" (primary).",
@@ -31,9 +37,11 @@
       "Duration line: working days only (employee’s own schedule; weekly offs and public holidays not counted). Half days = 0.5 per working day. With the sandwich rule on: \"+ N days off in between\".",
       "Refuse with a clear message: end before start; no working days; dates overlapping existing leave (approved, pending or update requested); not enough available; type \"not available\" during probation; document missing when required; no reason.",
       "Sends a leave request into the approval chain (leave approvers from settings). Footer line names the approvers.",
-      "Per-event types: the balance box shows \"Up to N days/weeks per event · counted in working / calendar days\", and an event date field appears (with the window, if set). Refused: no event date, dates outside the window, or more than the limit for that event (including leave already booked for the same event date).",
       "Calendar-day types count every day in the range (\"12 calendar days, weekends and public holidays included\").",
-      "Footer note: \"Need unpaid leave (loss of pay)? That’s only once all your paid leave is used. Email Admin / HR to arrange it.\""
+      "Footer note: \"Need unpaid leave (loss of pay)? That’s only once all your paid leave is used. Email Admin / HR to arrange it.\"",
+      "Per-event types: the Duration (full/half) choice is hidden. Fields: the event date (label from the trigger, e.g. \"Date of birth or adoption\"); Start date (only dates inside the window can be picked; disabled until the event date is set); End date fills in automatically for the full entitlement (working or calendar days per the type), can be shortened but not extended; hint \"Can start between … and …. …taken in one go\"; the supporting document field with HR’s wording when required. Refused: no event date, start outside the window, longer than the entitlement, or a second request for the same event (\"It has to be taken in one go; change that request instead\").",
+      "Maternity in the form: \"Which child is this?\" First child / Second child / Third child or later (\"This sets your entitlement. HR checks it when they approve.\"). It sets the number of days and the earliest start (up to the before-weeks, 6 for the third child or later); the latest start is the after-weeks. Event date label: \"Expected or actual date of delivery\".",
+      "Half days are offered only for leave types that allow them (per-type setting)."
      ]
     ],
     [
@@ -234,7 +242,8 @@
      "Add leave (HR drawer)",
      [
       "Employee → Start date → End date → duration worked out (\"3 working days\") → Full days / first half of each day / second half of each day → Leave type with that employee’s available balance → note → optional attachment.",
-      "Same checks as the employee form (overlap, balance, probation, applies-to). Approved immediately, marked \"Added by HR\"; attendance and timesheet update straight away; the employee sees it in My requests."
+      "Same checks as the employee form (overlap, balance, probation, applies-to). Approved immediately, marked \"Added by HR\"; attendance and timesheet update straight away; the employee sees it in My requests.",
+      "Follows the leave type’s rules like the employee form: half days only for types that allow them; per-event types ask for the event date (and, for Maternity, \"Which child is this?\"), check the start window and the limit, and allow one block per event."
      ]
     ]
    ],
@@ -307,25 +316,50 @@
    "what": "Where HR defines every leave type. These settings decide what employees see and can do in ESS.",
    "sections": [
     [
-     "What’s on the page",
+     "Design notes",
      [
-      "Search by name, \"Add leave type\".",
-      "Table: Leave type · Entitlement (\"18 days a year\" / \"Up to 26 weeks per event\") · Credited (method + rate, or \"Per event\") · Counted in (working / calendar days) · Year end (\"Carry forward up to 45 days\" / \"Encashed\" / \"Lapses\") · On leaving (\"Encash in F&F\", \"Bring last working day forward\", both, or \"Lapses\") · Applies to · Status · Action (View, Edit, Delete; Delete disabled for used types).",
-      "Defaults include Maternity (per event, 26 weeks, calendar days, female, document always) and Paternity (per event, 7 working days, male, 30 days before to 90 days after, document always)."
+      "Field explanations, panel descriptions, worked examples and policy notes on this page are tooltips (info icon next to the label or title), not visible text. Keep only values, choices, statuses and errors always visible."
      ]
     ],
     [
-     "Add / Edit panel",
+     "What’s on the page",
      [
-      "Name; Kind: Yearly balance / Per event; Count leave in: Working days (skip the employee’s weekly offs and holidays) / Calendar days (every day in the range, as statutory leave like maternity).",
-      "Yearly balance: Days per year; Credited (start of the leave cycle / monthly / daily; the day of the month for monthly credits is a Configuration setting).",
-      "\"When an employee joins\": pro-rated share; During probation (credited monthly / full entitlement / not available).",
-      "\"At the end of the leave cycle\" (employees still working, runs automatically on the last working day): Carry forward (up to N days, rest lapses) / Encash (paid out by payroll, balance restarts) / Lapse.",
-      "\"When an employee leaves\": pro-rated to the last working day, then checkboxes: Encash in full & final settlement, Use it to bring the last working day forward. Both = the employee chooses; none = lapses. Store the rule only; F&F is a later module.",
-      "Per event: Up to N days or weeks per event; the event date asked on the request (label, e.g. \"Date of birth or adoption\"); when it can be taken (N days before to M days after the event, empty = any time). No yearly balance, accrual, carry forward or leaving rule.",
-      "\"Other\": supporting document (longer than N days; empty = never, 0 = always), Applies to (all / female / male), Show to employees (off = deactivated).",
-      "All leave is paid. There are no unpaid types: unpaid leave is loss of pay, arranged by email with Admin / HR once paid leave is used.",
-      "Changing kind, counting, days, credit, probation, year-end, carry forward, applies-to or the event limit asks for confirmation with the number of employees affected."
+      "Scope: everything here is per leave type. Company-wide rules (credit date, rounding, leave year, sandwich rule, LOP, comp off) are in Configuration.",
+      "Table columns only: Leave type (with a small line: Yearly balance / Per event / Statutory · required or optional / Inactive) · Number of days (\"12 days a year\", \"7 days per event\", \"182 days per birth\") · Accrual type and rate (\"Monthly · 1 day a month\", \"Per event\") · Leave balance carryover (\"Yes, up to 30 days\" / \"No\") · Applicable gender · Action (View, Edit, Delete).",
+      "View shows every rule of the type, grouped as in the drawer. Delete is disabled for used types and for Maternity.",
+      "Maternity is set up for every company and can’t be deleted or renamed. Required when the company has more than 10 current employees (headcount from Employees, people without a past leaving date): always on, switch locked. 10 or fewer: optional, off by default."
+     ]
+    ],
+    [
+     "Drawer: every type",
+     [
+      "Name; Kind: Yearly balance / Per event; Count leave in: Working days / Calendar days; Applicable gender; Show to employees (off = hidden, nothing deleted). Maternity skips kind, count and gender (fixed: per event, calendar days, female)."
+     ]
+    ],
+    [
+     "Drawer: Yearly balance (three phases)",
+     [
+      "Days per year (shows the monthly amount).",
+      "1 · During probation (new joiners): \"Can employees on probation use it?\" Yes / No. If yes, \"How it’s credited during probation\": Monthly / Daily / All at once. If no, nothing is credited until HR marks the employee Active. Stored as prob = none / monthly / daily / full.",
+      "2 · After probation (regular employees): \"How it’s credited\": All at once / Monthly / Daily. \"At the end of the leave cycle\", four options: All lapse · All encashed · Carry forward (up to the limit; days above it lapse) · Carry forward, encash the rest (up to the limit moves on; days above it are paid out). The two carry options show \"Carry forward up to N days\". Stored as yearEnd lapse / encash / carry + excess lapse / encash. Runs automatically on the last working day of the cycle.",
+      "3 · When an employee leaves: pro-rated to the last working day, then Unused leave: Encash / Bring last working day forward / Lapse (store the rule; F&F is a later module).",
+      "Requests: Half days (on/off, per type; the Apply form only offers half days for types that allow it); Supporting documents (on/off; when on, \"for leave longer than N days\", 0 = every request)."
+     ]
+    ],
+    [
+     "Drawer: Maternity (statutory per-event type)",
+     [
+      "Banner: statutory, numbers follow the Code on Social Security, 2020; more generous than the law is allowed, less is not.",
+      "Offer maternity leave (headcount rule above). Triggered by: Expected or actual date of delivery (fixed).",
+      "Days of leave by child: First child, Second child, Third child or later, each a number of days with the legal minimum shown (182 / 182 / 84). Saving below the minimum is refused.",
+      "When the leave can start: \"From N weeks before the delivery date to M weeks after it\" (defaults 8 and 0). The law caps \"before\" at 8 weeks (6 for the third child or later, applied automatically). All the days run on from the start date in one go. A worked example under the fields updates live (due date 1 December).",
+      "Supporting documents: on by default, plus what to ask for."
+     ]
+    ],
+    [
+     "Drawer: other per-event types",
+     [
+      "Triggered by (Childbirth or adoption / Childbirth / Adoption / Miscarriage or medical termination / Surgery or medical procedure / Other event); Number of days (days or weeks, for one event, in one go); When the leave can start (N days before to M days after the event, empty = no limit, with a live example); Supporting documents (on/off + what to ask for)."
      ]
     ]
    ],
@@ -337,6 +371,12 @@
    "what": "The company’s dated public holiday list per year.",
    "sections": [
     [
+     "Design notes",
+     [
+      "Field explanations, panel descriptions, worked examples and policy notes on this page are tooltips (info icon next to the label or title), not visible text. Keep only values, choices, statuses and errors always visible."
+     ]
+    ],
+    [
      "What’s on the page",
      [
       "Year switcher (last / this / next), add date + name, table (date, day, \"Weekly off\" tag, name, Remove), summary \"N holidays in 2026 · M on working days\"."
@@ -346,6 +386,14 @@
      "Rules",
      [
       "Holidays drive calendars, timesheet prefill, leave day counts (never counted as leave) and comp off eligibility. A holiday on a weekly off gives no extra day. Duplicate dates refused."
+     ]
+    ],
+    [
+     "Bulk upload",
+     [
+      "\"Bulk upload\" next to Add holiday opens a two-step popup: 1 · Upload file, 2 · Review (same pattern as bulk employee upload in Payroll).",
+      "Upload: one row per holiday with Start date, End date (same as start for one day) and Holiday name. \"Download template\" gives an Excel file with the header and two sample rows. Accepts .xlsx, .xls and .csv; dates as YYYY-MM-DD or DD/MM/YYYY (or Excel dates).",
+      "Review: table of Row, Holiday, From, To, Days, Status. Status is Ready, Already added (date already a holiday; duplicates are skipped), or a problem (\"Start date isn’t a date\", \"Holiday name is missing\", \"End date is before the start date\", \"More than 31 days long\"). Summary line with counts. \"Import N days\" adds only the Ready rows (a multi-day holiday becomes one entry per date with the same name); Back returns to the upload step."
      ]
     ]
    ],
@@ -357,15 +405,22 @@
    "what": "Company-wide leave rules.",
    "sections": [
     [
+     "Design notes",
+     [
+      "Field explanations, panel descriptions, worked examples and policy notes on this page are tooltips (info icon next to the label or title), not visible text. Keep only values, choices, statuses and errors always visible."
+     ]
+    ],
+    [
      "Panels",
      [
-      "Credit date: Start of the month / End of the month / Custom date (day 1–28). When monthly credits land; end of month = earned once the month is worked. A joiner’s first credit lands on this date in their first counted month.",
+      "Scope: these rules apply to every leave type (note at the top of the page). Rules for one leave type are set on that type in Leave types.",
+      "Credit date: Start / End / Custom, applied to both monthly and daily credits (types credited all at once aren’t affected). Start: monthly on the 1st for the month ahead; daily at the start of each day. End: monthly on the last day once the month is worked; daily once the day is over. Custom: monthly on a set day (1–28); daily from a set time (default 12:00 PM). Two small cards under the choice spell out what it means for monthly and for daily credits. Joiners follow the same schedule from their joining date.",
       "Rounding: No rounding / Nearest half day / Nearest day. Applied to credited-so-far and the year’s total (e.g. 14 a year = 1.167 a month).",
       "Leave year: company cycle (start day + month) or each employee’s joining date. Balances roll forward automatically on the last working day of the cycle, following each type’s year-end rule.",
-      "Leave requests: Half-day leave on/off.",
       "Loss of pay (unpaid leave): \"Only once paid leave is used up\" / \"Any time, even with paid leave left\". \"Used up\" = all yearly balances (and comp off) at 0; per-event leave doesn’t count. LOP has no limit and follows the leave approvers.",
-      "Sandwich rule: Off / Weekly offs count / Weekly offs and holidays count.",
-      "Comp off: on/off + expires after N days."
+      "Comp off: on/off + expires after N days.",
+      "Half-day leave is no longer here: it’s a per-type setting in the leave type drawer.",
+      "Sandwich rule: on/off. When on, \"When it applies\": Always / Only for longer leave (\"when a request covers more than N days in total, from the first to the last day\"); \"What counts as leave\": Weekly offs, Public holidays (checkboxes). Only days off between the first and last working day of the request count. A worked example updates live: leave 1st–9th with the 6th and 7th weekly offs and the 4th a holiday = 6 days without the rule, 9 with it (if the request is longer than the threshold)."
      ]
     ],
     [
@@ -715,7 +770,9 @@
    "The prototype has three areas in the left sidebar: ESS - Employee (an employee, Rohan Mehta), ESS - Manager (a manager and approver, Priya Nair) and Payroll (the admin/HR side, opened from the Payroll dashboard’s Quick actions).",
    "Demo controls (bottom right) change the scenario: tracking mode, employee dates and status, payroll processing, resetting data. They’re for demos only and must not ship. Developer notes are prototype-only too.",
    "Data in the prototype is fake and stored in your browser. The rules (balances, accruals, approvals) are real: build them the same way, as tested functions on the backend or the shared rules layer.",
-   "When the notes and the prototype disagree, the notes win. If something isn’t covered, copy how the prototype behaves and write the decision down."
+   "When the notes and the prototype disagree, the notes win. If something isn’t covered, copy how the prototype behaves and write the decision down.",
+   "Design: follow the Peko One design system (Figma: Peko One - Design System) on top of the Payroll antd theme. Primary #FF4F4F (tints #FFF2F2 / #FFE7E7 / #FFD6D6), neutral slate greys (#F8FAFC → #0F172A), success #43B75D, warning #F59E0B, error #EF4444; Roboto; headings 20/18/16 semibold, body 14, hints and tags 12. Buttons: primary solid red, secondary red outline, neutral grey outline, tertiary red text. Inputs: #E2E8F0 border, 8px radius, red focus ring. Page sections use underline tabs; filters use the compact segmented control.",
+   "Help text: only core information is always on screen. Explanations, rules and examples go in a tooltip: a 13px grey info icon (antd InfoCircleOutlined, #8993A4) next to the field label, panel title or button, showing an antd Tooltip on hover or focus. This is the same pattern the Payroll code already uses (e.g. \"Rollout Salary\")."
   ],
   "order": [
    "Leave module, in this order: Payroll settings → Leave (Leave types, Public holidays, Configuration, Approvals) → the leave rules (balances, accruals, probation, carry forward, sandwich, comp off) → ESS Leave (Overview, Apply, Leave type details, My requests + drawer, Public holidays) → approver views (My team Approvals and Leave calendar) → Payroll Leave (Overview, Leaves, Requests, Balances, Add leave) → links to Attendance and Timesheet (late deductions, leave rows).",
