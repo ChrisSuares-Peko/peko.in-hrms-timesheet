@@ -104,6 +104,8 @@ const yearEndOf = (t: { yearEnd?: unknown; carryForward?: number }): LeaveYearEn
     return (t.carryForward ?? 0) > 0 ? 'carry' : 'lapse';
 };
 
+const halfDayOf = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback);
+
 const TRIGGER_IDS: LeaveTrigger[] = ['birthadopt', 'birth', 'adoption', 'loss', 'procedure', 'other'];
 
 /**
@@ -154,7 +156,7 @@ export const migrateLeaveType = (stored: unknown, companyHalfDay = true): LeaveT
         eventLabel: t.eventLabel ?? '',
         windowBefore: t.windowBefore ?? null,
         windowAfter: t.windowAfter ?? null,
-        halfDay: kind === 'event' ? false : typeof t.halfDay === 'boolean' ? t.halfDay : companyHalfDay,
+        halfDay: kind === 'event' ? false : halfDayOf(t.halfDay, companyHalfDay),
         trigger: TRIGGER_IDS.includes(t.trigger as LeaveTrigger) ? (t.trigger as LeaveTrigger) : 'other',
         docRequired: typeof t.docRequired === 'boolean' ? t.docRequired : kind === 'event' && t.proofAfterDays !== null && t.proofAfterDays !== undefined,
         docName: t.docName ?? '',
@@ -311,7 +313,7 @@ export const eventDateLabel = (t: Pick<LeaveTypeConfig, 'id' | 'trigger' | 'even
 /** A per-event limit in days (weeks × 7). */
 export const eventLimitDays = (t: Pick<LeaveTypeConfig, 'limit' | 'limitUnit'>) => (t.limit ?? 0) * (t.limitUnit === 'weeks' ? 7 : 1);
 /** Maternity days for the child (first / second / third or later). */
-export const maternityDays = (mat: MaternityRule, child: MaternityChild = 1) => (child === 1 ? mat.d1 : child === 2 ? mat.d2 : mat.d3);
+export const maternityDays = (mat: MaternityRule, child: MaternityChild = 1) => ({ 1: mat.d1, 2: mat.d2, 3: mat.d3 })[child];
 /** Weeks before the delivery date Maternity can start: the setting, at most 8 — 6 for the third child or later. */
 export const maternityPreWeeks = (mat: MaternityRule, child: MaternityChild = 1) => Math.min(mat.pre, child >= 3 ? MATERNITY_MIN.preMaxThird : MATERNITY_MIN.preMax);
 
@@ -867,7 +869,7 @@ export const validateLeave = (
     if (!iso.test(end)) throw new RuleError(LEAVE_MESSAGES.date, 400);
     const event = isEventType(type);
     const half = input.half === 'FIRST' || input.half === 'SECOND' ? input.half : null;
-    const halfAllowed = event ? false : typeof type.halfDay === 'boolean' ? type.halfDay : ctx.halfDayAllowed;
+    const halfAllowed = !event && halfDayOf(type.halfDay, ctx.halfDayAllowed);
     if (half && !halfAllowed) throw new RuleError(LEAVE_MESSAGES.halfOffFor(typeLabel(type.name)), 400);
     if (end < start) throw new RuleError(LEAVE_MESSAGES.endBeforeStart, 400);
     const count = countLeaveDays(start, end, half, ctx.cal, event || type.count === 'calendar' ? 'OFF' : ctx.sandwich, type.count ?? 'working');
@@ -882,7 +884,7 @@ export const validateLeave = (
         // PROTOTYPE-SETUP (Leave settings rework): per-event leave has no balance: one block per event, within the
         // limit, starting inside the window around the event date.
         eventDate = input.eventDate && iso.test(input.eventDate) ? input.eventDate : null;
-        child = isMaternity(type) ? (input.child === 2 || input.child === 3 ? input.child : input.child === 1 ? 1 : null) : null;
+        child = isMaternity(type) && [1, 2, 3].includes(input.child as number) ? (input.child as MaternityChild) : null;
         const problem = eventProblem(type, { start, days: count.days, eventDate, child, taken: eventDate ? Boolean(ctx.eventTaken?.(type.id, eventDate)) : false });
         if (problem) throw new RuleError(problem, eventDate && (!isMaternity(type) || child) ? 409 : 400);
         if (type.docRequired && !input.proof?.name) throw new RuleError(LEAVE_MESSAGES.document(label, type.docName), 400);

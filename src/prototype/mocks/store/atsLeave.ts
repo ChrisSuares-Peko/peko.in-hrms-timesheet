@@ -1219,6 +1219,17 @@ const cleanType = (body: Partial<LeaveTypeInput> | undefined, cur?: LeaveTypeCon
     if (kind === 'event' && !(limit && limit > 0)) throw new RuleError(TYPE_MESSAGES.limit, 400);
     const yearEnd = pick(body?.yearEnd, ['carry', 'encash', 'lapse'] as const, cur?.yearEnd ?? (carry > 0 ? 'carry' : 'lapse'));
     const docRequired = flag(body?.docRequired, cur?.docRequired ?? maternity);
+    // The event date label and the start window: Maternity's come from its rule; other per-event types from the body.
+    let eventFields: Pick<LeaveTypeConfig, 'eventLabel' | 'windowBefore' | 'windowAfter'> = { eventLabel: '', windowBefore: null, windowAfter: null };
+    if (maternity) eventFields = { eventLabel: MATERNITY_DATE_LABEL, windowBefore: mat!.pre * 7, windowAfter: mat!.post * 7 };
+    else if (kind === 'event')
+        eventFields = {
+            eventLabel: String(body?.eventLabel ?? cur?.eventLabel ?? '').trim(),
+            windowBefore: numOrNull(body && 'windowBefore' in body ? body.windowBefore : cur?.windowBefore, 366),
+            windowAfter: numOrNull(body && 'windowAfter' in body ? body.windowAfter : cur?.windowAfter, 366),
+        };
+    let proofRule: number | null = Number.isFinite(proof as number) ? proof : null;
+    if (kind === 'event') proofRule = docRequired ? 0 : null;
     return {
         name,
         kind,
@@ -1234,15 +1245,13 @@ const cleanType = (body: Partial<LeaveTypeInput> | undefined, cur?: LeaveTypeCon
         limit,
         limitUnit: maternity ? 'days' : limitUnit,
         trigger: maternity ? 'birth' : pick(body?.trigger, ['birthadopt', 'birth', 'adoption', 'loss', 'procedure', 'other'] as const, cur?.trigger ?? 'other'),
-        eventLabel: maternity ? MATERNITY_DATE_LABEL : kind === 'event' ? String(body?.eventLabel ?? cur?.eventLabel ?? '').trim() : '',
-        windowBefore: maternity ? mat!.pre * 7 : kind === 'event' ? numOrNull(body && 'windowBefore' in body ? body.windowBefore : cur?.windowBefore, 366) : null,
-        windowAfter: maternity ? mat!.post * 7 : kind === 'event' ? numOrNull(body && 'windowAfter' in body ? body.windowAfter : cur?.windowAfter, 366) : null,
+        ...eventFields,
         docRequired: kind === 'event' ? docRequired : false,
         docName: kind === 'event' ? String(body?.docName ?? cur?.docName ?? '').trim() : '',
         ...(maternity ? { system: 'maternity' as const, mat } : {}),
-        proofAfterDays: kind === 'event' ? (docRequired ? 0 : null) : Number.isFinite(proof as number) || proof === null ? proof : null,
+        proofAfterDays: proofRule,
         appliesTo: maternity ? 'FEMALE' : pick(body?.appliesTo, ['ALL', 'FEMALE', 'MALE'] as const, cur?.appliesTo ?? 'ALL'),
-        active: maternity && maternityLocked ? true : typeof body?.active === 'boolean' ? body.active : cur?.active ?? true,
+        active: (maternity && maternityLocked) || (typeof body?.active === 'boolean' ? body.active : cur?.active ?? true),
     };
 };
 
