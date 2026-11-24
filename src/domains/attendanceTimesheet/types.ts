@@ -1128,7 +1128,8 @@ export type LeaveType = string;
 /** When the days land in the balance. */
 export type LeaveCredit = 'CYCLE_START' | 'MONTHLY' | 'DAILY';
 /** While the employee's status is Probation: credited monthly · the full entitlement · not available until confirmed. */
-export type LeaveProbationRule = 'MONTHLY' | 'FULL' | 'NONE';
+/** During probation: credited monthly / daily / all at once, or not available (PROTOTYPE-SETUP: Leave settings rework adds DAILY). */
+export type LeaveProbationRule = 'MONTHLY' | 'DAILY' | 'FULL' | 'NONE';
 export type LeaveAppliesTo = 'ALL' | 'FEMALE' | 'MALE';
 
 export interface LeaveTypeConfig {
@@ -1159,8 +1160,25 @@ export interface LeaveTypeConfig {
     /** Per event: up to this much per event (null for yearly types). */
     limit: number | null;
     limitUnit: 'days' | 'weeks';
-    /** Per event: the event date asked on the request, e.g. "Date of birth or adoption". */
+    /** Per event, trigger 'other': the event date asked on the request (custom wording). Older data's eventLabel. */
     eventLabel: string;
+    /**
+     * PROTOTYPE-SETUP (Leave settings rework): what happens to days above the carry-forward limit when yearEnd is 'carry':
+     * they lapse, or they're encashed. Older data: 'lapse'.
+     */
+    excess: LeaveExcess;
+    /** Half days allowed for this type (per type now; older data takes the company-wide half-day setting). */
+    halfDay: boolean;
+    /** Per event: what triggers it (decides the event date label). Older per-event data: 'other'. */
+    trigger: LeaveTrigger;
+    /** Per event: a supporting document is required, and what to ask for ("Birth certificate or adoption order"). */
+    docRequired: boolean;
+    docName: string;
+    /** The statutory Maternity type (every company; can't be deleted or renamed). */
+    system?: 'maternity';
+    /** Maternity: days by child (first / second / third or later; at least 182 / 182 / 84) and the weeks the leave can
+     *  start before (max 8; 6 for the third child or later, applied automatically) and after the delivery date. */
+    mat?: MaternityRule;
     /** Per event: leave can start this many days before the event (null = no limit)… */
     windowBefore: number | null;
     /** …and must end within this many days after it (null = no limit). */
@@ -1173,6 +1191,31 @@ export interface LeaveTypeConfig {
 }
 
 export type LeaveKind = 'yearly' | 'event';
+export type LeaveExcess = 'lapse' | 'encash';
+export type LeaveTrigger = 'birthadopt' | 'birth' | 'adoption' | 'loss' | 'procedure' | 'other';
+export interface MaternityRule {
+    d1: number;
+    d2: number;
+    d3: number;
+    /** Weeks before the delivery date the leave can start. */
+    pre: number;
+    /** Weeks after the delivery date the leave can still start. */
+    post: number;
+}
+/** Which child a maternity request is for: first, second, third or later. */
+export type MaternityChild = 1 | 2 | 3;
+/**
+ * PROTOTYPE-SETUP (Leave settings rework): the sandwich rule — on/off; always, or only when a request covers more than
+ * `overDays` days from the first to the last day; days off between the first and last working day count when they're
+ * weekly offs and/or public holidays.
+ */
+export interface SandwichConfig {
+    on: boolean;
+    when: 'always' | 'longer';
+    overDays: number;
+    weeklyOffs: boolean;
+    holidays: boolean;
+}
 export type LeaveCount = 'working' | 'calendar';
 export type LeaveYearEnd = 'carry' | 'encash' | 'lapse';
 /** Unused leave when someone leaves: encash in full & final settlement · use it to bring the last working day forward. */
@@ -1193,13 +1236,18 @@ export interface LeavePolicy {
     /** "MM-DD" (day 1–28). */
     cycleStart: string;
     types: LeaveTypeConfig[];
-    sandwich: SandwichRule;
+    /** PROTOTYPE-SETUP (Leave settings rework): the sandwich rule settings (older data: the SandwichRule value). */
+    sandwich: SandwichConfig;
     compOff: { enabled: boolean; /** Unused comp off expires this many days after the day worked (0 = never). */ expiryDays: number };
     /** Late check-in deductions come from these types in order, then loss of pay. */
     lateOrder: LeaveType[];
     /** PROTOTYPE-SETUP (Leave policy settings): the day monthly credits land (CUSTOM = `creditDay`, 1–28). */
     creditDate: LeaveCreditDate;
     creditDay: number;
+    /** Custom credit date: daily credits land from this time each day ("12:00", company time zone). */
+    creditTime: string;
+    /** Maternity offered when it's optional (10 or fewer current employees). Required above 10: always on. */
+    matOn: boolean;
     rounding: LeaveRounding;
     lop: LopRule;
 }
@@ -1235,6 +1283,8 @@ export interface LeaveRequest {
     eventDate?: string;
     /** Loss of pay (unpaid leave, type "Loss of pay"): no balance, no limit; payroll reads it as LOP. */
     lop?: boolean;
+    /** Maternity: which child (sets the entitlement and the earliest start). */
+    child?: MaternityChild;
     /** PROTOTYPE-SETUP (Leave module): what it was before an approved change request replaced it ("Was"). */
     changedFrom?: LeaveWas & { at: string; changeId: string };
     createdAt: string;
@@ -1267,6 +1317,7 @@ export interface LeaveChange {
     proof?: { name: string };
     /** Per-event types: the event date. */
     eventDate?: string;
+    child?: MaternityChild;
     /** The approved leave as it was when the change was asked for. */
     was: LeaveWas;
     trail: ApprovalTrail;
@@ -1284,6 +1335,8 @@ export interface LeaveRequestInput {
     proof?: { name: string } | null;
     /** Per-event types: the event date. */
     eventDate?: string | null;
+    /** Maternity: which child. */
+    child?: MaternityChild | null;
 }
 
 /**
@@ -1477,7 +1530,7 @@ export interface LeaveView {
     approvalPath: string;
     rules: {
         halfDay: boolean;
-        sandwich: SandwichRule;
+        sandwich: SandwichConfig;
         compOff: { enabled: boolean; expiryDays: number };
         /** PROTOTYPE-SETUP (Leave policy settings): loss of pay — only once paid leave is used up, or any time. */
         lop: LopRule;
@@ -1666,6 +1719,10 @@ export interface LeaveSettingsView {
     migrationNote: string;
     /** PROTOTYPE-SETUP (Leave policy settings): extra approval for longer leave (saved with the approvals). */
     endorsement: LeaveEndorsement;
+    /** PROTOTYPE-SETUP (Leave settings rework): current employees (no past leaving date), and whether Maternity is
+     *  required by headcount (more than 10: always on, switch locked). */
+    headcount: number;
+    maternityRequired: boolean;
 }
 
 /** Add / edit a leave type (the id is generated for a new one). */

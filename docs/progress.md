@@ -1,9 +1,59 @@
-# Progress — Leave: policy settings, per-event leave, LOP and overview layout
+# Progress — Leave module: settings rework, per-event & maternity, holiday upload, Peko One design
 
 PROTOTYPE-SETUP. Run log. Sources: `docs/dev-notes/dev-notes.json` (the notes) and
 `docs/prototypes/leave-prototype.html` (the panel's look and behaviour). If a run stops, continue from the first step
 that isn't **done**. The previous run (Leave module updates + module-grouped notes panel, `c34e05f`–`9b91229`) is
 finished and pushed; its log is in git history (`git show 9b91229:docs/progress.md`).
+
+## Leave module: settings rework, per-event & maternity, holiday upload, Peko One design + tooltips — in progress
+
+Spec: `docs/dev-notes/dev-notes.json` (guide.read / guide.shared; pay:settings:leave:types / config / holidays /
+approvals, pay:leave:overview, ess:leave:overview / requests) and `docs/prototypes/leave-prototype.html`.
+
+| Step | Commit | Status |
+|---|---|---|
+| A + B — Leave type model, migrations, engine rules and tests | Leave: leave type model, migrations and rules for the settings rework | done |
+| C1 — Payroll settings → Leave types (table, view, drawer incl. Maternity) | | |
+| C2 — Configuration (credit date, sandwich, …) and Public holidays bulk upload | | |
+| C3 — ESS Apply for leave and Payroll Add leave | | |
+| D — Peko One tokens, type, buttons, inputs, underline tabs, tags, InfoTip tooltips | | |
+| E + VERIFY — developer notes, VERIFY 1–9, build, push | | |
+
+Migrations (`migrateLeaveType` / `migrateLeavePolicy`, run on every settings read; nothing is rewritten until HR saves):
+- Probation values stay as they are (MONTHLY / FULL / NONE; DAILY is new). The brief's `prob` none / monthly / daily /
+  full is the existing `probation` field (NONE / MONTHLY / DAILY / FULL); `credit` keeps CYCLE_START (= "upfront") /
+  MONTHLY / DAILY.
+- yearEnd 'carry' gets `excess: 'lapse'`; types without yearEnd: carry when a limit is set, else lapse.
+- Leaving: one option now. Both ticked (the last run's "employee chooses") → ['encash']; onLeaving / encashOnExit as before.
+- Maternity: any stored shape becomes the statutory system type — the prototype's weeks { w1, w2, pre1 } → d1 = d2 = w1×7,
+  d3 = w2×7, pre = pre1, post = 0; the last run's 26 weeks from 56 days before → d1 = d2 = 182, d3 = 84, pre = 8,
+  post = 0. Never below 182 / 182 / 84; pre at most 8. Document required. A company without Maternity gets the default.
+- Per-event types without a trigger → 'other'; their eventLabel stays as the date label; docRequired = they had a
+  document rule.
+- The company-wide half-day setting (`leaveRules.halfDay`) becomes every yearly type's `halfDay` (per-event: no half days).
+- Sandwich: the enum becomes `{ on, when, overDays, weeklyOffs, holidays }` (OFF → off; WEEKLY_OFFS → on, weekly offs;
+  WEEKLY_OFFS_AND_HOLIDAYS → on, both); `creditTime` defaults to 12:00; `matOn` to false.
+- Requests: `child` is new and optional (Maternity), so every stored request reads as before.
+
+Decisions:
+1. **Field names.** Existing names are kept where the brief's field is the same thing (`probation` = prob,
+   `credit` = credit after probation, `carryForward` = carry, `proofAfterDays` = proofDays, `appliesTo` = gender,
+   `active` = Show to employees); new ones use the brief's names (`excess`, `halfDay`, `trigger`, `docRequired`,
+   `docName`, `mat`, `matOn`, `creditTime`, `child`).
+2. **Daily during probation** accrues day by day while the employee is on Probation; once Active, the months spent on
+   probation count as monthly credits (the engine has no per-day probation history).
+3. **Per-event window** applies to the START date only: the block can run past the window end. One active request per
+   type and event date ("It has to be taken in one go; change that request instead"); the duration is at most the
+   entitlement.
+4. **Maternity entitlement and earliest start by child**: first / second / third or later; "before" = the setting, at
+   most 8 weeks, 6 for the third child or later; "after" = post weeks. Weeks are 7 days.
+5. **Maternity's headcount**: current employees = Employees without a leaving date in the past (`currentHeadcount`).
+   Above 10: required, the switch is locked on and saving it off keeps it on. 10 or fewer: optional, off by default
+   (`matOn`). When it's not offered it's hidden from employees' cards and forms.
+6. **Daily credit timing** uses the browser's time as the company time zone in the prototype (`nowTime`).
+7. **LOP half days** stay allowed (half days are per leave type now and LOP isn't one).
+8. **Date-dependent tests**: "Reporting manager at level 2" and "leave and absent days" also fail on the previous
+   commit on 24 Nov (their dates land on a weekend); left as they are.
 
 ## Leave: policy settings, per-event leave, LOP and overview layout — done
 

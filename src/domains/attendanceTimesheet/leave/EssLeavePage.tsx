@@ -69,7 +69,7 @@ const cancelTargetOf = (v: LeaveView, r: LeaveRequestRow): CancelTarget => ({
 // ---- one leave type's page ----------------------------------------------------------------------------------
 
 const CREDIT_TEXT = { CYCLE_START: 'credited at the start of the leave cycle', MONTHLY: 'credited monthly', DAILY: 'accrues daily', COMP_OFF: 'earned by working weekly offs or holidays' } as const;
-const PROBATION_TEXT = { MONTHLY: 'credited monthly during probation', FULL: 'full entitlement during probation', NONE: 'not available during probation' } as const;
+const PROBATION_TEXT = { MONTHLY: 'credited monthly during probation', DAILY: 'credited daily during probation', FULL: 'full entitlement during probation', NONE: 'not available during probation' } as const;
 
 /** "12 credited so far · credited monthly · next +1.5 on 1 Dec · credited monthly during probation · unused days over 30 lapse" */
 export const typeSummary = (b: LeaveBalance, v: Pick<LeaveView, 'rules'>) =>

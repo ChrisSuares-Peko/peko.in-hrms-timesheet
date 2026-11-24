@@ -73,7 +73,7 @@ import {
     approverPersonId,
     isApproverTeam,
 } from '@src/prototype/rules/attendance';
-import { daysText, eventInfoText, shortDate, typeLabel } from '@src/prototype/rules/leave';
+import { daysText, eventInfoText, sandwichOf, shortDate, typeLabel } from '@src/prototype/rules/leave';
 import { isAutoSubmitDue, periodEndOf, periodsDueForSubmission } from '@src/prototype/rules/timesheetFiling';
 
 import { attendanceMonthOf, autoSubmitNote, submitWeekRecord, timesheetMonthOf } from './atsEss';
@@ -1190,7 +1190,7 @@ const leavePolicyFrom = (b: Partial<LeavePolicy> | undefined, cur: LeavePolicy):
         ...cur,
         year: b.year === 'COMPANY' || b.year === 'JOINING' ? b.year : cur.year,
         cycleStart: mmdd.test(b.cycleStart ?? '') ? b.cycleStart! : cur.cycleStart,
-        sandwich: b.sandwich === 'OFF' || b.sandwich === 'WEEKLY_OFFS' || b.sandwich === 'WEEKLY_OFFS_AND_HOLIDAYS' ? b.sandwich : cur.sandwich,
+        sandwich: b.sandwich === undefined ? cur.sandwich : sandwichOf(b.sandwich),
         compOff: {
             enabled: typeof b.compOff?.enabled === 'boolean' ? b.compOff.enabled : cur.compOff.enabled,
             expiryDays: Number.isFinite(expiry) && expiry >= 0 && expiry <= 365 ? Math.round(expiry) : cur.compOff.expiryDays,

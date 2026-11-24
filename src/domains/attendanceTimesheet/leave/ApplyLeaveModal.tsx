@@ -69,6 +69,11 @@ export const typeOf = (b: LeaveBalance): LeaveTypeConfig => ({
     eventLabel: '',
     windowBefore: null,
     windowAfter: null,
+    excess: 'lapse',
+    halfDay: true,
+    trigger: 'other',
+    docRequired: false,
+    docName: '',
     proofAfterDays: b.proofAfterDays,
     appliesTo: 'ALL',
     active: true,
@@ -185,17 +190,16 @@ const ApplyLeaveModal = ({
             .map(r => ({ start: r.start, end: r.end, half: r.half, summary: summaryOf(r) }));
         // Per-event leave already booked for the same event date (the request itself and the leave a change is about
         // left out).
-        const eventBooked = (t: string, date: string) =>
+        const eventTaken = (t: string, date: string) =>
             view.requests
                 .filter(r => r.id !== editing?.id && r.id !== original?.id && r.type === t && r.eventDate === date)
-                .filter(r => r.state === 'approved' || r.state === 'pending' || r.state === 'update_requested')
-                .reduce((n, r) => n + r.days, 0);
+                .some(r => r.state === 'approved' || r.state === 'pending' || r.state === 'update_requested');
         try {
             validateLeave(
                 { type, start, end, half: halfDays ? half : null, reason, proof, eventDate: iso(eventDate) || null },
                 {
                     types: [...types.map(typeOf), ...eventTypes],
-                    eventBooked,
+                    eventTaken,
                     cal,
                     sandwich: view.rules.sandwich,
                     halfDayAllowed: view.rules.halfDay,

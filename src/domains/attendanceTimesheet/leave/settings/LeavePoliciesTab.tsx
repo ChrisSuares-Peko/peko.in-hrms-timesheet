@@ -27,7 +27,7 @@ import { LeaveTypeDrawer, LeaveTypeView } from './LeaveTypeDrawer';
 import { addLeaveType, addPublicHoliday, getLeaveSettings, removeLeaveType, removePublicHoliday, updateLeaveConfig, updateLeaveType } from '../../api';
 import AtsSettingsTab from '../../payroll/AtsSettingsTab';
 import { usePayrollScope } from '../../payroll/usePayrollAts';
-import type { LeavePolicy, LeaveSettingsView, LeaveTypeConfig, LeaveTypeInput, SandwichRule } from '../../types';
+import type { LeavePolicy, LeaveSettingsView, LeaveTypeConfig, LeaveTypeInput, SandwichConfig } from '../../types';
 
 const { Text } = Typography;
 
@@ -268,7 +268,7 @@ interface Config {
     day: number;
     month: number;
     halfDay: boolean;
-    sandwich: SandwichRule;
+    sandwich: SandwichConfig;
     compOn: boolean;
     expiry: number;
     // PROTOTYPE-SETUP (Leave policy settings): credit date, rounding, loss of pay.

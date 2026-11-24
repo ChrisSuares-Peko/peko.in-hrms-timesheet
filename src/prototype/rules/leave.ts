@@ -46,7 +46,11 @@ import type {
     LeavePolicy,
     LeaveRounding,
     LeaveYearEnd,
+    LeaveTrigger,
     LopRule,
+    MaternityChild,
+    MaternityRule,
+    SandwichConfig,
     LeaveProbationRule,
     LeaveTypeConfig,
     LedgerEntry,
@@ -56,11 +60,13 @@ import type {
     Weekday,
 } from '@src/domains/attendanceTimesheet/types';
 
-import { DEFAULT_LEAVE_POLICY, DEFAULT_LEAVE_TYPES, RuleError, addDays, approverPersonId, nextStatus, weekdayOf } from './attendance';
+import { DEFAULT_LEAVE_POLICY, DEFAULT_LEAVE_TYPES, DEFAULT_MATERNITY, MATERNITY_MIN, RuleError, addDays, approverPersonId, nextStatus, weekdayOf } from './attendance';
 
 // ---- defaults --------------------------------------------------------------------------------------------------
 
 export const COMP_OFF = 'COMP_OFF';
+/** Maternity's event date (fixed). */
+export const MATERNITY_DATE_LABEL = 'Expected or actual date of delivery';
 export const COMP_OFF_NAME = 'Comp off';
 
 /** The default leave types and policy live with DEFAULT_SETTINGS (rules/attendance.ts). */
@@ -80,12 +86,15 @@ export interface LegacyLeavePolicy {
 }
 
 /**
- * PROTOTYPE-SETUP (Leave policy settings): the leaving options of a stored type. Current data has exitOpts; the run
- * before stored onLeaving (ENCASH / BRING_FORWARD); older data stored encashOnExit. ENCASH / true → ['encash'];
- * BRING_FORWARD / false → ['prepone'].
+ * PROTOTYPE-SETUP (Leave policy settings; Leave settings rework): the leaving option of a stored type — one choice now:
+ * ['encash'] | ['prepone'] (bring the last working day forward) | [] (lapse). Older shapes: both ticked ("the employee
+ * chooses") → ['encash']; onLeaving ENCASH / encashOnExit true → ['encash']; BRING_FORWARD / false → ['prepone'].
  */
 export const exitOptsOf = (t: { exitOpts?: unknown; onLeaving?: unknown; encashOnExit?: unknown }): LeaveExitOpt[] => {
-    if (Array.isArray(t.exitOpts)) return (['encash', 'prepone'] as const).filter(o => (t.exitOpts as unknown[]).includes(o));
+    if (Array.isArray(t.exitOpts)) {
+        if (t.exitOpts.includes('encash')) return ['encash'];
+        return t.exitOpts.includes('prepone') ? ['prepone'] : [];
+    }
     if (t.onLeaving === 'ENCASH' || t.onLeaving === 'BRING_FORWARD') return t.onLeaving === 'ENCASH' ? ['encash'] : ['prepone'];
     return t.encashOnExit ? ['encash'] : ['prepone'];
 };
@@ -95,18 +104,49 @@ const yearEndOf = (t: { yearEnd?: unknown; carryForward?: number }): LeaveYearEn
     return (t.carryForward ?? 0) > 0 ? 'carry' : 'lapse';
 };
 
+const TRIGGER_IDS: LeaveTrigger[] = ['birthadopt', 'birth', 'adoption', 'loss', 'procedure', 'other'];
+
 /**
- * A stored type in the current shape. Missing fields get the yearly defaults: kind yearly, working days, year end
- * 'carry' when a carry-forward limit is set (else 'lapse'), and the old leaving fields become exitOpts.
+ * Maternity's rule from any stored shape: current { d1, d2, d3, pre, post }; the prototype's weeks { w1, w2, pre1 } →
+ * d1 = d2 = w1 × 7, d3 = w2 × 7, pre = pre1, post = 0; the last run's limit / window (26 weeks from 56 days before) →
+ * d1 = d2 = the limit in days, d3 = 84, pre = windowBefore ÷ 7. Never below the statutory minimum; pre at most 8.
  */
-export const migrateLeaveType = (stored: unknown): LeaveTypeConfig => {
-    const t = stored as Partial<LeaveTypeConfig> & { onLeaving?: unknown; encashOnExit?: unknown };
-    const kind = t.kind === 'event' ? 'event' : 'yearly';
+export const maternityRuleOf = (t: { mat?: unknown; limit?: number | null; limitUnit?: string; windowBefore?: number | null; windowAfter?: number | null }): MaternityRule => {
+    const m = (t.mat ?? {}) as Partial<MaternityRule> & { w1?: number; w2?: number; pre1?: number };
+    let rule: MaternityRule;
+    if (typeof m.d1 === 'number') rule = { d1: m.d1, d2: m.d2 ?? m.d1, d3: m.d3 ?? MATERNITY_MIN.d3, pre: m.pre ?? 8, post: m.post ?? 0 };
+    else if (typeof m.w1 === 'number') rule = { d1: m.w1 * 7, d2: m.w1 * 7, d3: (m.w2 ?? 12) * 7, pre: m.pre1 ?? 8, post: 0 };
+    else {
+        const limitDays = t.limit ? t.limit * (t.limitUnit === 'weeks' ? 7 : 1) : MATERNITY_MIN.d1;
+        rule = { d1: limitDays, d2: limitDays, d3: MATERNITY_MIN.d3, pre: t.windowBefore ? Math.round(t.windowBefore / 7) : 8, post: t.windowAfter ? Math.round(t.windowAfter / 7) : 0 };
+    }
+    return {
+        d1: Math.max(MATERNITY_MIN.d1, rule.d1),
+        d2: Math.max(MATERNITY_MIN.d2, rule.d2),
+        d3: Math.max(MATERNITY_MIN.d3, rule.d3),
+        pre: Math.min(MATERNITY_MIN.preMax, Math.max(0, rule.pre)),
+        post: Math.max(0, rule.post),
+    };
+};
+
+export const isMaternity = (t: Pick<LeaveTypeConfig, 'id'> & Partial<Pick<LeaveTypeConfig, 'system'>> | null | undefined) => Boolean(t && (t.system === 'maternity' || t.id === 'MATERNITY'));
+
+/**
+ * A stored type in the current shape. Missing fields get the yearly defaults (kind yearly, working days, year end
+ * 'carry' when a carry-forward limit is set, else 'lapse'; excess 'lapse'); half days take the company-wide setting it
+ * used to be (`companyHalfDay`); per-event types without a trigger are 'other' (their eventLabel stays the date label),
+ * with a document required when they had a document rule; Maternity becomes the statutory system type.
+ */
+export const migrateLeaveType = (stored: unknown, companyHalfDay = true): LeaveTypeConfig => {
+    const t = stored as Partial<LeaveTypeConfig> & { onLeaving?: unknown; encashOnExit?: unknown; mat?: unknown };
+    const maternity = isMaternity(t as LeaveTypeConfig);
+    const kind = maternity || t.kind === 'event' ? 'event' : 'yearly';
     const out: LeaveTypeConfig & { onLeaving?: unknown; encashOnExit?: unknown } = {
         ...(t as LeaveTypeConfig),
         kind,
-        count: t.count === 'calendar' ? 'calendar' : 'working',
+        count: maternity || t.count === 'calendar' ? 'calendar' : 'working',
         yearEnd: yearEndOf(t),
+        excess: t.excess === 'encash' ? 'encash' : 'lapse',
         carryForward: t.carryForward ?? 0,
         exitOpts: kind === 'event' ? [] : exitOptsOf(t),
         limit: kind === 'event' ? t.limit ?? null : null,
@@ -114,20 +154,29 @@ export const migrateLeaveType = (stored: unknown): LeaveTypeConfig => {
         eventLabel: t.eventLabel ?? '',
         windowBefore: t.windowBefore ?? null,
         windowAfter: t.windowAfter ?? null,
+        halfDay: kind === 'event' ? false : typeof t.halfDay === 'boolean' ? t.halfDay : companyHalfDay,
+        trigger: TRIGGER_IDS.includes(t.trigger as LeaveTrigger) ? (t.trigger as LeaveTrigger) : 'other',
+        docRequired: typeof t.docRequired === 'boolean' ? t.docRequired : kind === 'event' && t.proofAfterDays !== null && t.proofAfterDays !== undefined,
+        docName: t.docName ?? '',
     };
+    if (maternity) {
+        out.system = 'maternity';
+        out.appliesTo = 'FEMALE';
+        out.trigger = 'birth';
+        out.eventLabel = MATERNITY_DATE_LABEL;
+        out.mat = maternityRuleOf(t);
+        out.docRequired = typeof t.docRequired === 'boolean' ? t.docRequired : true;
+    }
     delete out.onLeaving;
     delete out.encashOnExit;
     return out;
 };
 
-/** "Encash in F&F" / "Bring last working day forward" / both / "Lapses" — the table's "On leaving". */
+/** "Encash in F&F" / "Bring last working day forward" / "Lapses" — what happens to unused leave on leaving. */
 export const exitText = (t: Pick<LeaveTypeConfig, 'exitOpts' | 'kind'>) => {
     if (t.kind === 'event') return '—';
-    const e = t.exitOpts.includes('encash');
-    const p = t.exitOpts.includes('prepone');
-    if (e && p) return 'Encash in F&F or bring last working day forward (employee’s choice)';
-    if (e) return 'Encash in F&F';
-    if (p) return 'Bring last working day forward';
+    if (t.exitOpts.includes('encash')) return 'Encash in F&F';
+    if (t.exitOpts.includes('prepone')) return 'Bring last working day forward';
     return 'Lapses';
 };
 
@@ -136,30 +185,54 @@ export const EXIT_OPT_LABEL: Record<LeaveExitOpt, string> = {
     prepone: 'Use it to bring the last working day forward',
 };
 
+/** PROTOTYPE-SETUP (Leave settings rework): the sandwich settings from any stored shape (the old enum too). */
+export const sandwichOf = (v: unknown): SandwichConfig => {
+    const base = DEFAULT_LEAVE_POLICY.sandwich;
+    if (v && typeof v === 'object') {
+        const c = v as Partial<SandwichConfig>;
+        return {
+            on: Boolean(c.on),
+            when: c.when === 'longer' ? 'longer' : 'always',
+            overDays: Number.isFinite(c.overDays) ? Math.max(0, Math.round(c.overDays as number)) : base.overDays,
+            weeklyOffs: typeof c.weeklyOffs === 'boolean' ? c.weeklyOffs : base.weeklyOffs,
+            holidays: typeof c.holidays === 'boolean' ? c.holidays : base.holidays,
+        };
+    }
+    if (v === 'WEEKLY_OFFS') return { ...base, on: true, when: 'always', weeklyOffs: true, holidays: false };
+    if (v === 'WEEKLY_OFFS_AND_HOLIDAYS') return { ...base, on: true, when: 'always', weeklyOffs: true, holidays: true };
+    return { ...base, on: false };
+};
+
 const isLegacy = (p: unknown): p is LegacyLeavePolicy => Boolean(p && typeof p === 'object' && !Array.isArray((p as LeavePolicy).types));
 
 /**
  * Maps a stored policy to the current shape without losing anything: each old type keeps its days, credit
  * (UPFRONT → at the start of the leave cycle), carry forward and encashment; the old sick-leave proof threshold
  * becomes Sick's supporting-document rule; types the old policy didn't have (Maternity, Paternity) are added from the
- * defaults. The probation length is dropped: probation is a status now.
+ * defaults. The probation length is dropped: probation is a status now. PROTOTYPE-SETUP (Leave settings rework): the
+ * company-wide half-day setting becomes each yearly type's halfDay; the sandwich enum becomes its settings object; a
+ * company without the Maternity type gets the statutory default.
  */
-export const migrateLeavePolicy = (stored: unknown, legacyProofDays?: number): LeavePolicy => {
+export const migrateLeavePolicy = (stored: unknown, legacyProofDays?: number, companyHalfDay = true): LeavePolicy => {
     if (!stored) return DEFAULT_POLICY;
+    const withMaternity = (types: LeaveTypeConfig[]) => (types.some(t => isMaternity(t)) ? types : [...types, { ...DEFAULT_MATERNITY }]);
     if (!isLegacy(stored)) {
-        const p = stored as Partial<LeavePolicy>;
+        const p = stored as Partial<LeavePolicy> & { sandwich?: unknown };
         return {
             ...DEFAULT_POLICY,
             ...p,
-            types: (p.types ?? DEFAULT_POLICY.types).map(migrateLeaveType),
+            types: withMaternity((p.types ?? DEFAULT_POLICY.types).map(t => migrateLeaveType(t, companyHalfDay))),
+            sandwich: sandwichOf(p.sandwich),
             compOff: { ...DEFAULT_POLICY.compOff, ...p.compOff },
             lateOrder: p.lateOrder ?? DEFAULT_POLICY.lateOrder,
+            creditTime: /^\d{2}:\d{2}$/.test(p.creditTime ?? '') ? p.creditTime! : DEFAULT_POLICY.creditTime,
+            matOn: typeof p.matOn === 'boolean' ? p.matOn : DEFAULT_POLICY.matOn,
         };
     }
     const old = stored;
     const types = DEFAULT_LEAVE_TYPES.map(d => {
         const o = old.types[d.id];
-        if (!o) return { ...d };
+        if (!o) return { ...d, ...(d.kind === 'yearly' ? { halfDay: companyHalfDay } : {}) };
         return {
             ...d,
             daysPerYear: o.daysPerYear,
@@ -167,6 +240,7 @@ export const migrateLeavePolicy = (stored: unknown, legacyProofDays?: number): L
             yearEnd: (o.carryForward > 0 ? 'carry' : 'lapse') as LeaveYearEnd,
             carryForward: o.carryForward,
             exitOpts: (o.encashOnExit ? ['encash'] : ['prepone']) as LeaveExitOpt[],
+            halfDay: companyHalfDay,
             ...(d.id === 'SICK' && legacyProofDays !== undefined ? { proofAfterDays: legacyProofDays } : {}),
         };
     });
@@ -191,6 +265,7 @@ export const typeLabel = (name: string) => (/leave$/i.test(name.trim()) || name 
 export const CREDIT_LABEL: Record<LeaveCredit, string> = { CYCLE_START: 'At the start of the leave cycle', MONTHLY: 'Monthly', DAILY: 'Daily' };
 export const PROBATION_LABEL: Record<LeaveProbationRule, string> = {
     MONTHLY: 'Credited monthly',
+    DAILY: 'Credited daily',
     FULL: 'Full entitlement straight away',
     NONE: 'Not available until confirmed',
 };
@@ -212,36 +287,122 @@ export const carryText = (t: Pick<LeaveTypeConfig, 'carryForward'> & Partial<Pic
 
 export const COUNT_LABEL: Record<LeaveCount, string> = { working: 'Working days', calendar: 'Calendar days' };
 export const isEventType = (t: Pick<LeaveTypeConfig, 'kind'> | undefined | null) => t?.kind === 'event';
+
+// ---- per-event leave (PROTOTYPE-SETUP: Leave settings rework) -----------------------------------------------------
+
+/** What triggers a per-event type, and the date asked on the request. */
+export const TRIGGERS: Record<LeaveTrigger, { label: string; date: string }> = {
+    birthadopt: { label: 'Childbirth or adoption', date: 'Date of birth or adoption' },
+    birth: { label: 'Childbirth', date: 'Date of birth' },
+    adoption: { label: 'Adoption', date: 'Date of adoption' },
+    loss: { label: 'Miscarriage or medical termination', date: 'Date of the miscarriage or termination' },
+    procedure: { label: 'Surgery or medical procedure', date: 'Date of the procedure' },
+    other: { label: 'Other event', date: 'Date of the event' },
+};
+export const MATERNITY_CHILD_LABEL: Record<MaternityChild, string> = { 1: 'First child', 2: 'Second child', 3: 'Third child or later' };
+
+/** The event date's label: Maternity's fixed one, the custom one for "Other event", else the trigger's. */
+export const eventDateLabel = (t: Pick<LeaveTypeConfig, 'id' | 'trigger' | 'eventLabel'> & Partial<Pick<LeaveTypeConfig, 'system'>>) => {
+    if (isMaternity(t)) return MATERNITY_DATE_LABEL;
+    if (t.trigger === 'other' || !t.trigger) return t.eventLabel || TRIGGERS.other.date;
+    return TRIGGERS[t.trigger].date;
+};
+
 /** A per-event limit in days (weeks × 7). */
 export const eventLimitDays = (t: Pick<LeaveTypeConfig, 'limit' | 'limitUnit'>) => (t.limit ?? 0) * (t.limitUnit === 'weeks' ? 7 : 1);
-/** "26 weeks" / "7 days" */
+/** Maternity days for the child (first / second / third or later). */
+export const maternityDays = (mat: MaternityRule, child: MaternityChild = 1) => (child === 1 ? mat.d1 : child === 2 ? mat.d2 : mat.d3);
+/** Weeks before the delivery date Maternity can start: the setting, at most 8 — 6 for the third child or later. */
+export const maternityPreWeeks = (mat: MaternityRule, child: MaternityChild = 1) => Math.min(mat.pre, child >= 3 ? MATERNITY_MIN.preMaxThird : MATERNITY_MIN.preMax);
+
+/** The days of leave for one event (Maternity: by child). */
+export const eventEntitlement = (t: Pick<LeaveTypeConfig, 'id' | 'limit' | 'limitUnit'> & Partial<Pick<LeaveTypeConfig, 'system' | 'mat'>>, child?: MaternityChild | null) =>
+    isMaternity(t) && t.mat ? maternityDays(t.mat, child ?? 1) : eventLimitDays(t);
+
+/** Days before / after the event the leave can START (null = no limit). Maternity: from its weeks, by child. */
+export const eventWindow = (
+    t: Pick<LeaveTypeConfig, 'id' | 'windowBefore' | 'windowAfter'> & Partial<Pick<LeaveTypeConfig, 'system' | 'mat'>>,
+    child?: MaternityChild | null
+): { before: number | null; after: number | null } =>
+    isMaternity(t) && t.mat ? { before: maternityPreWeeks(t.mat, child ?? 1) * 7, after: t.mat.post * 7 } : { before: t.windowBefore, after: t.windowAfter };
+
+/** The first and last allowed start dates around an event date (null = no limit that side). */
+export const startRange = (window: { before: number | null; after: number | null }, eventDate: string) => ({
+    from: window.before === null ? null : addDays(eventDate, -window.before),
+    to: window.after === null ? null : addDays(eventDate, window.after),
+});
+
+/** "Can start between Mon 6 Oct and Mon 1 Dec" / "Can start from …" / "Can start until …" / "Can start any time". */
+export const startRangeText = (range: { from: string | null; to: string | null }) => {
+    if (range.from && range.to) return `Can start between ${shortDate(range.from)} and ${shortDate(range.to)}`;
+    if (range.from) return `Can start from ${shortDate(range.from)}`;
+    if (range.to) return `Can start until ${shortDate(range.to)}`;
+    return 'Can start any time';
+};
+
+/** "182 days" / "7 days" / "26 weeks" */
 export const limitText = (t: Pick<LeaveTypeConfig, 'limit' | 'limitUnit'>) => {
     const n = t.limit ?? 0;
     return t.limitUnit === 'weeks' ? `${fmtDays(n)} week${n === 1 ? '' : 's'}` : daysText(n);
 };
-/** "18 days a year" / "Up to 26 weeks per event" */
-export const entitlementText = (t: Pick<LeaveTypeConfig, 'kind' | 'daysPerYear' | 'limit' | 'limitUnit'>) =>
-    t.kind === 'event' ? `Up to ${limitText(t)} per event` : `${fmtDays(t.daysPerYear)} ${dayWord(t.daysPerYear)} a year`;
+/** The table's "Number of days": "12 days a year" / "7 days per event" / "182 days per birth" (Maternity, first child). */
+export const entitlementText = (t: Pick<LeaveTypeConfig, 'id' | 'kind' | 'daysPerYear' | 'limit' | 'limitUnit'> & Partial<Pick<LeaveTypeConfig, 'system' | 'mat'>>) => {
+    if (isMaternity(t) && t.mat) return `${daysText(t.mat.d1)} per birth`;
+    return t.kind === 'event' ? `${limitText(t)} per event` : `${fmtDays(t.daysPerYear)} ${dayWord(t.daysPerYear)} a year`;
+};
 /** "Monthly · 1.5 days a month" / "Per event" */
 export const creditedText = (t: Pick<LeaveTypeConfig, 'kind' | 'credit' | 'daysPerYear'>) => (t.kind === 'event' ? 'Per event' : `${CREDIT_LABEL[t.credit]} · ${accrualText(t)}`);
-/** "Carry forward up to 45 days" / "Encashed" / "Lapses" */
-export const yearEndText = (t: Pick<LeaveTypeConfig, 'kind' | 'yearEnd' | 'carryForward'>) => {
+/** "Carry forward up to 45 days" / "Carry forward up to 45 days, the rest encashed" / "All encashed" / "All lapse" */
+export const yearEndText = (t: Pick<LeaveTypeConfig, 'kind' | 'yearEnd' | 'carryForward'> & Partial<Pick<LeaveTypeConfig, 'excess'>>) => {
     if (t.kind === 'event') return '—';
-    if (t.yearEnd === 'carry') return t.carryForward > 0 ? `Carry forward up to ${daysText(t.carryForward)}` : 'Lapses';
-    return t.yearEnd === 'encash' ? 'Encashed' : 'Lapses';
+    if (t.yearEnd === 'carry' && t.carryForward > 0) return `Carry forward up to ${daysText(t.carryForward)}${t.excess === 'encash' ? ', the rest encashed' : ', the rest lapses'}`;
+    if (t.yearEnd === 'encash') return 'All encashed';
+    return 'All lapse';
 };
 /** "Up to 7 days per event · Working days" */
-export const eventInfoText = (t: Pick<LeaveTypeConfig, 'limit' | 'limitUnit' | 'count'>) => `Up to ${limitText(t)} per event · ${COUNT_LABEL[t.count]}`;
-/** "From 30 days before to 90 days after the date of birth or adoption" / "Any time" */
-export const windowText = (t: Pick<LeaveTypeConfig, 'windowBefore' | 'windowAfter' | 'eventLabel'>) => {
-    const ev = (t.eventLabel || 'event date').toLowerCase();
-    const before = t.windowBefore;
-    const after = t.windowAfter;
-    if (before === null && after === null) return 'Any time';
-    if (before !== null && after !== null) return `From ${daysText(before)} before to ${daysText(after)} after the ${ev}`;
-    if (before !== null) return `From ${daysText(before)} before the ${ev}`;
-    return `Up to ${daysText(after as number)} after the ${ev}`;
+export const eventInfoText = (t: Pick<LeaveTypeConfig, 'id' | 'limit' | 'limitUnit' | 'count'> & Partial<Pick<LeaveTypeConfig, 'system' | 'mat'>>) =>
+    `Up to ${isMaternity(t) && t.mat ? daysText(t.mat.d1) : limitText(t)} per event · ${COUNT_LABEL[t.count]}`;
+/** "From 30 days before to 90 days after the date of birth or adoption" / "Any time" — when the leave can START. */
+export const windowText = (t: Pick<LeaveTypeConfig, 'id' | 'windowBefore' | 'windowAfter' | 'eventLabel' | 'trigger'> & Partial<Pick<LeaveTypeConfig, 'system' | 'mat'>>, child?: MaternityChild | null) => {
+    const ev = eventDateLabel(t).toLowerCase();
+    const { before, after } = eventWindow(t, child);
+    if (before === null && after === null) return 'Can start any time';
+    if (before !== null && after !== null) return after === 0 ? `Can start up to ${daysText(before)} before the ${ev}` : `Can start from ${daysText(before)} before to ${daysText(after)} after the ${ev}`;
+    if (before !== null) return `Can start from ${daysText(before)} before the ${ev}`;
+    return `Can start up to ${daysText(after as number)} after the ${ev}`;
 };
+
+/**
+ * The end date for the full entitlement from a start date: calendar days → start + N − 1; working days → the N-th
+ * working day of the employee's calendar from the start. The employee can shorten it, never extend it.
+ */
+export const autoEnd = (start: string, days: number, count: LeaveCount, cal: WorkCalendar) => {
+    if (days <= 0) return start;
+    if (count === 'calendar') return addDays(start, Math.ceil(days) - 1);
+    let d = start;
+    let n = isWorkingDayFor(cal, d) ? 1 : 0;
+    for (let i = 0; n < days && i < 800; i += 1) {
+        d = addDays(d, 1);
+        if (isWorkingDayFor(cal, d)) n += 1;
+    }
+    return d;
+};
+
+/** Maternity's days by child can't go below the statutory minimum; "before" is at most 8 weeks. Null when fine. */
+export const maternityProblem = (mat: Partial<MaternityRule>) => {
+    if ((mat.d1 ?? 0) < MATERNITY_MIN.d1) return `First child: at least ${MATERNITY_MIN.d1} days (the legal minimum).`;
+    if ((mat.d2 ?? 0) < MATERNITY_MIN.d2) return `Second child: at least ${MATERNITY_MIN.d2} days (the legal minimum).`;
+    if ((mat.d3 ?? 0) < MATERNITY_MIN.d3) return `Third child or later: at least ${MATERNITY_MIN.d3} days (the legal minimum).`;
+    if ((mat.pre ?? 0) > MATERNITY_MIN.preMax || (mat.pre ?? 0) < 0) return `Leave can start at most ${MATERNITY_MIN.preMax} weeks before the delivery date.`;
+    if ((mat.post ?? 0) < 0) return 'Weeks after the delivery date can’t be negative.';
+    return null;
+};
+
+/** Maternity is required with more than 10 current employees; optional (off by default) with 10 or fewer. */
+export const MATERNITY_HEADCOUNT = 10;
+export const maternityRequired = (headcount: number) => headcount > MATERNITY_HEADCOUNT;
+/** Is Maternity offered: required by headcount, or turned on by HR (matOn) — and the type is active. */
+export const maternityOffered = (policy: Pick<LeavePolicy, 'matOn'>, headcount: number) => maternityRequired(headcount) || Boolean(policy.matOn);
 
 // ---- credit date and rounding (PROTOTYPE-SETUP: Leave policy settings) -------------------------------------------
 
@@ -430,8 +591,11 @@ export const creditSchedule = (
     const monthly = type.daysPerYear / 12;
     const cycleDays = daysFrom(year.start, year.end) + 1;
     const credits: Credit[] = [];
+    // PROTOTYPE-SETUP (Leave settings rework): "Daily" during probation — while the employee is on probation the type
+    // accrues day by day; once they're Active the months they spent on probation count as monthly credits.
+    const credit = facts.status === 'PROBATION' && rule === 'DAILY' ? 'DAILY' : type.credit;
 
-    if (type.credit === 'DAILY') {
+    if (credit === 'DAILY') {
         const amountOf = (m: { start: string; end: string }) => {
             const a0 = maxIso(doj, m.start);
             const a1 = exit && exit < m.end ? exit : m.end;
@@ -467,16 +631,35 @@ export const creditSchedule = (
     return { entitlement, credits, daily: null };
 };
 
-/** Credited up to and including `asOf` (daily types: the days elapsed in the current month too). */
-export const creditedBy = (schedule: ReturnType<typeof creditSchedule>, type: Pick<LeaveTypeConfig, 'daysPerYear'>, asOf: string, year: { start: string; end: string }, doj: string) => {
+/**
+ * Credited up to `asOf` (daily types: the days elapsed in the current month too). PROTOTYPE-SETUP (Leave settings
+ * rework): `todayCounts` — whether today's daily credit has landed (credit date Start: at the start of the day; End:
+ * not until the day is over; Custom: from the set time). See dailyCreditToday.
+ */
+export const creditedBy = (
+    schedule: ReturnType<typeof creditSchedule>,
+    type: Pick<LeaveTypeConfig, 'daysPerYear'>,
+    asOf: string,
+    year: { start: string; end: string },
+    doj: string,
+    todayCounts = true
+) => {
     if (!schedule.daily) return schedule.credits.filter(c => c.date <= asOf).reduce((s, c) => s + c.amount, 0);
     const cycleDays = daysFrom(year.start, year.end) + 1;
     return schedule.daily.months.reduce((s, m) => {
-        if (m.end <= asOf) return s + schedule.daily!.amountOf(m);
+        if (m.end < asOf || (m.end === asOf && todayCounts)) return s + schedule.daily!.amountOf(m);
         if (m.start > asOf) return s;
         const a0 = maxIso(doj, m.start);
-        return asOf >= a0 ? s + (type.daysPerYear * (daysFrom(a0, asOf) + 1)) / cycleDays : s;
+        const days = daysFrom(a0, asOf) + (todayCounts ? 1 : 0);
+        return asOf >= a0 && days > 0 ? s + (type.daysPerYear * days) / cycleDays : s;
     }, 0);
+};
+
+/** Has today's daily credit landed? Start: yes (start of the day). End: no (once the day is over). Custom: from the set time. */
+export const dailyCreditToday = (rule: LeaveCreditDate = 'START', nowTime = '00:00', creditTime = '12:00') => {
+    if (rule === 'END') return false;
+    if (rule === 'CUSTOM') return nowTime >= creditTime;
+    return true;
 };
 
 // ---- the balance ----------------------------------------------------------------------------------------------
@@ -485,47 +668,52 @@ export const creditedBy = (schedule: ReturnType<typeof creditSchedule>, type: Pi
 export const availableBalance = (b: { credited: number; approved: number; late: number; inRequest: number }) => r2(b.credited - b.approved - b.late - b.inRequest);
 
 /**
- * Exit: unused days (pro-rated to the last working day) follow the type's leaving options — encashed in full & final
- * settlement, used to bring the last working day forward, both (the employee chooses: `choice`, the same days in both)
- * or neither (they lapse). Stored only: F&F is a later module. Days taken beyond what was earned are recovered.
+ * Exit: unused days (pro-rated to the last working day) follow the type's leaving option — encashed in full & final
+ * settlement, used to bring the last working day forward, or lapse. Stored only: F&F is a later module. Days taken
+ * beyond what was earned are recovered. (`choice` stays for older stored settlements where both were ticked.)
  */
 export const exitSettlement = (b: { earned: number; approved: number; late: number }, exitOpts: LeaveExitOpt[]) => {
     const left = r2(b.earned - b.approved - b.late);
     const unused = left > 0 ? left : 0;
-    const encash = exitOpts.includes('encash');
-    const prepone = exitOpts.includes('prepone');
+    const [opt] = exitOptsOf({ exitOpts });
     return {
-        encash: encash ? unused : 0,
-        bringForward: prepone ? unused : 0,
+        encash: opt === 'encash' ? unused : 0,
+        bringForward: opt === 'prepone' ? unused : 0,
         recover: left < 0 ? -left : 0,
-        ...(encash && prepone ? { choice: true } : {}),
-        ...(!encash && !prepone ? { lapse: unused } : {}),
+        ...(!opt ? { lapse: unused } : {}),
     };
 };
 
 /**
- * PROTOTYPE-SETUP (Leave policy settings): the end of a leave cycle for one yearly type (employees still working; run
- * automatically on the last working day): carry forward up to the limit (the rest lapses), encash (paid out by
- * payroll, the balance restarts) or lapse.
+ * PROTOTYPE-SETUP (Leave policy settings; Leave settings rework): the end of a leave cycle for one yearly type
+ * (employees still working; run automatically on the last working day), four options: all lapse · all encashed ·
+ * carry forward up to the limit, the rest lapses · carry forward up to the limit, the rest is encashed.
  */
-export const yearEndRule = (unused: number, t: Pick<LeaveTypeConfig, 'yearEnd' | 'carryForward'>) => {
+export const yearEndRule = (unused: number, t: Pick<LeaveTypeConfig, 'yearEnd' | 'carryForward'> & Partial<Pick<LeaveTypeConfig, 'excess'>>) => {
     const u = Math.max(0, r2(unused));
     if (t.yearEnd === 'carry') {
         const cf = carryForward(u, t.carryForward);
-        return { carried: cf.carried, encashed: 0, lapsed: cf.lapsed };
+        return t.excess === 'encash' ? { carried: cf.carried, encashed: cf.lapsed, lapsed: 0 } : { carried: cf.carried, encashed: 0, lapsed: cf.lapsed };
     }
     if (t.yearEnd === 'encash') return { carried: 0, encashed: u, lapsed: 0 };
     return { carried: 0, encashed: 0, lapsed: u };
 };
 
-/** The ledger lines a year end leaves on the new cycle's first day: carried / encashed / lapsed. */
-export const yearEndLedger = (date: string, unused: number, t: Pick<LeaveTypeConfig, 'yearEnd' | 'carryForward'>): LedgerEntry[] => {
+/** The ledger lines a year end leaves on the new cycle's first day: carried / encashed / lapsed, with the limit. */
+export const yearEndLedger = (date: string, unused: number, t: Pick<LeaveTypeConfig, 'yearEnd' | 'carryForward'> & Partial<Pick<LeaveTypeConfig, 'excess'>>): LedgerEntry[] => {
     const y = yearEndRule(unused, t);
     const lines: LedgerEntry[] = [];
-    if (y.carried > 0) lines.push({ date, kind: 'CARRIED', amount: y.carried, text: 'Carried forward from last year' });
-    if (y.encashed > 0) lines.push({ date, kind: 'ENCASHED', amount: null, text: `${fmtDays(y.encashed)} unused ${dayWord(y.encashed)} encashed at the end of last year (paid by payroll)` });
+    const limited = t.yearEnd === 'carry' && t.carryForward > 0;
+    if (y.carried > 0) lines.push({ date, kind: 'CARRIED', amount: y.carried, text: `Carried forward from last year${limited ? ` (limit ${fmtDays(t.carryForward)})` : ''}` });
+    if (y.encashed > 0)
+        lines.push({
+            date,
+            kind: 'ENCASHED',
+            amount: null,
+            text: `${fmtDays(y.encashed)} unused ${dayWord(y.encashed)} encashed at the end of last year${limited ? ` (above the carry-forward limit of ${fmtDays(t.carryForward)})` : ''} (paid by payroll)`,
+        });
     if (y.lapsed > 0) {
-        const why = t.yearEnd === 'carry' && t.carryForward > 0 ? `carry-forward limit ${fmtDays(t.carryForward)}` : 'no carry forward';
+        const why = limited ? `carry-forward limit ${fmtDays(t.carryForward)}` : 'no carry forward';
         lines.push({ date, kind: 'LAPSED', amount: null, text: `${fmtDays(y.lapsed)} unused ${dayWord(y.lapsed)} lapsed (${why})` });
     }
     return lines;
@@ -553,7 +741,8 @@ export const countLeaveDays = (
     end: string,
     half: LeaveHalf | null,
     cal: WorkCalendar,
-    sandwich: SandwichRule = 'OFF',
+    /** The sandwich rule (settings object; the older enum values still work). */
+    sandwich: SandwichConfig | SandwichRule = 'OFF',
     /** PROTOTYPE-SETUP (Leave policy settings): 'calendar' = every day in the range counts (statutory leave). */
     count: LeaveCount = 'working'
 ) => {
@@ -562,16 +751,26 @@ export const countLeaveDays = (
     if (count === 'calendar') return { working: all.length, sandwich: 0, days: all.length * (half ? 0.5 : 1), workDates: all, calendar: true as const };
     const work = all.filter(d => isWorkingDayFor(cal, d));
     if (half) return { working: work.length, sandwich: 0, days: work.length * 0.5, workDates: work };
-    let sand = 0;
-    if (sandwich !== 'OFF' && work.length >= 2) {
-        const first = work[0];
-        const last = work[work.length - 1];
-        all.forEach(d => {
-            if (d <= first || d >= last || isWorkingDayFor(cal, d)) return;
-            if (isWeeklyOffFor(cal, d) || sandwich === 'WEEKLY_OFFS_AND_HOLIDAYS') sand += 1;
-        });
-    }
+    const sand = sandwichDays(all, work, cal, sandwichOf(sandwich));
     return { working: work.length, sandwich: sand, days: work.length + sand, workDates: work };
+};
+
+/**
+ * PROTOTYPE-SETUP (Leave settings rework): days off the sandwich rule adds — only those between the first and the last
+ * working day of the request, weekly offs and/or public holidays as set; "Only for longer leave" applies it only when
+ * the request covers more than N days in total (first to last day). Example: 1st–9th with the 6th and 7th weekly offs
+ * and the 4th a holiday = 6 working days; with weekly offs and holidays counting (and a threshold under 9) = 9.
+ */
+export const sandwichDays = (all: string[], work: string[], cal: WorkCalendar, rule: SandwichConfig) => {
+    if (!rule.on || work.length < 2 || (!rule.weeklyOffs && !rule.holidays)) return 0;
+    if (rule.when === 'longer' && all.length <= rule.overDays) return 0;
+    const first = work[0];
+    const last = work[work.length - 1];
+    return all.filter(d => {
+        if (d <= first || d >= last || isWorkingDayFor(cal, d)) return false;
+        // A holiday on a weekly off is a weekly off.
+        return isWeeklyOffFor(cal, d) ? rule.weeklyOffs : rule.holidays;
+    }).length;
 };
 
 /** "3 working days (weekly offs and public holidays aren’t counted)." / "4 days: 2 working days + 2 days off in between (sandwich rule)." */
@@ -610,6 +809,8 @@ export const LEAVE_MESSAGES = {
     endBeforeStart: 'The end date is before the start date.',
     noWorkingDays: 'Those dates are all weekly offs or holidays.',
     halfOff: 'Half-day leave is turned off. Apply for full days.',
+    halfOffFor: (label: string) => `${label} can’t be taken in half days. Apply for full days.`,
+    document: (label: string, docName: string) => `${label} needs a supporting document${docName ? `: ${docName}` : ''}.`,
     overlap: (summary: string, who?: string) => `${who ? `${who} already has` : 'You already have'} leave on these dates (${summary}).`,
     probation: (label: string, who?: string) =>
         who ? `${label} isn’t available while ${who} is on probation.` : `${label} isn’t available during probation. You can use it once HR confirms you.`,
@@ -623,16 +824,27 @@ export const LEAVE_MESSAGES = {
 } as const;
 
 /**
- * Checks a leave request, in this order: type · dates · working days · overlap with leave that's approved, pending or
- * waiting for an update · not available during probation · balance (available, which already takes off leave in
- * request) · supporting document · reason. `who` words the messages for HR adding leave for someone.
+ * Checks a leave request, in this order: type · dates · half days (per type) · working days · overlap with leave that's
+ * approved, pending or waiting for an update · not available during probation · balance (yearly: available, which
+ * already takes off leave in request) or the per-event rules (event date, start window, limit, one request per event)
+ * · supporting document · reason. `who` words the messages for HR adding leave for someone.
  */
 export const validateLeave = (
-    input: { type?: string; start?: string; end?: string; half?: LeaveHalf | null; reason?: string; proof?: { name: string } | null; eventDate?: string | null },
+    input: {
+        type?: string;
+        start?: string;
+        end?: string;
+        half?: LeaveHalf | null;
+        reason?: string;
+        proof?: { name: string } | null;
+        eventDate?: string | null;
+        child?: MaternityChild | null;
+    },
     ctx: {
         types: LeaveTypeConfig[];
         cal: WorkCalendar;
-        sandwich: SandwichRule;
+        sandwich: SandwichConfig | SandwichRule;
+        /** Fallback when a type has no halfDay setting (comp off: the company default). */
         halfDayAllowed: boolean;
         existing: ExistingLeave[];
         /** Available per type (credited − approved − late − in request; the request itself left out when resubmitting). */
@@ -641,9 +853,9 @@ export const validateLeave = (
         onProbation: boolean;
         who?: string;
         reasonMessage?: string;
-        /** PROTOTYPE-SETUP (Leave policy settings): per-event types — days already booked for this type and event date
-         *  (approved or in request; the request itself left out). */
-        eventBooked?: (type: string, eventDate: string) => number;
+        /** PROTOTYPE-SETUP (Leave settings rework): per-event types — is there already an active request (approved or in
+         *  request) for this type and event date (the request itself left out)? */
+        eventTaken?: (type: string, eventDate: string) => boolean;
     }
 ) => {
     const type = ctx.types.find(t => t.id === input.type);
@@ -653,27 +865,32 @@ export const validateLeave = (
     const start = input.start!;
     const end = input.end || start;
     if (!iso.test(end)) throw new RuleError(LEAVE_MESSAGES.date, 400);
-    const half = input.half === 'FIRST' || input.half === 'SECOND' ? input.half : null;
-    if (half && !ctx.halfDayAllowed) throw new RuleError(LEAVE_MESSAGES.halfOff, 400);
-    if (end < start) throw new RuleError(LEAVE_MESSAGES.endBeforeStart, 400);
     const event = isEventType(type);
+    const half = input.half === 'FIRST' || input.half === 'SECOND' ? input.half : null;
+    const halfAllowed = event ? false : typeof type.halfDay === 'boolean' ? type.halfDay : ctx.halfDayAllowed;
+    if (half && !halfAllowed) throw new RuleError(LEAVE_MESSAGES.halfOffFor(typeLabel(type.name)), 400);
+    if (end < start) throw new RuleError(LEAVE_MESSAGES.endBeforeStart, 400);
     const count = countLeaveDays(start, end, half, ctx.cal, event || type.count === 'calendar' ? 'OFF' : ctx.sandwich, type.count ?? 'working');
     if (!count.working) throw new RuleError(LEAVE_MESSAGES.noWorkingDays, 400);
     const clash = ctx.existing.find(x => leavesClash(x, { start, end, half }));
     if (clash) throw new RuleError(LEAVE_MESSAGES.overlap(clash.summary, ctx.who), 409);
     const label = typeLabel(type.name);
-    if (ctx.onProbation && type.probation === 'NONE' && type.id !== COMP_OFF) throw new RuleError(LEAVE_MESSAGES.probation(label, ctx.who), 409);
+    if (ctx.onProbation && type.probation === 'NONE' && type.id !== COMP_OFF && !event) throw new RuleError(LEAVE_MESSAGES.probation(label, ctx.who), 409);
     let eventDate: string | null = null;
+    let child: MaternityChild | null = null;
     if (event) {
-        // PROTOTYPE-SETUP (Leave policy settings): per-event leave has no balance; it's limited per event instead.
+        // PROTOTYPE-SETUP (Leave settings rework): per-event leave has no balance: one block per event, within the
+        // limit, starting inside the window around the event date.
         eventDate = input.eventDate && iso.test(input.eventDate) ? input.eventDate : null;
-        const problem = eventProblem(type, { start, end, days: count.days, eventDate, booked: eventDate ? ctx.eventBooked?.(type.id, eventDate) ?? 0 : 0 }, ctx.who);
-        if (problem) throw new RuleError(problem, eventDate ? 409 : 400);
+        child = isMaternity(type) ? (input.child === 2 || input.child === 3 ? input.child : input.child === 1 ? 1 : null) : null;
+        const problem = eventProblem(type, { start, days: count.days, eventDate, child, taken: eventDate ? Boolean(ctx.eventTaken?.(type.id, eventDate)) : false });
+        if (problem) throw new RuleError(problem, eventDate && (!isMaternity(type) || child) ? 409 : 400);
+        if (type.docRequired && !input.proof?.name) throw new RuleError(LEAVE_MESSAGES.document(label, type.docName), 400);
     } else {
         const available = ctx.available[type.id] ?? 0;
         if (count.days > available + 1e-9) throw new RuleError(LEAVE_MESSAGES.balance(available, label, ctx.pending[type.id] ?? 0, ctx.who), 409);
+        if (needsProof(type, count.days) && !input.proof?.name) throw new RuleError(LEAVE_MESSAGES.proof(label, type.proofAfterDays!), 400);
     }
-    if (needsProof(type, count.days) && !input.proof?.name) throw new RuleError(LEAVE_MESSAGES.proof(label, type.proofAfterDays!), 400);
     const reason = input.reason?.trim() ?? '';
     if (!reason) throw new RuleError(ctx.reasonMessage ?? LEAVE_MESSAGES.reason, 400);
     return {
@@ -685,45 +902,40 @@ export const validateLeave = (
         reason,
         ...(input.proof?.name ? { proof: { name: input.proof.name } } : {}),
         ...(eventDate ? { eventDate } : {}),
+        ...(child ? { child } : {}),
     };
 };
 
-// ---- per-event leave (PROTOTYPE-SETUP: Leave policy settings) ----------------------------------------------------
+// ---- per-event leave checks (PROTOTYPE-SETUP: Leave policy settings; Leave settings rework) --------------------------
 
 export const EVENT_MESSAGES = {
-    eventDate: (eventLabel: string) => `Add the ${(eventLabel || 'event date').toLowerCase()}.`,
-    tooEarly: (label: string, before: number, eventLabel: string, from: string) =>
-        `${label} can start at most ${daysText(before)} before the ${(eventLabel || 'event date').toLowerCase()} (from ${shortDate(from)}).`,
-    tooLate: (label: string, after: number, eventLabel: string, by: string) =>
-        `${label} has to end within ${daysText(after)} after the ${(eventLabel || 'event date').toLowerCase()} (by ${shortDate(by)}).`,
-    beforeEvent: (label: string, eventLabel: string) => `${label} can’t start before the ${(eventLabel || 'event date').toLowerCase()}.`,
-    afterEvent: (label: string, eventLabel: string) => `${label} can’t be taken after the ${(eventLabel || 'event date').toLowerCase()}.`,
-    limit: (label: string, limit: string, booked: number, who?: string) =>
-        `${label} is up to ${limit} per event.${booked > 0 ? ` ${fmtDays(booked)} ${dayWord(booked)} already booked for this event.` : ''} Apply for fewer days.`,
+    eventDate: (dateLabel: string) => `Add the ${dateLabel.charAt(0).toLowerCase()}${dateLabel.slice(1)}.`,
+    child: 'Pick which child this is (first, second, third or later).',
+    tooEarly: (label: string, from: string) => `${label} can start from ${shortDate(from)} at the earliest.`,
+    tooLate: (label: string, to: string) => `${label} has to start by ${shortDate(to)}.`,
+    limit: (label: string, days: number, count: LeaveCount) => `${label} is up to ${daysText(days)} (${COUNT_LABEL[count].toLowerCase()}) for one event. Shorten the dates.`,
+    taken: (label: string) => `There’s already a ${label.toLowerCase()} request for this event. It has to be taken in one go; change that request instead.`,
 } as const;
 
 /**
- * A per-event request: the event date is required; the leave must sit in the window (N days before to M days after the
- * event; null = no limit that side); and this request plus leave already booked for the same event date can't go over
- * the per-event limit (weeks × 7 days). Null when it's fine.
+ * A per-event request: the event date is required (and, for Maternity, which child); the START date has to fall in
+ * [event − before, event + after] (null = no limit that side; Maternity: its weeks, 6 before at most for the third child
+ * or later); the duration is at most the entitlement (Maternity: by child); and only one active request per type and
+ * event date. Null when it's fine.
  */
 export const eventProblem = (
-    t: Pick<LeaveTypeConfig, 'name' | 'limit' | 'limitUnit' | 'eventLabel' | 'windowBefore' | 'windowAfter'>,
-    r: { start: string; end: string; days: number; eventDate: string | null; booked: number },
-    who?: string
+    t: Pick<LeaveTypeConfig, 'id' | 'name' | 'count' | 'limit' | 'limitUnit' | 'eventLabel' | 'windowBefore' | 'windowAfter' | 'trigger'> & Partial<Pick<LeaveTypeConfig, 'system' | 'mat'>>,
+    r: { start: string; days: number; eventDate: string | null; child?: MaternityChild | null; taken?: boolean }
 ) => {
     const label = typeLabel(t.name);
-    if (!r.eventDate) return EVENT_MESSAGES.eventDate(t.eventLabel);
-    if (t.windowBefore !== null && t.windowBefore !== undefined) {
-        const from = addDays(r.eventDate, -t.windowBefore);
-        if (r.start < from) return t.windowBefore === 0 ? EVENT_MESSAGES.beforeEvent(label, t.eventLabel) : EVENT_MESSAGES.tooEarly(label, t.windowBefore, t.eventLabel, from);
-    }
-    if (t.windowAfter !== null && t.windowAfter !== undefined) {
-        const by = addDays(r.eventDate, t.windowAfter);
-        if (r.end > by) return t.windowAfter === 0 ? EVENT_MESSAGES.afterEvent(label, t.eventLabel) : EVENT_MESSAGES.tooLate(label, t.windowAfter, t.eventLabel, by);
-    }
-    const limit = eventLimitDays(t);
-    if (limit > 0 && r.booked + r.days > limit + 1e-9) return EVENT_MESSAGES.limit(label, limitText(t), r.booked, who);
+    if (!r.eventDate) return EVENT_MESSAGES.eventDate(eventDateLabel(t));
+    if (isMaternity(t) && !r.child) return EVENT_MESSAGES.child;
+    const range = startRange(eventWindow(t, r.child), r.eventDate);
+    if (range.from && r.start < range.from) return EVENT_MESSAGES.tooEarly(label, range.from);
+    if (range.to && r.start > range.to) return EVENT_MESSAGES.tooLate(label, range.to);
+    const limit = eventEntitlement(t, r.child);
+    if (limit > 0 && r.days > limit + 1e-9) return EVENT_MESSAGES.limit(label, limit, t.count);
+    if (r.taken) return EVENT_MESSAGES.taken(label);
     return null;
 };
 
@@ -1064,6 +1276,8 @@ export const lossOfPayOnApproval = (left: number, days: number) => (days > left 
 export interface LeaveYearInput {
     policy: LeavePolicy;
     today: string;
+    /** PROTOTYPE-SETUP (Leave settings rework): the time now ("HH:mm", company time zone) for the custom credit time. */
+    nowTime?: string;
     facts: EmploymentFacts & { gender: 'Male' | 'Female' };
     /** Last cycle's unused days per type (what rolled forward: carried up to the limit, the rest lapsed). */
     opening: Record<string, number>;
@@ -1089,6 +1303,8 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
     // PROTOTYPE-SETUP (Leave policy settings): per-event types have no yearly balance.
     const types = typesForEmployee(policy, facts.gender).filter(t => !isEventType(t));
     const rounding = policy.rounding ?? 'NONE';
+    // Daily credits follow the credit date: today's lands at the start of the day / once it's over / from the set time.
+    const todayCounts = dailyCreditToday(policy.creditDate, input.nowTime ?? '23:59', policy.creditTime);
     const inYear = (l: { start: string; end: string }) => l.end >= year.start && l.start <= year.end;
     const sumOf = (type: string, state: 'approved' | 'in_request') =>
         input.leave.filter(l => l.type === type && l.state === state && (type === COMP_OFF || inYear(l))).reduce((s, l) => s + l.days, 0);
@@ -1109,14 +1325,14 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
             const { amountOf, months } = sched.daily;
             months.forEach(m => {
                 if (m.start > asOf) return;
-                const amount = m.end <= asOf ? amountOf(m) : creditedBy({ ...sched, daily: { amountOf, months: [m] } }, t, asOf, year, facts.dateOfJoin);
+                const amount = m.end < asOf || (m.end === asOf && todayCounts) ? amountOf(m) : creditedBy({ ...sched, daily: { amountOf, months: [m] } }, t, asOf, year, facts.dateOfJoin, todayCounts);
                 if (amount > 0) ledger.push({ date: m.end <= asOf ? m.end : asOf, kind: 'DAILY', amount, text: `Daily accrual, ${monthName(m.start)}${m.end > asOf ? ' so far' : ''}` });
             });
         } else sched.credits.filter(c => c.date <= asOf).forEach(c => ledger.push({ date: c.date, kind: c.kind, amount: c.amount, text: c.text }));
         input.leave
             .filter(l => l.type === t.id && l.state === 'approved' && inYear(l))
             .forEach(l => ledger.push({ date: l.start, kind: 'TAKEN', amount: -l.days, text: takenText(l) }));
-        const credited = carried + (sched.daily ? roundDays(creditedBy(sched, t, asOf, year, facts.dateOfJoin), rounding) : creditedBy(sched, t, asOf, year, facts.dateOfJoin));
+        const credited = carried + (sched.daily ? roundDays(creditedBy(sched, t, asOf, year, facts.dateOfJoin, todayCounts), rounding) : creditedBy(sched, t, asOf, year, facts.dateOfJoin));
         const nextCredit = sched.daily ? null : sched.credits.find(c => c.date > asOf) ?? null;
         return {
             t,

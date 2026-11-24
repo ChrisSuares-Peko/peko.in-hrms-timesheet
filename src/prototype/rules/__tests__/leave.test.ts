@@ -58,6 +58,11 @@ const type = (over: Partial<LeaveTypeConfig> = {}): LeaveTypeConfig => ({
     eventLabel: '',
     windowBefore: null,
     windowAfter: null,
+    excess: 'lapse',
+    halfDay: true,
+    trigger: 'other',
+    docRequired: false,
+    docName: '',
     proofAfterDays: null,
     appliesTo: 'ALL',
     active: true,
@@ -156,10 +161,10 @@ describe('carry forward and lapse', () => {
 });
 
 describe('exit settlement', () => {
-    it('unused days follow the leaving options: encash, bring forward, both (the employee’s choice) or none (lapse); days taken beyond what was earned are recovered', () => {
+    it('unused days follow the leaving option: encash, bring forward or lapse (both ticked in older data = encash); days taken beyond what was earned are recovered', () => {
         expect(exitSettlement({ earned: 6, approved: 2, late: 0.5 }, ['encash'])).toEqual({ encash: 3.5, bringForward: 0, recover: 0 });
         expect(exitSettlement({ earned: 6, approved: 2, late: 0 }, ['prepone'])).toEqual({ encash: 0, bringForward: 4, recover: 0 });
-        expect(exitSettlement({ earned: 6, approved: 2, late: 0 }, ['encash', 'prepone'])).toEqual({ encash: 4, bringForward: 4, recover: 0, choice: true });
+        expect(exitSettlement({ earned: 6, approved: 2, late: 0 }, ['encash', 'prepone'])).toEqual({ encash: 4, bringForward: 0, recover: 0 });
         expect(exitSettlement({ earned: 6, approved: 2, late: 0 }, [])).toEqual({ encash: 0, bringForward: 0, recover: 0, lapse: 4 });
         expect(exitSettlement({ earned: 3, approved: 5, late: 0 }, ['encash'])).toEqual({ encash: 0, bringForward: 0, recover: 2 });
         expect(exitSettlement({ earned: 3, approved: 5, late: 0 }, ['prepone'])).toEqual({ encash: 0, bringForward: 0, recover: 2 });
@@ -169,7 +174,7 @@ describe('exit settlement', () => {
         expect(exitOptsOf({ encashOnExit: false })).toEqual(['prepone']);
         expect(exitOptsOf({ onLeaving: 'ENCASH', encashOnExit: false })).toEqual(['encash']);
         expect(exitOptsOf({ onLeaving: 'BRING_FORWARD' })).toEqual(['prepone']);
-        expect(exitOptsOf({ exitOpts: ['prepone', 'encash'] })).toEqual(['encash', 'prepone']);
+        expect(exitOptsOf({ exitOpts: ['prepone', 'encash'] })).toEqual(['encash']);
         const stored = { ...DEFAULT_LEAVE_POLICY, types: DEFAULT_LEAVE_POLICY.types.map(({ exitOpts: _o, ...t }) => ({ ...t, encashOnExit: t.id === 'ANNUAL' })) };
         const p = migrateLeavePolicy(stored);
         expect(p.types.find(t => t.id === 'ANNUAL')?.exitOpts).toEqual(['encash']);

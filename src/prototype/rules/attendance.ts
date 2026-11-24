@@ -191,34 +191,58 @@ export const DEFAULT_FILING: TimesheetFilingSettings = {
 // PROTOTYPE-SETUP (Final batch, Slice 1): the leave policy defaults. PROTOTYPE-SETUP (Leave module): HR's leave types
 // (rules: ./leave.ts). Annual / Casual / Sick are the live policy the ESS balances already used; Maternity and Paternity
 // come from the original Payroll leave policies. Every type is paid.
-// PROTOTYPE-SETUP (Leave policy settings): Maternity and Paternity are per-event leave (statutory): up to 26 weeks in
-// calendar days from 56 days before the delivery date, and up to 7 working days from 30 days before to 90 days after
-// the birth or adoption; both need a document. Yearly types keep their year-end and leaving rules.
-const YEARLY = { kind: 'yearly', count: 'working', limit: null, limitUnit: 'days', eventLabel: '', windowBefore: null, windowAfter: null } as const;
+// PROTOTYPE-SETUP (Leave policy settings; Leave settings rework): Maternity is the statutory per-event type every
+// company has (calendar days, by child: 182 / 182 / 84 days, from 8 weeks before the delivery date; can't be deleted
+// or renamed). Paternity is per event: 7 working days, from 30 days before to 90 days after the birth or adoption.
+// Half days are per type now (on for the yearly types).
+const YEARLY = {
+    kind: 'yearly',
+    count: 'working',
+    limit: null,
+    limitUnit: 'days',
+    eventLabel: '',
+    windowBefore: null,
+    windowAfter: null,
+    excess: 'lapse',
+    halfDay: true,
+    trigger: 'other',
+    docRequired: false,
+    docName: '',
+} as const;
+/** Maternity's statutory minimum (Code on Social Security, 2020): days by child, and the weeks it can start before. */
+export const MATERNITY_MIN = { d1: 182, d2: 182, d3: 84, preMax: 8, preMaxThird: 6 } as const;
+export const DEFAULT_MATERNITY: LeaveTypeConfig = {
+    id: 'MATERNITY',
+    name: 'Maternity',
+    system: 'maternity',
+    kind: 'event',
+    count: 'calendar',
+    limit: 182,
+    limitUnit: 'days',
+    eventLabel: 'Expected or actual date of delivery',
+    windowBefore: 56,
+    windowAfter: 0,
+    excess: 'lapse',
+    halfDay: false,
+    trigger: 'birth',
+    docRequired: true,
+    docName: 'Medical certificate with the expected date of delivery',
+    mat: { d1: 182, d2: 182, d3: 84, pre: 8, post: 0 },
+    daysPerYear: 0,
+    credit: 'CYCLE_START',
+    probation: 'FULL',
+    yearEnd: 'lapse',
+    carryForward: 0,
+    exitOpts: [],
+    proofAfterDays: 0,
+    appliesTo: 'FEMALE',
+    active: true,
+};
 export const DEFAULT_LEAVE_TYPES: LeaveTypeConfig[] = [
     { id: 'ANNUAL', name: 'Annual', ...YEARLY, daysPerYear: 12, credit: 'MONTHLY', probation: 'MONTHLY', yearEnd: 'carry', carryForward: 30, exitOpts: ['encash'], proofAfterDays: null, appliesTo: 'ALL', active: true },
     { id: 'CASUAL', name: 'Casual', ...YEARLY, daysPerYear: 8, credit: 'CYCLE_START', probation: 'MONTHLY', yearEnd: 'lapse', carryForward: 0, exitOpts: ['prepone'], proofAfterDays: null, appliesTo: 'ALL', active: true },
     { id: 'SICK', name: 'Sick', ...YEARLY, daysPerYear: 6, credit: 'CYCLE_START', probation: 'FULL', yearEnd: 'lapse', carryForward: 0, exitOpts: ['prepone'], proofAfterDays: 3, appliesTo: 'ALL', active: true },
-    {
-        id: 'MATERNITY',
-        name: 'Maternity',
-        kind: 'event',
-        count: 'calendar',
-        limit: 26,
-        limitUnit: 'weeks',
-        eventLabel: 'Expected or actual date of delivery',
-        windowBefore: 56,
-        windowAfter: null,
-        daysPerYear: 0,
-        credit: 'CYCLE_START',
-        probation: 'FULL',
-        yearEnd: 'lapse',
-        carryForward: 0,
-        exitOpts: [],
-        proofAfterDays: 0,
-        appliesTo: 'FEMALE',
-        active: true,
-    },
+    DEFAULT_MATERNITY,
     {
         id: 'PATERNITY',
         name: 'Paternity',
@@ -226,9 +250,14 @@ export const DEFAULT_LEAVE_TYPES: LeaveTypeConfig[] = [
         count: 'working',
         limit: 7,
         limitUnit: 'days',
-        eventLabel: 'Date of birth or adoption',
+        eventLabel: '',
         windowBefore: 30,
         windowAfter: 90,
+        excess: 'lapse',
+        halfDay: false,
+        trigger: 'birthadopt',
+        docRequired: true,
+        docName: 'Birth certificate or adoption order',
         daysPerYear: 0,
         credit: 'CYCLE_START',
         probation: 'FULL',
@@ -246,15 +275,18 @@ export const DEFAULT_LEAVE_POLICY: LeavePolicy = {
     year: 'COMPANY',
     cycleStart: '04-01',
     types: DEFAULT_LEAVE_TYPES,
-    sandwich: 'OFF',
+    // PROTOTYPE-SETUP (Leave settings rework): off; when on, weekly offs count by default.
+    sandwich: { on: false, when: 'always', overDays: 4, weeklyOffs: true, holidays: false },
     compOff: { enabled: true, expiryDays: 60 },
     lateOrder: ['ANNUAL', 'CASUAL'],
     // PROTOTYPE-SETUP (Leave policy settings): monthly credits at the start of the month (as before), no rounding, loss
     // of pay only once paid leave is used up.
     creditDate: 'START',
     creditDay: 1,
+    creditTime: '12:00',
     rounding: 'NONE',
     lop: 'USED_UP',
+    matOn: false,
 };
 
 /** Late check-ins deduct this many days by default (0 = off). */

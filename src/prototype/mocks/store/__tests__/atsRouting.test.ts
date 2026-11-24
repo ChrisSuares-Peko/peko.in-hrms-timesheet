@@ -209,11 +209,11 @@ describe('my team visibility', () => {
 
 // PROTOTYPE-SETUP (Settings, Slice 4): the leave rules reach the employee's form and the server's checks.
 describe('leave request rules', () => {
-    it('half-day off comes from settings; the document rule from the leave type', () => {
-        updateSettings(M, { leaveRules: { halfDay: false } });
-        expect(leaveViewOf(M, sneha).rules.halfDay).toBe(false);
+    // PROTOTYPE-SETUP (Leave settings rework): half days are a per-type setting now.
+    it('half days come from the leave type; so does the document rule', () => {
+        updateLeaveType(M, 'CASUAL', { halfDay: false });
         const d = nextWorking(s.today, 30);
-        expect(() => createLeaveRequest(M, sneha, { type: 'CASUAL', start: d, half: 'FIRST', reason: 'x' })).toThrow('Half-day leave is turned off. Apply for full days.');
+        expect(() => createLeaveRequest(M, sneha, { type: 'CASUAL', start: d, half: 'FIRST', reason: 'x' })).toThrow('Casual leave can’t be taken in half days. Apply for full days.');
         updateLeaveType(M, 'SICK', { proofAfterDays: 1 });
         expect(() => createLeaveRequest(M, sneha, { type: 'SICK', start: d, end: nextWorking(d, 1), reason: 'x' })).toThrow('Sick leave of more than 1 day needs a supporting document.');
     });

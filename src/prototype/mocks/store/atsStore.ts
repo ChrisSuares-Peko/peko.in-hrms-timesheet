@@ -135,7 +135,8 @@ export const getSettings = (mode: DataMode): AtsSettings => {
         // PROTOTYPE-SETUP (Leave policy settings): extra approval for longer leave (off when never saved).
         leaveEndorsement: { ...DEFAULT_SETTINGS.leaveEndorsement, ...s.leaveEndorsement },
         // PROTOTYPE-SETUP (Leave module): a policy stored in the earlier shape is mapped to the current one.
-        leavePolicy: migrateLeavePolicy(s.leavePolicy, (s.leaveRules as { proofDays?: number } | undefined)?.proofDays),
+        // PROTOTYPE-SETUP (Leave settings rework): the company-wide half-day setting becomes each yearly type's halfDay.
+        leavePolicy: migrateLeavePolicy(s.leavePolicy, (s.leaveRules as { proofDays?: number } | undefined)?.proofDays, s.leaveRules?.halfDay ?? DEFAULT_SETTINGS.leaveRules.halfDay),
         lateDeductionDays: s.lateDeductionDays ?? DEFAULT_SETTINGS.lateDeductionDays,
     };
 };

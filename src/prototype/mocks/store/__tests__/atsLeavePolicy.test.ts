@@ -13,13 +13,16 @@ import {
     endorserFor,
     leaveSettingsView,
     leaveViewOf,
+    removeLeaveType,
     requestLeaveChange,
     resubmitLeaveRequest,
+    setEmployeeLife,
     updateLeaveConfig,
+    updateLeaveType,
     withdrawLeaveRequest,
 } from '../atsLeave';
 import { atsLeaveRequests } from '../atsRequests';
-import { publicHolidayOn, today } from '../atsStore';
+import { employeesFor, publicHolidayOn, today } from '../atsStore';
 import { decideRequest, teamRequests, updateSettings } from '../atsTeam';
 import { resetAllCollections } from '../persistentStore';
 
@@ -147,36 +150,74 @@ describe('loss of pay', () => {
 });
 
 describe('per-event leave', () => {
-    it('Paternity: an event date, the 30 / 90-day window, up to 7 working days per event (leave already booked counts)', () => {
+    it('Paternity: an event date, a start inside the 30 / 90-day window, up to 7 working days, one request per event', () => {
         const birth = working(today(), 45);
         const start = working(today(), 40);
         expect(() => createLeaveRequest(M, arjun, { type: 'PATERNITY', start, end: working(start, 2), reason: 'Baby', proof: { name: 'b.pdf' } })).toThrow('Add the date of birth or adoption.');
+        expect(() => createLeaveRequest(M, arjun, { type: 'PATERNITY', start, end: working(start, 7), reason: 'Baby', proof: { name: 'b.pdf' }, eventDate: birth })).toThrow(
+            'Paternity leave is up to 7 days (working days) for one event. Shorten the dates.'
+        );
+        expect(() => createLeaveRequest(M, arjun, { type: 'PATERNITY', start, end: working(start, 4), reason: 'Baby', eventDate: birth })).toThrow(
+            'Paternity leave needs a supporting document: Birth certificate or adoption order.'
+        );
         createLeaveRequest(M, arjun, { type: 'PATERNITY', start, end: working(start, 4), reason: 'Baby', proof: { name: 'b.pdf' }, eventDate: birth });
         expect(mine(arjun)).toMatchObject({ type: 'PATERNITY', days: 5, eventDate: birth });
         const later = working(start, 7);
-        expect(() => createLeaveRequest(M, arjun, { type: 'PATERNITY', start: later, end: working(later, 2), reason: 'Baby', proof: { name: 'b.pdf' }, eventDate: birth })).toThrow(
-            /up to 7 days per event\. 5 days already booked/
-        );
-        const far = addDays(birth, 120);
-        expect(() => createLeaveRequest(M, arjun, { type: 'PATERNITY', start: far, end: far, reason: 'Baby', proof: { name: 'b.pdf' }, eventDate: birth })).toThrow(/within 90 days after/);
+        expect(() => createLeaveRequest(M, arjun, { type: 'PATERNITY', start: later, end: later, reason: 'Baby', proof: { name: 'b.pdf' }, eventDate: birth })).toThrow(/taken in one go/);
+        const far = working(addDays(birth, 95), 1);
+        expect(() => createLeaveRequest(M, arjun, { type: 'PATERNITY', start: far, end: far, reason: 'Baby', proof: { name: 'b.pdf' }, eventDate: addDays(birth, 1) })).toThrow(/has to start by/);
         // no yearly balance
         expect(leaveViewOf(M, arjun).balances.some(b => b.type === 'PATERNITY')).toBe(false);
     });
 
-    it('Maternity counts calendar days; more than 182 days for one delivery date is refused', () => {
+    it('Maternity: calendar days by child; the third child gets 84 days from 6 weeks before', () => {
         const delivery = addDays(today(), 120);
-        const start = addDays(today(), 90);
-        expect(() => createLeaveRequest(M, sneha, { type: 'MATERNITY', start, end: addDays(start, 182), reason: 'Delivery', proof: { name: 'c.pdf' }, eventDate: delivery })).toThrow(
-            /up to 26 weeks per event/
+        const start = addDays(delivery, -56);
+        expect(() => createLeaveRequest(M, sneha, { type: 'MATERNITY', start, end: addDays(start, 181), reason: 'Delivery', proof: { name: 'c.pdf' }, eventDate: delivery })).toThrow(
+            'Pick which child this is (first, second, third or later).'
         );
-        createLeaveRequest(M, sneha, { type: 'MATERNITY', start, end: addDays(start, 181), reason: 'Delivery', proof: { name: 'c.pdf' }, eventDate: delivery });
-        expect(mine(sneha)).toMatchObject({ type: 'MATERNITY', days: 182 });
+        expect(() => createLeaveRequest(M, sneha, { type: 'MATERNITY', start, end: addDays(start, 83), reason: 'Delivery', proof: { name: 'c.pdf' }, eventDate: delivery, child: 3 })).toThrow(
+            /can start from .* at the earliest/
+        );
+        const third = addDays(delivery, -42);
+        expect(() => createLeaveRequest(M, sneha, { type: 'MATERNITY', start: third, end: addDays(third, 84), reason: 'Delivery', proof: { name: 'c.pdf' }, eventDate: delivery, child: 3 })).toThrow(
+            /up to 84 days/
+        );
+        createLeaveRequest(M, sneha, { type: 'MATERNITY', start, end: addDays(start, 181), reason: 'Delivery', proof: { name: 'c.pdf' }, eventDate: delivery, child: 1 });
+        expect(mine(sneha)).toMatchObject({ type: 'MATERNITY', days: 182, child: 1 });
     });
 
     it('the ESS view lists per-event types for the employee (not as balances)', () => {
         const v = leaveViewOf(M, sneha);
         expect(v.eventTypes.map(t => t.id)).toEqual(['MATERNITY']);
         expect(leaveViewOf(M, arjun).eventTypes.map(t => t.id)).toEqual(['PATERNITY']);
+    });
+});
+
+describe('Maternity settings (statutory)', () => {
+    it('can’t be deleted or renamed; days below 182 / 182 / 84 are refused; required (locked on) above 10 employees', () => {
+        expect(() => removeLeaveType(M, 'MATERNITY')).toThrow(/statutory leave, so it can’t be deleted/);
+        expect(() => updateLeaveType(M, 'MATERNITY', { name: 'Motherhood' })).toThrow(/keeps its name/);
+        expect(() => updateLeaveType(M, 'MATERNITY', { mat: { d1: 180, d2: 182, d3: 84, pre: 8, post: 0 } })).toThrow('First child: at least 182 days (the legal minimum).');
+        expect(() => updateLeaveType(M, 'MATERNITY', { mat: { d1: 182, d2: 182, d3: 70, pre: 8, post: 0 } })).toThrow(/Third child or later: at least 84 days/);
+        updateLeaveType(M, 'MATERNITY', { mat: { d1: 200, d2: 190, d3: 90, pre: 6, post: 2 } });
+        expect(leaveSettingsView(M).policy.types.find(t => t.id === 'MATERNITY')!.mat).toEqual({ d1: 200, d2: 190, d3: 90, pre: 6, post: 2 });
+        const v = leaveSettingsView(M);
+        expect(v.headcount).toBeGreaterThan(10);
+        expect(v.maternityRequired).toBe(true);
+        updateLeaveType(M, 'MATERNITY', { active: false });
+        expect(leaveSettingsView(M).policy.types.find(t => t.id === 'MATERNITY')!.active).toBe(true); // locked on
+    });
+
+    it('10 or fewer current employees: optional and off by default; HR can turn it on', () => {
+        // 11 people leave (a past leaving date) → 10 current employees
+        const leavers = employeesFor(M).filter(x => x.id !== sneha.id).slice(0, employeesFor(M).length - 10);
+        leavers.forEach(x => setEmployeeLife(M, x, { exitDate: addDays(today(), -1) }));
+        expect(leaveSettingsView(M).headcount).toBe(10);
+        expect(leaveSettingsView(M).maternityRequired).toBe(false);
+        expect(leaveViewOf(M, sneha).eventTypes.some(t => t.id === 'MATERNITY')).toBe(false);
+        updateLeaveConfig(M, { matOn: true });
+        expect(leaveViewOf(M, sneha).eventTypes.some(t => t.id === 'MATERNITY')).toBe(true);
     });
 });
 
@@ -187,5 +228,10 @@ describe('configuration', () => {
         updateLeaveConfig(M, { creditDate: 'NOPE' as never, creditDay: 31, rounding: 'X' as never });
         expect(leaveSettingsView(M).policy).toMatchObject({ creditDate: 'CUSTOM', creditDay: 25, rounding: 'HALF' });
         expect(leaveSettingsView(M).endorsement).toEqual({ enabled: false, overDays: 5, endorser: 'DEPT_HEAD' });
+        // PROTOTYPE-SETUP (Leave settings rework): sandwich settings, custom credit time
+        updateLeaveConfig(M, { sandwich: { on: true, when: 'longer', overDays: 4, weeklyOffs: true, holidays: true }, creditTime: '09:30' });
+        expect(leaveSettingsView(M).policy).toMatchObject({ sandwich: { on: true, when: 'longer', overDays: 4, weeklyOffs: true, holidays: true }, creditTime: '09:30' });
+        updateLeaveConfig(M, { creditTime: '25:00' });
+        expect(leaveSettingsView(M).policy.creditTime).toBe('09:30');
     });
 });
