@@ -5,7 +5,7 @@ PROTOTYPE-SETUP. Run log. Sources: `docs/dev-notes/dev-notes.json` (the notes) a
 that isn't **done**. The previous run (Leave module updates + module-grouped notes panel, `c34e05f`–`9b91229`) is
 finished and pushed; its log is in git history (`git show 9b91229:docs/progress.md`).
 
-## Leave module: settings rework, per-event & maternity, holiday upload, Peko One design + tooltips — in progress
+## Leave module: settings rework, per-event & maternity, holiday upload, Peko One design + tooltips — done
 
 Spec: `docs/dev-notes/dev-notes.json` (guide.read / guide.shared; pay:settings:leave:types / config / holidays /
 approvals, pay:leave:overview, ess:leave:overview / requests) and `docs/prototypes/leave-prototype.html`.
@@ -17,7 +17,7 @@ approvals, pay:leave:overview, ess:leave:overview / requests) and `docs/prototyp
 | C2 — Configuration (credit date, sandwich, …) and Public holidays bulk upload | Leave: configuration rework and public holidays bulk upload | done |
 | C3 — ESS Apply for leave and Payroll Add leave | Leave: apply and add leave follow per-type half days, event dates and maternity child | done |
 | D — Peko One tokens, type, buttons, inputs, underline tabs, tags, InfoTip (shared pieces) | Design: Peko One tokens, underline section tabs and InfoTip | done (tooltips moved with each screen) |
-| E + VERIFY — developer notes, VERIFY 1–9, build, push | | |
+| E + VERIFY — developer notes, VERIFY 1–9, build, push | Leave: lint fixes (nested ternaries, unused disable directives); Leave: run log | done |
 
 Migrations (`migrateLeaveType` / `migrateLeavePolicy`, run on every settings read; nothing is rewritten until HR saves):
 - Probation values stay as they are (MONTHLY / FULL / NONE; DAILY is new). The brief's `prob` none / monthly / daily /
@@ -98,6 +98,38 @@ Decisions:
     uses that child's days.
 8. **Date-dependent tests**: "Reporting manager at level 2" and "leave and absent days" also fail on the previous
    commit on 24 Nov (their dates land on a weekend); left as they are.
+24. **Shared settings section header** (AtsSettingsTab, used by every Payroll service's settings): the description line
+    is now an InfoTip for every section, not just Leave; "Last saved …" stays visible. The Approvals and Extra approval
+    cards moved their help text into title tooltips too.
+25. **InfoTip opens on keyboard focus** as well as hover (`trigger={['hover','focus']}`), so tab users can read it.
+26. **Lint was red before this run's last step** (nested ternaries in requestStores.ts, two unused eslint-disable
+    directives); fixed so the full lint run is clean.
+27. **Developer notes without a Design notes section**: pay:settings:leave:approvals, pay:leave:overview and
+    ess:leave:requests have none in dev-notes.json, so the panel shows none for them (it mirrors the file).
+28. **Full test suite**: 375 failures in older suites outside the leave module (dashboard / employee / services /
+    slices — missing redux Provider and mock exports in the tests). The Payroll ones fail the same way with this run's
+    shared files reverted; only the two date-dependent leave tests (8.) fail in the leave area.
+29. **Production build on Windows**: `npm run build` calls `node ./node_modules/.bin/vite`, which is a shell shim on
+    Windows; the build was run as `node --max-old-space-size=7168 node_modules/vite/bin/vite.js build` (same command,
+    the JS entry). The script itself was left unchanged.
+
+VERIFY (Chrome via scripts at 1440 / 1024 / 375):
+1. Migrations — PASS (old-format settings: 34 requests and every balance unchanged; sandwich, creditTime, exitOpts,
+   Maternity migrated; types, configuration, balances and ESS requests load without errors).
+2. Yearly — PASS (half days hidden when off; probation, four end-of-cycle options and documents in unit tests).
+3. Per event — PASS (refusals in tests; HR Paternity 1 Mar → 9 Mar auto end, start range shown, From locked until the
+   event date).
+4. Maternity — PASS (can't delete or rename, Offer locked over 10 employees, minimum enforced, 182 days from 4 Jan for a
+   first child due 1 Mar, 84 days from 18 Jan for a third, document required).
+5. Sandwich — PASS (6 / 9 / threshold in tests; the UI result line matches the engine).
+6. Credit date — PASS (Start / Custom cards; tests).
+7. Holiday upload — PASS (template, seven statuses, "Import 3 days" adds only the Ready dates, Back works).
+8. Design — PASS (33 page × width checks: no overflow, no long explanation text left; tooltips on hover and keyboard;
+   primary and tab ink bar #FF4F4F).
+9. Console — PASS (no new errors; existing warnings from older shared inputs filtered).
+
+Results: type-check clean; lint clean; tests — leave / prototype area all pass but the two date-dependent ones, full
+suite 5,766 passed / 375 failed (see 28.); build OK (13,278 modules, 1m 50s).
 
 ## Leave: policy settings, per-event leave, LOP and overview layout — done
 
