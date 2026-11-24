@@ -17,6 +17,7 @@ import type {
     CompOffCheck,
     HrAddLeaveInput,
     LeaveSettingsView,
+    LeaveTypeConfig,
     LeaveTypeInput,
     LeavePolicy,
     LeaveBalance,
@@ -364,5 +365,7 @@ export const getEmployeeLeaveTypes = (s: AtsScope, employeeId: number) =>
         calendar: LeaveCalendarInfo;
         rules: LeaveView['rules'];
         balances: LeaveBalance[];
+        eventTypes: LeaveTypeConfig[];
+        events: { type: string; eventDate: string }[];
         existing: { start: string; end: string; half: LeaveHalf | null; summary: string }[];
     }>(s, 'get', `payroll/admin/leave/employees/${employeeId}/types`);

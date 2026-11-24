@@ -73,7 +73,7 @@ import {
     approverPersonId,
     isApproverTeam,
 } from '@src/prototype/rules/attendance';
-import { daysText, eventInfoText, sandwichOf, shortDate, typeLabel } from '@src/prototype/rules/leave';
+import { MATERNITY_CHILD_LABEL, daysText, eventDateLabel, eventInfoText, isMaternity, sandwichOf, shortDate, typeLabel } from '@src/prototype/rules/leave';
 import { isAutoSubmitDue, periodEndOf, periodsDueForSubmission } from '@src/prototype/rules/timesheetFiling';
 
 import { attendanceMonthOf, autoSubmitNote, submitWeekRecord, timesheetMonthOf } from './atsEss';
@@ -509,11 +509,13 @@ const leaveStatusLabel = (l: LeaveRequest) => {
     return l.cancellation && l.trail.status === 'CANCELLED' ? 'Cancelled' : trailLabel(l.trail);
 };
 
-/** Per-event leave: "Up to 7 days per event · Date of birth or adoption: Tue 3 Nov". */
-const eventLineOf = (mode: DataMode, l: Pick<LeaveRequest, 'type' | 'eventDate'>) => {
+/** Per-event leave: "Up to 7 days per event · Date of birth or adoption: Tue 3 Nov"; Maternity adds the child
+ *  (PROTOTYPE-SETUP: Leave settings rework — the approver checks it). */
+const eventLineOf = (mode: DataMode, l: Pick<LeaveRequest, 'type' | 'eventDate' | 'child'>) => {
     const t = getSettings(mode).leavePolicy.types.find(x => x.id === l.type);
     if (!t || t.kind !== 'event') return null;
-    return `${eventInfoText(t)}${l.eventDate ? ` · ${t.eventLabel || 'Event date'}: ${shortDate(l.eventDate)}` : ''}`;
+    const child = isMaternity(t) && l.child ? ` · ${MATERNITY_CHILD_LABEL[l.child]}` : '';
+    return `${eventInfoText(t, l.child)}${l.eventDate ? ` · ${eventDateLabel(t)}: ${shortDate(l.eventDate)}` : ''}${child}`;
 };
 
 /** PROTOTYPE-SETUP (Leave module): a leave request; while it waits, the balance line ("Annual: 7 available now · 6.5 after this"). */

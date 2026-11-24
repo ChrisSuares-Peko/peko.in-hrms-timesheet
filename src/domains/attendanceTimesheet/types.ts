@@ -1408,6 +1408,8 @@ export interface LeaveBalance {
     credit: LeaveCredit | 'COMP_OFF';
     probation: LeaveProbationRule;
     proofAfterDays: number | null;
+    /** PROTOTYPE-SETUP (Leave settings rework): whether this type can be taken in half days. */
+    halfDay: boolean;
     /** Credited so far (carried forward included). */
     credited: number;
     /** Approved leave this year (taken or booked). */
@@ -1701,6 +1703,9 @@ export interface HrAddLeaveInput {
     half?: LeaveHalf | null;
     note: string;
     attachment?: { name: string } | null;
+    /** PROTOTYPE-SETUP (Leave settings rework): per-event types — the event date, and for Maternity which child. */
+    eventDate?: string | null;
+    child?: MaternityChild | null;
 }
 
 /** Payroll settings → Leave Policies: everything the four sub-tabs show. */

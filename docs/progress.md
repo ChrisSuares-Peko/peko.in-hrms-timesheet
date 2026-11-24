@@ -15,7 +15,7 @@ approvals, pay:leave:overview, ess:leave:overview / requests) and `docs/prototyp
 | A + B — Leave type model, migrations, engine rules and tests | Leave: leave type model, migrations and rules for the settings rework | done |
 | C1 — Payroll settings → Leave types (table, view, drawer incl. Maternity) | Leave: leave types table, view and drawer (yearly, per event, Maternity) | done |
 | C2 — Configuration (credit date, sandwich, …) and Public holidays bulk upload | Leave: configuration rework and public holidays bulk upload | done |
-| C3 — ESS Apply for leave and Payroll Add leave | | |
+| C3 — ESS Apply for leave and Payroll Add leave | Leave: apply and add leave follow per-type half days, event dates and maternity child | done |
 | D — Peko One tokens, type, buttons, inputs, underline tabs, tags, InfoTip (shared pieces) | Design: Peko One tokens, underline section tabs and InfoTip | done (tooltips moved with each screen) |
 | E + VERIFY — developer notes, VERIFY 1–9, build, push | | |
 
@@ -87,6 +87,15 @@ Decisions:
     counts 9 days (6 without the rule)") while the rule is on; both come from the engine (`sandwichExample`).
 20. **Configuration scope note** "These rules apply to every leave type" stays visible as one short line (the notes ask
     for a note at the top); its explanation is a tooltip.
+21. **Per-event Apply**: picking the event date sets From to the event date (always inside the window) and To for the
+    full entitlement; picking the child re-clamps From to that child's window. Before a child is picked the box reads
+    "Days depend on the child" and the first-child numbers are used for the pickers. The date pickers commit on a click
+    (typed dates preview until a day is picked — antd behaviour).
+22. **Balances carry `halfDay`** (per type) so the Apply form and validateLeave use the type's own rule; comp off keeps
+    half days. HR "Add leave" now lists per-event types too (`eventTypes` and `events` in the employee's leave types
+    response) and sends `eventDate` / `child`.
+23. **Approvers** see the child on Maternity requests (event line and the request drawer "Child" row), and the event line
+    uses that child's days.
 8. **Date-dependent tests**: "Reporting manager at level 2" and "leave and absent days" also fail on the previous
    commit on 24 Nov (their dates land on a weekend); left as they are.
 

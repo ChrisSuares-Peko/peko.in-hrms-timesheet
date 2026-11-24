@@ -12,7 +12,7 @@ import { Alert, Button, Drawer, Popconfirm, Typography } from 'antd';
 import dayjs from 'dayjs';
 
 import useScreenSize from '@src/hooks/useScreenSize';
-import { daysText, typeLabel } from '@src/prototype/rules/leave';
+import { MATERNITY_CHILD_LABEL, daysText, typeLabel } from '@src/prototype/rules/leave';
 import { type LogItemKind, periodText, requestHistory } from '@src/prototype/rules/leaveLog';
 
 import { LeaveStatusTag, dayTypeText, fmtDay } from './leaveUi';
@@ -104,6 +104,7 @@ const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView;
                 {r.proof && <Row label="Document">{r.proof.name}</Row>}
                 {/* PROTOTYPE-SETUP (Leave policy settings): per-event leave shows its event date; loss of pay is unpaid. */}
                 {r.eventDate && <Row label="Event date">{fmtDay(r.eventDate)}</Row>}
+                {r.child && <Row label="Child">{MATERNITY_CHILD_LABEL[r.child]}</Row>}
                 {r.lop && <Row label="Pay">Unpaid: payroll treats these days as loss of pay</Row>}
                 {r.changedFrom && <Row label="Was">{wasText({ ...r.changedFrom, typeName: r.changedFromTypeName ?? r.typeName })}</Row>}
                 {r.cancellation && (

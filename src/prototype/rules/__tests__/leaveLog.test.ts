@@ -73,6 +73,7 @@ describe('restartTrail', () => {
 const bal = (over: Partial<LeaveBalance>): LeaveBalance => ({
     type: 'ANNUAL',
     name: 'Annual',
+    halfDay: true,
     label: 'Annual leave',
     credit: 'MONTHLY',
     probation: 'MONTHLY',

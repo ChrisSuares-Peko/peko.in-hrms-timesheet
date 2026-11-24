@@ -945,7 +945,7 @@ export const hrAddLeave = (mode: DataMode, body: Partial<HrAddLeaveInput> | unde
     if (!body?.employeeId) throw new RuleError('Pick an employee.', 400);
     const e = employeeOr404(mode, body.employeeId);
     if (!body.start || !body.end) throw new RuleError('Pick the start and end dates.', 400);
-    const clean = checkLeave(mode, e, { type: body.type, start: body.start, end: body.end, half: body.half ?? null, reason: body.note, proof: body.attachment ?? null }, undefined, first(e.fullName));
+    const clean = checkLeave(mode, e, { type: body.type, start: body.start, end: body.end, half: body.half ?? null, reason: body.note, proof: body.attachment ?? null, eventDate: body.eventDate ?? null, child: body.child ?? null }, undefined, first(e.fullName));
     const at = nowIso();
     const trail: ApprovalTrail = { type: 'leave', status: 'APPROVED', steps: [{ level: 2, role: 'HR', decision: 'APPROVED', at, comment: 'Added by HR' }] };
     const request: LeaveRequest = { id: uid('lv'), employeeId: e.id, ...clean, trail, addedByHr: true, createdAt: at, updatedAt: at };
@@ -1121,6 +1121,9 @@ export const adminEmployeeLeaveTypes = (mode: DataMode, employeeId: string | num
         calendar: v.calendar,
         rules: v.rules,
         balances: v.balances,
+        // PROTOTYPE-SETUP (Leave settings rework): the per-event types they can take, and the events already booked.
+        eventTypes: v.eventTypes ?? [],
+        events: v.requests.filter(r => r.eventDate && (r.state === 'approved' || r.state === 'pending' || r.state === 'update_requested')).map(r => ({ type: r.type, eventDate: r.eventDate! })),
         existing: v.requests.filter(r => r.state === 'approved' || r.state === 'pending' || r.state === 'update_requested').map(r => ({ start: r.start, end: r.end, half: r.half, summary: leaveSummary(mode, r) })),
     };
 };

@@ -362,8 +362,8 @@ export const yearEndText = (t: Pick<LeaveTypeConfig, 'kind' | 'yearEnd' | 'carry
     return 'All lapse';
 };
 /** "Up to 7 days per event · Working days" */
-export const eventInfoText = (t: Pick<LeaveTypeConfig, 'id' | 'limit' | 'limitUnit' | 'count'> & Partial<Pick<LeaveTypeConfig, 'system' | 'mat'>>) =>
-    `Up to ${isMaternity(t) && t.mat ? daysText(t.mat.d1) : limitText(t)} per event · ${COUNT_LABEL[t.count]}`;
+export const eventInfoText = (t: Pick<LeaveTypeConfig, 'id' | 'limit' | 'limitUnit' | 'count'> & Partial<Pick<LeaveTypeConfig, 'system' | 'mat'>>, child?: MaternityChild | null) =>
+    `Up to ${isMaternity(t) && t.mat ? daysText(maternityDays(t.mat, child ?? 1)) : limitText(t)} per event · ${COUNT_LABEL[t.count]}`;
 /** "From 30 days before to 90 days after the date of birth or adoption" / "Any time" — when the leave can START. */
 export const windowText = (t: Pick<LeaveTypeConfig, 'id' | 'windowBefore' | 'windowAfter' | 'eventLabel' | 'trigger'> & Partial<Pick<LeaveTypeConfig, 'system' | 'mat'>>, child?: MaternityChild | null) => {
     const ev = eventDateLabel(t).toLowerCase();
@@ -1410,6 +1410,7 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
             credit: b.t.credit as LeaveCredit | 'COMP_OFF',
             probation: b.t.probation,
             proofAfterDays: b.t.proofAfterDays,
+            halfDay: b.t.halfDay !== false,
             credited: r2(b.credited),
             approved: r2(b.approved),
             late: r2(lateDays),
@@ -1443,6 +1444,7 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
             credit: 'COMP_OFF',
             probation: 'FULL',
             proofAfterDays: null,
+            halfDay: true,
             credited: r2(co.credited),
             approved: r2(used),
             late: 0,

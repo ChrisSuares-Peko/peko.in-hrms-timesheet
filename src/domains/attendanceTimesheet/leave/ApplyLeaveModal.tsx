@@ -13,22 +13,36 @@
 // PROTOTYPE-SETUP (Leave policy settings): per-event types (maternity, paternity) are listed too: their box says "Up to
 // N per event · counted in working / calendar days" and an event date field appears (with the window). Calendar-day
 // types count every day. The footer note points to "Request LOP" for unpaid leave.
+// PROTOTYPE-SETUP (Leave settings rework — notes ess:leave:requests): half days only for types that allow them (the
+// Duration choice is hidden otherwise, and always for per-event types). Per-event types ask for the event date first
+// (its label from the trigger); From stays disabled until it's set and only offers dates in the start window ("Can start
+// between … and …"); To fills in for the full entitlement and can be shortened, not extended. Maternity also asks
+// "Which child is this?" (First / Second / Third or later), which sets the days and the window. The document field
+// uses HR's wording for what to attach. Explanations are tooltips.
 import { useEffect, useMemo, useState } from 'react';
 
 import { UploadOutlined } from '@ant-design/icons';
 import { Alert, Button, DatePicker, Input, Modal, Radio, Select, Typography, Upload } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 
+import InfoTip from '@src/components/peko/InfoTip';
 import { RuleError } from '@src/prototype/rules/attendance';
 import {
     COMP_OFF,
     COUNT_LABEL,
+    MATERNITY_CHILD_LABEL,
+    autoEnd,
     countLeaveDays,
     daysText,
     durationText,
+    eventDateLabel,
+    eventEntitlement,
+    eventWindow,
     fmtDays,
-    limitText,
+    isMaternity,
     needsProof,
+    startRange,
+    startRangeText,
     typeLabel,
     validateLeave,
     windowText,
@@ -38,7 +52,7 @@ import {
 import { applyForLeave, changeLeave, resubmitLeave, resubmitLeaveChange } from '../api';
 import { halfSuffix } from './leaveUi';
 import { useAtsScope } from '../hooks/useAtsScope';
-import type { LeaveBalance, LeaveChangeRow, LeaveHalf, LeaveRequestRow, LeaveTypeConfig, LeaveView } from '../types';
+import type { LeaveBalance, LeaveChangeRow, LeaveHalf, LeaveRequestRow, LeaveTypeConfig, LeaveView, MaternityChild } from '../types';
 
 const { Text } = Typography;
 
@@ -70,7 +84,7 @@ export const typeOf = (b: LeaveBalance): LeaveTypeConfig => ({
     windowBefore: null,
     windowAfter: null,
     excess: 'lapse',
-    halfDay: true,
+    halfDay: b.halfDay !== false,
     trigger: 'other',
     docRequired: false,
     docName: '',
@@ -124,6 +138,7 @@ const ApplyLeaveModal = ({
     const eventTypes = view.eventTypes ?? [];
     const [type, setType] = useState<string>('');
     const [eventDate, setEventDate] = useState<Dayjs | null>(null);
+    const [child, setChild] = useState<MaternityChild | null>(null);
     const [duration, setDuration] = useState<'full' | 'half'>('full');
     const [from, setFrom] = useState<Dayjs | null>(null);
     const [to, setTo] = useState<Dayjs | null>(null);
@@ -148,15 +163,19 @@ const ApplyLeaveModal = ({
             setProof(startFrom.proof ?? null);
             setReason(changing ? '' : startFrom.reason);
             setEventDate(startFrom.eventDate ? dayjs(startFrom.eventDate) : null);
+            setChild(startFrom.child ?? null);
         } else {
             const first = nextWorkingDay(today, cal);
             const fallback = types.find(b => b.type === 'CASUAL') ?? types[0];
             const known = initialType && (types.some(b => b.type === initialType) || eventTypes.some(t => t.id === initialType));
-            setType(known ? initialType : fallback?.type ?? '');
+            const pick = known ? initialType : fallback?.type ?? '';
+            const isEvent = eventTypes.some(t => t.id === pick);
+            setType(pick);
             setEventDate(null);
+            setChild(null);
             setDuration('full');
-            setFrom(first);
-            setTo(first);
+            setFrom(isEvent ? null : first);
+            setTo(isEvent ? null : first);
             setHalf('FIRST');
             setProof(null);
             setReason('');
@@ -170,8 +189,26 @@ const ApplyLeaveModal = ({
     const ev = eventTypes.find(t => t.id === type) ?? null;
     const start = iso(from);
     const end = iso(to) || start;
-    const halfDays = duration === 'half';
+    // Half days only for yearly types that allow them (never for per-event types).
+    const halfAllowed = !ev && b?.halfDay !== false;
+    const halfDays = halfAllowed && duration === 'half';
     const calendarCount = ev?.count === 'calendar';
+    const maternity = isMaternity(ev);
+    const eventIso = iso(eventDate);
+    const entitlement = ev ? eventEntitlement(ev, child) : 0;
+    const range = ev && eventIso ? startRange(eventWindow(ev, child), eventIso) : null;
+    const maxEnd = ev && start ? autoEnd(start, entitlement, ev.count, cal) : null;
+    const dateLabel = ev ? eventDateLabel(ev) : '';
+    const outsideRange = (d: Dayjs) => {
+        if (!range) return true;
+        const x = d.format('YYYY-MM-DD');
+        return Boolean((range.from && x < range.from) || (range.to && x > range.to));
+    };
+    /** Per-event: a new start (or event / child) fills To for the full entitlement. */
+    const fillEnd = (s0: string, days: number) => {
+        if (!ev || !s0) return;
+        setTo(dayjs(autoEnd(s0, days, ev.count, cal)));
+    };
     const count = start && end >= start ? countLeaveDays(start, end, halfDays ? half : null, cal, ev ? 'OFF' : view.rules.sandwich, calendarCount ? 'calendar' : 'working') : null;
     // Resubmitting: the request itself is in "in request" — leave it out of what's available. Changing approved leave:
     // its days count as free again.
@@ -180,7 +217,7 @@ const ApplyLeaveModal = ({
     const available = b ? b.available + ownDays + originalDays : 0;
     const pending = b ? b.inRequest - ownDays : 0;
     const proofRule = ev ? ev.proofAfterDays : b?.proofAfterDays ?? null;
-    const proofNeeded = Boolean((b || ev) && count && needsProof({ proofAfterDays: proofRule }, count.days));
+    const proofNeeded = ev ? ev.docRequired : Boolean(b && count && needsProof({ proofAfterDays: proofRule }, count.days));
     const typeLabelNow = ev ? typeLabel(ev.name) : b?.label ?? '';
     const notAvailable = Boolean(b?.notAvailable);
 
@@ -196,7 +233,7 @@ const ApplyLeaveModal = ({
                 .some(r => r.state === 'approved' || r.state === 'pending' || r.state === 'update_requested');
         try {
             validateLeave(
-                { type, start, end, half: halfDays ? half : null, reason, proof, eventDate: iso(eventDate) || null },
+                { type, start, end, half: halfDays ? half : null, reason, proof, eventDate: eventIso || null, child: maternity ? child : null },
                 {
                     types: [...types.map(typeOf), ...eventTypes],
                     eventTaken,
@@ -217,7 +254,7 @@ const ApplyLeaveModal = ({
             throw e;
         }
         setBusy(true);
-        const body = { type, start, end, half: halfDays ? half : null, reason: reason.trim(), proof, ...(ev ? { eventDate: iso(eventDate) } : {}) };
+        const body = { type, start, end, half: halfDays ? half : null, reason: reason.trim(), proof, ...(ev ? { eventDate: eventIso } : {}), ...(maternity ? { child } : {}) };
         let res: LeaveView | false;
         if (editing) res = await resubmitLeave(scope, editing.id, body);
         else if (editingChange) res = await resubmitLeaveChange(scope, editingChange.id, body);
@@ -228,8 +265,24 @@ const ApplyLeaveModal = ({
     };
 
     const pickType = (v: string) => {
+        const wasEvent = Boolean(ev);
+        const nowEvent = eventTypes.some(t => t.id === v);
         setType(v);
         setError('');
+        if (nowEvent) {
+            // Per-event: the event date first, then the dates.
+            setDuration('full');
+            setEventDate(null);
+            setChild(null);
+            setFrom(null);
+            setTo(null);
+        } else if (wasEvent || !from) {
+            const first = nextWorkingDay(today, cal);
+            setFrom(first);
+            setTo(first);
+        }
+        const nb = types.find(x => x.type === v);
+        if (nb && nb.halfDay === false) setDuration('full');
     };
 
     const sentBack = (editing ?? editingChange)?.trail.status === 'UPDATE_REQUESTED';
@@ -292,14 +345,17 @@ const ApplyLeaveModal = ({
                         data-leave-type
                     />
                     {ev && (
-                        <div className="flex flex-col rounded-lg bg-[var(--peko-subtle)] px-3 py-2" data-event-line>
+                        <div className="flex items-center rounded-lg bg-[var(--peko-subtle)] px-3 py-2" data-event-line>
                             <Text className="text-sm">
-                                <b className="font-medium">Up to {limitText(ev)} per event</b>
-                                <span className="text-[var(--peko-muted)]"> · counted in {COUNT_LABEL[ev.count].toLowerCase()}</span>
+                                <b className="font-medium">{maternity && !child ? 'Days depend on the child' : `${daysText(entitlement)} for this event`}</b>
+                                <span className="text-[var(--peko-muted)]"> · {COUNT_LABEL[ev.count].toLowerCase()}</span>
                             </Text>
-                            <Text type="secondary" className="text-xs">
-                                {windowText(ev)}. No yearly balance: leave already booked for the same event counts towards the limit.
-                            </Text>
+                            <InfoTip
+                                label={`About ${typeLabel(ev.name)}`}
+                                title={`No yearly balance: one request per event, taken in one go from the start date. ${windowText(ev, child)}.${
+                                    maternity ? ` ${MATERNITY_CHILD_LABEL[1]} ${ev.mat?.d1} days · ${MATERNITY_CHILD_LABEL[2]} ${ev.mat?.d2} · ${MATERNITY_CHILD_LABEL[3]} ${ev.mat?.d3}.` : ''
+                                }`}
+                            />
                         </div>
                     )}
                     {b && (
@@ -321,8 +377,8 @@ const ApplyLeaveModal = ({
                     )}
                 </div>
 
-                {view.rules.halfDay && (
-                    <div className="flex flex-col gap-1">
+                {halfAllowed && (
+                    <div className="flex flex-col gap-1" data-duration-field>
                         <Text className="text-sm">
                             Duration
                         </Text>
@@ -344,22 +400,56 @@ const ApplyLeaveModal = ({
 
                 {ev && (
                     <div className="flex flex-col gap-1" data-event-date-field>
-                        <Text className="text-sm">{ev.eventLabel || 'Event date'}</Text>
+                        <Text className="text-sm">{dateLabel}</Text>
                         <DatePicker
                             value={eventDate}
                             format={DATE_FORMATS}
-                            aria-label={ev.eventLabel || 'Event date'}
+                            aria-label={dateLabel}
                             onChange={d => {
                                 setEventDate(d);
                                 setError('');
+                                if (!d) {
+                                    setFrom(null);
+                                    setTo(null);
+                                    return;
+                                }
+                                // Start on the event date (always inside the window), the end for the full entitlement.
+                                const s0 = d.format('YYYY-MM-DD');
+                                const r = startRange(eventWindow(ev, child), s0);
+                                const first = r.from && s0 < r.from ? r.from : s0;
+                                setFrom(dayjs(first));
+                                fillEnd(first, eventEntitlement(ev, child));
                             }}
                             data-event-date
                         />
-                        <Text type="secondary" className="text-xs">
-                            {windowText(ev)}
-                            {eventDate && ev.windowBefore !== null ? ` (leave from ${eventDate.subtract(ev.windowBefore, 'day').format('ddd D MMM')})` : ''}
-                            {eventDate && ev.windowAfter !== null ? ` (until ${eventDate.add(ev.windowAfter, 'day').format('ddd D MMM')})` : ''}.
+                    </div>
+                )}
+                {maternity && (
+                    <div className="flex flex-col gap-1" data-child-field>
+                        <Text className="inline-flex items-center text-sm">
+                            Which child is this?
+                            <InfoTip title="The days and how early the leave can start depend on it (the third child or later: 84 days, from 6 weeks before). Your approver checks it." />
                         </Text>
+                        <Radio.Group
+                            optionType="button"
+                            value={child}
+                            onChange={e => {
+                                const c = e.target.value as MaternityChild;
+                                setChild(c);
+                                setError('');
+                                if (eventIso && ev) {
+                                    const r = startRange(eventWindow(ev, c), eventIso);
+                                    const cur = start || eventIso;
+                                    let s0 = cur;
+                                    if (r.from && s0 < r.from) s0 = r.from;
+                                    if (r.to && s0 > r.to) s0 = r.to;
+                                    setFrom(dayjs(s0));
+                                    fillEnd(s0, eventEntitlement(ev, c));
+                                }
+                            }}
+                            aria-label="Which child is this?"
+                            options={([1, 2, 3] as const).map(c => ({ value: c, label: c === 3 ? 'Third or later' : MATERNITY_CHILD_LABEL[c].replace(' child', '') }))}
+                        />
                     </div>
                 )}
 
@@ -373,11 +463,16 @@ const ApplyLeaveModal = ({
                             format={DATE_FORMATS}
                             allowClear={false}
                             aria-label="From"
+                            disabled={Boolean(ev) && !eventDate}
+                            disabledDate={ev ? outsideRange : undefined}
+                            placeholder={ev && !eventDate ? `Add the ${dateLabel.toLowerCase()} first` : undefined}
                             onChange={d => {
                                 setFrom(d);
-                                if (d && (!to || to.isBefore(d, 'day'))) setTo(d);
                                 setError('');
+                                if (ev && d) fillEnd(d.format('YYYY-MM-DD'), entitlement);
+                                else if (d && (!to || to.isBefore(d, 'day'))) setTo(d);
                             }}
+                            data-leave-from
                         />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -389,14 +484,22 @@ const ApplyLeaveModal = ({
                             format={DATE_FORMATS}
                             allowClear={false}
                             aria-label="To"
-                            disabledDate={d => Boolean(from && d.isBefore(from, 'day'))}
+                            disabled={Boolean(ev) && !from}
+                            disabledDate={d => Boolean((from && d.isBefore(from, 'day')) || (maxEnd && d.format('YYYY-MM-DD') > maxEnd))}
                             onChange={d => {
                                 setTo(d);
                                 setError('');
                             }}
+                            data-leave-to
                         />
                     </div>
                 </div>
+                {range && (
+                    <Text type="secondary" className="-mt-1 text-xs" data-start-range>
+                        {startRangeText(range)}
+                        {maxEnd ? ` · ends ${dayjs(maxEnd).format('ddd D MMM')} at the latest` : ''}
+                    </Text>
+                )}
 
                 {halfDays && (
                     <div className="flex flex-col gap-1">
@@ -439,8 +542,9 @@ const ApplyLeaveModal = ({
                         >
                             <Button icon={<UploadOutlined />}>Attach a document</Button>
                         </Upload>
-                        <Text type="secondary" className="text-xs">
-                            {proofRule === 0 ? `Needed for every ${typeLabelNow.toLowerCase()} request.` : `Needed for ${typeLabelNow.toLowerCase()} longer than ${daysText(proofRule ?? 0)}.`}
+                        <Text type="secondary" className="text-xs" data-proof-what>
+                            {ev && (ev.docName || 'A supporting document')}
+                            {!ev && (proofRule === 0 ? `Needed for every ${typeLabelNow.toLowerCase()} request.` : `Needed for ${typeLabelNow.toLowerCase()} longer than ${daysText(proofRule ?? 0)}.`)}
                         </Text>
                     </div>
                 )}
