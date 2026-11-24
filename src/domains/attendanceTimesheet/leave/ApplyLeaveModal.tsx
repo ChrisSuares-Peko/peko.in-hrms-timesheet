@@ -550,8 +550,9 @@ const ApplyLeaveModal = ({
                 )}
 
                 <div className="flex flex-col gap-1">
-                    <Text className="text-sm">
+                    <Text className="inline-flex items-center text-sm">
                         {changing || editingChange ? 'Reason for the change' : 'Reason'}
+                        {(changing || editingChange) && <InfoTip title="Past days can only be taken off your leave if you worked them (checked in, or logged timesheet hours)." label="About changing past days" />}
                     </Text>
                     <Input.TextArea
                         rows={3}
@@ -564,8 +565,9 @@ const ApplyLeaveModal = ({
                         }}
                     />
                 </div>
-                <Text type="secondary" className="text-xs">
-                    Approval: {view.approvalPath}. Once approved, your attendance and timesheet update automatically.
+                <Text type="secondary" className="inline-flex items-center text-xs" data-approval-line>
+                    Approval: {view.approvalPath}
+                    <InfoTip title="Once approved, your attendance and timesheet update automatically." label="About approval" />
                 </Text>
                 {!editing && !changing && !editingChange && (
                     <Text type="secondary" className="text-xs" data-lop-note>
@@ -580,11 +582,7 @@ const ApplyLeaveModal = ({
                         {view.rules.lop === 'USED_UP' ? ' once all your paid leave is used up.' : '.'}
                     </Text>
                 )}
-                {(changing || editingChange) && (
-                    <Text type="secondary" className="text-xs">
-                        Past days can only be taken off your leave if you worked them (checked in, or logged timesheet hours).
-                    </Text>
-                )}
+
                 {error && <Alert type="error" showIcon message={error} data-leave-error />}
             </div>
         </Modal>

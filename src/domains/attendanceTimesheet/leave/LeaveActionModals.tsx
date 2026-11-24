@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { Alert, DatePicker, Input, Modal, Radio, Typography } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 
+import InfoTip from '@src/components/peko/InfoTip';
 import { formatDuration } from '@src/prototype/rules/attendance';
 import { daysText, typeLabel } from '@src/prototype/rules/leave';
 
@@ -254,9 +255,12 @@ export const CompOffModal = ({
                 {editing?.trail.updateRequest && (
                     <Alert type="warning" showIcon message={`${editing.trail.updateRequest.by} asked for an update`} description={editing.trail.updateRequest.comment} />
                 )}
-                <Text type="secondary" className="text-sm">
-                    Worked on a weekly off or a public holiday? Claim a day off for it. Half a shift or more earns half a day, a full shift earns a full day.
-                    {expiry ? ` Comp off expires ${expiry} days after the day you worked.` : ''}
+                <Text className="inline-flex items-center text-sm" data-comp-off-rules>
+                    Worked on a weekly off or a public holiday? Claim a day off for it.
+                    <InfoTip
+                        label="Comp off rules"
+                        title={`Half a shift or more earns half a day, a full shift earns a full day.${expiry ? ` Comp off expires ${expiry} days after the day you worked.` : ''} A day can be claimed as overtime or comp off, not both.`}
+                    />
                 </Text>
                 <div className="flex flex-col gap-1">
                     <Text className="text-sm">

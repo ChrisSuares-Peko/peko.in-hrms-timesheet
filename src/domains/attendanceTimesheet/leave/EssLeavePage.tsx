@@ -22,6 +22,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import InfoTip from '@src/components/peko/InfoTip';
 import { PekoSectionTabs } from '@src/components/peko/PageHeader';
 import { PEKO_CARD, PEKO_STAT_LABEL, PEKO_STAT_VALUE } from '@src/components/peko/pekoTokens';
 import StatusTag from '@src/components/peko/StatusTag';
@@ -431,9 +432,18 @@ const EssLeavePage = () => {
                 </Button>
             )}
             {/* PROTOTYPE-SETUP (Leave policy settings): loss of pay, the only unpaid leave. */}
-            <Button onClick={() => setLop(true)} data-request-lop>
-                Request LOP
-            </Button>
+            <span className="inline-flex items-center">
+                <Button onClick={() => setLop(true)} data-request-lop>
+                    Request LOP
+                </Button>
+                <InfoTip
+                    label="About loss of pay"
+                    data-lop-tip
+                    title={`Loss of pay is the only unpaid leave: the days are deducted from your salary. It has no limit and goes to your leave approvers.${
+                        view.rules.lop === 'USED_UP' ? ' You can request it once all your paid leave is used up.' : ''
+                    }`}
+                />
+            </span>
             <Button type="primary" icon={<PlusOutlined />} onClick={() => setApplying({ type: typePage })} data-apply-for-leave>
                 Apply for leave
             </Button>
@@ -628,7 +638,7 @@ const EssLeavePage = () => {
                             </section>,
                         ]}
                     />
-                    <LeaveSection title="Recent activity" extra={<Text type="secondary" className="text-xs">The last 10 changes, newest first</Text>}>
+                    <LeaveSection title="Recent activity" extra={<InfoTip title="The last 10 changes to your leave, newest first. Click a leave row to open it." label="About recent activity" data-activity-tip />}>
                         <LeaveLogTable rows={activity} mode="activity" onOpen={openItem} empty="Nothing has happened on your leave yet." />
                     </LeaveSection>
                 </>
@@ -639,8 +649,9 @@ const EssLeavePage = () => {
             {sub === 'holidays' && (
                 <section aria-label="Public holidays" className={ESS_CARD} data-public-holidays>
                     <h3 className="m-0 text-base font-medium text-[var(--peko-text)]">Public holidays {today.slice(0, 4)}</h3>
-                    <Text type="secondary" className="mb-3 block text-xs">
-                        {view.holidays.length} holidays · {view.holidays.filter(h => !h.weeklyOff).length} on your working days. You don’t need to apply for these.
+                    <Text type="secondary" className="mb-3 inline-flex items-center text-xs">
+                        {view.holidays.length} holidays · {view.holidays.filter(h => !h.weeklyOff).length} on your working days
+                        <InfoTip title="Office-wide days off: you don’t need to apply for these. A holiday on your weekly off doesn’t give an extra day." label="About public holidays" />
                     </Text>
                     <div className="min-w-0 overflow-x-auto">
                         <Table

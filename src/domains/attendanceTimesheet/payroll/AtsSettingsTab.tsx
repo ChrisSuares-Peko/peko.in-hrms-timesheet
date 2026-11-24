@@ -38,6 +38,7 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 
+import InfoTip from '@src/components/peko/InfoTip';
 import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { DEFAULT_FILING, PROJECT_CODE_RE, WEEKDAYS, displayTime, filingFieldsError, formatDuration, hasCheckIn, normaliseApprover } from '@src/prototype/rules/attendance';
@@ -563,14 +564,21 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
     ];
 
     const approvals = (
-        <Card title="Approvals" size="small" data-approvals-card>
+        <Card
+            title={
+                <span className="inline-flex items-center">
+                    Approvals
+                    <InfoTip
+                        label="About approvals"
+                        data-approvals-help
+                        title="Pick who approves at each level: the employee’s reporting manager, Admin / HR (approved in that service in Payroll), or a specific person. Usually the reporting manager approves first, then it comes to Payroll for the final approval. “Reporting manager” at level 2 is the employee’s manager; if they already approved level 1, that approval is final. Anyone without a reporting manager (the CEO) skips the manager step. A change applies to new requests; anything already waiting stays where it is. A manager or a specific person decides in their My team → Approvals; Admin / HR decides in Payroll, on that service’s Requests. Rejecting or asking for an update at any level needs a comment."
+                    />
+                </span>
+            }
+            size="small"
+            data-approvals-card
+        >
             <Flex vertical gap={8}>
-                <Text type="secondary" className="text-xs" data-approvals-help>
-                    Pick who approves at each level: the employee’s reporting manager, Admin / HR (approved in that service in Payroll), or a specific
-                    person. Usually the reporting manager approves first, then it comes to Payroll for the final approval. “Reporting manager” at level 2
-                    is the employee’s manager; if they already approved level 1, that approval is final. Anyone without a reporting manager (the CEO)
-                    skips the manager step. A change applies to new requests; anything already waiting stays where it is.
-                </Text>
                 <div className="w-full overflow-x-auto">
                     <Table<MatrixRow>
                         rowKey="key"
@@ -582,10 +590,6 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
                         scroll={{ x: 600 }}
                     />
                 </div>
-                <Text type="secondary" className="text-xs">
-                    A manager or a specific person decides in their My team → Approvals; Admin / HR decides in Payroll, on that service’s Requests.
-                    Rejecting or asking for an update at any level needs a comment.
-                </Text>
             </Flex>
         </Card>
     );
@@ -902,17 +906,25 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
                 {/* PROTOTYPE-SETUP (Leave policy settings): an endorsement step for longer leave, after level 1 and
                     before level 2, for leave and leave changes. */}
                 {section === 'leave' && (
-                    <Card title="Extra approval for longer leave" size="small" data-endorsement-card>
+                    <Card
+                        title={
+                            <span className="inline-flex items-center">
+                                Extra approval for longer leave
+                                <InfoTip
+                                    label="About extra approval"
+                                    title="Longer leave gets an extra endorsement after level 1 and before level 2 (leave and leave changes). It waits in the endorser’s My team → Approvals and shows in the chain as “{name} (endorsement)”. Skipped when the endorser is the level 1 approver or the employee. Asking for an update or resubmitting starts again at level 1."
+                                />
+                            </span>
+                        }
+                        size="small"
+                        data-endorsement-card
+                    >
                         <Flex vertical gap={12}>
-                            <Flex align="center" gap={12}>
-                                <Text type="secondary" className="min-w-0 flex-1 text-xs">
-                                    Longer leave gets an extra endorsement after level 1 and before level 2 (leave and leave changes). It waits in the
-                                    endorser’s My team → Approvals and shows in the chain as “{'{name}'} (endorsement)”. Skipped when the endorser is the level 1
-                                    approver or the employee. Asking for an update or resubmitting starts again at level 1.
-                                </Text>
+                            <Flex align="center" gap={8}>
                                 <Form.Item name={['endorsement', 'enabled']} valuePropName="checked" noStyle>
                                     <Switch aria-label="Extra approval for longer leave" data-endorsement-on />
                                 </Form.Item>
+                                <Text className="text-sm">{endorsementOn ? 'On' : 'Off'}</Text>
                             </Flex>
                             {endorsementOn && (
                                 <Flex vertical gap={10}>
@@ -924,7 +936,10 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
                                         <Text className="text-sm">days</Text>
                                     </Flex>
                                     <Flex align="center" gap={8} wrap="wrap">
-                                        <Text className="text-sm">Endorsed by</Text>
+                                        <Text className="inline-flex items-center text-sm">
+                                            Endorsed by
+                                            <InfoTip title="Department head = the person in the employee’s department whose own manager is outside it (usually the department manager)." label="About the endorser" />
+                                        </Text>
                                         <Form.Item name={['endorsement', 'endorser']} noStyle>
                                             <Select
                                                 className="min-w-[260px]"
@@ -935,10 +950,6 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
                                             />
                                         </Form.Item>
                                     </Flex>
-                                    <Text type="secondary" className="text-xs">
-                                        Department head = the person in the employee’s department whose own manager is outside it (usually the department
-                                        manager).
-                                    </Text>
                                 </Flex>
                             )}
                         </Flex>

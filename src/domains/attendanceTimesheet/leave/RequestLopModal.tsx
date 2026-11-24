@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, DatePicker, Input, Modal, Radio, Typography } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 
+import InfoTip from '@src/components/peko/InfoTip';
 import { RuleError } from '@src/prototype/rules/attendance';
 import { countLeaveDays, durationText, fmtDays, lopProblem, paidLeaveLeft, typeLabel, validateLop } from '@src/prototype/rules/leave';
 
@@ -90,13 +91,11 @@ const RequestLopModal = ({ open, view, today, onClose, onSent }: { open: boolean
             width={520}
         >
             <div className="flex flex-col gap-3" data-request-lop>
-                <div className="flex flex-col rounded-lg bg-[var(--peko-warning-bg)] px-3 py-2" data-lop-box>
+                <div className="flex items-center rounded-lg bg-[var(--peko-warning-bg)] px-3 py-2" data-lop-box>
                     <Text className="text-sm">
                         <b className="font-medium">Unpaid leave</b> · these days are deducted from your salary
                     </Text>
-                    <Text type="secondary" className="text-xs">
-                        Loss of pay has no limit and goes to your leave approvers.
-                    </Text>
+                    <InfoTip label="About loss of pay" title="Loss of pay has no limit and goes to your leave approvers. Attendance and timesheet show these days as leave; payroll treats them as loss of pay." />
                 </div>
                 {blocked && (
                     <Alert
@@ -188,7 +187,7 @@ const RequestLopModal = ({ open, view, today, onClose, onSent }: { open: boolean
                     />
                 </div>
                 <Text type="secondary" className="text-xs">
-                    Approval: {view.approvalPath}. Attendance and timesheet show these days as leave; payroll treats them as loss of pay.
+                    Approval: {view.approvalPath}
                 </Text>
                 {error && <Alert type="error" showIcon message={error} data-lop-error />}
             </div>
