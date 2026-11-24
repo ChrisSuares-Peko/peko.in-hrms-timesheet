@@ -37,10 +37,10 @@ const CODE: Partial<Record<DayStatus, string>> = {
 
 /** Code + colours: the status colours (green present, amber late, purple leave, …). */
 const LOOK: Record<string, string> = {
-    P: 'bg-[#ECFDF3] text-[#027A48]',
-    L: 'bg-[#FFFAEB] text-[#B54708]',
+    P: 'bg-[var(--peko-success-bg)] text-[var(--peko-success-ink)]',
+    L: 'bg-[#FFFAEB] text-[var(--peko-warning-ink)]',
     '½': 'bg-[#FFF4ED] text-[#C4320A]',
-    A: 'bg-[#FEF3F2] text-[#B42318]',
+    A: 'bg-[var(--peko-error-bg)] text-[var(--peko-error-ink)]',
     Lv: 'bg-[#F4F3FF] text-[#5925DC]',
     H: 'bg-[#ECFDFF] text-[#0E7090]',
     W: 'bg-[#EEF4FF] text-[#3538CD]',
@@ -58,7 +58,7 @@ const checkOutText = (day: Day) => {
 };
 
 const Row = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="grid grid-cols-[130px_minmax(0,1fr)] gap-2 border-0 border-b border-solid border-[#F0F0F0] py-1.5 text-sm last:border-b-0">
+    <div className="grid grid-cols-[130px_minmax(0,1fr)] gap-2 border-0 border-b border-solid border-[var(--peko-line)] py-1.5 text-sm last:border-b-0">
         <Text type="secondary">{label}</Text>
         <span className="min-w-0 break-words">{children}</span>
     </div>
@@ -71,7 +71,7 @@ const TeamDayModal = ({ person, day, view, onClose }: { person: PersonRef | null
         <Modal open title={`${person.name} · ${dayjs(day.date).format('dddd, D MMMM')}`} onCancel={onClose} footer={<Button onClick={onClose}>Close</Button>} destroyOnHidden>
             <div className="mb-2" data-team-day>
                 <DayStatusTag status={day.status} label={day.label} />
-                {day.label && day.status !== 'holiday' && <Text className="ml-2 text-xs text-[#8B8B8B]">{day.label}</Text>}
+                {day.label && day.status !== 'holiday' && <Text className="ml-2 text-xs text-[var(--peko-muted)]">{day.label}</Text>}
             </div>
             <Row label="Shift">{off ? 'Off' : `${displayTime(view.shift.start)} – ${displayTime(view.shift.end)}`}</Row>
             <Row label="Check in">{day.checkIn ? displayTime(day.checkIn) : '–'}</Row>
@@ -124,31 +124,31 @@ const TeamAttendanceGrid = () => {
                     <table className="border-collapse text-xs">
                         <thead>
                             <tr>
-                                <th className="sticky left-0 z-10 min-w-[170px] bg-white px-3 py-2 text-left font-medium text-[#595959]">Team member</th>
+                                <th className="sticky left-0 z-10 min-w-[170px] bg-white px-3 py-2 text-left font-medium text-[var(--peko-text-2)]">Team member</th>
                                 {view.dates.map(d => (
                                     <th
                                         key={d}
-                                        className={`px-0.5 py-2 text-center font-normal ${view.off.includes(d) ? 'bg-[#F5F5F5]' : ''} ${d === view.today ? 'font-semibold text-[#FF3A3A]' : 'text-[#8B8B8B]'}`}
+                                        className={`px-0.5 py-2 text-center font-normal ${view.off.includes(d) ? 'bg-[var(--peko-track)]' : ''} ${d === view.today ? 'font-semibold text-[var(--peko-primary)]' : 'text-[var(--peko-muted)]'}`}
                                     >
                                         {dayjs(d).format('dd').charAt(0)}
                                         <br />
                                         {dayjs(d).date()}
                                     </th>
                                 ))}
-                                <th className="px-2 py-2 text-center font-medium text-[#595959]">Late</th>
+                                <th className="px-2 py-2 text-center font-medium text-[var(--peko-text-2)]">Late</th>
                             </tr>
                         </thead>
                         <tbody>
                             {view.rows.map(r => (
-                                <tr key={r.employee.id} className="border-0 border-t border-solid border-[#F0F0F0]" data-team-row={r.employee.name}>
+                                <tr key={r.employee.id} className="border-0 border-t border-solid border-[var(--peko-line)]" data-team-row={r.employee.name}>
                                     <td className="sticky left-0 z-10 bg-white px-3 py-2">
-                                        <span className="block text-sm font-medium text-[#121212]">{r.employee.name}</span>
-                                        <span className="block text-[11px] text-[#8B8B8B]">{r.employee.designation}</span>
+                                        <span className="block text-sm font-medium text-[var(--peko-text)]">{r.employee.name}</span>
+                                        <span className="block text-[11px] text-[var(--peko-muted)]">{r.employee.designation}</span>
                                     </td>
                                     {r.days.map(d => {
                                         const code = d.date <= view.today || d.status === 'on-leave' ? cellCode(d) : '';
                                         return (
-                                            <td key={d.date} className={`px-0.5 py-1 text-center ${view.off.includes(d.date) ? 'bg-[#F5F5F5]' : ''} ${d.date === view.today ? 'bg-[#FFF1F1]' : ''}`}>
+                                            <td key={d.date} className={`px-0.5 py-1 text-center ${view.off.includes(d.date) ? 'bg-[var(--peko-track)]' : ''} ${d.date === view.today ? 'bg-[#FFF1F1]' : ''}`}>
                                                 <button
                                                     type="button"
                                                     title={`${dayjs(d.date).format('ddd D MMM')}${d.label ? `: ${d.label}` : ''}`}
@@ -163,13 +163,13 @@ const TeamAttendanceGrid = () => {
                                         );
                                     })}
                                     <td className="px-2 text-center">
-                                        {r.lateCount ? <span className="rounded-full bg-[#FFFAEB] px-2 py-0.5 font-semibold text-[#B54708]">{r.lateCount}</span> : <span className="text-[#8B8B8B]">0</span>}
+                                        {r.lateCount ? <span className="rounded-full bg-[#FFFAEB] px-2 py-0.5 font-semibold text-[var(--peko-warning-ink)]">{r.lateCount}</span> : <span className="text-[var(--peko-muted)]">0</span>}
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-                    {view.rows.length === 0 && <Text className="block p-4 text-sm text-[#8B8B8B]">No one reports to you yet.</Text>}
+                    {view.rows.length === 0 && <Text className="block p-4 text-sm text-[var(--peko-muted)]">No one reports to you yet.</Text>}
                 </div>
             )}
             {view && <TeamDayModal person={cell?.person ?? null} day={cell?.day ?? null} view={view} onClose={() => setCell(null)} />}

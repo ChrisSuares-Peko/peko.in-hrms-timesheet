@@ -85,7 +85,7 @@ const DayCell = ({
 }) => {
     const beforeJoining = day.label === BEFORE_JOINING;
     const look = DAY_LOOK[day.status];
-    const ring = (isSelected && 'ring-2 ring-[#1e293b]') || (isToday && 'ring-2 ring-[#FF3A3A]') || '';
+    const ring = (isSelected && 'ring-2 ring-[#1e293b]') || (isToday && 'ring-2 ring-[var(--peko-primary)]') || '';
     const dashed = day.status === 'not-checked-in' || day.status === 'upcoming';
     const pendingFix = day.correction?.state === 'pending';
     const times = cellTimes(day);
@@ -101,12 +101,12 @@ const DayCell = ({
                     beforeJoining
                         ? 'bg-transparent border-transparent cursor-not-allowed opacity-40'
                         : 'cursor-pointer hover:shadow-md'
-                } ${dashed && !beforeJoining ? 'border-dashed border-[#EAEAEA]' : 'border-transparent'} ${ring}`}
+                } ${dashed && !beforeJoining ? 'border-dashed border-[var(--peko-border)]' : 'border-transparent'} ${ring}`}
                 style={beforeJoining ? undefined : { backgroundColor: look.bg }}
             >
                 <span
                     className={`text-xs sm:text-sm leading-none tabular-nums ${
-                        isToday ? 'font-bold text-[#FF3A3A]' : 'font-medium text-valueText'
+                        isToday ? 'font-bold text-[var(--peko-primary)]' : 'font-medium text-valueText'
                     }`}
                 >
                     {dayjs(day.date).date()}
@@ -120,7 +120,7 @@ const DayCell = ({
                             {look.short}
                         </span>
                         {times && (
-                            <span className="hidden sm:block text-[10px] leading-tight tabular-nums text-[#8B8B8B]">
+                            <span className="hidden sm:block text-[10px] leading-tight tabular-nums text-[var(--peko-muted)]">
                                 {times}
                             </span>
                         )}
@@ -221,7 +221,7 @@ const AttendanceCalendar = ({
                     ? Array.from({ length: 35 }, (_, i) => (
                           <span
                               key={i}
-                              className="block rounded-lg bg-[#F5F5F5] animate-pulse min-h-[44px] sm:min-h-[62px]"
+                              className="block rounded-lg bg-[var(--peko-track)] animate-pulse min-h-[44px] sm:min-h-[62px]"
                           />
                       ))
                     : [
@@ -244,7 +244,7 @@ const AttendanceCalendar = ({
 
             <div className="flex flex-wrap gap-x-3 gap-y-1.5 pt-1">
                 {LEGEND.map(s => (
-                    <span key={s} className="inline-flex items-center gap-1.5 text-[11px] text-[#8B8B8B]">
+                    <span key={s} className="inline-flex items-center gap-1.5 text-[11px] text-[var(--peko-muted)]">
                         <span
                             className="inline-block w-3 h-3 rounded"
                             style={{ backgroundColor: DAY_LOOK[s].bg, border: `1px solid ${DAY_LOOK[s].fg}33` }}
@@ -255,11 +255,11 @@ const AttendanceCalendar = ({
                         {DAY_STATUS_LABEL[s]}
                     </span>
                 ))}
-                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#8B8B8B]">
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-[var(--peko-muted)]">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
                     Correction pending
                 </span>
-                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#8B8B8B]">
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-[var(--peko-muted)]">
                     <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500" />
                     Still checked in
                 </span>

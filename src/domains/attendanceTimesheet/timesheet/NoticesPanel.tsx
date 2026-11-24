@@ -40,12 +40,12 @@ interface Notice {
 
 const TONE: Record<Notice['tone'], string> = {
     back: 'bg-[#FFF1E6] text-[#7A3E00]',
-    info: 'bg-[#E6F4FF] text-[#121212]',
-    amber: 'bg-[#FFFBE6] text-[#121212]',
+    info: 'bg-[var(--peko-info-bg)] text-[var(--peko-text)]',
+    amber: 'bg-[var(--peko-warning-bg)] text-[var(--peko-text)]',
 };
 
 const Group = ({ children }: { children: ReactNode }) => (
-    <div className="mx-1.5 mb-1.5 mt-3 text-[11px] font-medium uppercase tracking-wide text-[#8B8B8B]">{children}</div>
+    <div className="mx-1.5 mb-1.5 mt-3 text-[11px] font-medium uppercase tracking-wide text-[var(--peko-muted)]">{children}</div>
 );
 
 const who = (a: ActorRef) => (a.role === 'SYSTEM' ? 'System' : a.name);
@@ -114,7 +114,7 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
         <div className="ts-notices min-w-0">
             <section aria-label="Notices" className={`ts-notices-in ${ESS_CARD} !pb-3`}>
                 <div className="mb-1 flex items-center gap-2">
-                    <h3 className="m-0 text-base font-medium text-[#121212]">Notices</h3>
+                    <h3 className="m-0 text-base font-medium text-[var(--peko-text)]">Notices</h3>
                     <span className="flex-1" />
                     {items.length > 0 && (
                         <StatusTag color="red" className="!m-0" data-todo-count>
@@ -123,7 +123,7 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
                     )}
                 </div>
                 <div className="ts-notices-body -mx-1.5 px-1.5" data-notices-body>
-                    <div className="rounded-lg border border-solid border-[#F0F0F0] px-3 py-2.5">{week}</div>
+                    <div className="rounded-lg border border-solid border-[var(--peko-line)] px-3 py-2.5">{week}</div>
 
                     {items.length > 0 && <Group>Needs your action</Group>}
                     {items.map(x => (
@@ -153,22 +153,22 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
                                     key={d.date}
                                     type="button"
                                     onClick={() => onPickDay(d.date)}
-                                    className="flex w-full cursor-pointer items-center justify-between gap-2 border-0 border-b border-solid border-[#F0F0F0] bg-transparent px-0 py-[7px] text-left text-[13px] text-[#121212] last:border-b-0 hover:text-blue-600"
+                                    className="flex w-full cursor-pointer items-center justify-between gap-2 border-0 border-b border-solid border-[var(--peko-line)] bg-transparent px-0 py-[7px] text-left text-[13px] text-[var(--peko-text)] last:border-b-0 hover:text-blue-600"
                                     data-unlogged={d.date}
                                 >
                                     <span className="min-w-0">
                                         {dayjs(d.date).format('ddd, D MMM')}
-                                        <span className="text-xs text-[#8B8B8B]"> · {formatDuration(d.loggedMinutes)} logged</span>
+                                        <span className="text-xs text-[var(--peko-muted)]"> · {formatDuration(d.loggedMinutes)} logged</span>
                                     </span>
                                     <span className="whitespace-nowrap text-amber-700">
                                         {formatDuration(d.gap)} missing <RightOutlined className="text-[10px]" />
                                     </span>
                                 </button>
                             ))}
-                            {missing.length > MAX_UNLOGGED && <div className="text-xs text-[#8B8B8B]">and {missing.length - MAX_UNLOGGED} more</div>}
+                            {missing.length > MAX_UNLOGGED && <div className="text-xs text-[var(--peko-muted)]">and {missing.length - MAX_UNLOGGED} more</div>}
                         </div>
                     ) : (
-                        <div className="px-1.5 pb-2 text-xs text-[#8B8B8B]">Nothing missing in this {period}, after breaks.</div>
+                        <div className="px-1.5 pb-2 text-xs text-[var(--peko-muted)]">Nothing missing in this {period}, after breaks.</div>
                     )}
 
                     {events.length > 0 && (
@@ -181,9 +181,9 @@ const NoticesPanel = ({ week, focusWeekStart, notices, unlogged, today, period, 
                                 {showHistory && (
                                     <ul className="m-0 mt-1.5 list-none p-0">
                                         {events.map((h, i) => (
-                                            <li key={`${h.at}-${i}`} className="grid grid-cols-[86px_minmax(0,1fr)] gap-2.5 border-0 border-b border-solid border-[#F0F0F0] py-1.5 text-xs last:border-b-0">
-                                                <span className="text-[#8B8B8B]">{fmtStamp(h.at)}</span>
-                                                <span className="break-words text-[#404040]">
+                                            <li key={`${h.at}-${i}`} className="grid grid-cols-[86px_minmax(0,1fr)] gap-2.5 border-0 border-b border-solid border-[var(--peko-line)] py-1.5 text-xs last:border-b-0">
+                                                <span className="text-[var(--peko-muted)]">{fmtStamp(h.at)}</span>
+                                                <span className="break-words text-[var(--peko-text)]">
                                                     <b className="font-medium">{who(h.actor)}</b>: {HISTORY_LABEL[h.action]}
                                                     {h.detail ? ` — ${h.detail}` : ''}
                                                 </span>

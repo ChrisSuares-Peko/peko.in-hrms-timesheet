@@ -26,7 +26,7 @@ dayjs.extend(relativeTime);
 const ProfileChanges = ({ item }: { item: RequestItem }) => {
     const changes = item.profile?.changes ?? [];
     return (
-        <div className="max-w-[520px] rounded-lg bg-[#FAFAFA] px-3 py-2">
+        <div className="max-w-[520px] rounded-lg bg-[var(--peko-subtle)] px-3 py-2">
             <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-sm">
                 {changes.map(c => (
                     <Fragment key={c.field}>
@@ -42,7 +42,7 @@ const ProfileChanges = ({ item }: { item: RequestItem }) => {
                             </Flex>
                         ) : (
                             <Typography.Text className="break-words">
-                                <span className="text-[#8B8B8B] line-through decoration-[#98A2B3]">{c.from || '—'}</span>
+                                <span className="text-[var(--peko-muted)] line-through decoration-[#98A2B3]">{c.from || '—'}</span>
                                 {' → '}
                                 <b className="font-semibold !text-[#1570EF]">{c.to || '—'}</b>
                             </Typography.Text>
@@ -88,7 +88,7 @@ const CorrectionTimes = ({ item }: { item: RequestItem }) => {
         },
     ];
     return (
-        <div className="rounded-lg bg-[#FAFAFA] px-3 py-2 max-w-[420px]">
+        <div className="rounded-lg bg-[var(--peko-subtle)] px-3 py-2 max-w-[420px]">
             <Flex gap={6} align="center" className="mb-1">
                 <StatusTag color="blue" className="!m-0">
                     Correction
@@ -138,12 +138,12 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
     return (
         <div
             className={`rounded-lg border border-solid bg-white p-4 ${
-                item.waitingForYou ? 'border-[#FFE4E4]' : 'border-[#EAEAEA]'
+                item.waitingForYou ? 'border-[var(--peko-primary-border)]' : 'border-[var(--peko-border)]'
             }`}
         >
             <Flex gap={12} align="flex-start" wrap="wrap" justify="space-between">
                 <Flex gap={12} align="flex-start" className="min-w-0 flex-1 basis-[260px]">
-                    <Avatar className="!bg-[#FF3A3A] shrink-0">
+                    <Avatar className="!bg-[var(--peko-primary)] shrink-0">
                         {item.employee.name
                             .split(' ')
                             .slice(0, 2)
@@ -158,7 +158,7 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
                                 {item.employee.department ? ` · ${item.employee.department}` : ''}
                             </Typography.Text>
                         </Flex>
-                        <Typography.Text className="font-medium text-[#121212]">{item.title}</Typography.Text>
+                        <Typography.Text className="font-medium text-[var(--peko-text)]">{item.title}</Typography.Text>
                         {item.correction && <CorrectionTimes item={item} />}
                         {item.profile && <ProfileChanges item={item} />}
                         {!item.correction && !item.profile && item.detail && <Typography.Text>{item.detail}</Typography.Text>}
@@ -166,12 +166,12 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
                         {/* PROTOTYPE-SETUP (Leave policy settings): loss of pay has no balance (and no short-balance warning);
                             per-event leave shows its limit and event date instead. */}
                         {item.unpaid && (
-                            <Typography.Text className="text-sm !text-[#D48806]" data-unpaid-line>
+                            <Typography.Text className="text-sm !text-[var(--peko-warning-ink)]" data-unpaid-line>
                                 {LOP_UNPAID_LINE}
                             </Typography.Text>
                         )}
                         {item.eventLine && (
-                            <Typography.Text className="text-sm !text-[#595959]" data-event-line>
+                            <Typography.Text className="text-sm !text-[var(--peko-text-2)]" data-event-line>
                                 {item.eventLine}
                             </Typography.Text>
                         )}
@@ -186,7 +186,7 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
                         )}
                         {item.notes && (
                             <Typography.Paragraph type="secondary" className="!mb-0 text-sm">
-                                <span className="font-medium text-[#595959]">Reason: </span>
+                                <span className="font-medium text-[var(--peko-text-2)]">Reason: </span>
                                 {item.notes}
                             </Typography.Paragraph>
                         )}
@@ -262,7 +262,7 @@ const num = (n: number) => String(Math.round(n * 100) / 100);
 
 /** "Annual: 7 available now · 6.5 after this" (red when short: "short by 1.5 (would be loss of pay)"). */
 export const LeaveBalanceLine = ({ b }: { b: LeaveBalanceInfo }) => (
-    <Typography.Text className={`text-sm ${b.after < 0 ? '!text-[#B42318]' : '!text-[#595959]'}`} data-leave-balance-line={b.after < 0 ? 'short' : 'ok'}>
+    <Typography.Text className={`text-sm ${b.after < 0 ? '!text-[var(--peko-error-ink)]' : '!text-[var(--peko-text-2)]'}`} data-leave-balance-line={b.after < 0 ? 'short' : 'ok'}>
         {b.typeName}: {num(b.availableNow)} available now · {b.after < 0 ? `short by ${num(-b.after)} (would be loss of pay)` : `${num(b.after)} after this`}
     </Typography.Text>
 );

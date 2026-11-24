@@ -41,13 +41,13 @@ const ViewBar = ({ mode, label, logged, expected, ofWord = 'worked', actions, su
         {/* PROTOTYPE-SETUP (V2): the arrows and the label wrap as one unit, so › never drops onto its own line. */}
         <span className="inline-flex items-center gap-2 whitespace-nowrap">
             <Button size="small" icon={<LeftOutlined />} aria-label="Previous" onClick={() => onStep(-1)} />
-            <span className="text-sm font-medium text-[#121212]">{label}</span>
+            <span className="text-sm font-medium text-[var(--peko-text)]">{label}</span>
             <Button size="small" icon={<RightOutlined />} aria-label="Next" onClick={() => onStep(1)} />
         </span>
         {submit}
         <span className="hidden flex-1 sm:block" />
-        <span className="basis-full text-[13px] text-[#595959] sm:basis-auto">
-            Logged <b className="font-medium text-[#121212]">{formatDuration(logged)}</b> of {formatDuration(expected)} {ofWord}
+        <span className="basis-full text-[13px] text-[var(--peko-text-2)] sm:basis-auto">
+            Logged <b className="font-medium text-[var(--peko-text)]">{formatDuration(logged)}</b> of {formatDuration(expected)} {ofWord}
         </span>
         {actions && <span className="flex flex-wrap gap-1.5">{actions}</span>}
     </div>

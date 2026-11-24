@@ -17,7 +17,7 @@ const PENDING: Partial<Record<ApprovalTrail['status'], ApprovalStep['role']>> = 
 };
 
 const iconFor = (trail: ApprovalTrail, s: ApprovalStep) => {
-    if (s.skipped) return <MinusCircleOutlined className="text-[#8B8B8B]" />;
+    if (s.skipped) return <MinusCircleOutlined className="text-[var(--peko-muted)]" />;
     if (s.decision === 'APPROVED') return <CheckCircleFilled className="text-green-500" />;
     if (s.decision === 'REJECTED') return <CloseCircleFilled className="text-red-500" />;
     // PROTOTYPE-SETUP (Leave policy settings): only the step it's waiting on (two person steps with an endorsement).

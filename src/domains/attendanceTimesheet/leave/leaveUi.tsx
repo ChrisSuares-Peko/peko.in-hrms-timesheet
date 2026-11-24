@@ -56,11 +56,11 @@ export const LedgerList = ({ ledger, empty = 'Nothing credited or deducted yet t
     ledger.length ? (
         <ul className="m-0 list-none p-0" data-ledger>
             {ledger.map((x, i) => (
-                <li key={`${x.date}-${x.kind}-${i}`} className="flex items-baseline justify-between gap-3 border-0 border-t border-solid border-[#F0F0F0] py-1.5 text-xs first:border-t-0">
-                    <span className={x.amount === null ? 'text-[#8B8B8B]' : 'text-[#121212]'}>
+                <li key={`${x.date}-${x.kind}-${i}`} className="flex items-baseline justify-between gap-3 border-0 border-t border-solid border-[var(--peko-line)] py-1.5 text-xs first:border-t-0">
+                    <span className={x.amount === null ? 'text-[var(--peko-muted)]' : 'text-[var(--peko-text)]'}>
                         {dayjs(x.date).format('D MMM')} · {x.text}
                     </span>
-                    {x.amount !== null && <span className={`shrink-0 tabular-nums ${x.amount < 0 ? 'text-[#B42318]' : 'text-[#067647]'}`}>{signed(x.amount)}</span>}
+                    {x.amount !== null && <span className={`shrink-0 tabular-nums ${x.amount < 0 ? 'text-[var(--peko-error-ink)]' : 'text-[#067647]'}`}>{signed(x.amount)}</span>}
                 </li>
             ))}
         </ul>
@@ -76,11 +76,11 @@ const balanceLines = (b: LeaveBalance, onProbation: boolean) => {
         if (!onProbation || b.type === COMP_OFF) return null;
         if (b.probation === 'NONE')
             return (
-                <Text className="text-xs !text-[#B54708]" data-not-available>
+                <Text className="text-xs !text-[var(--peko-warning-ink)]" data-not-available>
                     Available once you’re confirmed
                 </Text>
             );
-        if (b.probation === 'MONTHLY') return <Text className="text-xs text-[#8B8B8B]">Credited monthly during probation</Text>;
+        if (b.probation === 'MONTHLY') return <Text className="text-xs text-[var(--peko-muted)]">Credited monthly during probation</Text>;
         return null;
     })();
     const extra = [
@@ -99,16 +99,16 @@ export const BalanceCard = ({ b, onProbation = false, onOpen }: { b: LeaveBalanc
     const { probation, extra } = balanceLines(b, onProbation);
     const body = (
         <>
-            <Text className="text-sm text-[#595959]">{b.label}</Text>
-            <Text className="text-2xl font-semibold text-[#121212]" data-available>
+            <Text className="text-sm text-[var(--peko-text-2)]">{b.label}</Text>
+            <Text className="text-2xl font-semibold text-[var(--peko-text)]" data-available>
                 {fmtDays(b.available)} available
             </Text>
             {probation}
-            <Text className="text-xs text-[#595959]">
+            <Text className="text-xs text-[var(--peko-text-2)]">
                 {b.type === COMP_OFF ? `${fmtDays(b.credited)} earned and not expired` : `${fmtDays(b.credited)} credited so far of ${fmtDays(b.allocated)} this year`}
                 {b.carried > 0 ? ` (incl. ${fmtDays(b.carried)} carried forward)` : ''}
             </Text>
-            <Text className="text-xs text-[#8B8B8B]">{extra.join(' · ')}</Text>
+            <Text className="text-xs text-[var(--peko-muted)]">{extra.join(' · ')}</Text>
         </>
     );
     if (onOpen) {
@@ -117,11 +117,11 @@ export const BalanceCard = ({ b, onProbation = false, onOpen }: { b: LeaveBalanc
                 type="button"
                 aria-label={`${b.label}: ${fmtDays(b.available)} available. View details`}
                 onClick={onOpen}
-                className={`${ESS_CARD} flex cursor-pointer flex-col gap-1 border-0 text-left transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.10)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#FF3A3A]`}
+                className={`${ESS_CARD} flex cursor-pointer flex-col gap-1 border-0 text-left transition-shadow hover:shadow-[0_4px_16px_rgba(0,0,0,0.10)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--peko-primary)]`}
                 data-balance={b.type}
             >
                 {body}
-                <span className="mt-1 text-sm font-medium text-[#FF3A3A]">View details ›</span>
+                <span className="mt-1 text-sm font-medium text-[var(--peko-primary)]">View details ›</span>
             </button>
         );
     }
@@ -138,10 +138,10 @@ export const BalanceCard = ({ b, onProbation = false, onOpen }: { b: LeaveBalanc
 
 export const LossOfPayCard = ({ days }: { days: number }) =>
     days > 0 ? (
-        <section aria-label="Loss of pay" className="rounded-lg border border-solid border-[#FFCCC7] bg-[#FFF2F0] p-4 sm:p-6" data-lop-card>
-            <Text className="block text-sm text-[#B42318]">Loss of pay</Text>
-            <Text className="block text-2xl font-semibold text-[#B42318]">{daysText(days)}</Text>
-            <Text className="block text-xs text-[#B42318]">From late check-ins with no leave left</Text>
+        <section aria-label="Loss of pay" className="rounded-lg border border-solid border-[#FFCCC7] bg-[var(--peko-error-bg)] p-4 sm:p-6" data-lop-card>
+            <Text className="block text-sm text-[var(--peko-error-ink)]">Loss of pay</Text>
+            <Text className="block text-2xl font-semibold text-[var(--peko-error-ink)]">{daysText(days)}</Text>
+            <Text className="block text-xs text-[var(--peko-error-ink)]">From late check-ins with no leave left</Text>
         </section>
     ) : null;
 
@@ -152,20 +152,20 @@ export const LateDeductionsPanel = ({ view }: { view: LeaveView }) => {
     const firstName = view.balances.find(b => b.type === view.lateOrder[0])?.name ?? 'Annual';
     return (
         <section aria-label="Late check-in deductions" className={ESS_CARD} data-late-panel>
-            <h3 className="m-0 text-base font-medium text-[#121212]">Late check-in deductions</h3>
+            <h3 className="m-0 text-base font-medium text-[var(--peko-text)]">Late check-in deductions</h3>
             <Text type="secondary" className="mt-1 block text-xs">
                 {off ? 'Late check-ins don’t deduct leave at your company.' : lateDeductionIntro(view.lateDeductionDays, firstName)}
             </Text>
-            {view.lateDeductions.length === 0 && <Text className="mt-3 block text-sm text-[#8B8B8B]">No late check-ins this leave year.</Text>}
+            {view.lateDeductions.length === 0 && <Text className="mt-3 block text-sm text-[var(--peko-muted)]">No late check-ins this leave year.</Text>}
             {view.lateDeductions.length > 0 && (
                 <ul className="m-0 mt-2 list-none p-0">
                     {view.lateDeductions.map(d => (
-                        <li key={d.date} className="flex flex-wrap items-baseline justify-between gap-x-3 border-0 border-b border-solid border-[#F0F0F0] py-2 text-sm last:border-b-0">
-                            <span className="text-[#121212]">
+                        <li key={d.date} className="flex flex-wrap items-baseline justify-between gap-x-3 border-0 border-b border-solid border-[var(--peko-line)] py-2 text-sm last:border-b-0">
+                            <span className="text-[var(--peko-text)]">
                                 {fmtDay(d.date)} ·{' '}
                                 {d.state === 'reversed' && d.reversedOn ? `dispute approved ${dayjs(d.reversedOn).format('D MMM')}` : `late by ${formatDuration(d.lateMinutes)}`}
                             </span>
-                            <span className={`tabular-nums ${d.state === 'reversed' ? 'text-[#067647]' : 'text-[#404040]'}`}>{lateLedgerText(d)}</span>
+                            <span className={`tabular-nums ${d.state === 'reversed' ? 'text-[#067647]' : 'text-[var(--peko-text)]'}`}>{lateLedgerText(d)}</span>
                         </li>
                     ))}
                 </ul>

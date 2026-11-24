@@ -51,15 +51,15 @@ const Edited = ({ before, after }: { before: TimesheetEntry; after: TimesheetEnt
         <div className="flex min-w-0 flex-col gap-0.5 rounded-md border-l-[3px] border-solid border-y-0 border-r-0 border-blue-400 bg-blue-50 px-2 py-1 text-sm">
             <span className="text-xs font-semibold text-blue-700">Edited</span>
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="text-[#8B8B8B] line-through">
+                <span className="text-[var(--peko-muted)] line-through">
                     <span className="tabular-nums">
                         {before.date !== after.date && `${fmtDay(before.date)} `}
                         {span(before)}
                     </span>
                     {descChanged && <span className="break-words"> · {before.description}</span>}
                 </span>
-                <ArrowRightOutlined className="text-xs text-[#8B8B8B]" />
-                <span className="font-medium text-[#121212]">
+                <ArrowRightOutlined className="text-xs text-[var(--peko-muted)]" />
+                <span className="font-medium text-[var(--peko-text)]">
                     <span className="tabular-nums">
                         {before.date !== after.date && `${fmtDay(after.date)} `}
                         {span(after)}
@@ -67,7 +67,7 @@ const Edited = ({ before, after }: { before: TimesheetEntry; after: TimesheetEnt
                     {descChanged && <span className="break-words"> · {after.description}</span>}
                 </span>
             </div>
-            {!descChanged && <span className="break-words text-xs text-[#595959]">{after.description}</span>}
+            {!descChanged && <span className="break-words text-xs text-[var(--peko-text-2)]">{after.description}</span>}
         </div>
     );
 };
@@ -87,18 +87,18 @@ const ManagerChangeDiff = ({ base, proposed }: ChangeDiffProps) => {
     return (
         <div className="flex min-w-0 flex-col gap-2">
             <div className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                <span className="font-semibold text-[#121212]">What changed</span>
-                <span className="text-[#595959]">{diffSummary(diff)}</span>
+                <span className="font-semibold text-[var(--peko-text)]">What changed</span>
+                <span className="text-[var(--peko-text-2)]">{diffSummary(diff)}</span>
                 {dates.length > 0 && (
-                    <span className="text-xs text-[#8B8B8B]">
+                    <span className="text-xs text-[var(--peko-muted)]">
                         · {formatDuration(baseTotal)} → {formatDuration(proposedTotal)} ({deltaText})
                     </span>
                 )}
             </div>
-            {!dates.length && <span className="text-xs text-[#8B8B8B]">No changes to the entries.</span>}
+            {!dates.length && <span className="text-xs text-[var(--peko-muted)]">No changes to the entries.</span>}
             {dates.map(date => (
                 <div key={date} className="flex min-w-0 flex-col gap-1">
-                    <span className="flex flex-wrap gap-x-2 text-xs font-medium text-[#8B8B8B]">
+                    <span className="flex flex-wrap gap-x-2 text-xs font-medium text-[var(--peko-muted)]">
                         {fmtDay(date)}
                         <span className="tabular-nums font-normal">
                             {formatDuration(dayTotal(base, date))} → {formatDuration(dayTotal(proposed, date))}

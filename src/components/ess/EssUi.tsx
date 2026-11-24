@@ -50,7 +50,7 @@ export const EssSectionHeading = ({
                 </Link>
             )}
         </div>
-        {sub && <p className="m-0 mt-0.5 text-xs text-[#8B8B8B]">{sub}</p>}
+        {sub && <p className="m-0 mt-0.5 text-xs text-[var(--peko-muted)]">{sub}</p>}
     </div>
 );
 

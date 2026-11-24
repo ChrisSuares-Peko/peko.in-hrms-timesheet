@@ -157,7 +157,7 @@ const OvertimeRequestModal = ({
                 </Form.Item>
 
                 {!planned && dateIso && (
-                    <div className="rounded-lg bg-[#F5F5F5] px-4 py-3 mb-4 min-h-[44px]">
+                    <div className="rounded-lg bg-[var(--peko-track)] px-4 py-3 mb-4 min-h-[44px]">
                         {ctxLoading && <Spin size="small" />}
                         {!ctxLoading && ctx && (
                             <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -234,7 +234,7 @@ const OvertimeRequestModal = ({
                     <Form.Item noStyle shouldUpdate>
                         {() => {
                             const err = form.getFieldError('hours')[0];
-                            return err ? <div className="text-[#ff4d4f] text-sm mt-1">{err}</div> : null;
+                            return err ? <div className="text-[var(--peko-error-ink)] text-sm mt-1">{err}</div> : null;
                         }}
                     </Form.Item>
                 </Form.Item>
@@ -277,13 +277,13 @@ const OvertimeRequestModal = ({
 
                 {/* PROTOTYPE-SETUP (Settings, Slice 1): who approves, by name. */}
                 {approvalLine && (
-                    <Text className="mb-3 block text-xs text-[#8B8B8B]" data-approval-line>
+                    <Text className="mb-3 block text-xs text-[var(--peko-muted)]" data-approval-line>
                         {approvalLine}
                     </Text>
                 )}
 
                 {/* PROTOTYPE-SETUP (Design update, rule 11): the form's buttons sit in a footer row, right-aligned. */}
-                <div className="-mx-6 -mb-5 mt-2 flex justify-end gap-2 border-0 border-t border-solid border-[#F0F0F0] px-6 py-3" data-modal-footer>
+                <div className="-mx-6 -mb-5 mt-2 flex justify-end gap-2 border-0 border-t border-solid border-[var(--peko-line)] px-6 py-3" data-modal-footer>
                     <Button onClick={onClose}>Cancel</Button>
                     <Button type="primary" htmlType="submit" loading={saving}>
                         Send for approval

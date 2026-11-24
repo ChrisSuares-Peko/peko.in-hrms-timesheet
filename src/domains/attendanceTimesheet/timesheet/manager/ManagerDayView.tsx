@@ -84,8 +84,8 @@ const ManagerDayView = ({
         <div
             id={`ts-day-${day.date}`}
             className={`flex min-w-0 flex-col gap-2.5 rounded-lg border border-solid p-4 ${
-                isToday ? 'border-blue-300 shadow-sm' : 'border-[#EAEAEA]'
-            } ${noWindow && !day.entries.length ? 'bg-[#FAFAFA]' : 'bg-white'}`}
+                isToday ? 'border-blue-300 shadow-sm' : 'border-[var(--peko-border)]'
+            } ${noWindow && !day.entries.length ? 'bg-[var(--peko-subtle)]' : 'bg-white'}`}
         >
             <div className="flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-1">
                 <div className="flex min-w-0 flex-col gap-0.5">
@@ -93,13 +93,13 @@ const ManagerDayView = ({
                         {onOpen ? (
                             <button
                                 type="button"
-                                className="cursor-pointer border-0 bg-transparent p-0 text-sm font-semibold text-[#121212] hover:text-blue-600"
+                                className="cursor-pointer border-0 bg-transparent p-0 text-sm font-semibold text-[var(--peko-text)] hover:text-blue-600"
                                 onClick={() => onOpen(day.date)}
                             >
                                 {fmtDay(day.date)}
                             </button>
                         ) : (
-                            <span className="text-sm font-semibold text-[#121212]">{fmtDay(day.date)}</span>
+                            <span className="text-sm font-semibold text-[var(--peko-text)]">{fmtDay(day.date)}</span>
                         )}
                         {isToday && (
                             <StatusTag color="blue" className="!m-0">
@@ -115,7 +115,7 @@ const ManagerDayView = ({
                             </Tooltip>
                         )}
                     </div>
-                    <span className="text-xs text-[#8B8B8B]">
+                    <span className="text-xs text-[var(--peko-muted)]">
                         {day.window.label}
                         {/* PROTOTYPE-SETUP (HR rules, Slice 1): the day's breaks (they count as logged time). */}
                         {day.breaks.length > 0 && ` · Breaks ${formatDuration(day.breaks.reduce((s, b) => s + b.minutes, 0))}`}
@@ -126,7 +126,7 @@ const ManagerDayView = ({
                         className={`font-medium tabular-nums ${
                             day.expectedMinutes && day.loggedMinutes >= day.expectedMinutes
                                 ? 'text-green-600'
-                                : 'text-[#404040]'
+                                : 'text-[var(--peko-text)]'
                         }`}
                     >
                         {totals}
@@ -143,7 +143,7 @@ const ManagerDayView = ({
             {!compact && <TimeTrackLegend windowKind={day.window.kind} />}
 
             {day.locked && day.lockReason && !compact && (
-                <span className="text-xs text-[#8B8B8B]">
+                <span className="text-xs text-[var(--peko-muted)]">
                     <LockOutlined className="mr-1" />
                     {day.lockReason}
                 </span>
@@ -188,7 +188,7 @@ const ManagerDayView = ({
                     )
                 )}
                 {!day.entries.length && editing !== 'new' && (
-                    <span className="text-xs text-[#8B8B8B]">{emptyText}</span>
+                    <span className="text-xs text-[var(--peko-muted)]">{emptyText}</span>
                 )}
                 {canEdit && edit && editing === 'new' && (
                     <ManagerEntryEditor

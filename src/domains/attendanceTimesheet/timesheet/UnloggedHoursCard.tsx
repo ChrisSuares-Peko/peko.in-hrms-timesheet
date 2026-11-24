@@ -37,7 +37,7 @@ const UnloggedHoursCard = ({ days, today, period, onPick }: UnloggedHoursCardPro
     return (
         <section aria-label="Unlogged hours" className={ESS_CARD}>
             <div className="flex items-center gap-2">
-                <h3 className="m-0 text-base font-medium text-[#121212]">Unlogged hours</h3>
+                <h3 className="m-0 text-base font-medium text-[var(--peko-text)]">Unlogged hours</h3>
                 <span className="flex-1" />
                 {days && (
                     <b className={`font-medium ${list.length ? 'text-amber-700' : 'text-green-700'}`}>{formatDuration(total)}</b>
@@ -51,11 +51,11 @@ const UnloggedHoursCard = ({ days, today, period, onPick }: UnloggedHoursCardPro
                             key={d.date}
                             type="button"
                             onClick={() => onPick(d.date)}
-                            className="flex w-full cursor-pointer items-center justify-between gap-2 border-0 border-b border-solid border-[#F0F0F0] bg-transparent px-0 py-[7px] text-left text-[13px] text-[#121212] last:border-b-0 hover:text-blue-600"
+                            className="flex w-full cursor-pointer items-center justify-between gap-2 border-0 border-b border-solid border-[var(--peko-line)] bg-transparent px-0 py-[7px] text-left text-[13px] text-[var(--peko-text)] last:border-b-0 hover:text-blue-600"
                         >
                             <span className="min-w-0">
                                 {dayjs(d.date).format('ddd, D MMM')}
-                                <span className="text-xs text-[#8B8B8B]">
+                                <span className="text-xs text-[var(--peko-muted)]">
                                     {' '}
                                     · {formatDuration(d.loggedMinutes)} of {formatDuration(d.expectedMinutes)}
                                 </span>
@@ -66,12 +66,12 @@ const UnloggedHoursCard = ({ days, today, period, onPick }: UnloggedHoursCardPro
                         </button>
                     ))}
                     {list.length > MAX_ROWS && (
-                        <div className="text-xs text-[#8B8B8B]">and {list.length - MAX_ROWS} more</div>
+                        <div className="text-xs text-[var(--peko-muted)]">and {list.length - MAX_ROWS} more</div>
                     )}
                 </div>
             )}
             {days && !list.length && (
-                <div className="mt-1.5 text-xs text-[#8B8B8B]">Nothing missing in this {period}.</div>
+                <div className="mt-1.5 text-xs text-[var(--peko-muted)]">Nothing missing in this {period}.</div>
             )}
         </section>
     );

@@ -13,19 +13,19 @@ const NavigationCards = ({ icon, iconNode, title, description, link, isActive, r
     const isActionOnly = !link && typeof onClick === 'function';
 
     const className =
-        'relative flex h-full w-full min-w-0 cursor-pointer flex-col items-start gap-1 rounded-lg border border-solid border-[#EAEAEA] bg-white p-[18px] text-left font-[inherit] shadow-[0px_1px_12px_1px_rgba(122,122,122,0.06)] transition-[border-color,box-shadow] duration-200 hover:border-[#FFE4E4] hover:shadow-[0px_4px_16px_2px_rgba(122,122,122,0.12)]';
+        'relative flex h-full w-full min-w-0 cursor-pointer flex-col items-start gap-1 rounded-lg border border-solid border-[var(--peko-border)] bg-white p-[18px] text-left font-[inherit] shadow-[0px_1px_12px_1px_rgba(122,122,122,0.06)] transition-[border-color,box-shadow] duration-200 hover:border-[var(--peko-primary-border)] hover:shadow-[0px_4px_16px_2px_rgba(122,122,122,0.12)]';
     const body = (
         <>
-            <span className="mb-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#FFF7F7] text-xl text-[#EA3639]" aria-hidden>
+            <span className="mb-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--peko-primary-surface)] text-xl text-[var(--peko-primary)]" aria-hidden>
                 {iconNode ?? <Image width={Math.min(iconWidth, 28)} preview={false} src={icon} />}
             </span>
-            <Typography.Text {...(!isActive && { disabled: true })} className="text-sm font-medium !text-[#121212]">
+            <Typography.Text {...(!isActive && { disabled: true })} className="text-sm font-medium !text-[var(--peko-text)]">
                 {title}
             </Typography.Text>
-            {description && <Typography.Text className="text-[13px] leading-[18px] !text-[#8B8B8B]">{description}</Typography.Text>}
+            {description && <Typography.Text className="text-[13px] leading-[18px] !text-[var(--peko-muted)]">{description}</Typography.Text>}
             {badge > 0 && (
                 <span
-                    className="absolute right-3 top-3 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#FF3A3A] px-1.5 text-xs font-medium leading-none text-white"
+                    className="absolute right-3 top-3 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--peko-primary)] px-1.5 text-xs font-medium leading-none text-white"
                     aria-label={`${badge} waiting`}
                     title={`${badge} waiting`}
                     data-tile-waiting

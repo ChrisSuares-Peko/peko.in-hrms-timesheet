@@ -59,14 +59,14 @@ const checkOutCell = (d: OverviewDay) => {
             </>
         );
     }
-    if (a.checkIn) return <span className="text-[#8B8B8B]">{a.carried ? 'Still checked in' : 'Still in'}</span>;
+    if (a.checkIn) return <span className="text-[var(--peko-muted)]">{a.carried ? 'Still checked in' : 'Still in'}</span>;
     return null;
 };
 
 const workedCell = (d: OverviewDay, today: string) => {
     const a = d.attendance;
     if (!a.checkIn || a.status === 'on-leave' || a.status === 'absent') return null;
-    if (a.carried) return <span className="text-[#8B8B8B]">Not counted yet</span>;
+    if (a.carried) return <span className="text-[var(--peko-muted)]">Not counted yet</span>;
     if (!a.checkOut && d.date === today) return `${formatDuration(a.minutesAtWork)} so far`;
     return a.checkOut ? formatDuration(a.minutesAtWork) : null;
 };
@@ -121,9 +121,9 @@ const OvStatusTable = ({
             withDate: true,
             hint: `Open in ${dateTab === 'attendance' ? 'Attendance' : 'Timesheet'}`,
             cell: d => (
-                <span className={`whitespace-nowrap font-medium ${d.date === today ? 'text-[#FF3A3A]' : 'text-[#121212]'}`}>
+                <span className={`whitespace-nowrap font-medium ${d.date === today ? 'text-[var(--peko-primary)]' : 'text-[var(--peko-text)]'}`}>
                     {dayjs(d.date).format('ddd D MMM')}
-                    {d.date === today && <span className="font-normal text-[#8B8B8B]"> today</span>}
+                    {d.date === today && <span className="font-normal text-[var(--peko-muted)]"> today</span>}
                 </span>
             ),
         },
@@ -149,7 +149,7 @@ const OvStatusTable = ({
                 to={linkTo(c.tab, c.withDate ? d.date : undefined)}
                 title={c.hint}
                 aria-label={`${dayjs(d.date).format('D MMM')}: ${c.hint}`}
-                className="block min-h-[44px] px-2 py-3 text-sm tabular-nums text-[#121212] decoration-[#c4c4c4] underline-offset-[3px] hover:bg-[#E6F4FF] hover:text-[#121212] hover:underline"
+                className="block min-h-[44px] px-2 py-3 text-sm tabular-nums text-[var(--peko-text)] decoration-[#c4c4c4] underline-offset-[3px] hover:bg-[var(--peko-info-bg)] hover:text-[var(--peko-text)] hover:underline"
             >
                 {c.cell(d)}
             </Link>
@@ -160,7 +160,7 @@ const OvStatusTable = ({
         <EssCard label="Recent days" heading={<EssSectionHeading title="Recent days" />} className={className}>
             {/* PROTOTYPE-SETUP (Overview v4, Slice 1): at a fixed height the table fills the card — its rows share the
                 spare height (ov-stretch-table) and, if there are more days than fit, it scrolls inside. */}
-            <div className="ov-stretch-table overflow-hidden rounded-lg border border-solid border-[#EAEAEA] xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+            <div className="ov-stretch-table overflow-hidden rounded-lg border border-solid border-[var(--peko-border)] xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
                 <Table<OverviewDay>
                     rowKey="date"
                     columns={columns}

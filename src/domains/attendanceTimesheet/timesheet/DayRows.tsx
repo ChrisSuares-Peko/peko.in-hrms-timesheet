@@ -45,7 +45,7 @@ export const BarTrack = ({ day, mode, axisEnd = AXIS_END }: { day: TimesheetDay;
     const win = windowRange(day);
     const pct = (m: number) => axisPct(m, axisEnd);
     return (
-        <div aria-hidden className="relative h-3.5 overflow-hidden rounded bg-[#F5F5F5]">
+        <div aria-hidden className="relative h-3.5 overflow-hidden rounded bg-[var(--peko-track)]">
             {win && <div className="absolute inset-y-0 bg-[#D9DDE3]" style={{ left: `${pct(win[0])}%`, width: `${pct(win[1]) - pct(win[0])}%` }} />}
             {barSegments(day, mode).map((s, i) => (
                 <div
@@ -99,7 +99,7 @@ export const DayRow = ({ day, mode, today, shift, overtime, expanded, axisEnd = 
     const clickable = Boolean(onToggle);
     const caret = expanded ? <CaretDownOutlined /> : <CaretRightOutlined />;
     return (
-        <div className={`grid grid-cols-1 border-0 border-b border-solid border-[#F0F0F0] last:border-b-0 md:grid-cols-[140px_minmax(0,1fr)] ${expanded ? 'bg-[#FAFAFA]' : ''}`} data-day-row={day.date}>
+        <div className={`grid grid-cols-1 border-0 border-b border-solid border-[var(--peko-line)] last:border-b-0 md:grid-cols-[140px_minmax(0,1fr)] ${expanded ? 'bg-[var(--peko-subtle)]' : ''}`} data-day-row={day.date}>
             <button
                 type="button"
                 onClick={onToggle}
@@ -107,17 +107,17 @@ export const DayRow = ({ day, mode, today, shift, overtime, expanded, axisEnd = 
                 disabled={!clickable}
                 className="flex cursor-pointer flex-row items-center gap-2 border-0 bg-transparent px-3.5 pt-2.5 text-left disabled:cursor-default md:flex-col md:items-start md:gap-[3px] md:px-4 md:py-3"
             >
-                <span className={`text-sm font-medium ${isToday ? 'text-red-500' : 'text-[#121212]'}`}>{head.day}</span>
-                <span className="text-xs text-[#8B8B8B]">{head.sub}</span>
+                <span className={`text-sm font-medium ${isToday ? 'text-red-500' : 'text-[var(--peko-text)]'}`}>{head.day}</span>
+                <span className="text-xs text-[var(--peko-muted)]">{head.sub}</span>
                 {mode === 'both' && !['upcoming'].includes(day.attendance.status) && <DayStatusTag status={day.attendance.status} label={day.attendance.label} />}
             </button>
             {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
             <div className={`min-w-0 px-3.5 pb-3 pt-1.5 md:py-2.5 md:pl-0 md:pr-4 ${clickable ? 'cursor-pointer' : ''}`} onClick={onToggle}>
-                <div className="mb-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs tabular-nums text-[#595959]" data-day-meta>
+                <div className="mb-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs tabular-nums text-[var(--peko-text-2)]" data-day-meta>
                     <span>{dayMeta(day, mode, shift, today)}</span>
                     <span>
-                        <b className="font-medium text-[#121212]">{loggedText(day, mode)}</b>
-                        {untimed ? <span className="text-[#8B8B8B]"> · {formatDuration(untimed)} without set times</span> : null}
+                        <b className="font-medium text-[var(--peko-text)]">{loggedText(day, mode)}</b>
+                        {untimed ? <span className="text-[var(--peko-muted)]"> · {formatDuration(untimed)} without set times</span> : null}
                     </span>
                     {overtime > 0 && (
                         <StatusTag color="orange" className="!m-0">
@@ -130,7 +130,7 @@ export const DayRow = ({ day, mode, today, shift, overtime, expanded, axisEnd = 
                         </StatusTag>
                     )}
                     <span className="flex-1" />
-                    {clickable && <span className="text-[#8B8B8B]">{caret}</span>}
+                    {clickable && <span className="text-[var(--peko-muted)]">{caret}</span>}
                 </div>
                 <BarTrack day={day} mode={mode} axisEnd={axisEnd} />
             </div>
@@ -140,17 +140,17 @@ export const DayRow = ({ day, mode, today, shift, overtime, expanded, axisEnd = 
 };
 
 const Axis = ({ axisEnd }: { axisEnd: number }) => (
-    <div aria-hidden className="hidden border-0 border-b border-solid border-[#F0F0F0] md:grid md:grid-cols-[140px_minmax(0,1fr)]" data-axis>
+    <div aria-hidden className="hidden border-0 border-b border-solid border-[var(--peko-line)] md:grid md:grid-cols-[140px_minmax(0,1fr)]" data-axis>
         <div />
         <div className="pb-0 pr-4 pt-1.5">
-            <div className="relative mb-0.5 h-4 text-[11px] text-[#8B8B8B]">
+            <div className="relative mb-0.5 h-4 text-[11px] text-[var(--peko-muted)]">
                 {axisTicks(axisEnd).map(h => (
                     <span key={h} className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${axisPct(h * 60, axisEnd)}%` }}>
                         {tickLabel(h)}
                     </span>
                 ))}
             </div>
-            <div className="mb-1.5 mt-0.5 flex flex-wrap gap-3.5 text-[11px] text-[#8B8B8B]">
+            <div className="mb-1.5 mt-0.5 flex flex-wrap gap-3.5 text-[11px] text-[var(--peko-muted)]">
                 <span className="inline-flex items-center gap-1.5">
                     <i className="inline-block h-2 w-3.5 rounded-sm bg-[#D9DDE3]" />
                     At work

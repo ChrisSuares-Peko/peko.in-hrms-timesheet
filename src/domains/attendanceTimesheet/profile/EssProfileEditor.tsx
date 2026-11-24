@@ -42,13 +42,13 @@ const changeText = (c: ProfileChange) => {
 const ReadOnly = ({ label, children }: { label: string; children: ReactNode }) => (
     <div className="min-w-0">
         <Text className={`block ${ESS_LABEL}`}>{label}</Text>
-        <Text className="block break-words text-base font-medium text-[#121212]">{children}</Text>
+        <Text className="block break-words text-base font-medium text-[var(--peko-text)]">{children}</Text>
     </div>
 );
 
 const Field = ({ label, id, children, wide }: { label: string; id: string; children: ReactNode; wide?: boolean }) => (
     <div className={`flex min-w-0 flex-col gap-1 ${wide ? 'sm:col-span-2' : ''}`}>
-        <label htmlFor={id} className="text-xs text-[#8B8B8B]">
+        <label htmlFor={id} className="text-xs text-[var(--peko-muted)]">
             {label}
         </label>
         {children}
@@ -198,7 +198,7 @@ const EssProfileEditor = () => {
         <>
             <section aria-label="Work details" className={CARD}>
                 <Text className={`block ${ESS_SECTION_TITLE}`}>Work details</Text>
-                <Text className="mb-5 block text-xs text-[#8B8B8B]">Managed by HR. Ask HR if something here is wrong.</Text>
+                <Text className="mb-5 block text-xs text-[var(--peko-muted)]">Managed by HR. Ask HR if something here is wrong.</Text>
                 <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
                     <ReadOnly label="Employee ID">{work.employeeId}</ReadOnly>
                     <ReadOnly label="Work email">{work.workEmail}</ReadOnly>
@@ -210,7 +210,7 @@ const EssProfileEditor = () => {
                         {work.manager ? (
                             <>
                                 {work.manager.name}
-                                <span className="block text-xs font-normal text-[#8B8B8B]">{work.manager.designation}</span>
+                                <span className="block text-xs font-normal text-[var(--peko-muted)]">{work.manager.designation}</span>
                             </>
                         ) : (
                             'No reporting manager'
@@ -224,7 +224,7 @@ const EssProfileEditor = () => {
 
             <section aria-label="Personal info" className={CARD}>
                 <Text className={`block ${ESS_SECTION_TITLE}`}>Personal info</Text>
-                <Text className="mb-5 block text-xs text-[#8B8B8B]">
+                <Text className="mb-5 block text-xs text-[var(--peko-muted)]">
                     Changes go to HR for approval. Your profile updates once HR approves them.
                 </Text>
                 {banner && <div className="mb-5">{banner}</div>}
@@ -242,14 +242,14 @@ const EssProfileEditor = () => {
                                 </Button>
                             )}
                         </div>
-                        <Text className="text-xs text-[#8B8B8B]">
+                        <Text className="text-xs text-[var(--peko-muted)]">
                             {locked ? 'Photo changes are locked while HR reviews your update.' : 'An image up to 1 MB.'}
                         </Text>
                         <input ref={fileInput} type="file" accept="image/*" className="hidden" aria-label="Upload a photo" onChange={onPhoto} />
                     </div>
                 </div>
 
-                <Text className="text-[12px] font-medium uppercase text-[#8B8B8B]">Contact information</Text>
+                <Text className="text-[12px] font-medium uppercase text-[var(--peko-muted)]">Contact information</Text>
                 <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
                     <Field label="Mobile number" id="pf-mobile">
                         <Input id="pf-mobile" type="tel" value={form.mobile} disabled={locked} onChange={set('mobile')} />
@@ -262,9 +262,9 @@ const EssProfileEditor = () => {
                     </Field>
                 </div>
 
-                <div className="my-6 border-0 border-t border-solid border-[#f0f0f0]" />
+                <div className="my-6 border-0 border-t border-solid border-[var(--peko-line)]" />
 
-                <Text className="text-[12px] font-medium uppercase text-[#8B8B8B]">Emergency contact</Text>
+                <Text className="text-[12px] font-medium uppercase text-[var(--peko-muted)]">Emergency contact</Text>
                 <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
                     <Field label="Name" id="pf-ec-name">
                         <Input id="pf-ec-name" value={form.emergencyName} disabled={locked} onChange={set('emergencyName')} />
@@ -289,7 +289,7 @@ const EssProfileEditor = () => {
                     </Button>
                     {dirty && !locked && <Button onClick={() => apply(view)}>Discard</Button>}
                     {!dirty && (
-                        <Text className="text-xs text-[#8B8B8B]">
+                        <Text className="text-xs text-[var(--peko-muted)]">
                             {locked ? 'You can make more changes once HR responds.' : 'No unsaved changes'}
                         </Text>
                     )}

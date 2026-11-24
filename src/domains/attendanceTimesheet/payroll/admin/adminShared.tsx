@@ -14,7 +14,7 @@ import { Segmented, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
-import { PekoBackLink, PekoPageHeader, PekoTabRow } from '@src/components/peko/PageHeader';
+import { PekoBackLink, PekoPageHeader, PekoSectionTabs } from '@src/components/peko/PageHeader';
 import { PEKO_CARD, PEKO_STAT_LABEL, PEKO_STAT_VALUE } from '@src/components/peko/pekoTokens';
 import StatusTag from '@src/components/peko/StatusTag';
 import { PAYROLL_DASHBOARD, type PayrollService } from '@src/prototype/persona/payrollServices';
@@ -102,7 +102,7 @@ export const useAdminView = (views: AdminView[]): [AdminView, (v: AdminView) => 
     return [view, set];
 };
 
-/** The sub-tabs (antd Segmented), with the page's actions right-aligned on the same row. */
+/** The sub-tabs (antd line Tabs — Peko One section switchers), with the page's actions on the tab bar. */
 export const AdminSubTabs = ({
     value,
     options,
@@ -114,9 +114,16 @@ export const AdminSubTabs = ({
     onChange: (v: AdminView) => void;
     actions?: ReactNode;
 }) => (
-    <PekoTabRow actions={actions}>
-        <Segmented<AdminView> value={value} onChange={onChange} options={options} data-admin-subtabs />
-    </PekoTabRow>
+    <PekoSectionTabs<AdminView>
+        value={value}
+        onChange={onChange}
+        actions={actions}
+        items={options.map(o => {
+            const m = /^(.*) \((\d+)\)$/.exec(o.label);
+            return m ? { value: o.value, label: m[1], count: Number(m[2]) } : { value: o.value, label: o.label };
+        })}
+        data-admin-subtabs
+    />
 );
 
 /** The current month and the two before it ("YYYY-MM"). */

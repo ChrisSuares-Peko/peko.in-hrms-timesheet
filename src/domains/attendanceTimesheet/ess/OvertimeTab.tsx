@@ -71,7 +71,7 @@ const DayContext = ({ r }: { r: RequestRow }) => {
 
     return (
         <div className="flex items-center gap-2 flex-wrap">
-            <Text className="text-xs text-[#8B8B8B] tabular-nums">{parts.join(' · ')}</Text>
+            <Text className="text-xs text-[var(--peko-muted)] tabular-nums">{parts.join(' · ')}</Text>
             {r.kind === 'planned' && (
                 <StatusTag color={ctx.extraMinutes >= r.minutes ? 'success' : 'warning'} className="!m-0">
                     Actual extra: {formatDuration(ctx.extraMinutes)}
@@ -159,17 +159,17 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                     <StatTile
                         label="Approved this month"
                         value={formatDuration(stats.approvedMinutesThisMonth)}
-                        tone="bg-[#ECFDF3]"
+                        tone="bg-[var(--peko-success-bg)]"
                     />
                     <StatTile
                         label="Waiting for approval"
                         value={stats.waitingCount}
-                        tone="bg-[#FFF6EA]"
+                        tone="bg-[var(--peko-warning-bg)]"
                     />
                     <StatTile
                         label="Suggested to claim"
                         value={stats.suggestedCount}
-                        tone="bg-[#FFF7F6]"
+                        tone="bg-[var(--peko-primary-surface)]"
                     />
                 </div>
                 <div className="flex flex-col sm:flex-row lg:flex-col gap-2 lg:w-[200px] shrink-0">
@@ -214,7 +214,7 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                                             +{formatDuration(s.minutes)}
                                         </StatusTag>
                                     </div>
-                                    <Text className="text-xs text-[#8B8B8B]">{s.reason}</Text>
+                                    <Text className="text-xs text-[var(--peko-muted)]">{s.reason}</Text>
                                 </div>
                                 <Button
                                     onClick={() =>
@@ -234,7 +234,7 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                     <Empty
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description={
-                            <span className="text-[#8B8B8B]">
+                            <span className="text-[var(--peko-muted)]">
                                 Nothing to claim. Days with at least{' '}
                                 {formatDuration(view.minimumMinutes)} extra show up here.
                             </span>
@@ -267,7 +267,7 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                                     <RequestStatusTag trail={r.trail} label={r.statusLabel} />
                                 </div>
                                 {r.description && (
-                                    <Text className="text-sm text-[#8B8B8B] break-words">
+                                    <Text className="text-sm text-[var(--peko-muted)] break-words">
                                         {r.description}
                                     </Text>
                                 )}
@@ -306,7 +306,7 @@ const OvertimeTab = ({ onChanged }: OvertimeTabProps) => {
                     <Empty
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description={
-                            <span className="text-[#8B8B8B]">No overtime requests yet.</span>
+                            <span className="text-[var(--peko-muted)]">No overtime requests yet.</span>
                         }
                     />
                 )}

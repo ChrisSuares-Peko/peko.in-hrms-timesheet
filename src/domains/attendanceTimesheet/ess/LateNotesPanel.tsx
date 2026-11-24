@@ -42,18 +42,18 @@ const LateNotesPanel = ({ reloadKey, onDispute }: { reloadKey: number; onDispute
                 {notes.map(d => {
                     const amount = lateAmountText(d);
                     const late = formatDuration(d.lateMinutes);
-                    let tone = 'bg-[#FAFAFA]';
+                    let tone = 'bg-[var(--peko-subtle)]';
                     let body: React.ReactNode;
                     let action: React.ReactNode = null;
                     if (d.state === 'reversed') {
-                        tone = 'bg-[#ECFDF3]';
+                        tone = 'bg-[var(--peko-success-bg)]';
                         body = (
                             <>
                                 <b className="font-medium">Dispute for {fmtDay(d.date)} approved.</b> +{fmtDays(d.days)} reversed, given back to your balance.
                             </>
                         );
                     } else if (d.dispute?.state === 'pending') {
-                        tone = 'bg-[#E6F4FF]';
+                        tone = 'bg-[var(--peko-info-bg)]';
                         body = (
                             <>
                                 <b className="font-medium">
@@ -63,7 +63,7 @@ const LateNotesPanel = ({ reloadKey, onDispute }: { reloadKey: number; onDispute
                             </>
                         );
                     } else if (d.dispute?.state === 'update_requested') {
-                        tone = 'bg-[#FFF6EA]';
+                        tone = 'bg-[var(--peko-warning-bg)]';
                         body = (
                             <>
                                 <b className="font-medium">Dispute for {fmtDay(d.date)} is waiting for your update.</b> {d.dispute.by ? `${d.dispute.by}: “${d.dispute.comment}”. ` : ''}
@@ -71,7 +71,7 @@ const LateNotesPanel = ({ reloadKey, onDispute }: { reloadKey: number; onDispute
                             </>
                         );
                     } else if (d.dispute?.state === 'rejected') {
-                        tone = 'bg-[#FFF1F0]';
+                        tone = 'bg-[var(--peko-error-bg)]';
                         body = (
                             <>
                                 <b className="font-medium">

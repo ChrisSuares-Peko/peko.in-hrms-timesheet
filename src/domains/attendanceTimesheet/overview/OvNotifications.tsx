@@ -18,11 +18,11 @@ import type { EssHomeView, OverviewAction, OverviewLink, OverviewRequest } from 
 
 const TONE = {
     back: 'bg-[#FFF4E8] border-[#FFD9A8]',
-    info: 'bg-[#E6F4FF] border-[#91CAFF]',
-    amber: 'bg-[#FFFBE6] border-[#FFE58F]',
+    info: 'bg-[var(--peko-info-bg)] border-[#91CAFF]',
+    amber: 'bg-[var(--peko-warning-bg)] border-[#FFE58F]',
 } as const;
 
-const DOT = { pending: 'bg-[#2E62E8]', approved: 'bg-[#43B75D]', rejected: 'bg-[#FF3A3A]', update_requested: 'bg-[#F79009]' } as const;
+const DOT = { pending: 'bg-[#2E62E8]', approved: 'bg-[#43B75D]', rejected: 'bg-[var(--peko-primary)]', update_requested: 'bg-[#F79009]' } as const;
 
 const SHOWN_REQUESTS = 3;
 
@@ -95,8 +95,8 @@ const OvNotifications = ({
                         renderItem={a => (
                             <List.Item className={`!mb-2 !flex-col !items-stretch !gap-2 rounded-lg border border-solid !px-4 !py-3 last:!mb-0 ${TONE[a.tone]}`}>
                                 <div className="min-w-0">
-                                    <b className="block text-sm font-semibold text-[#121212]">{a.title}</b>
-                                    <span className="block text-xs text-[#8B8B8B]">{a.text}</span>
+                                    <b className="block text-sm font-semibold text-[var(--peko-text)]">{a.title}</b>
+                                    <span className="block text-xs text-[var(--peko-muted)]">{a.text}</span>
                                 </div>
                                 <Button size="small" className="h-8 self-end px-3" onClick={() => onAction?.(a) || navigate(hrefOf(a.link))}>
                                     {a.button}
@@ -125,12 +125,12 @@ const OvNotifications = ({
                                 >
                                     <span aria-hidden className={`mt-1.5 inline-block h-2 w-2 shrink-0 rounded-full ${DOT[r.state]}`} />
                                     <span className="min-w-0 flex-1">
-                                        <span className="block text-sm font-medium text-[#121212]">
-                                            {r.title} <span className="font-normal text-[#8B8B8B]">{r.detail}</span>
+                                        <span className="block text-sm font-medium text-[var(--peko-text)]">
+                                            {r.title} <span className="font-normal text-[var(--peko-muted)]">{r.detail}</span>
                                         </span>
-                                        <span className="block text-xs text-[#8B8B8B]">{r.statusText}</span>
+                                        <span className="block text-xs text-[var(--peko-muted)]">{r.statusText}</span>
                                     </span>
-                                    <span className="shrink-0 rounded-full bg-[#ecfdf3] px-2.5 py-0.5 text-xs font-medium text-[#027a48]">
+                                    <span className="shrink-0 rounded-full bg-[var(--peko-success-bg)] px-2.5 py-0.5 text-xs font-medium text-[var(--peko-success-ink)]">
                                         {dayjs(r.at).format('D MMM')}
                                     </span>
                                 </button>
@@ -142,8 +142,8 @@ const OvNotifications = ({
             {first && (
                 <div aria-label="Announcements" className="flex flex-col gap-2 rounded-lg bg-white px-4 py-3">
                     <div className="flex items-baseline gap-2 text-sm">
-                        <span aria-hidden className="inline-block h-3 w-[3px] shrink-0 self-center rounded bg-[#FF3A3A]" />
-                        <span className="min-w-0 flex-1 text-[#121212]">{firstLine}</span>
+                        <span aria-hidden className="inline-block h-3 w-[3px] shrink-0 self-center rounded bg-[var(--peko-primary)]" />
+                        <span className="min-w-0 flex-1 text-[var(--peko-text)]">{firstLine}</span>
                         {rest.length > 0 && (
                             <Button type="link" size="small" className="!h-auto !p-0 !text-xs" onClick={() => setAllNews(v => !v)} aria-expanded={allNews}>
                                 {allNews ? 'Show less' : `${rest.length} more`}
@@ -153,8 +153,8 @@ const OvNotifications = ({
                     {allNews &&
                         rest.map(n => (
                             <div key={n.title} className="pl-[11px]">
-                                <span className="block text-sm text-[#121212]">{n.title}</span>
-                                <span className="block text-xs text-[#8B8B8B]">{n.text}</span>
+                                <span className="block text-sm text-[var(--peko-text)]">{n.title}</span>
+                                <span className="block text-xs text-[var(--peko-muted)]">{n.text}</span>
                             </div>
                         ))}
                 </div>

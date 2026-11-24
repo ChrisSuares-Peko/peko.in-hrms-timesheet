@@ -34,14 +34,14 @@ const iso = (d: dayjs.Dayjs) => d.format('YYYY-MM-DD');
 const MARKER: Record<GridMarker, { label: string; short: string; className: string }> = {
     leave: { label: 'Leave', short: 'Lv', className: 'bg-[#F4F3FF] text-[#5925DC]' },
     holiday: { label: 'Holiday', short: 'Hol', className: 'bg-[#ECFDFF] text-[#0E7090]' },
-    off: { label: 'Off', short: 'Off', className: 'bg-[#F2F4F7] text-[#8B8B8B]' },
-    'nothing-logged': { label: 'Nothing logged', short: '0h', className: 'bg-[#FEF3F2] text-[#B42318] font-medium' },
+    off: { label: 'Off', short: 'Off', className: 'bg-[#F2F4F7] text-[var(--peko-muted)]' },
+    'nothing-logged': { label: 'Nothing logged', short: '0h', className: 'bg-[var(--peko-error-bg)] text-[var(--peko-error-ink)] font-medium' },
 };
 
 const CellView = ({ cell, compact }: { cell: Cell; compact?: boolean }) => {
     const future = cell.date > iso(dayjs());
     let content: ReactNode;
-    let cls = 'text-[#121212]';
+    let cls = 'text-[var(--peko-text)]';
     if (cell.loggedMinutes > 0) {
         content = formatDuration(cell.loggedMinutes);
         if (cell.marker && cell.marker !== 'nothing-logged') cls = MARKER[cell.marker].className;
@@ -50,7 +50,7 @@ const CellView = ({ cell, compact }: { cell: Cell; compact?: boolean }) => {
         cls = MARKER[cell.marker].className;
     } else {
         content = future ? '' : '0h';
-        cls = 'text-[#8B8B8B]';
+        cls = 'text-[var(--peko-muted)]';
     }
     const tip = [
         dayjs(cell.date).format('ddd, D MMM'),
@@ -69,7 +69,7 @@ const CellView = ({ cell, compact }: { cell: Cell; compact?: boolean }) => {
                 } ${cls}`}
             >
                 {content || <span className="text-[#D0D5DD]">—</span>}
-                {cell.extraMinutes > 0 && <div className="text-[10px] leading-none text-[#027A48]">+{formatDuration(cell.extraMinutes)}</div>}
+                {cell.extraMinutes > 0 && <div className="text-[10px] leading-none text-[var(--peko-success-ink)]">+{formatDuration(cell.extraMinutes)}</div>}
             </div>
         </Tooltip>
     );
@@ -133,7 +133,7 @@ const Legend = () => (
                 {MARKER[m].label}
             </span>
         ))}
-        <span className="text-[#027A48]">+ extra time</span>
+        <span className="text-[var(--peko-success-ink)]">+ extra time</span>
     </Flex>
 );
 
@@ -196,7 +196,7 @@ const TeamTimesheets = ({ loadWeek, loadMonth, onOpenMember, empty }: TeamTimesh
             title: (
                 <Flex vertical align="center" gap={0}>
                     <span>{dayjs(d).format('ddd')}</span>
-                    <span className="text-xs font-normal text-[#8B8B8B]">{dayjs(d).format('D MMM')}</span>
+                    <span className="text-xs font-normal text-[var(--peko-muted)]">{dayjs(d).format('D MMM')}</span>
                 </Flex>
             ),
             key: d,
@@ -218,7 +218,7 @@ const TeamTimesheets = ({ loadWeek, loadMonth, onOpenMember, empty }: TeamTimesh
             align: 'right',
             render: (_, r) =>
                 r.extraMinutes > 0 ? (
-                    <Typography.Text className="whitespace-nowrap !text-[#027A48]">+{formatDuration(r.extraMinutes)}</Typography.Text>
+                    <Typography.Text className="whitespace-nowrap !text-[var(--peko-success-ink)]">+{formatDuration(r.extraMinutes)}</Typography.Text>
                 ) : (
                     <Typography.Text type="secondary">—</Typography.Text>
                 ),
@@ -246,7 +246,7 @@ const TeamTimesheets = ({ loadWeek, loadMonth, onOpenMember, empty }: TeamTimesh
             width: 130,
             align: 'right',
             render: (_, r) => (
-                <Typography.Text className={r.daysNothingLogged > 0 ? '!text-[#B42318] font-medium' : ''} type={r.daysNothingLogged ? undefined : 'secondary'}>
+                <Typography.Text className={r.daysNothingLogged > 0 ? '!text-[var(--peko-error-ink)] font-medium' : ''} type={r.daysNothingLogged ? undefined : 'secondary'}>
                     {r.daysNothingLogged}
                 </Typography.Text>
             ),
@@ -256,7 +256,7 @@ const TeamTimesheets = ({ loadWeek, loadMonth, onOpenMember, empty }: TeamTimesh
             key: 'extra',
             width: 90,
             align: 'right',
-            render: (_, r) => (r.extraMinutes > 0 ? <Typography.Text className="whitespace-nowrap !text-[#027A48]">+{formatDuration(r.extraMinutes)}</Typography.Text> : '—'),
+            render: (_, r) => (r.extraMinutes > 0 ? <Typography.Text className="whitespace-nowrap !text-[var(--peko-success-ink)]">+{formatDuration(r.extraMinutes)}</Typography.Text> : '—'),
         },
         {
             title: 'Weeks',
@@ -279,14 +279,14 @@ const TeamTimesheets = ({ loadWeek, loadMonth, onOpenMember, empty }: TeamTimesh
                             key={r.employee.id}
                             type="button"
                             onClick={() => openMember(r.employee.id, week.weekStart)}
-                            className="w-full text-left cursor-pointer rounded-lg border border-solid border-[#EAEAEA] bg-white p-3"
+                            className="w-full text-left cursor-pointer rounded-lg border border-solid border-[var(--peko-border)] bg-white p-3"
                         >
                             <Flex justify="space-between" align="center" gap={8} className="mb-2">
                                 <PersonCell person={r.employee} />
                                 <Flex vertical align="flex-end" className="shrink-0">
                                     <Typography.Text strong>{formatDuration(r.totalMinutes)}</Typography.Text>
                                     {r.extraMinutes > 0 && (
-                                        <Typography.Text className="text-xs !text-[#027A48]">+{formatDuration(r.extraMinutes)} extra</Typography.Text>
+                                        <Typography.Text className="text-xs !text-[var(--peko-success-ink)]">+{formatDuration(r.extraMinutes)} extra</Typography.Text>
                                     )}
                                 </Flex>
                             </Flex>
@@ -336,7 +336,7 @@ const TeamTimesheets = ({ loadWeek, loadMonth, onOpenMember, empty }: TeamTimesh
                             key={r.employee.id}
                             type="button"
                             onClick={() => openMember(r.employee.id, monthDate(month))}
-                            className="w-full text-left cursor-pointer rounded-lg border border-solid border-[#EAEAEA] bg-white p-3"
+                            className="w-full text-left cursor-pointer rounded-lg border border-solid border-[var(--peko-border)] bg-white p-3"
                         >
                             <PersonCell person={r.employee} />
                             <div className="grid grid-cols-3 gap-2 my-3">
@@ -346,7 +346,7 @@ const TeamTimesheets = ({ loadWeek, loadMonth, onOpenMember, empty }: TeamTimesh
                                 </Flex>
                                 <Flex vertical>
                                     <Typography.Text type="secondary" className="text-xs">Nothing logged</Typography.Text>
-                                    <Typography.Text strong className={r.daysNothingLogged > 0 ? '!text-[#B42318]' : ''}>
+                                    <Typography.Text strong className={r.daysNothingLogged > 0 ? '!text-[var(--peko-error-ink)]' : ''}>
                                         {r.daysNothingLogged} {r.daysNothingLogged === 1 ? 'day' : 'days'}
                                     </Typography.Text>
                                 </Flex>

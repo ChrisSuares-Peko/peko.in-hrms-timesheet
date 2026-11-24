@@ -246,7 +246,7 @@ const CategoriesCard = () => {
                             <div className="overflow-x-auto">
                                 <table className="w-full min-w-[520px] border-collapse text-sm">
                                     <thead>
-                                        <tr className="text-left text-xs text-[#8B8B8B]">
+                                        <tr className="text-left text-xs text-[var(--peko-muted)]">
                                             <th className="py-1 pr-3 font-normal">Category</th>
                                             <th className="py-1 pr-3 font-normal">Monthly limit per employee</th>
                                             <th className="py-1 pr-3 font-normal">Receipt required</th>
@@ -257,7 +257,7 @@ const CategoriesCard = () => {
                                         {fields.map(f => {
                                             const cat: ReimbursementCategory | undefined = form.getFieldValue(['reimbursements', 'categories', f.name]);
                                             return (
-                                                <tr key={f.key} className="border-0 border-t border-solid border-[#F0F0F0]" data-category-row={cat?.name}>
+                                                <tr key={f.key} className="border-0 border-t border-solid border-[var(--peko-line)]" data-category-row={cat?.name}>
                                                     <td className="py-2 pr-3">{cat?.name}</td>
                                                     <td className="py-2 pr-3">
                                                         <Flex align="center" gap={6}>
@@ -337,7 +337,7 @@ const ModeCards = ({
                     key={m.value}
                     htmlFor={`ats-mode-${m.value}`}
                     className={`block cursor-pointer rounded-lg border border-solid p-4 transition-colors ${
-                        value === m.value ? 'border-[#FF3A3A] bg-[#FFF8F8]' : 'border-[#EAEAEA] bg-white'
+                        value === m.value ? 'border-[var(--peko-primary)] bg-[#FFF8F8]' : 'border-[var(--peko-border)] bg-white'
                     }`}
                 >
                     <Flex vertical gap={6}>

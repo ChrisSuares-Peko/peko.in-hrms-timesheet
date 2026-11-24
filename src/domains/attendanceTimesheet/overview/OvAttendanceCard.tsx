@@ -169,14 +169,14 @@ export const AttendancePunch = ({
             <EssStatusBlock tone={strip.tone} title={strip.text} sub={sub} />
             {/* PROTOTYPE-SETUP (Final batch, Slice 5): leave deducted for today's late check-in. */}
             {t.lateDeduction && t.lateDeduction.state !== 'reversed' && t.lateMinutes > 0 && (
-                <span className="-mt-1 rounded-lg bg-[#FFFBE6] px-3 py-2 text-xs leading-4 text-[#121212]" data-late-note>
+                <span className="-mt-1 rounded-lg bg-[var(--peko-warning-bg)] px-3 py-2 text-xs leading-4 text-[var(--peko-text)]" data-late-note>
                     {lateTodayNote(t.lateDeduction, formatDuration(t.lateMinutes))}
                 </span>
             )}
             {/* PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — "Working from". */}
             {overview.mode === 'attendance' && <LocationBar overview={overview} onOverview={onOverview} />}
             {t.checkIn && (
-                <div className="-mt-1 flex items-center justify-between gap-2 text-sm text-[#8B8B8B]" data-breaks-today>
+                <div className="-mt-1 flex items-center justify-between gap-2 text-sm text-[var(--peko-muted)]" data-breaks-today>
                     <span>{breaksLine(t, now)}</span>
                     {t.breaks.length > 0 && (
                         <Button type="link" size="small" className="!h-auto !p-0" onClick={() => setEditing(true)}>

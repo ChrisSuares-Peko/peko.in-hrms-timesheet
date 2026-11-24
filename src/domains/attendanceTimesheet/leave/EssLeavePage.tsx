@@ -22,6 +22,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import { PekoSectionTabs } from '@src/components/peko/PageHeader';
 import { PEKO_CARD, PEKO_STAT_LABEL, PEKO_STAT_VALUE } from '@src/components/peko/pekoTokens';
 import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
@@ -141,7 +142,7 @@ const LeaveTypePage = ({
                 <Stat label="In request" value={fmtDays(b.inRequest)} sub="waiting for approval, already taken off" />
                 <Stat label="Carried forward" value={fmtDays(b.carried)} sub={comp ? 'comp off doesn’t carry forward' : `limit ${b.carryForward ? `${fmtDays(b.carryForward)} days` : 'none'}`} />
             </div>
-            <Text className="text-sm text-[#595959]" data-type-summary>
+            <Text className="text-sm text-[var(--peko-text-2)]" data-type-summary>
                 {typeSummary(b, view)}
                 {b.late > 0 ? ` · −${fmtDays(b.late)} for late check-ins` : ''}
             </Text>
@@ -273,7 +274,7 @@ const MyRequests = ({ view, onOpen }: { view: LeaveView; onOpen: (it: DrawerItem
             render: (_, r) => (
                 <div className="flex flex-col">
                     <span className="whitespace-nowrap font-medium">{r.typeName}</span>
-                    {r.what && <span className="text-xs text-[#8B8B8B]">{r.what}</span>}
+                    {r.what && <span className="text-xs text-[var(--peko-muted)]">{r.what}</span>}
                 </div>
             ),
         },
@@ -287,7 +288,7 @@ const MyRequests = ({ view, onOpen }: { view: LeaveView; onOpen: (it: DrawerItem
                 <div className="flex flex-col items-start gap-1">
                     <LeaveStatusTag r={r} />
                     {r.under && (
-                        <Text className="text-xs !text-[#B54708]" data-under-status>
+                        <Text className="text-xs !text-[var(--peko-warning-ink)]" data-under-status>
                             {r.under}
                         </Text>
                     )}
@@ -328,7 +329,7 @@ const MyRequests = ({ view, onOpen }: { view: LeaveView; onOpen: (it: DrawerItem
                     data-request-filter
                 />
             </div>
-            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[var(--peko-border)] bg-white">
                 <Table<ReqRow>
                     rowKey="key"
                     size="middle"
@@ -545,25 +546,24 @@ const EssLeavePage = () => {
                     <Typography.Title level={4} className="!mb-0.5">
                         Leave
                     </Typography.Title>
-                    <Text className="text-sm !text-[#8B8B8B]" data-leave-year>
+                    <Text className="text-sm !text-[var(--peko-muted)]" data-leave-year>
                         {leaveYearLine(view)}
                     </Text>
                 </div>
                 {actions}
             </div>
-            <div className="max-w-full overflow-x-auto">
-                <Segmented<Sub>
-                    value={sub}
-                    onChange={v => setParam('tab', v === 'overview' ? null : v)}
-                    aria-label="Leave section"
-                    options={[
-                        { value: 'overview', label: 'Overview' },
-                        { value: 'requests', label: `My requests${open ? ` (${open})` : ''}` },
-                        { value: 'holidays', label: 'Public holidays' },
-                    ]}
-                    data-leave-subtabs
-                />
-            </div>
+            {/* PROTOTYPE-SETUP (Peko One): the section switcher is underline tabs. */}
+            <PekoSectionTabs<Sub>
+                value={sub}
+                className="-mb-2"
+                onChange={v => setParam('tab', v === 'overview' ? null : v)}
+                items={[
+                    { value: 'overview', label: 'Overview' },
+                    { value: 'requests', label: 'My requests', count: open },
+                    { value: 'holidays', label: 'Public holidays' },
+                ]}
+                data-leave-subtabs
+            />
 
             {sub === 'overview' && (
                 <>
@@ -583,7 +583,7 @@ const EssLeavePage = () => {
                         ]}
                         side={[
                             <section key="upcoming" aria-label="Upcoming leave" className={`${PEKO_CARD} !p-5 flex h-full min-w-0 flex-col gap-2`} data-upcoming-leave>
-                                <h3 className="m-0 text-[13px] font-normal text-[#8B8B8B]">Upcoming leave</h3>
+                                <h3 className="m-0 text-[13px] font-normal text-[var(--peko-muted)]">Upcoming leave</h3>
                                 {upcoming ? (
                                     <button
                                         type="button"
@@ -591,8 +591,8 @@ const EssLeavePage = () => {
                                         className="flex w-full cursor-pointer flex-col items-start gap-1 border-0 bg-transparent p-0 text-left font-[inherit]"
                                         data-upcoming-item={upcoming.state}
                                     >
-                                        <span className="text-sm font-medium text-[#121212]">{fmtRange(upcoming.start, upcoming.end)}</span>
-                                        <span className="text-xs text-[#8B8B8B]">
+                                        <span className="text-sm font-medium text-[var(--peko-text)]">{fmtRange(upcoming.start, upcoming.end)}</span>
+                                        <span className="text-xs text-[var(--peko-muted)]">
                                             {typeLabel(upcoming.typeName)}
                                             {halfSuffix(upcoming.half, false)} · {daysText(upcoming.days)}
                                         </span>
@@ -608,7 +608,7 @@ const EssLeavePage = () => {
                                 </Button>
                             </section>,
                             <section key="holiday" aria-label="Next public holiday" className={`${PEKO_CARD} !p-5 flex h-full min-w-0 flex-col gap-2`} data-next-holiday>
-                                <h3 className="m-0 text-[13px] font-normal text-[#8B8B8B]">Next public holiday</h3>
+                                <h3 className="m-0 text-[13px] font-normal text-[var(--peko-muted)]">Next public holiday</h3>
                                 {nextHoliday ? (
                                     <div className="flex flex-col gap-0.5">
                                         <Text className="text-sm font-medium">{nextHoliday.name}</Text>
@@ -638,7 +638,7 @@ const EssLeavePage = () => {
 
             {sub === 'holidays' && (
                 <section aria-label="Public holidays" className={ESS_CARD} data-public-holidays>
-                    <h3 className="m-0 text-base font-medium text-[#121212]">Public holidays {today.slice(0, 4)}</h3>
+                    <h3 className="m-0 text-base font-medium text-[var(--peko-text)]">Public holidays {today.slice(0, 4)}</h3>
                     <Text type="secondary" className="mb-3 block text-xs">
                         {view.holidays.length} holidays · {view.holidays.filter(h => !h.weeklyOff).length} on your working days. You don’t need to apply for these.
                     </Text>

@@ -97,9 +97,9 @@ const TeamReimbursements = ({ onChanged }: { onChanged?: () => void }) => {
                     </div>
                     {view.byPerson.length > 0 && (
                         <section aria-label="By team member" className={`${ESS_CARD} !py-4`}>
-                            <h3 className="mb-2 mt-0 text-base font-medium text-[#121212]">By team member</h3>
+                            <h3 className="mb-2 mt-0 text-base font-medium text-[var(--peko-text)]">By team member</h3>
                             {view.byPerson.map(p => (
-                                <div key={p.employee.id} className="flex items-center justify-between gap-3 border-0 border-b border-solid border-[#F0F0F0] py-2 last:border-b-0" data-reimb-person>
+                                <div key={p.employee.id} className="flex items-center justify-between gap-3 border-0 border-b border-solid border-[var(--peko-line)] py-2 last:border-b-0" data-reimb-person>
                                     <span className="flex min-w-0 items-center gap-2">
                                         <PersonCell person={p.employee} />
                                         <Text type="secondary" className="whitespace-nowrap text-xs">
@@ -120,7 +120,7 @@ const TeamReimbursements = ({ onChanged }: { onChanged?: () => void }) => {
                         />
                     </div>
                     {list.length === 0 ? (
-                        <div className="rounded-lg border border-dashed border-[#F0F0F0] py-10" data-reimb-empty>
+                        <div className="rounded-lg border border-dashed border-[var(--peko-line)] py-10" data-reimb-empty>
                             <Empty
                                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                                 description={

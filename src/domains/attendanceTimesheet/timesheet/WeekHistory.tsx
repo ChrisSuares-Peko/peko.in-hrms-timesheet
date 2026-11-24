@@ -28,7 +28,7 @@ const WeekHistory = ({ history, defaultOpen }: WeekHistoryProps) => {
                     key: 'history',
                     label: (
                         <span className="text-sm font-medium">
-                            History <span className="font-normal text-[#8B8B8B]">({items.length})</span>
+                            History <span className="font-normal text-[var(--peko-muted)]">({items.length})</span>
                         </span>
                     ),
                     children: items.length ? (
@@ -39,20 +39,20 @@ const WeekHistory = ({ history, defaultOpen }: WeekHistoryProps) => {
                                 color: HISTORY_COLOR[h.action],
                                 children: (
                                     <div className="flex min-w-0 flex-col text-xs">
-                                        <span className="text-sm text-[#121212]">
+                                        <span className="text-sm text-[var(--peko-text)]">
                                             <span className="font-medium">{who(h.actor)}</span>{' '}
                                             {HISTORY_LABEL[h.action].toLowerCase()}
                                         </span>
                                         {h.detail && (
-                                            <span className="break-words text-[#595959]">{h.detail}</span>
+                                            <span className="break-words text-[var(--peko-text-2)]">{h.detail}</span>
                                         )}
-                                        <span className="text-[#8B8B8B]">{fmtStamp(h.at)}</span>
+                                        <span className="text-[var(--peko-muted)]">{fmtStamp(h.at)}</span>
                                     </div>
                                 ),
                             }))}
                         />
                     ) : (
-                        <span className="text-xs text-[#8B8B8B]">Nothing has happened in this timesheet yet.</span>
+                        <span className="text-xs text-[var(--peko-muted)]">Nothing has happened in this timesheet yet.</span>
                     ),
                 },
             ]}

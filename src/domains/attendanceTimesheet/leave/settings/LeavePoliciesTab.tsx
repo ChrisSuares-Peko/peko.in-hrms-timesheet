@@ -16,7 +16,7 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
-import { PekoTabRow } from '@src/components/peko/PageHeader';
+import { PekoSectionTabs } from '@src/components/peko/PageHeader';
 import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
@@ -123,7 +123,7 @@ const LeaveTypes = ({
                     <Input allowClear prefix={<SearchOutlined />} placeholder="Search by name" aria-label="Search leave types" value={q} onChange={e => setQ(e.target.value)} />
                 </div>
             </Flex>
-            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[var(--peko-border)] bg-white">
                 <Table<LeaveTypeConfig>
                     rowKey="id"
                     columns={columns}
@@ -218,7 +218,7 @@ const Holidays = ({ view, onView }: { view: LeaveSettingsView; onView: (v: Leave
                 </Button>
             </Flex>
             {error && <Alert type="error" showIcon message={error} />}
-            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[var(--peko-border)] bg-white">
                 <Table
                     rowKey="date"
                     size="middle"
@@ -496,8 +496,21 @@ const LeavePoliciesTab = () => {
     if (!view) return failed ? <Alert type="error" showIcon message="Couldn’t load the leave policies. Refresh the page to try again." /> : <Skeleton active paragraph={{ rows: 8 }} />;
     return (
         <Flex vertical gap={16} className="w-full min-w-0" data-leave-policies>
-            <PekoTabRow
-                className=""
+            {/* PROTOTYPE-SETUP (Peko One): the Leave sub-sections are underline tabs; "Add leave type" on the tab bar. */}
+            <PekoSectionTabs<Sub>
+                value={sub}
+                className="mb-1"
+                onChange={v => {
+                    const next = new URLSearchParams(params);
+                    next.set('leaveTab', v);
+                    setParams(next, { replace: true });
+                }}
+                items={[
+                    { value: 'types', label: 'Leave types' },
+                    { value: 'holidays', label: 'Public holidays' },
+                    { value: 'config', label: 'Configuration' },
+                    { value: 'approvals', label: 'Approvals' },
+                ]}
                 actions={
                     sub === 'types' && (
                         <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing({ type: null })} data-add-type>
@@ -505,24 +518,8 @@ const LeavePoliciesTab = () => {
                         </Button>
                     )
                 }
-            >
-                <Segmented<Sub>
-                    value={sub}
-                    onChange={v => {
-                        const next = new URLSearchParams(params);
-                        next.set('leaveTab', v);
-                        setParams(next, { replace: true });
-                    }}
-                    aria-label="Leave policies section"
-                    options={[
-                        { value: 'types', label: 'Leave types' },
-                        { value: 'holidays', label: 'Public holidays' },
-                        { value: 'config', label: 'Configuration' },
-                        { value: 'approvals', label: 'Approvals' },
-                    ]}
-                    data-leave-policy-subtabs
-                />
-            </PekoTabRow>
+                data-leave-policy-subtabs
+            />
             {sub === 'types' && <LeaveTypes view={view} onView={onView} editing={editing} setEditing={setEditing} />}
             {sub === 'holidays' && <Holidays view={view} onView={onView} />}
             {sub === 'config' && <Configuration view={view} onView={onView} />}

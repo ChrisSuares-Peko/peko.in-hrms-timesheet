@@ -247,7 +247,7 @@ const TimesheetReviewDrawer = ({ target, reviewer = 'MANAGER', onClose, onDecide
                 }}
                 destroyOnHidden
             >
-                <p className="mb-1 text-sm text-[#404040]">What needs to change? (goes straight to the employee)</p>
+                <p className="mb-1 text-sm text-[var(--peko-text)]">What needs to change? (goes straight to the employee)</p>
                 <Input.TextArea
                     id="send-back-note"
                     aria-label="What needs to change?"

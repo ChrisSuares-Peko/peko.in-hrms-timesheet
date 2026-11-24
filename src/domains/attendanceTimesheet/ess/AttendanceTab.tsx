@@ -46,11 +46,11 @@ interface TotalTileProps {
 }
 
 /** PROTOTYPE-SETUP (Attendance layout, Slice 2): a compact month-total tile — 18px value, 12px label. */
-const TotalTile = ({ label, value, tone = 'bg-[#F5F5F5]', hint }: TotalTileProps) => {
+const TotalTile = ({ label, value, tone = 'bg-[var(--peko-track)]', hint }: TotalTileProps) => {
     const tile = (
         <div data-total-tile className={`flex min-w-0 flex-col justify-center rounded-lg px-3 py-2 ${tone}`}>
-            <span className="text-[18px] font-semibold leading-tight text-[#121212] tabular-nums">{value}</span>
-            <span className="text-xs leading-snug text-[#8B8B8B]">{label}</span>
+            <span className="text-[18px] font-semibold leading-tight text-[var(--peko-text)] tabular-nums">{value}</span>
+            <span className="text-xs leading-snug text-[var(--peko-muted)]">{label}</span>
         </div>
     );
     return hint ? <Tooltip title={hint}>{tile}</Tooltip> : tile;
@@ -154,18 +154,18 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
     // overtime from qualifying days only (the HR minimum).
     const tiles: TotalTileProps[] = totals
         ? [
-              { label: 'Present', value: totals.present, tone: 'bg-[#ECFDF3]' },
-              { label: 'Late', value: totals.late, tone: 'bg-[#FFF6EA]' },
-              { label: 'Half day', value: totals.halfDay, tone: 'bg-[#FFF6EA]' },
-              { label: 'Absent', value: totals.absent, tone: 'bg-[#FFF1F0]' },
-              { label: 'On leave', value: totals.onLeave, tone: 'bg-[#F9F0FB]' },
-              { label: 'Holidays', value: totals.holidays, tone: 'bg-[#F9F0FB]' },
-              { label: 'Worked off-days', value: totals.workedOffDays, tone: 'bg-[#FFF6EA]' },
+              { label: 'Present', value: totals.present, tone: 'bg-[var(--peko-success-bg)]' },
+              { label: 'Late', value: totals.late, tone: 'bg-[var(--peko-warning-bg)]' },
+              { label: 'Half day', value: totals.halfDay, tone: 'bg-[var(--peko-warning-bg)]' },
+              { label: 'Absent', value: totals.absent, tone: 'bg-[var(--peko-error-bg)]' },
+              { label: 'On leave', value: totals.onLeave, tone: 'bg-[var(--peko-leave-bg)]' },
+              { label: 'Holidays', value: totals.holidays, tone: 'bg-[var(--peko-leave-bg)]' },
+              { label: 'Worked off-days', value: totals.workedOffDays, tone: 'bg-[var(--peko-warning-bg)]' },
               { label: 'Break time', value: formatDuration(totals.breakMinutes), tone: 'bg-[#EFF1F4]' },
               {
                   label: `worked, ${totals.overtimeMinutes ? `${formatDuration(totals.overtimeMinutes)} overtime` : 'no overtime'}`,
                   value: formatDuration(totals.minutesAtWork),
-                  tone: 'bg-[#F5F5F5] ring-1 ring-inset ring-[#e6e6e6]',
+                  tone: 'bg-[var(--peko-track)] ring-1 ring-inset ring-[#e6e6e6]',
                   hint: 'Check-in to check-out, breaks included. Days you’re still checked in aren’t counted yet.',
               },
           ]
@@ -176,7 +176,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
             {/* PROTOTYPE-SETUP (Attendance final, Slice 1): a header row — a short line and the tab's one "Request
                 correction" (opens the popup with no date). Full-width button on phones. */}
             <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm text-[#8B8B8B]">Check in and out, see your month, and fix anything that’s wrong.</span>
+                <span className="text-sm text-[var(--peko-muted)]">Check in and out, see your month, and fix anything that’s wrong.</span>
                 <span className="hidden flex-1 md:block" />
                 <Button type="primary" className="w-full font-medium md:w-auto" onClick={requestCorrection}>
                     Request correction
@@ -210,7 +210,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                             {Array.from({ length: 9 }, (_, i) => (
                                 <span
                                     key={i}
-                                    className="block h-[58px] rounded-lg bg-[#F5F5F5] animate-pulse"
+                                    className="block h-[58px] rounded-lg bg-[var(--peko-track)] animate-pulse"
                                 />
                             ))}
                         </div>
@@ -240,7 +240,7 @@ const AttendanceTab = ({ overview, onOverview, onChanged, initialDate }: Attenda
                         onMonth={changeMonth}
                         hideNav
                     />
-                    <span className="mt-2 block text-xs text-[#8B8B8B]">Tap a day for details or to request a correction.</span>
+                    <span className="mt-2 block text-xs text-[var(--peko-muted)]">Tap a day for details or to request a correction.</span>
                 </Panel>
                 {/* Spans both rows; ≥1200px its content never makes the rows taller — the list scrolls inside. */}
                 <div className="att-req">

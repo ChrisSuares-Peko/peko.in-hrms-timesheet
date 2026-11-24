@@ -41,15 +41,15 @@ export const ESS_PANEL_ITEM = 'rounded-lg bg-white px-4 py-3';
 
 export const ESS_PAGE_TITLE = PEKO_PAGE_TITLE;
 export const ESS_PAGE_SUBTITLE = PEKO_PAGE_DESCRIPTION;
-export const ESS_SECTION_TITLE = 'text-base font-medium text-[#121212]';
-export const ESS_SECTION_LINK = 'text-sm font-medium text-[#FF3A3A] hover:text-[#FF6963]';
-export const ESS_CARD_TITLE = 'text-base font-medium text-[#121212]';
-export const ESS_LABEL = 'text-[13px] text-[#8B8B8B]';
-export const ESS_VALUE = 'text-base font-medium text-[#121212]';
-export const ESS_BODY = 'text-sm text-[#121212]';
-export const ESS_MUTED = 'text-sm text-[#8B8B8B]';
-export const ESS_CAPTION = 'text-xs text-[#8B8B8B]';
-export const ESS_GROUP_LABEL = 'text-[11px] font-medium uppercase tracking-wide text-[#8B8B8B]';
+export const ESS_SECTION_TITLE = 'text-base font-medium text-[var(--peko-text)]';
+export const ESS_SECTION_LINK = 'text-sm font-medium text-[var(--peko-primary)] hover:text-[var(--peko-primary-hover)]';
+export const ESS_CARD_TITLE = 'text-base font-medium text-[var(--peko-text)]';
+export const ESS_LABEL = 'text-[13px] text-[var(--peko-muted)]';
+export const ESS_VALUE = 'text-base font-medium text-[var(--peko-text)]';
+export const ESS_BODY = 'text-sm text-[var(--peko-text)]';
+export const ESS_MUTED = 'text-sm text-[var(--peko-muted)]';
+export const ESS_CAPTION = 'text-xs text-[var(--peko-muted)]';
+export const ESS_GROUP_LABEL = 'text-[11px] font-medium uppercase tracking-wide text-[var(--peko-muted)]';
 
 /** Main action button: full width, theme height (36px). */
 export const ESS_BUTTON = 'font-medium';

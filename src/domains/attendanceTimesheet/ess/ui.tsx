@@ -29,7 +29,7 @@ export const Panel = ({
             <div className="flex items-start justify-between gap-3 flex-wrap mb-4">
                 <div className="min-w-0">
                     {title && <Text className={`block ${ESS_SECTION_TITLE}`}>{title}</Text>}
-                    {subtitle && <Text className="block text-xs text-[#8B8B8B]">{subtitle}</Text>}
+                    {subtitle && <Text className="block text-xs text-[var(--peko-muted)]">{subtitle}</Text>}
                 </div>
                 {extra}
             </div>
@@ -43,7 +43,7 @@ export const Panel = ({
 export const StatTile = ({
     label,
     value,
-    tone = 'bg-[#F5F5F5]',
+    tone = 'bg-[var(--peko-track)]',
     hint,
 }: {
     label: string;
@@ -52,9 +52,9 @@ export const StatTile = ({
     hint?: ReactNode;
 }) => (
     <div className={`rounded-lg px-4 py-3 min-w-0 ${tone}`}>
-        <Text className="block text-[13px] leading-snug !text-[#8B8B8B]">{label}</Text>
-        <div className="text-2xl font-medium leading-8 text-[#121212] tabular-nums">{value}</div>
-        {hint && <Text className="block text-[11px] text-[#8B8B8B] leading-snug">{hint}</Text>}
+        <Text className="block text-[13px] leading-snug !text-[var(--peko-muted)]">{label}</Text>
+        <div className="text-2xl font-medium leading-8 text-[var(--peko-text)] tabular-nums">{value}</div>
+        {hint && <Text className="block text-[11px] text-[var(--peko-muted)] leading-snug">{hint}</Text>}
     </div>
 );
 

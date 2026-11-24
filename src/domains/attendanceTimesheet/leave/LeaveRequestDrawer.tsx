@@ -44,15 +44,15 @@ export const stateOfTrail = (r: { withdrawn?: boolean; trail: { status: string }
 const isOpenTrail = (r: { withdrawn?: boolean; trail: ApprovalTrail }) => !r.withdrawn && (r.trail.status.startsWith('PENDING') || r.trail.status === 'UPDATE_REQUESTED');
 
 const Row = ({ label, children }: { label: string; children: ReactNode }) => (
-    <div className="grid grid-cols-[120px_1fr] gap-3 border-0 border-b border-solid border-[#F0F0F0] py-2 text-sm last:border-b-0">
+    <div className="grid grid-cols-[120px_1fr] gap-3 border-0 border-b border-solid border-[var(--peko-line)] py-2 text-sm last:border-b-0">
         <Text type="secondary">{label}</Text>
-        <div className="min-w-0 break-words text-[#121212]">{children}</div>
+        <div className="min-w-0 break-words text-[var(--peko-text)]">{children}</div>
     </div>
 );
 
 const Section = ({ title, children }: { title: string; children: ReactNode }) => (
     <section className="flex flex-col gap-1">
-        <h4 className="m-0 text-sm font-medium text-[#121212]">{title}</h4>
+        <h4 className="m-0 text-sm font-medium text-[var(--peko-text)]">{title}</h4>
         {children}
     </section>
 );
@@ -286,10 +286,10 @@ const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView;
                 <Section title="History">
                     <ul className="m-0 list-none p-0" data-drawer-history>
                         {history.map(h => (
-                            <li key={h.key} className="flex flex-col border-0 border-b border-solid border-[#F0F0F0] py-2 last:border-b-0">
-                                <span className="text-sm text-[#121212]">{h.what}</span>
-                                <span className="text-xs text-[#8B8B8B]">{dayjs(h.at).format('D MMM YYYY, h:mm A')}</span>
-                                {h.comment && <span className="mt-0.5 text-xs text-[#404040]">“{h.comment}”</span>}
+                            <li key={h.key} className="flex flex-col border-0 border-b border-solid border-[var(--peko-line)] py-2 last:border-b-0">
+                                <span className="text-sm text-[var(--peko-text)]">{h.what}</span>
+                                <span className="text-xs text-[var(--peko-muted)]">{dayjs(h.at).format('D MMM YYYY, h:mm A')}</span>
+                                {h.comment && <span className="mt-0.5 text-xs text-[var(--peko-text)]">“{h.comment}”</span>}
                             </li>
                         ))}
                     </ul>

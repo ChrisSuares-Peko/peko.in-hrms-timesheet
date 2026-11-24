@@ -99,7 +99,7 @@ const SubmitReviewModal = ({ kind, review, entries, busy, managerName, periodWor
             open
             title={
                 <span className="flex items-center gap-2">
-                    <WarningFilled className={kind === 'issues' ? 'text-[#FF3A3A]' : 'text-[#F79009]'} />
+                    <WarningFilled className={kind === 'issues' ? 'text-[var(--peko-primary)]' : 'text-[#F79009]'} />
                     {copy.title}
                 </span>
             }
@@ -118,25 +118,25 @@ const SubmitReviewModal = ({ kind, review, entries, busy, managerName, periodWor
                 </div>
             }
         >
-            <p className="mb-3 mt-1 text-sm text-[#8B8B8B]">{intro}</p>
+            <p className="mb-3 mt-1 text-sm text-[var(--peko-muted)]">{intro}</p>
             <ul className="m-0 list-none p-0" aria-label={copy.title} data-review-kind={kind}>
                 {rows.slice(0, MAX_ROWS).map(r => (
                     <li key={r.key}>
                         <button
                             type="button"
                             onClick={() => onReview(r.date, r.ids)}
-                            className="flex w-full cursor-pointer items-center justify-between gap-3 border-0 border-b border-solid border-[#F0F0F0] bg-transparent px-0 py-2 text-left text-[13px] text-[#121212] hover:text-[#FF3A3A]"
+                            className="flex w-full cursor-pointer items-center justify-between gap-3 border-0 border-b border-solid border-[var(--peko-line)] bg-transparent px-0 py-2 text-left text-[13px] text-[var(--peko-text)] hover:text-[var(--peko-primary)]"
                         >
                             <span className="min-w-0">
                                 <b className="font-medium">{dayText(r.date)}</b>
-                                <span className={kind === 'unlogged' ? 'text-[#B54708]' : 'text-[#595959]'}> · {r.text}</span>
+                                <span className={kind === 'unlogged' ? 'text-[var(--peko-warning-ink)]' : 'text-[var(--peko-text-2)]'}> · {r.text}</span>
                             </span>
-                            <RightOutlined className="shrink-0 text-[10px] text-[#8B8B8B]" />
+                            <RightOutlined className="shrink-0 text-[10px] text-[var(--peko-muted)]" />
                         </button>
                     </li>
                 ))}
             </ul>
-            {count > MAX_ROWS && <p className="mb-0 mt-2 text-xs text-[#8B8B8B]">and {count - MAX_ROWS} more</p>}
+            {count > MAX_ROWS && <p className="mb-0 mt-2 text-xs text-[var(--peko-muted)]">and {count - MAX_ROWS} more</p>}
         </Modal>
     );
 };

@@ -92,7 +92,7 @@ export const PersonCell = ({
     <Flex gap={10} align="center" className="min-w-0">
         <PersonAvatar person={person} size={size} />
         <Flex vertical className="min-w-0">
-            <Typography.Text strong ellipsis className="text-[#121212]">
+            <Typography.Text strong ellipsis className="text-[var(--peko-text)]">
                 {person.name}
             </Typography.Text>
             <Typography.Text type="secondary" ellipsis className="text-xs">
@@ -112,10 +112,10 @@ export const CountTile = ({ label, value, onClick }: { label: string; value: num
             <span className={`leading-8 tabular-nums ${PEKO_STAT_VALUE}`}>{value}</span>
         </Flex>
     );
-    const cls = 'w-full text-left rounded-lg border border-solid border-[#EAEAEA] bg-white font-[inherit] shadow-[0px_1px_12px_1px_rgba(122,122,122,0.06)]';
+    const cls = 'w-full text-left rounded-lg border border-solid border-[var(--peko-border)] bg-white font-[inherit] shadow-[0px_1px_12px_1px_rgba(122,122,122,0.06)]';
     if (!onClick) return <div className={cls}>{body}</div>;
     return (
-        <button type="button" onClick={onClick} className={`${cls} cursor-pointer p-0 transition-colors hover:border-[#FFE4E4]`}>
+        <button type="button" onClick={onClick} className={`${cls} cursor-pointer p-0 transition-colors hover:border-[var(--peko-primary-border)]`}>
             {body}
         </button>
     );

@@ -34,8 +34,8 @@ import type { LeaveExitOpt, LeaveTypeConfig, LeaveTypeInput } from '../../types'
 const { Text } = Typography;
 
 const SectionHeading = ({ title, note }: { title: string; note: string }) => (
-    <div className="border-0 border-t border-solid border-[#F0F0F0] pt-3" data-lt-section={title}>
-        <Text className="block text-base font-medium text-[#121212]">{title}</Text>
+    <div className="border-0 border-t border-solid border-[var(--peko-line)] pt-3" data-lt-section={title}>
+        <Text className="block text-base font-medium text-[var(--peko-text)]">{title}</Text>
         <Text type="secondary" className="text-xs">
             {note}
         </Text>
@@ -44,7 +44,7 @@ const SectionHeading = ({ title, note }: { title: string; note: string }) => (
 
 const Field = ({ label, help, children, htmlFor }: { label: string; help: string; children: React.ReactNode; htmlFor?: string }) => (
     <Flex vertical gap={4}>
-        <label htmlFor={htmlFor} className="text-sm text-[#121212]">
+        <label htmlFor={htmlFor} className="text-sm text-[var(--peko-text)]">
             {label}
         </label>
         <Text type="secondary" className="text-xs">
@@ -437,8 +437,8 @@ export const LeaveTypeView = ({
             <dl className="m-0 grid grid-cols-[minmax(0,160px)_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-sm" data-leave-type-view>
                 {[...leaveTypeRules(type), ['Used', `${requests} request${requests === 1 ? '' : 's'} so far${requests ? ' (so it can’t be deleted or renamed)' : ''}`] as [string, string]].map(([k, val]) => (
                     <div key={k} className="contents">
-                        <dt className="text-[#8B8B8B]">{k}</dt>
-                        <dd className="m-0 text-[#121212]">{val}</dd>
+                        <dt className="text-[var(--peko-muted)]">{k}</dt>
+                        <dd className="m-0 text-[var(--peko-text)]">{val}</dd>
                     </div>
                 ))}
             </dl>

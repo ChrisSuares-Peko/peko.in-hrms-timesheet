@@ -23,7 +23,7 @@ const Field = ({ label, value }: { label: string; value: string }) => (
         <Typography.Text type="secondary" className="text-xs">
             {label}
         </Typography.Text>
-        <Typography.Text className="font-medium text-[#121212]">{value}</Typography.Text>
+        <Typography.Text className="font-medium text-[var(--peko-text)]">{value}</Typography.Text>
     </Flex>
 );
 
@@ -35,7 +35,7 @@ const MemberCard = ({ row, hasCheckIn, onOpen }: { row: TeamTodayRow; hasCheckIn
         <button
             type="button"
             onClick={onOpen}
-            className="w-full h-full text-left cursor-pointer rounded-lg border border-solid border-[#EAEAEA] bg-white p-4 transition-colors hover:border-[#FF3A3A]"
+            className="w-full h-full text-left cursor-pointer rounded-lg border border-solid border-[var(--peko-border)] bg-white p-4 transition-colors hover:border-[var(--peko-primary)]"
         >
             <Flex vertical gap={12}>
                 <Flex justify="space-between" align="flex-start" gap={8}>
@@ -51,7 +51,7 @@ const MemberCard = ({ row, hasCheckIn, onOpen }: { row: TeamTodayRow; hasCheckIn
                 </Flex>
                 {/* PROTOTYPE-SETUP (My team, Slice 4): an earlier day still open (also on a day off). */}
                 {hasCheckIn && row.openFrom && (
-                    <Typography.Text className="rounded-lg bg-[#FFFBE6] px-2 py-1 text-xs text-[#121212]" data-open-from>
+                    <Typography.Text className="rounded-lg bg-[var(--peko-warning-bg)] px-2 py-1 text-xs text-[var(--peko-text)]" data-open-from>
                         Still checked in from {dayjs(row.openFrom.date).format('ddd D MMM')} (since {displayTime(row.openFrom.checkIn)})
                     </Typography.Text>
                 )}

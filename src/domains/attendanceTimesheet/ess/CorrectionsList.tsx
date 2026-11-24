@@ -95,8 +95,8 @@ const CorrectionsList = ({ items, filter = 'all', onUpdated, onOpenDay, onReques
         return (
             <div className="flex min-h-[220px] flex-1 flex-col items-center justify-center gap-1.5 px-5 py-5 text-center" data-corrections-empty>
                 <FileTextOutlined className="mb-1 text-[40px] text-[#c4c4c4]" />
-                <Text className="text-sm font-medium text-[#121212]">{filter === 'pending' ? 'Nothing waiting' : 'No corrections yet'}</Text>
-                <Text className="max-w-[240px] text-[13px] text-[#8B8B8B]">
+                <Text className="text-sm font-medium text-[var(--peko-text)]">{filter === 'pending' ? 'Nothing waiting' : 'No corrections yet'}</Text>
+                <Text className="max-w-[240px] text-[13px] text-[var(--peko-muted)]">
                     {filter === 'pending' ? 'Corrections you send show here until they’re approved.' : 'If a check-in or check-out is wrong, request a correction.'}
                 </Text>
                 {onRequest && (
@@ -129,14 +129,14 @@ const CorrectionsList = ({ items, filter = 'all', onUpdated, onOpenDay, onReques
                             ) : (
                                 <Text className="shrink-0 font-semibold">{fmtDate(c.date)}</Text>
                             )}
-                            <Text className="min-w-0 flex-1 truncate text-xs text-[#8B8B8B]">Correction{c.fromTimesheet ? ' · from timesheet' : ''}</Text>
+                            <Text className="min-w-0 flex-1 truncate text-xs text-[var(--peko-muted)]">Correction{c.fromTimesheet ? ' · from timesheet' : ''}</Text>
                             <StatusTag color={tag.color} className="!m-0 shrink-0">
                                 {tag.label}
                             </StatusTag>
                         </div>
-                        <Text className="text-[13px] tabular-nums text-[#8B8B8B]">{changeSummary(c)}</Text>
+                        <Text className="text-[13px] tabular-nums text-[var(--peko-muted)]">{changeSummary(c)}</Text>
                         <div className="flex min-w-0 items-center gap-2">
-                            <Text className="min-w-0 flex-1 truncate text-xs text-[#8B8B8B]" title={statusLine(c)}>
+                            <Text className="min-w-0 flex-1 truncate text-xs text-[var(--peko-muted)]" title={statusLine(c)}>
                                 {statusLine(c)}
                             </Text>
                             {needsAction(c) && (

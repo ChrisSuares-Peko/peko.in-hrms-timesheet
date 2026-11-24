@@ -107,7 +107,7 @@ const ViewSubmitModal = ({
                         {changed.length ? (
                             <ul className="m-0 list-none p-0">
                                 {changed.map(d => (
-                                    <li key={d} className="flex items-center justify-between gap-2 border-0 border-b border-solid border-[#F0F0F0] py-1.5 text-sm last:border-b-0" data-changed-date={d}>
+                                    <li key={d} className="flex items-center justify-between gap-2 border-0 border-b border-solid border-[var(--peko-line)] py-1.5 text-sm last:border-b-0" data-changed-date={d}>
                                         <span>{dayjs(d).format('ddd, D MMM')}</span>
                                         <StatusTag color="blue" className="!m-0">
                                             Saved
@@ -129,9 +129,9 @@ const ViewSubmitModal = ({
                         </Text>
                         <ul className="m-0 list-none p-0">
                             {scope.map(v => (
-                                <li key={v.week.weekStart} className="flex items-center justify-between gap-2 border-0 border-b border-solid border-[#F0F0F0] py-1.5 text-sm last:border-b-0" data-submit-period-row>
+                                <li key={v.week.weekStart} className="flex items-center justify-between gap-2 border-0 border-b border-solid border-[var(--peko-line)] py-1.5 text-sm last:border-b-0" data-submit-period-row>
                                     <span>{periodLabel(v.filing.period.start, v.filing.period.end)}</span>
-                                    <span className="tabular-nums text-[#595959]">{formatDuration(v.totals.loggedMinutes)} logged</span>
+                                    <span className="tabular-nums text-[var(--peko-text-2)]">{formatDuration(v.totals.loggedMinutes)} logged</span>
                                 </li>
                             ))}
                         </ul>

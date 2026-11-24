@@ -34,17 +34,17 @@ export interface EntryRowProps {
 const ManagerEntryRow = ({ entry, outside, mark, canEdit, busy, onEdit, onDelete, fields = DEFAULT_FILING.fields, overlaps }: EntryRowProps) => (
     <div
         className={`flex min-w-0 items-start gap-2 rounded-md border-l-[3px] border-solid border-y-0 border-r-0 py-1 pl-2 ${
-            outside ? 'border-amber-500 bg-amber-50/60' : 'border-blue-500 bg-[#FAFAFA]'
+            outside ? 'border-amber-500 bg-amber-50/60' : 'border-blue-500 bg-[var(--peko-subtle)]'
         }`}
     >
         <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
             <span className="whitespace-nowrap text-sm font-medium tabular-nums">
                 {usesTimes(fields) && entryTimeLabel(entry)}
-                <span className={usesTimes(fields) ? 'ml-2 text-xs font-normal text-[#8B8B8B]' : ''}>
+                <span className={usesTimes(fields) ? 'ml-2 text-xs font-normal text-[var(--peko-muted)]' : ''}>
                     {formatDuration(entryMinutes(entry))}
                 </span>
             </span>
-            <span className="min-w-0 break-words text-sm text-[#404040]">
+            <span className="min-w-0 break-words text-sm text-[var(--peko-text)]">
                 {fields.projectCode && entry.projectCode && (
                     <StatusTag className="!mr-1.5 font-mono !text-[11px]" data-project-code>
                         {entry.projectCode}

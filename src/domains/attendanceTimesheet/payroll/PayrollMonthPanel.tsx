@@ -144,7 +144,7 @@ const PayrollMonthPanel = () => {
 
                 {!target && (
                     <Flex align="start" gap={8}>
-                        <LockOutlined className="mt-1 text-[#8B8B8B]" />
+                        <LockOutlined className="mt-1 text-[var(--peko-muted)]" />
                         <Text>Every month up to now is processed.</Text>
                     </Flex>
                 )}
@@ -229,7 +229,7 @@ const PayrollMonthPanel = () => {
 
                 {lastProcessed && lastProcessed.month !== justProcessed?.month && (
                     <Flex align="center" gap={6} className="text-xs">
-                        <LockOutlined className="text-[#8B8B8B]" />
+                        <LockOutlined className="text-[var(--peko-muted)]" />
                         <Text type="secondary" className="text-xs">
                             {lastProcessed.monthLabel} processed
                             {lastProcessed.processedAt

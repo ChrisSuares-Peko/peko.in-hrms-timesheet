@@ -5,17 +5,19 @@
 //   PekoPageHeader .... title (20px medium #404040) and one grey line (14px #8B8B8B); optional actions on the right
 //   PekoTabRow ........ sub-tabs on the left, page actions right-aligned on the same row
 //   PekoTabLabel ...... a main-tab label with its count as a small red pill (rule 2)
+//   PekoSectionTabs ... PROTOTYPE-SETUP (Peko One): a page's section switcher — antd line Tabs (underline, red active)
+//                       with the page actions right-aligned on the tab bar. Filters keep antd Segmented.
 import type { ReactNode } from 'react';
 
 import { LeftOutlined } from '@ant-design/icons';
-import { Badge } from 'antd';
+import { Badge, Tabs } from 'antd';
 import { Link } from 'react-router-dom';
 
 import { PEKO_PAGE_DESCRIPTION, PEKO_PAGE_TITLE } from './pekoTokens';
 
 export const PekoBackLink = ({ to, label, extra, ...rest }: { to: string; label: string; extra?: ReactNode } & Record<`data-${string}`, unknown>) => (
     <div className="mb-3 flex flex-wrap items-center gap-2" {...rest}>
-        <Link to={to} className="inline-flex items-center gap-1 text-sm font-medium !text-[#FF3A3A] hover:!text-[#FF6963]" data-back-to-dashboard>
+        <Link to={to} className="inline-flex items-center gap-1 text-sm font-medium !text-[var(--peko-primary)] hover:!text-[var(--peko-primary-hover)]" data-back-to-dashboard>
             <LeftOutlined className="text-xs" />
             {label}
         </Link>
@@ -52,4 +54,35 @@ export const PekoTabLabel = ({ label, count = 0 }: { label: ReactNode; count?: n
         {label}
         {count > 0 && <Badge count={count} size="small" color="#FF3A3A" className="peko-tab-count" data-tab-count />}
     </span>
+);
+
+export interface SectionTab<K extends string> {
+    value: K;
+    label: ReactNode;
+    /** A count shown as a small red pill after the label. */
+    count?: number;
+}
+
+export const PekoSectionTabs = <K extends string>({
+    value,
+    onChange,
+    items,
+    actions,
+    className = 'mb-5',
+    ...rest
+}: {
+    value: K;
+    onChange: (k: K) => void;
+    items: SectionTab<K>[];
+    actions?: ReactNode;
+    className?: string;
+} & Record<`data-${string}`, unknown>) => (
+    <Tabs
+        activeKey={value}
+        onChange={k => onChange(k as K)}
+        className={`peko-section-tabs ${className}`}
+        items={items.map(i => ({ key: i.value, label: <PekoTabLabel label={i.label} count={i.count} /> }))}
+        tabBarExtraContent={actions ? <div className="flex flex-wrap items-center gap-2 pb-1" data-page-actions>{actions}</div> : undefined}
+        {...rest}
+    />
 );

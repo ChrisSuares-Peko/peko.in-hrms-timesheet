@@ -36,8 +36,8 @@ const toTime = (v: string | null) => (v ? dayjs(`2000-01-01T${v}`) : null);
 
 /** The line under a request that was sent back: "{by} asked for an update: {comment}" and the button. */
 export const UpdateRequestedNote = ({ ask, onResubmit }: { ask: UpdateAsk; onResubmit: () => void }) => (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[#FFFBE6] px-3 py-2" data-update-requested>
-        <Text className="min-w-0 flex-1 basis-[200px] text-xs text-[#121212]">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-[var(--peko-warning-bg)] px-3 py-2" data-update-requested>
+        <Text className="min-w-0 flex-1 basis-[200px] text-xs text-[var(--peko-text)]">
             <b className="font-medium">{ask.by} asked for an update:</b> {ask.comment}
         </Text>
         <Button size="small" type="primary" onClick={onResubmit} data-resubmit>
@@ -74,7 +74,7 @@ export const resubmitError = (v: ResubmitValues, today: string): string => {
 };
 
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-[#404040]">
+    <div className="flex min-w-0 flex-1 flex-col gap-1 text-sm text-[var(--peko-text)]">
         <span>{label}</span>
         {children}
     </div>
@@ -159,7 +159,7 @@ const ResubmitModal = ({
                             {dateBox('resubmit-from', v.half ? 'Date' : 'From', v.start, d => set({ start: d, ...(v.half || d > v.end ? { end: d } : {}) }))}
                             {!v.half && dateBox('resubmit-to', 'To', v.end, d => set({ end: d }))}
                         </div>
-                        {v.half && <Text className="text-xs text-[#8B8B8B]">Half day ({v.half === 'FIRST' ? 'first' : 'second'} half) — one date.</Text>}
+                        {v.half && <Text className="text-xs text-[var(--peko-muted)]">Half day ({v.half === 'FIRST' ? 'first' : 'second'} half) — one date.</Text>}
                         <Field label="Reason">
                             <Input.TextArea aria-label="Reason" rows={2} maxLength={300} value={v.reason} onChange={e => set({ reason: e.target.value })} />
                         </Field>

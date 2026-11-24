@@ -48,10 +48,10 @@ export const WeekStatusBar = ({ view, perspective, actions, note }: WeekStatusBa
     const checks = view.mode === 'none' ? '' : reviewSummary(reviewPeriod({ days: view.days, fields: view.filing.fields, mode: view.mode, today: todayIso() }));
 
     return (
-        <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-solid border-[#EAEAEA] bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-solid border-[var(--peko-border)] bg-white p-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-semibold text-[#121212]">{view.filing.period.label}</span>
+                    <span className="text-sm font-semibold text-[var(--peko-text)]">{view.filing.period.label}</span>
                     {view.approvalEnabled ? (
                         <WeekStatusTag status={week.status} changePending={changePending} />
                     ) : (
@@ -63,8 +63,8 @@ export const WeekStatusBar = ({ view, perspective, actions, note }: WeekStatusBa
                         </StatusTag>
                     )}
                 </div>
-                <span className="text-xs text-[#595959]">
-                    <span className="font-medium tabular-nums text-[#121212]">
+                <span className="text-xs text-[var(--peko-text-2)]">
+                    <span className="font-medium tabular-nums text-[var(--peko-text)]">
                         {formatDuration(totals.loggedMinutes)}
                     </span>{' '}
                     logged of {formatDuration(totals.expectedMinutes)} expected
@@ -73,11 +73,11 @@ export const WeekStatusBar = ({ view, perspective, actions, note }: WeekStatusBa
                     )}
                 </span>
                 {checks && (
-                    <span className="text-xs text-[#121212]" data-period-checks>
+                    <span className="text-xs text-[var(--peko-text)]" data-period-checks>
                         Check: {checks}
                     </span>
                 )}
-                {(note ?? defaultNote) && <span className="text-xs text-[#8B8B8B]">{note ?? defaultNote}</span>}
+                {(note ?? defaultNote) && <span className="text-xs text-[var(--peko-muted)]">{note ?? defaultNote}</span>}
             </div>
             {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
         </div>
@@ -128,9 +128,9 @@ export const WeekNotices = ({ view, perspective }: WeekNoticesProps) => {
                     description={
                         <div className="flex flex-col gap-1">
                             {week.decision?.comment && (
-                                <span className="break-words text-base text-[#121212]">“{week.decision.comment}”</span>
+                                <span className="break-words text-base text-[var(--peko-text)]">“{week.decision.comment}”</span>
                             )}
-                            <span className="text-xs text-[#595959]">
+                            <span className="text-xs text-[var(--peko-text-2)]">
                                 {employee
                                     ? 'Fix the timesheet below, then resubmit it.'
                                     : 'Waiting for the employee to fix and resubmit the timesheet.'}

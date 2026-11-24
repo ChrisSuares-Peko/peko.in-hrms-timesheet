@@ -32,7 +32,7 @@ const HEAD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const cellTone = (d: MonthDay, today: string) => {
     if (d.status === 'on-leave') return 'bg-purple-50';
     if (d.status === 'holiday') return 'bg-cyan-50';
-    if (OFF.includes(d.status) || (!d.expectedMinutes && !d.loggedMinutes)) return 'bg-[#FAFAFA]';
+    if (OFF.includes(d.status) || (!d.expectedMinutes && !d.loggedMinutes)) return 'bg-[var(--peko-subtle)]';
     if (d.date < today && d.expectedMinutes && !d.loggedMinutes) return 'bg-red-50/60';
     return 'bg-white';
 };
@@ -45,9 +45,9 @@ const statusText = (d: MonthDay, atsMode: AtsMode) => {
 };
 
 const Stat = ({ label, value, tone }: { label: string; value: string; tone?: string }) => (
-    <div className="flex min-w-0 flex-col rounded-lg border border-solid border-[#EAEAEA] bg-white px-3 py-2">
-        <span className="text-xs text-[#8B8B8B]">{label}</span>
-        <span className={`text-base font-semibold tabular-nums ${tone ?? 'text-[#121212]'}`}>{value}</span>
+    <div className="flex min-w-0 flex-col rounded-lg border border-solid border-[var(--peko-border)] bg-white px-3 py-2">
+        <span className="text-xs text-[var(--peko-muted)]">{label}</span>
+        <span className={`text-base font-semibold tabular-nums ${tone ?? 'text-[var(--peko-text)]'}`}>{value}</span>
     </div>
 );
 
@@ -75,8 +75,8 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                 <Stat label="Extra time" value={formatDuration(totals.extraMinutes)} />
             </div>
 
-            <div className="min-w-0 rounded-lg border border-solid border-[#EAEAEA] bg-white p-2 sm:p-3">
-                <div className="grid grid-cols-7 gap-1 pb-1 text-center text-[11px] font-medium uppercase text-[#8B8B8B]">
+            <div className="min-w-0 rounded-lg border border-solid border-[var(--peko-border)] bg-white p-2 sm:p-3">
+                <div className="grid grid-cols-7 gap-1 pb-1 text-center text-[11px] font-medium uppercase text-[var(--peko-muted)]">
                     {HEAD.map(h => (
                         <span key={h}>{h}</span>
                     ))}
@@ -85,7 +85,7 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                     {rows.map(({ w, tags }) => (
                         <div key={w.weekStart} className="flex flex-col gap-1">
                             <div className="flex flex-wrap items-center justify-between gap-1 px-0.5">
-                                <span className="text-xs text-[#8B8B8B]">{fmtWeekRange(w.weekStart)}</span>
+                                <span className="text-xs text-[var(--peko-muted)]">{fmtWeekRange(w.weekStart)}</span>
                                 <span className="flex flex-wrap items-center gap-1">
                                     {tags.map(p => (
                                         <WeekStatusTag key={`${p.status}-${p.changePending}`} status={p.status} changePending={p.changePending} />
@@ -109,7 +109,7 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                                     const isSel = selected === date;
                                     const status = statusText(d, atsMode);
                                     const nothing = d.date < today && d.expectedMinutes > 0 && !d.loggedMinutes;
-                                    let border = 'border-[#EAEAEA]';
+                                    let border = 'border-[var(--peko-border)]';
                                     if (date === today) border = 'border-blue-400';
                                     if (isSel) border = 'border-blue-500 ring-1 ring-blue-500';
                                     return (
@@ -127,26 +127,26 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                                         >
                                             <span
                                                 className={`text-xs font-semibold leading-4 ${
-                                                    date === today ? 'text-blue-600' : 'text-[#121212]'
+                                                    date === today ? 'text-blue-600' : 'text-[var(--peko-text)]'
                                                 }`}
                                             >
                                                 {dayjs(date).format('D')}
                                             </span>
                                             <span
                                                 className={`text-[11px] tabular-nums leading-4 sm:text-xs ${
-                                                    nothing ? 'text-red-500' : 'text-[#404040]'
+                                                    nothing ? 'text-red-500' : 'text-[var(--peko-text)]'
                                                 }`}
                                             >
                                                 {d.loggedMinutes || d.expectedMinutes ? shortHours(d.loggedMinutes) : ''}
                                                 {d.expectedMinutes > 0 && (
-                                                    <span className="hidden text-[#8B8B8B] md:inline">
+                                                    <span className="hidden text-[var(--peko-muted)] md:inline">
                                                         {' '}
                                                         / {shortHours(d.expectedMinutes)}
                                                     </span>
                                                 )}
                                             </span>
                                             {status && (
-                                                <span className="hidden w-full truncate text-[10px] leading-4 text-[#8B8B8B] md:block">
+                                                <span className="hidden w-full truncate text-[10px] leading-4 text-[var(--peko-muted)] md:block">
                                                     {status}
                                                 </span>
                                             )}
@@ -157,7 +157,7 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                                                     </Tooltip>
                                                 )}
                                                 {d.locked && (
-                                                    <LockOutlined className="hidden text-[#8B8B8B] sm:inline" />
+                                                    <LockOutlined className="hidden text-[var(--peko-muted)] sm:inline" />
                                                 )}
                                             </span>
                                         </button>
@@ -168,9 +168,9 @@ const ManagerMonthView = ({ month, today, atsMode, selected, onOpenDay, onOpenWe
                     ))}
                 </div>
             </div>
-            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#8B8B8B]">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[var(--peko-muted)]">
                 <span className="inline-flex items-center gap-1">
-                    <span className="inline-block h-2.5 w-3 rounded-sm border border-solid border-[#EAEAEA] bg-red-50" />
+                    <span className="inline-block h-2.5 w-3 rounded-sm border border-solid border-[var(--peko-border)] bg-red-50" />
                     Nothing logged
                 </span>
                 <span className="inline-flex items-center gap-1">

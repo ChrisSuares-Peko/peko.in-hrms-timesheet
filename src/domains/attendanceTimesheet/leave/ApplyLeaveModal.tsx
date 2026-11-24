@@ -268,7 +268,7 @@ const ApplyLeaveModal = ({
                     </Text>
                 )}
                 {was && (
-                    <div className="rounded-lg bg-[#FAFAFA] px-3 py-2" data-change-was>
+                    <div className="rounded-lg bg-[var(--peko-subtle)] px-3 py-2" data-change-was>
                         <Text type="secondary" className="block text-xs">
                             Was (approved)
                         </Text>
@@ -292,10 +292,10 @@ const ApplyLeaveModal = ({
                         data-leave-type
                     />
                     {ev && (
-                        <div className="flex flex-col rounded-lg bg-[#FAFAFA] px-3 py-2" data-event-line>
+                        <div className="flex flex-col rounded-lg bg-[var(--peko-subtle)] px-3 py-2" data-event-line>
                             <Text className="text-sm">
                                 <b className="font-medium">Up to {limitText(ev)} per event</b>
-                                <span className="text-[#8B8B8B]"> · counted in {COUNT_LABEL[ev.count].toLowerCase()}</span>
+                                <span className="text-[var(--peko-muted)]"> · counted in {COUNT_LABEL[ev.count].toLowerCase()}</span>
                             </Text>
                             <Text type="secondary" className="text-xs">
                                 {windowText(ev)}. No yearly balance: leave already booked for the same event counts towards the limit.
@@ -303,13 +303,13 @@ const ApplyLeaveModal = ({
                         </div>
                     )}
                     {b && (
-                        <div className={`flex flex-col rounded-lg px-3 py-2 ${notAvailable ? 'bg-[#FFFBE6]' : 'bg-[#FAFAFA]'}`} data-available-line>
+                        <div className={`flex flex-col rounded-lg px-3 py-2 ${notAvailable ? 'bg-[var(--peko-warning-bg)]' : 'bg-[var(--peko-subtle)]'}`} data-available-line>
                             {notAvailable ? (
-                                <Text className="text-sm !text-[#B54708]">Not available during probation</Text>
+                                <Text className="text-sm !text-[var(--peko-warning-ink)]">Not available during probation</Text>
                             ) : (
                                 <Text className="text-sm">
                                     <b className="font-medium">{daysText(available)} available</b>
-                                    <span className="text-[#8B8B8B]"> {b.type === COMP_OFF ? 'of comp off' : `of ${fmtDays(b.allocated)} this year`}</span>
+                                    <span className="text-[var(--peko-muted)]"> {b.type === COMP_OFF ? 'of comp off' : `of ${fmtDays(b.allocated)} this year`}</span>
                                 </Text>
                             )}
                             {pending > 0 && (

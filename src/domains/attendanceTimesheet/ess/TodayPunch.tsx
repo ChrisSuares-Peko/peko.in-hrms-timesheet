@@ -154,7 +154,7 @@ const TodayPunch = ({ overview, onOverview }: TodayPunchProps) => {
                         >
                             {look.title}
                         </Text>
-                        <Text className="block text-xs text-[#8B8B8B] truncate">{look.sub}</Text>
+                        <Text className="block text-xs text-[var(--peko-muted)] truncate">{look.sub}</Text>
                     </div>
                 </div>
                 {onClock && (
@@ -205,7 +205,7 @@ const TodayPunch = ({ overview, onOverview }: TodayPunchProps) => {
                         </Button>
                     )}
                     {/* PROTOTYPE-SETUP (HR rules, Slice 5): no automatic check-out — remind them to check out. */}
-                    {t.canCheckOut && <Text className="text-xs text-center text-[#8B8B8B]">{REMEMBER_CHECK_OUT_NOTE}</Text>}
+                    {t.canCheckOut && <Text className="text-xs text-center text-[var(--peko-muted)]">{REMEMBER_CHECK_OUT_NOTE}</Text>}
                     {t.hint && (
                         <Text className="text-xs text-center text-titleText">{t.hint}</Text>
                     )}

@@ -83,7 +83,7 @@ const LOCATION_OPTIONS = (Object.keys(LOCATION_LABEL) as WorkLocation[]).map(val
 /** A field with its label above (the form wraps; `width` is the field's basis). */
 const Field = ({ label, className, children }: { label: string; className: string; children: React.ReactNode }) => (
     <div className={`flex min-w-0 flex-col gap-0.5 ${className}`}>
-        <span className="text-[11px] leading-4 text-[#8B8B8B]" aria-hidden>
+        <span className="text-[11px] leading-4 text-[var(--peko-muted)]" aria-hidden>
             {label}
         </span>
         {children}
@@ -234,12 +234,12 @@ const EntryForm = ({
         // eslint-disable-next-line jsx-a11y/no-static-element-interactions
         <div
             onKeyDown={onKeyDown}
-            className={`flex min-w-0 flex-col gap-1.5 py-2 ${quick ? 'mt-1 border-0 border-t border-dashed border-[#EAEAEA]' : ''}`}
+            className={`flex min-w-0 flex-col gap-1.5 py-2 ${quick ? 'mt-1 border-0 border-t border-dashed border-[var(--peko-border)]' : ''}`}
             onClick={e => e.stopPropagation()}
             data-entry-form
         >
             <div className="flex min-w-0 flex-wrap items-end gap-x-2 gap-y-1.5">
-                {quick && !compact && <PlusOutlined aria-hidden className="mb-1.5 hidden text-[#8B8B8B] md:block" />}
+                {quick && !compact && <PlusOutlined aria-hidden className="mb-1.5 hidden text-[var(--peko-muted)] md:block" />}
                 {times && (
                     <>
                         <Field label="Start time" className={box.time}>
@@ -354,7 +354,7 @@ const EntryForm = ({
                 </span>
             )}
             {overlaps.length > 0 && (
-                <span className="text-xs text-[#121212]" data-overlap-note>
+                <span className="text-xs text-[var(--peko-text)]" data-overlap-note>
                     <WarningOutlined className="mr-1" />
                     {overlaps
                         .map(o => `Overlaps ${o.other.description} (${entryTimeText(o.other)}) from ${rangeText(o.from, o.to)}`)
@@ -362,7 +362,7 @@ const EntryForm = ({
                     . Check your timings — you can still save it.
                 </span>
             )}
-            {!hideHint && <span className="text-xs text-[#8B8B8B]">{hint}</span>}
+            {!hideHint && <span className="text-xs text-[var(--peko-muted)]">{hint}</span>}
             {error && (
                 <span role="alert" className="text-xs text-red-600">
                     {error}

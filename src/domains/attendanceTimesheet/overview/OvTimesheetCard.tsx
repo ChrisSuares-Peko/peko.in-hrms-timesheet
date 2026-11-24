@@ -128,7 +128,7 @@ const OvTimesheetCard = ({
             Add entry
         </Button>
     );
-    if (!editable) addArea = <Text className="text-xs text-[#8B8B8B]">Today can’t be edited right now. Open the full timesheet for details.</Text>;
+    if (!editable) addArea = <Text className="text-xs text-[var(--peko-muted)]">Today can’t be edited right now. Open the full timesheet for details.</Text>;
 
     return (
         // PROTOTYPE-SETUP (Overview v5, Slice 1): the parts keep the card's normal gaps (no spreading to fill the row).
@@ -138,9 +138,9 @@ const OvTimesheetCard = ({
             className={className}
         >
             <div>
-                <Text className="block text-base text-[#121212]">
-                    <span className="text-[#8B8B8B]">Today:</span> <span className="font-medium">{formatDuration(day.loggedMinutes)}</span>
-                    {day.expectedMinutes ? <span className="text-[#8B8B8B]"> of {formatDuration(day.expectedMinutes)}</span> : null}
+                <Text className="block text-base text-[var(--peko-text)]">
+                    <span className="text-[var(--peko-muted)]">Today:</span> <span className="font-medium">{formatDuration(day.loggedMinutes)}</span>
+                    {day.expectedMinutes ? <span className="text-[var(--peko-muted)]"> of {formatDuration(day.expectedMinutes)}</span> : null}
                 </Text>
                 <div className="mt-3">
                     {/* PROTOTYPE-SETUP (Final batch, Slice 4): the bar only (no thin meter under it). */}
@@ -152,23 +152,23 @@ const OvTimesheetCard = ({
                     {shown.map(e => (
                         <li key={e.id} className={`grid ${times ? 'grid-cols-[136px_52px_minmax(0,1fr)]' : 'grid-cols-[52px_minmax(0,1fr)]'} items-baseline gap-2 text-sm`}>
                             {times && (
-                                <span className={`tabular-nums ${isTimed(e) ? 'text-[#121212]' : 'italic text-[#8B8B8B]'}`}>
+                                <span className={`tabular-nums ${isTimed(e) ? 'text-[var(--peko-text)]' : 'italic text-[var(--peko-muted)]'}`}>
                                     {entryTimeText(e)}
                                 </span>
                             )}
-                            <span className="tabular-nums text-[#8B8B8B]">{formatDuration(entryMins(e))}</span>
-                            <span className="truncate text-[#121212]" title={`${locationChip(e.location, e.client)} · ${e.description}`}>
-                                <span className="text-[#8B8B8B]" data-location-chip>
+                            <span className="tabular-nums text-[var(--peko-muted)]">{formatDuration(entryMins(e))}</span>
+                            <span className="truncate text-[var(--peko-text)]" title={`${locationChip(e.location, e.client)} · ${e.description}`}>
+                                <span className="text-[var(--peko-muted)]" data-location-chip>
                                     {locationChip(e.location, e.client)} ·{' '}
                                 </span>
                                 {e.description}
                             </span>
                         </li>
                     ))}
-                    {more > 0 && <li className="text-xs text-[#8B8B8B]">and {more} more</li>}
+                    {more > 0 && <li className="text-xs text-[var(--peko-muted)]">and {more} more</li>}
                 </ul>
             ) : (
-                <Text className="text-sm text-[#8B8B8B]">Nothing logged today yet.</Text>
+                <Text className="text-sm text-[var(--peko-muted)]">Nothing logged today yet.</Text>
             )}
             <div className="flex flex-wrap items-center gap-2">
                 {addArea}
@@ -184,10 +184,10 @@ const OvTimesheetCard = ({
                 <StatusTag color={chip.color} className={`!m-0 self-start px-3 py-0.5 text-xs ${chip.className ?? ''}`}>
                     {chip.text}
                 </StatusTag>
-                <Text className="text-xs text-[#8B8B8B]" data-ov-status-line>
+                <Text className="text-xs text-[var(--peko-muted)]" data-ov-status-line>
                     {statusLine(week, today)}
                 </Text>
-                {canSubmit && <Text className="text-[11px] leading-4 text-[#8B8B8B]">{submitNote(!open)}</Text>}
+                {canSubmit && <Text className="text-[11px] leading-4 text-[var(--peko-muted)]">{submitNote(!open)}</Text>}
             </div>
             <SubmitReviewModal
                 kind={prompt?.kind ?? null}

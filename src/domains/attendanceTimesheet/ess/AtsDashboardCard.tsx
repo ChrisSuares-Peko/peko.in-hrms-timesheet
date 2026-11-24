@@ -37,7 +37,7 @@ const WeekProgress = ({ overview }: { overview: AtsOverview }) => {
         <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between gap-2 flex-wrap">
                 {/* PROTOTYPE-SETUP (Timesheet filing): the filing period covering today (a day, a week or a month). */}
-                <Text className="text-xs text-[#8B8B8B]">{PERIOD_TITLE[thisWeek.frequency]}</Text>
+                <Text className="text-xs text-[var(--peko-muted)]">{PERIOD_TITLE[thisWeek.frequency]}</Text>
                 {overview.approvalEnabled && <WeekStatusTag status={thisWeek.status} />}
             </div>
             <Text className="text-sm text-valueText">
@@ -97,7 +97,7 @@ const AtsDashboardCard = () => {
             <div className={CARD}>
                 {failed ? (
                     <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-                        <Text className="text-sm text-[#8B8B8B]">
+                        <Text className="text-sm text-[var(--peko-muted)]">
                             Couldn&apos;t load your attendance right now.
                         </Text>
                         <Button icon={<ReloadOutlined />} onClick={load}>
@@ -168,8 +168,8 @@ const AtsDashboardCard = () => {
             {punchMode && <TodayPunch overview={overview} onOverview={setOverview} />}
 
             {mode === 'timesheet' && (
-                <div className="flex flex-col gap-1 rounded-lg bg-[#F5F5F5] px-4 py-3">
-                    <Text className="text-xs text-[#8B8B8B]">Logged today</Text>
+                <div className="flex flex-col gap-1 rounded-lg bg-[var(--peko-track)] px-4 py-3">
+                    <Text className="text-xs text-[var(--peko-muted)]">Logged today</Text>
                     <Text className="text-2xl font-semibold text-valueText tabular-nums leading-tight">
                         {formatDuration(today.loggedMinutes)}
                     </Text>
@@ -181,7 +181,7 @@ const AtsDashboardCard = () => {
             {mode !== 'attendance' && (
                 <div className="flex flex-col gap-2">
                     {mode === 'both' && (
-                        <Text className="text-xs text-[#8B8B8B]">
+                        <Text className="text-xs text-[var(--peko-muted)]">
                             Logged today:{' '}
                             <span className="font-semibold text-valueText">
                                 {formatDuration(today.loggedMinutes)}
@@ -202,18 +202,18 @@ const AtsDashboardCard = () => {
                         onClick={stop(() => go(c.tab))}
                         className={`text-left rounded-lg px-2.5 py-2 border border-solid cursor-pointer transition-colors min-w-0 ${
                             c.value
-                                ? 'bg-[#FFF7F6] border-[#FFE4E4] hover:border-[#FF3A3A]'
-                                : 'bg-[#F5F5F5] border-transparent hover:border-[#EAEAEA]'
+                                ? 'bg-[var(--peko-primary-surface)] border-[var(--peko-primary-border)] hover:border-[var(--peko-primary)]'
+                                : 'bg-[var(--peko-track)] border-transparent hover:border-[var(--peko-border)]'
                         }`}
                     >
                         <span
                             className={`block text-lg font-semibold leading-tight tabular-nums ${
-                                c.value ? 'text-[#FF3A3A]' : 'text-valueText'
+                                c.value ? 'text-[var(--peko-primary)]' : 'text-valueText'
                             }`}
                         >
                             {c.value}
                         </span>
-                        <span className="block text-[11px] leading-snug text-[#8B8B8B]">
+                        <span className="block text-[11px] leading-snug text-[var(--peko-muted)]">
                             {c.label}
                         </span>
                     </button>

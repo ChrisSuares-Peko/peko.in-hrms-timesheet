@@ -102,7 +102,7 @@ const Overview = ({ month, onMonth, onSeeWho }: { month: string; onMonth: (m: st
                             <CountTile key={t.key} label={t.label} value={o.counts[t.key]} sub="timesheet periods" />
                         ))}
                     </div>
-                    <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
+                    <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[var(--peko-border)] bg-white">
                         <Table<DeptRow>
                             rowKey="department"
                             columns={columns}
@@ -184,7 +184,7 @@ const Requests = ({ onReview, reloadKey }: { onReview: (t: ReviewTarget) => void
                 Timesheets approved by managers, waiting for your final approval. Ask for update sends it straight back to the employee.
             </Text>
             {list.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-[#F0F0F0] py-10" data-admin-empty>
+                <div className="rounded-lg border border-dashed border-[var(--peko-line)] py-10" data-admin-empty>
                     <Empty
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description={
@@ -196,9 +196,9 @@ const Requests = ({ onReview, reloadKey }: { onReview: (t: ReviewTarget) => void
                     />
                 </div>
             ) : (
-                <div className="rounded-lg border border-solid border-[#EAEAEA] bg-white px-4">
+                <div className="rounded-lg border border-solid border-[var(--peko-border)] bg-white px-4">
                     {list.map(item => (
-                        <div key={item.id} className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-0 border-b border-solid border-[#F0F0F0] py-3 last:border-b-0" data-timesheet-request={item.employee.id}>
+                        <div key={item.id} className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-0 border-b border-solid border-[var(--peko-line)] py-3 last:border-b-0" data-timesheet-request={item.employee.id}>
                             <div className="min-w-0 flex-1 basis-[240px]">
                                 <PersonCell person={item.employee} />
                             </div>

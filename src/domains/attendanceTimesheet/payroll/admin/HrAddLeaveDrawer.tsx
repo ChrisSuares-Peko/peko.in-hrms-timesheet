@@ -176,11 +176,11 @@ const HrAddLeaveDrawer = ({ open, onClose, onAdded }: { open: boolean; onClose: 
                         />
                     </Flex>
                 </div>
-                <div className="rounded-lg bg-[#FAFAFA] px-3 py-2" data-hr-duration>
+                <div className="rounded-lg bg-[var(--peko-subtle)] px-3 py-2" data-hr-duration>
                     {count && count.working > 0 ? (
                         <Text className="text-sm">
                             <b className="font-medium">{halfOf ? `${count.working} half day${count.working === 1 ? '' : 's'} = ${daysText(count.days)}` : daysText(count.days)}</b>
-                            <span className="text-xs text-[#8B8B8B]">
+                            <span className="text-xs text-[var(--peko-muted)]">
                                 {count.sandwich ? ` · incl. ${count.sandwich} day${count.sandwich === 1 ? '' : 's'} off in between (sandwich rule)` : ' · weekly offs and public holidays aren’t counted'}
                             </span>
                         </Text>
@@ -224,7 +224,7 @@ const HrAddLeaveDrawer = ({ open, onClose, onAdded }: { open: boolean; onClose: 
                         options={(info?.balances ?? []).map(x => ({ value: x.type, label: `${x.label} · ${x.notAvailable ? 'not available on probation' : `${fmtDays(x.available)} available`}` }))}
                     />
                     {b?.notAvailable && (
-                        <Text className="text-xs !text-[#B54708]">
+                        <Text className="text-xs !text-[var(--peko-warning-ink)]">
                             {b.label} isn’t available while {first} is on probation.
                         </Text>
                     )}

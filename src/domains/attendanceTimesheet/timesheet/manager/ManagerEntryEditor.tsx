@@ -88,7 +88,7 @@ const ManagerEntryEditor = ({ date, initial, others, busy, onSave, onCancel }: E
                     className="w-[104px]"
                     status={problem && !start ? 'error' : undefined}
                 />
-                <span className="text-[#8B8B8B]">–</span>
+                <span className="text-[var(--peko-muted)]">–</span>
                 <TimePicker
                     size="small"
                     format="h:mm A"

@@ -113,8 +113,8 @@ const WeekStatusCard = ({ view, today, review, onStepPeriod, onReview, bare = fa
                     <Button size="small" type="text" icon={<LeftOutlined />} aria-label="Previous filing period" onClick={() => onStepPeriod(-1)} />
                 )}
                 <div className="min-w-0">
-                    <h3 className={`m-0 truncate font-medium text-[#121212] ${bare ? 'text-sm' : 'text-base'}`}>{filing.period.label}</h3>
-                    <span className="block text-[11px] text-[#8B8B8B]">
+                    <h3 className={`m-0 truncate font-medium text-[var(--peko-text)] ${bare ? 'text-sm' : 'text-base'}`}>{filing.period.label}</h3>
+                    <span className="block text-[11px] text-[var(--peko-muted)]">
                         {FREQUENCY_LABEL[periodKind(filing.period.start, filing.period.end, filing.frequency)]} timesheet
                     </span>
                 </div>
@@ -124,14 +124,14 @@ const WeekStatusCard = ({ view, today, review, onStepPeriod, onReview, bare = fa
                 <span className="flex-1" />
                 <WeekChip view={view} />
             </div>
-            <p className="m-0 mt-2 text-xs text-[#8B8B8B]" data-period-summary>
+            <p className="m-0 mt-2 text-xs text-[var(--peko-muted)]" data-period-summary>
                 {formatDuration(view.totals.loggedMinutes)} logged · {plural(entries, 'entry', 'entries')}
             </p>
             {warnings.length > 0 && (
                 <button
                     type="button"
                     onClick={onReview}
-                    className="mt-1.5 flex w-full cursor-pointer items-start gap-1.5 rounded-lg border-0 bg-[#FFFBE6] px-2 py-1.5 text-left text-xs text-[#121212] hover:bg-[#FFF1B8]"
+                    className="mt-1.5 flex w-full cursor-pointer items-start gap-1.5 rounded-lg border-0 bg-[var(--peko-warning-bg)] px-2 py-1.5 text-left text-xs text-[var(--peko-text)] hover:bg-[#FFF1B8]"
                     data-period-warnings
                 >
                     <WarningOutlined className="mt-0.5" />
@@ -139,7 +139,7 @@ const WeekStatusCard = ({ view, today, review, onStepPeriod, onReview, bare = fa
                     <span className="whitespace-nowrap font-medium">Review</span>
                 </button>
             )}
-            <p className="my-2 break-words text-[13px] text-[#595959]" data-status-line>
+            <p className="my-2 break-words text-[13px] text-[var(--peko-text-2)]" data-status-line>
                 {statusLine(view, today)}
             </p>
         </section>

@@ -90,7 +90,7 @@ const RequestLopModal = ({ open, view, today, onClose, onSent }: { open: boolean
             width={520}
         >
             <div className="flex flex-col gap-3" data-request-lop>
-                <div className="flex flex-col rounded-lg bg-[#FFF6EA] px-3 py-2" data-lop-box>
+                <div className="flex flex-col rounded-lg bg-[var(--peko-warning-bg)] px-3 py-2" data-lop-box>
                     <Text className="text-sm">
                         <b className="font-medium">Unpaid leave</b> · these days are deducted from your salary
                     </Text>

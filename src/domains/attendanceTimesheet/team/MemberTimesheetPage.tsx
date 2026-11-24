@@ -60,7 +60,7 @@ const AttendanceSummary = ({ employeeId, initialMonth }: { employeeId: number; i
         : [];
 
     return (
-        <div className="rounded-lg border border-solid border-[#EAEAEA] bg-white p-4">
+        <div className="rounded-lg border border-solid border-[var(--peko-border)] bg-white p-4">
             <Flex justify="space-between" align="center" wrap="wrap" gap={8} className="mb-3">
                 <Typography.Text strong>Attendance</Typography.Text>
                 <Flex gap={6} align="center">

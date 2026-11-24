@@ -4,35 +4,35 @@
    unchanged. Everything antd-related lives in PekoScope's tokens instead. */
 
 .ess-scope .text-valueText {
-    color: #121212;
+    color: var(--peko-text);
 }
 .ess-scope .text-titleText {
-    color: #8b8b8b;
+    color: var(--peko-muted);
 }
 
-/* Page title: 20px medium #404040. */
+/* Page title (Peko One): 20/28 semibold. */
 .ess-scope h4.ant-typography {
     font-size: 20px;
-    font-weight: 500;
+    font-weight: 600;
     line-height: 28px;
-    color: #404040;
+    color: var(--peko-title);
 }
 
 /* The shared portal pages' cards take the Peko card: 8px, 1px #EAEAEA, soft shadow. */
 .ess-scope .bg-white.rounded-2xl.shadow-sm,
 .ess-scope .bg-white.rounded-3xl {
     border-radius: 8px;
-    border: 1px solid #eaeaea;
+    border: 1px solid var(--peko-border);
     box-shadow: 0px 1px 12px 1px rgba(122, 122, 122, 0.06);
 }
 
 /* Inner bordered blocks. */
 .ess-scope .rounded-\[20px\] {
     border-radius: 8px;
-    border: 1px solid #eaeaea;
+    border: 1px solid var(--peko-border);
 }
 
 /* Grey stat strips. */
 .ess-scope .bg-\[\#f9f9f9\] {
-    background-color: #fafafa;
+    background-color: var(--peko-subtle);
 }

@@ -75,14 +75,14 @@ export const breakEntries = (day: TimesheetDay): TimesheetEntry[] => [
 
 /** PROTOTYPE-SETUP (Leave & team, Slice 2): a leave / public-holiday row — read-only, a chip on light purple. */
 const LeaveLine = ({ row }: { row: TimesheetLeaveRow }) => (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-0 border-b border-solid border-[#F0F0F0] bg-[#F5F3FF] px-1 py-1.5 text-[13px] last:border-b-0" data-leave-row={row.kind}>
-        <span className="w-[140px] shrink-0 tabular-nums text-[#404040]">{entryTimeText({ start: row.start, end: row.end })}</span>
-        <span className="w-[56px] shrink-0 tabular-nums text-[#8B8B8B]">{formatDuration(row.minutes)}</span>
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-0 border-b border-solid border-[var(--peko-line)] bg-[#F5F3FF] px-1 py-1.5 text-[13px] last:border-b-0" data-leave-row={row.kind}>
+        <span className="w-[140px] shrink-0 tabular-nums text-[var(--peko-text)]">{entryTimeText({ start: row.start, end: row.end })}</span>
+        <span className="w-[56px] shrink-0 tabular-nums text-[var(--peko-muted)]">{formatDuration(row.minutes)}</span>
         <span className="order-last flex min-w-0 basis-full items-center gap-1.5 md:order-none md:flex-1 md:basis-0">
             <StatusTag tone="leave">
                 {row.tag}
             </StatusTag>
-            <span className="min-w-0 break-words text-[#404040]">{row.description}</span>
+            <span className="min-w-0 break-words text-[var(--peko-text)]">{row.description}</span>
         </span>
     </div>
 );
@@ -97,12 +97,12 @@ const BreakLine = ({ day, brk, editable, onSave }: { day: TimesheetDay; brk: Tim
     };
     return (
         <div
-            className="group flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-0 border-b border-solid border-[#F0F0F0] px-1 py-1.5 text-[13px] last:border-b-0"
+            className="group flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-0 border-b border-solid border-[var(--peko-line)] px-1 py-1.5 text-[13px] last:border-b-0"
             style={{ background: BREAK_HATCH.replace('#C9CED6', '#F3F4F6').replace('#EEF0F3', '#FFFFFF') }}
             data-break-row
         >
-            <span className="w-[140px] shrink-0 tabular-nums text-[#404040]">{entryTimeText({ start: brk.start, end: brk.end })}</span>
-            <span className="w-[56px] shrink-0 tabular-nums text-[#8B8B8B]">{formatDuration(brk.minutes)}</span>
+            <span className="w-[140px] shrink-0 tabular-nums text-[var(--peko-text)]">{entryTimeText({ start: brk.start, end: brk.end })}</span>
+            <span className="w-[56px] shrink-0 tabular-nums text-[var(--peko-muted)]">{formatDuration(brk.minutes)}</span>
             <span className="order-last flex min-w-0 basis-full items-center gap-1.5 md:order-none md:flex-1 md:basis-0">
                 <StatusTag className="!m-0">
                     Break{brk.running ? ' (now)' : ''}
@@ -121,7 +121,7 @@ const BreakLine = ({ day, brk, editable, onSave }: { day: TimesheetDay; brk: Tim
                         aria-label="Break description"
                     />
                 ) : (
-                    <span className={brk.description ? 'text-[#404040]' : 'text-[#8B8B8B]'}>{brk.description || 'No description'}</span>
+                    <span className={brk.description ? 'text-[var(--peko-text)]' : 'text-[var(--peko-muted)]'}>{brk.description || 'No description'}</span>
                 )}
             </span>
             {editable && onSave && (
@@ -183,7 +183,7 @@ const EntryLine = ({
     return (
         <div
             ref={ref}
-            className={`group flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 border-0 border-b border-solid border-[#F0F0F0] py-1.5 text-[13px] last:border-b-0 ${
+            className={`group flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5 border-0 border-b border-solid border-[var(--peko-line)] py-1.5 text-[13px] last:border-b-0 ${
                 highlighted ? 'rounded-md bg-[#FFFAEB] px-1.5 outline outline-1 outline-[#F5C26B]' : ''
             }`}
             onDoubleClick={() => editable && onEdit()}
@@ -191,13 +191,13 @@ const EntryLine = ({
             data-highlighted={highlighted || undefined}
         >
             {showTimes && (
-                <span className={`${entry.endNext ? 'w-[180px]' : 'w-[140px]'} shrink-0 tabular-nums ${isTimed(entry) ? 'font-medium text-[#121212]' : 'italic text-[#8B8B8B]'}`}>
+                <span className={`${entry.endNext ? 'w-[180px]' : 'w-[140px]'} shrink-0 tabular-nums ${isTimed(entry) ? 'font-medium text-[var(--peko-text)]' : 'italic text-[var(--peko-muted)]'}`}>
                     {entryTimeText(entry)}
                 </span>
             )}
-            <span className={`w-[56px] shrink-0 tabular-nums ${showTimes ? 'text-[#8B8B8B]' : 'font-medium text-[#121212]'}`}>{formatDuration(entryMins(entry))}</span>
+            <span className={`w-[56px] shrink-0 tabular-nums ${showTimes ? 'text-[var(--peko-muted)]' : 'font-medium text-[var(--peko-text)]'}`}>{formatDuration(entryMins(entry))}</span>
             {/* PROTOTYPE-SETUP (V2): on phones the description gets its own full-width line under the times. */}
-            <span className="order-last min-w-0 basis-full break-words text-[#404040] md:order-none md:flex-1 md:basis-0">
+            <span className="order-last min-w-0 basis-full break-words text-[var(--peko-text)] md:order-none md:flex-1 md:basis-0">
                 {/* PROTOTYPE-SETUP (Final batch, Slice 2): location and project chips. */}
                 <StatusTag className="!mr-1.5 align-middle !text-[11px]" data-location-chip>
                     {locationChip(entry.location, entry.client)}
@@ -288,7 +288,7 @@ const EntriesPanel = ({
         // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div className="min-w-0" onClick={e => e.stopPropagation()}>
             {day.locked && (
-                <div className="mb-2 flex items-center gap-1.5 text-xs text-[#8B8B8B]">
+                <div className="mb-2 flex items-center gap-1.5 text-xs text-[var(--peko-muted)]">
                     <LockOutlined /> Payroll processed for this month. Read-only.
                 </div>
             )}
@@ -327,7 +327,7 @@ const EntriesPanel = ({
                     ))}
                 </div>
             )}
-            {rows.length === 0 && !editable && <div className="py-1 text-xs text-[#8B8B8B]">No time logged.</div>}
+            {rows.length === 0 && !editable && <div className="py-1 text-xs text-[var(--peko-muted)]">No time logged.</div>}
             {rows.map(r => {
                 if (r.kind === 'leave') return <LeaveLine key={r.l.id} row={r.l} />;
                 if (r.kind === 'break') {

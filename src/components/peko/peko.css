@@ -1,3 +1,38 @@
+/* PROTOTYPE-SETUP (Leave settings rework: Peko One): the design tokens as CSS variables — hand-built blocks use these
+   (`text-[var(--peko-muted)]`), never raw hex values. Values: src/components/peko/pekoTokens.ts. */
+:root {
+    --peko-primary: #ff4f4f;
+    --peko-primary-hover: #dc2626;
+    --peko-primary-active: #b91c1c;
+    --peko-primary-surface: #fff2f2;
+    --peko-primary-tint: #ffe7e7;
+    --peko-primary-border: #ffd6d6;
+    --peko-text: #0f172a;
+    --peko-title: #0f172a;
+    --peko-text-2: #475569;
+    --peko-muted: #64748b;
+    --peko-faint: #94a3b8;
+    --peko-border: #e2e8f0;
+    --peko-border-strong: #cbd5e1;
+    --peko-line: #f1f5f9;
+    --peko-subtle: #f8fafc;
+    --peko-track: #f1f5f9;
+    --peko-info-icon: #8993a4;
+    --peko-success: #43b75d;
+    --peko-success-ink: #308242;
+    --peko-success-bg: #ecf8ef;
+    --peko-warning: #f59e0b;
+    --peko-warning-ink: #b45309;
+    --peko-warning-bg: #fffbeb;
+    --peko-error: #ef4444;
+    --peko-error-ink: #dc2626;
+    --peko-error-bg: #fef2f2;
+    --peko-info-ink: #1d4ed8;
+    --peko-info-bg: #eff6ff;
+    --peko-leave-ink: #6d28d9;
+    --peko-leave-bg: #f5f3ff;
+}
+
 /* PROTOTYPE-SETUP (Design update: Peko design language): the few details antd tokens can't express. Classes come from
    PekoScope (ConfigProvider component class names), so they reach modals and drawers rendered in portals too.
    Values: src/components/peko/pekoTokens.ts. */
@@ -7,23 +42,23 @@
     max-width: 1320px;
 }
 
-/* Cards (rule 4): 1px #EAEAEA, 8px corners, soft shadow; titles 16px medium #121212. */
+/* Cards (rule 4): 1px var(--peko-border), 8px corners, soft shadow; titles 16px medium var(--peko-text). */
 .ant-card.peko-card {
-    border: 1px solid #eaeaea;
+    border: 1px solid var(--peko-border);
     box-shadow: 0px 1px 12px 1px rgba(122, 122, 122, 0.06);
 }
 .ant-card.peko-card .ant-card-head {
-    border-bottom-color: #f0f0f0;
+    border-bottom-color: var(--peko-line);
 }
 .ant-card.peko-card .ant-card-head-title {
     font-size: 16px;
     font-weight: 500;
-    color: #121212;
+    color: var(--peko-text);
 }
 
-/* Tabs (rule 2): 1px #F0F0F0 bottom border, 2px ink bar, medium active label, count badges as small red pills. */
+/* Tabs (rule 2): 1px var(--peko-line) bottom border, 2px ink bar, medium active label, count badges as small red pills. */
 .peko-tabs.ant-tabs > .ant-tabs-nav::before {
-    border-bottom-color: #f0f0f0;
+    border-bottom-color: var(--peko-line);
 }
 .peko-tabs.ant-tabs .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
     font-weight: 500;
@@ -52,34 +87,34 @@
     padding-inline: 8px;
 }
 
-/* Alerts (rule 10): body #121212, title in the accent colour. */
+/* Alerts (rule 10): body var(--peko-text), title in the accent colour. */
 .ant-alert.peko-alert .ant-alert-description {
-    color: #121212;
+    color: var(--peko-text);
 }
 .ant-alert.peko-alert.ant-alert-with-description.ant-alert-info .ant-alert-message {
-    color: #0958d9;
+    color: var(--peko-info-ink);
 }
 .ant-alert.peko-alert.ant-alert-with-description.ant-alert-warning .ant-alert-message {
-    color: #d48806;
+    color: var(--peko-warning-ink);
 }
 .ant-alert.peko-alert.ant-alert-with-description.ant-alert-error .ant-alert-message {
-    color: #ff4d4f;
+    color: var(--peko-error-ink);
 }
 .ant-alert.peko-alert.ant-alert-with-description.ant-alert-success .ant-alert-message {
-    color: #027a48;
+    color: var(--peko-success-ink);
 }
 .ant-alert.peko-alert.ant-alert-with-description .ant-alert-message {
     font-weight: 500;
 }
 
-/* Modals (rule 11): 16px semibold title, #F0F0F0 dividers under the header and above the footer, 24px sides. */
+/* Modals (rule 11): 16px semibold title, var(--peko-line) dividers under the header and above the footer, 24px sides. */
 .ant-modal .ant-modal-content.peko-modal {
     padding: 0;
 }
 .ant-modal .peko-modal-header.ant-modal-header {
     margin: 0;
     padding: 16px 56px 16px 24px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--peko-line);
 }
 .ant-modal .peko-modal-header .ant-modal-title {
     font-size: 16px;
@@ -92,7 +127,7 @@
 .ant-modal .peko-modal-footer.ant-modal-footer {
     margin: 0;
     padding: 12px 24px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid var(--peko-line);
 }
 .ant-modal .ant-modal-content.peko-modal > .ant-modal-close {
     top: 17px;
@@ -102,7 +137,7 @@
 /* Drawers (rule 11). */
 .ant-drawer .peko-drawer-header.ant-drawer-header {
     padding: 16px 24px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--peko-line);
 }
 .ant-drawer .peko-drawer-header .ant-drawer-title {
     font-size: 16px;
@@ -113,27 +148,29 @@
 }
 .ant-drawer .peko-drawer-footer.ant-drawer-footer {
     padding: 12px 24px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid var(--peko-line);
 }
 
-/* Tables (rule 8): header 14px medium #121212 on #FAFAFA; clickable rows show a pointer. */
+/* Tables (rule 8): header 14px medium var(--peko-text) on #FAFAFA; clickable rows show a pointer. */
 .peko-scope .ant-table-thead > tr > th,
 .ant-modal .peko-modal-body .ant-table-thead > tr > th,
 .ant-drawer .peko-drawer-body .ant-table-thead > tr > th {
     font-size: 14px;
     font-weight: 500;
-    color: #121212;
+    color: var(--peko-text);
 }
 
-/* Approve in request rows (rule 6): outlined green, matching the live Leave Requests page. */
-.ant-btn.peko-approve.ant-btn-default:not(:disabled) {
-    border-color: #12b76a;
-    color: #12b76a;
+/* The secondary button (Peko One): red outline, light red hover — Approve in request rows. */
+.ant-btn.peko-approve.ant-btn-default:not(:disabled),
+.ant-btn.peko-secondary.ant-btn-default:not(:disabled) {
+    border-color: var(--peko-primary);
+    color: var(--peko-primary);
 }
-.ant-btn.peko-approve.ant-btn-default:not(:disabled):hover {
-    border-color: #12b76a;
-    color: #12b76a;
-    background: #ecfdf3;
+.ant-btn.peko-approve.ant-btn-default:not(:disabled):hover,
+.ant-btn.peko-secondary.ant-btn-default:not(:disabled):hover {
+    border-color: var(--peko-primary-hover);
+    color: var(--peko-primary-hover);
+    background: var(--peko-primary-surface);
 }
 
 /* StatusTag outside a scope (e.g. a page that only renders the tag) keeps its pill shape. */
@@ -149,10 +186,10 @@
 /* Switches (rule 12): primary red when on. The platform's index.css paints every checked switch green with
    !important; inside the scope the Peko red wins. */
 .ant-switch.peko-switch.ant-switch-checked {
-    background: #ff3a3a !important;
+    background: var(--peko-primary) !important;
 }
 .ant-switch.peko-switch.ant-switch-checked:hover:not(.ant-switch-disabled) {
-    background: #ff6963 !important;
+    background: var(--peko-primary-hover) !important;
 }
 
 /* Buttons (rule 6): the theme radius (6px) even where an older shared component adds its own rounded-* class. */
@@ -167,35 +204,69 @@
    same six pairs as StatusTag (rule 9). */
 .peko-scope .ant-tag.peko-tag.ant-tag-success,
 .peko-scope .ant-tag.peko-tag.ant-tag-green {
-    background: #ecfdf3;
-    color: #027a48;
+    background: var(--peko-success-bg);
+    color: var(--peko-success-ink);
 }
 .peko-scope .ant-tag.peko-tag.ant-tag-warning,
 .peko-scope .ant-tag.peko-tag.ant-tag-gold,
 .peko-scope .ant-tag.peko-tag.ant-tag-orange {
-    background: #fff6ea;
-    color: #d48806;
+    background: var(--peko-warning-bg);
+    color: var(--peko-warning-ink);
 }
 .peko-scope .ant-tag.peko-tag.ant-tag-error,
 .peko-scope .ant-tag.peko-tag.ant-tag-red,
 .peko-scope .ant-tag.peko-tag.ant-tag-volcano {
-    background: #fff1f0;
-    color: #ff4d4f;
+    background: var(--peko-error-bg);
+    color: var(--peko-error-ink);
 }
 .peko-scope .ant-tag.peko-tag.ant-tag-processing,
 .peko-scope .ant-tag.peko-tag.ant-tag-blue,
 .peko-scope .ant-tag.peko-tag.ant-tag-geekblue,
 .peko-scope .ant-tag.peko-tag.ant-tag-cyan {
-    background: #e6f4ff;
-    color: #0958d9;
+    background: var(--peko-info-bg);
+    color: var(--peko-info-ink);
 }
 .peko-scope .ant-tag.peko-tag.ant-tag-purple,
 .peko-scope .ant-tag.peko-tag.ant-tag-magenta {
-    background: #f9f0fb;
-    color: #861e99;
+    background: var(--peko-leave-bg);
+    color: var(--peko-leave-ink);
 }
 
 /* Inputs (rule 7): the platform's `.rounded-select` (index.css, 0.3rem !important) gets the theme radius in scope. */
 .peko-scope .rounded-select .ant-select-selector {
     border-radius: 6px !important;
+}
+
+/* Info tips (InfoTip): a 13px grey info icon next to a label, panel title or button; keyboard-focusable. */
+.peko-infotip {
+    display: inline-flex;
+    align-items: center;
+    margin-inline-start: 6px;
+    color: var(--peko-info-icon);
+    font-size: 13px;
+    line-height: 1;
+    cursor: help;
+    border-radius: 999px;
+    vertical-align: middle;
+}
+.peko-infotip:focus-visible {
+    outline: 2px solid var(--peko-primary);
+    outline-offset: 2px;
+}
+
+/* Type (Peko One): card titles 16/24 semibold; form labels 13 medium; hints 12/18. */
+.ant-card.peko-card .ant-card-head-title {
+    font-weight: 600;
+    line-height: 24px;
+}
+.peko-scope .ant-form-item-label > label,
+.ant-drawer .peko-drawer-body .ant-form-item-label > label,
+.ant-modal .peko-modal-body .ant-form-item-label > label {
+    font-size: 13px;
+    font-weight: 500;
+}
+.peko-scope .ant-form-item-extra,
+.peko-scope .ant-form-item-explain {
+    font-size: 12px;
+    line-height: 18px;
 }

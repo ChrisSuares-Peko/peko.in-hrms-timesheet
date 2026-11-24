@@ -262,7 +262,7 @@ const CorrectionModal = ({ open, date, initial, current, fromTimesheet, shiftEnd
                 requiredMark={false}
                 className="flex flex-col gap-1 pt-1"
             >
-                <Text className="text-sm text-[#8B8B8B] mb-3">Enter the correct times.</Text>
+                <Text className="text-sm text-[var(--peko-muted)] mb-3">Enter the correct times.</Text>
 
                 {fromTimesheet && onEntryDay && (
                     <Alert type="info" showIcon className="mb-3" message="Pre-filled from time you logged outside your check-in hours." />
@@ -298,7 +298,7 @@ const CorrectionModal = ({ open, date, initial, current, fromTimesheet, shiftEnd
                 </Form.Item>
 
                 {picked && (
-                    <div className="rounded-lg bg-[#F5F5F5] px-4 py-3 mb-4" data-recorded-now>
+                    <div className="rounded-lg bg-[var(--peko-track)] px-4 py-3 mb-4" data-recorded-now>
                         <Text className="block text-[11px] uppercase tracking-wide text-titleText">Recorded now</Text>
                         {loadingDay && !recorded ? <Spin size="small" /> : <Text className="text-sm text-valueText">{recordedText(recorded)}</Text>}
                     </div>
@@ -359,13 +359,13 @@ const CorrectionModal = ({ open, date, initial, current, fromTimesheet, shiftEnd
                     <Input.TextArea rows={3} maxLength={300} showCount placeholder="e.g. Was at a client site in the morning" />
                 </Form.Item>
 
-                <Text className="mb-3 block text-xs text-[#8B8B8B]" data-correction-footer>
+                <Text className="mb-3 block text-xs text-[var(--peko-muted)]" data-correction-footer>
                     {approvalLine ? `${approvalLine} ` : ''}
                     {CORRECTION_FOOTER}
                 </Text>
 
                 {/* PROTOTYPE-SETUP (Design update, rule 11): the form's buttons sit in a footer row, right-aligned. */}
-                <div className="-mx-6 -mb-5 mt-2 flex justify-end gap-2 border-0 border-t border-solid border-[#F0F0F0] px-6 py-3" data-modal-footer>
+                <div className="-mx-6 -mb-5 mt-2 flex justify-end gap-2 border-0 border-t border-solid border-[var(--peko-line)] px-6 py-3" data-modal-footer>
                     <Button onClick={onClose}>Cancel</Button>
                     <Button type="primary" htmlType="submit" loading={saving} disabled={stillIn}>
                         Send for approval

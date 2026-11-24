@@ -129,7 +129,7 @@ export const DownloadModal = ({ open, today, onClose }: { open: boolean; today: 
                 </div>
                 <div className="flex flex-wrap items-end gap-3">
                     <div className="flex flex-col gap-1">
-                        <span className="text-xs text-[#595959]">From</span>
+                        <span className="text-xs text-[var(--peko-text-2)]">From</span>
                         <DatePicker
                             id="ts-export-from"
                             aria-label="From"
@@ -144,7 +144,7 @@ export const DownloadModal = ({ open, today, onClose }: { open: boolean; today: 
                         />
                     </div>
                     <div className="flex flex-col gap-1">
-                        <span className="text-xs text-[#595959]">To</span>
+                        <span className="text-xs text-[var(--peko-text-2)]">To</span>
                         <DatePicker
                             id="ts-export-to"
                             aria-label="To"
@@ -296,12 +296,12 @@ export const UploadModal = ({
                 <StatusTag color="success" className="!m-0 w-fit">
                     Ready
                 </StatusTag>
-                {r.note && <span className="text-[11px] text-[#B54708]">{r.note}</span>}
+                {r.note && <span className="text-[11px] text-[var(--peko-warning-ink)]">{r.note}</span>}
             </span>
         );
     };
     const columns: ColumnsType<ImportRow> = [
-        { title: 'Row', dataIndex: 'row', key: 'row', render: v => <span className="text-[#8B8B8B]">{v}</span> },
+        { title: 'Row', dataIndex: 'row', key: 'row', render: v => <span className="text-[var(--peko-muted)]">{v}</span> },
         { title: 'Date', key: 'date', render: (_, r) => <span className="whitespace-nowrap">{r.entry ? dayjs(r.entry.date).format('ddd, D MMM') : r.date || '—'}</span> },
         { title: 'Time', key: 'time', render: (_, r) => <span className="whitespace-nowrap">{importRowTime(r)}</span> },
         { title: 'Hours', key: 'hours', render: (_, r) => importRowHours(r) },
@@ -327,13 +327,13 @@ export const UploadModal = ({
                 </div>
             }
         >
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#E6F4FF] px-3 py-2 text-sm text-[#121212]" data-upload-strip>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[var(--peko-info-bg)] px-3 py-2 text-sm text-[var(--peko-text)]" data-upload-strip>
                 <span className="min-w-0">Fill in the template, then upload it here. Each row is one entry.</span>
                 <Button size="small" onClick={template} data-template-download>
                     Download template
                 </Button>
             </div>
-            <label htmlFor="timesheet-upload" className="mb-3 block text-sm text-[#404040]">
+            <label htmlFor="timesheet-upload" className="mb-3 block text-sm text-[var(--peko-text)]">
                 <span className="mb-1 block">Excel or CSV file (.xlsx, .xls, .csv)</span>
                 <input
                     id="timesheet-upload"

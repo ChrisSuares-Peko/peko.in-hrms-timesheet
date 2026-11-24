@@ -16,7 +16,7 @@ approvals, pay:leave:overview, ess:leave:overview / requests) and `docs/prototyp
 | C1 — Payroll settings → Leave types (table, view, drawer incl. Maternity) | | |
 | C2 — Configuration (credit date, sandwich, …) and Public holidays bulk upload | | |
 | C3 — ESS Apply for leave and Payroll Add leave | | |
-| D — Peko One tokens, type, buttons, inputs, underline tabs, tags, InfoTip tooltips | | |
+| D — Peko One tokens, type, buttons, inputs, underline tabs, tags, InfoTip (shared pieces) | Design: Peko One tokens, underline section tabs and InfoTip | done (tooltips moved with each screen) |
 | E + VERIFY — developer notes, VERIFY 1–9, build, push | | |
 
 Migrations (`migrateLeaveType` / `migrateLeavePolicy`, run on every settings read; nothing is rewritten until HR saves):
@@ -52,6 +52,23 @@ Decisions:
    (`matOn`). When it's not offered it's hidden from employees' cards and forms.
 6. **Daily credit timing** uses the browser's time as the company time zone in the prototype (`nowTime`).
 7. **LOP half days** stay allowed (half days are per leave type now and LOP isn't one).
+9. **Primary colour: #FF4F4F (Peko One) on these screens, #FF3A3A still in the global theme.** The leave screens get it
+   through PekoScope (one ConfigProvider nested in the global theme, as before); `src/antd.config.tsx` is untouched.
+   Everything outside the scope (sidebar, header, breadcrumb, other modules) stays #FF3A3A until design aligns the
+   global theme — flagged in the report.
+10. **No hard-coded colours in components.** Tokens live in `pekoTokens.ts` (antd theme) and as CSS variables in
+    `peko.css` (`--peko-primary`, `--peko-muted`, `--peko-border`, status pairs…); 502 Tailwind hex classes in the
+    redesign files now read `var(--peko-…)`. Left as literals on purpose: the calendar palettes (timesheet three-month
+    calendar, attendance calendar, team grid, comp off calendar; "calendars keep their colours") and a handful of one-off
+    chips, listed in the report.
+11. **Status tag pairs** move to Peko One: success #308242 on #ECF8EF, warning #B45309 on #FFFBEB, error #DC2626 on
+    #FEF2F2; info and leave (not in the design system) use the Tailwind blue / violet pairs; neutral slate.
+12. **Buttons:** neutral (antd default) = grey outline with a grey hover; secondary (`peko-approve` / `peko-secondary`)
+    = red outline — Approve in request rows (was green outline); primary solid red; text / link red. Inputs, selects
+    and pickers: #E2E8F0 border, 8px radius, red focus border; labels 13 medium; hints 12/18.
+13. **Section switchers** are antd line Tabs (`PekoSectionTabs`): Payroll Leave, the other Payroll service pages
+    (Timesheet, Overtime, Reimbursements — same shared sub-tabs), Payroll settings → Leave, ESS Leave. Counts are the
+    small red pills. Filters (status, month, year, Day/Week/Month) stay Segmented.
 8. **Date-dependent tests**: "Reporting manager at level 2" and "leave and absent days" also fail on the previous
    commit on 24 Nov (their dates land on a weekend); left as they are.
 

@@ -19,7 +19,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
-import { PekoTabRow } from '@src/components/peko/PageHeader';
+import { PekoSectionTabs } from '@src/components/peko/PageHeader';
 import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
@@ -84,7 +84,7 @@ const Overview = ({ reloadKey }: { reloadKey: number }) => {
                 </div>
             )}
             <section aria-label="Off today" className={`${ESS_CARD} !py-4`} data-off-today>
-                <h3 className="m-0 mb-2 text-base font-medium text-[#121212]">Off today</h3>
+                <h3 className="m-0 mb-2 text-base font-medium text-[var(--peko-text)]">Off today</h3>
                 {!o && <Skeleton active title={false} paragraph={{ rows: 1 }} />}
                 {o && o.offToday.length === 0 && (
                     <Text type="secondary" className="text-sm">
@@ -226,7 +226,7 @@ const Leaves = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () => 
                     onChange={e => setQ(e.target.value)}
                 />
             </Flex>
-            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[var(--peko-border)] bg-white">
                 <Table<AdminLeaveEntry>
                     rowKey="id"
                     columns={columns}
@@ -348,7 +348,7 @@ const Balances = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () =
             title: (
                 <span>
                     {t.name}
-                    <span className="block text-xs font-normal text-[#8B8B8B]">available / allocated</span>
+                    <span className="block text-xs font-normal text-[var(--peko-muted)]">available / allocated</span>
                 </span>
             ),
             key: t.id,
@@ -358,8 +358,8 @@ const Balances = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () =
                 return (
                     <span className="tabular-nums" data-balance-cell={t.id}>
                         <b className="font-medium">{fmtDays(v.available)}</b>
-                        <span className="text-[#8B8B8B]"> / {fmtDays(v.allocated)}</span>
-                        {v.inRequest > 0 && <span className="block text-xs text-[#8B8B8B]">{fmtDays(v.inRequest)} in request</span>}
+                        <span className="text-[var(--peko-muted)]"> / {fmtDays(v.allocated)}</span>
+                        {v.inRequest > 0 && <span className="block text-xs text-[var(--peko-muted)]">{fmtDays(v.inRequest)} in request</span>}
                     </span>
                 );
             },
@@ -383,7 +383,7 @@ const Balances = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () =
     return (
         <Flex vertical gap={8} className="min-w-0">
             <Input allowClear prefix={<SearchOutlined />} placeholder="Search by name or email" aria-label="Search employees" className="w-full sm:w-[280px]" value={q} onChange={e => setQ(e.target.value)} />
-            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
+            <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[var(--peko-border)] bg-white">
                 <Table<AdminLeaveRow>
                     rowKey={r => r.employee.id}
                     columns={columns}
@@ -437,25 +437,23 @@ const AdminLeavePage = () => {
             <PayrollServiceBar active="leave" />
             <ServiceHeader title="Leave" line="Everyone’s leave and balances. Approve requests that reach your team, add leave, and cancel it." />
             {/* PROTOTYPE-SETUP (Design update): "Add leave" sits right-aligned on the sub-tab row. */}
-            <PekoTabRow
+            {/* PROTOTYPE-SETUP (Peko One): the section switcher is underline tabs; "Add leave" on the tab bar. */}
+            <PekoSectionTabs<View>
+                value={view}
+                onChange={setView}
+                data-admin-subtabs
+                items={[
+                    { value: 'overview', label: 'Overview' },
+                    { value: 'leaves', label: 'Leaves' },
+                    { value: 'requests', label: 'Requests', count: counts?.leave ?? 0 },
+                    { value: 'balances', label: 'Balances' },
+                ]}
                 actions={
                     <Button type="primary" icon={<PlusOutlined />} onClick={() => setAdding(true)} data-add-leave>
                         Add leave
                     </Button>
                 }
-            >
-                <Segmented<View>
-                    value={view}
-                    onChange={setView}
-                    data-admin-subtabs
-                    options={[
-                        { value: 'overview', label: 'Overview' },
-                        { value: 'leaves', label: 'Leaves' },
-                        { value: 'requests', label: `Requests (${counts?.leave ?? 0})` },
-                        { value: 'balances', label: 'Balances' },
-                    ]}
-                />
-            </PekoTabRow>
+            />
             {view === 'overview' && <Overview reloadKey={reloadKey} />}
             {view === 'leaves' && <Leaves reloadKey={reloadKey} onChanged={changed} />}
             {view === 'requests' && settings && (

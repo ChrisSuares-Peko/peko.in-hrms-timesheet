@@ -51,13 +51,13 @@ export const payrollServiceCrumbs = (pathname: string) => {
         key,
         title: (
             <Link to={to}>
-                <Typography.Text className="font-normal text-sm text-[#8B8B8B]">{label}</Typography.Text>
+                <Typography.Text className="font-normal text-sm text-[var(--peko-muted)]">{label}</Typography.Text>
             </Link>
         ),
     });
     return [
         link('payroll', PAYROLL_DASHBOARD, 'Payroll'),
         link('payroll-services', `${PAYROLL_DASHBOARD}#${QUICK_ACTIONS_ID}`, 'Services'),
-        { key: `service-${s}`, title: <Typography.Text className="font-normal text-sm text-[#FF3A3A]">{SERVICE_LABEL[s]}</Typography.Text> },
+        { key: `service-${s}`, title: <Typography.Text className="font-normal text-sm text-[var(--peko-primary)]">{SERVICE_LABEL[s]}</Typography.Text> },
     ];
 };

@@ -39,7 +39,7 @@ export interface TimesheetFrameProps {
 }
 
 const Panel = ({ children }: { children: ReactNode }) => (
-    <div className="rounded-lg border border-solid border-[#EAEAEA] bg-white p-3">{children}</div>
+    <div className="rounded-lg border border-solid border-[var(--peko-border)] bg-white p-3">{children}</div>
 );
 
 const LoadError = ({ what, onRetry }: { what: string; onRetry: () => void }) => (
@@ -180,7 +180,7 @@ const ManagerTimesheetFrame = ({
                         aria-label={`Previous ${mode}`}
                         onClick={() => nav.step(-1)}
                     />
-                    <span className="min-w-[96px] truncate px-1 text-center text-sm font-medium text-[#121212]">
+                    <span className="min-w-[96px] truncate px-1 text-center text-sm font-medium text-[var(--peko-text)]">
                         {nav.label}
                     </span>
                     <Button icon={<RightOutlined />} aria-label={`Next ${mode}`} onClick={() => nav.step(1)} />

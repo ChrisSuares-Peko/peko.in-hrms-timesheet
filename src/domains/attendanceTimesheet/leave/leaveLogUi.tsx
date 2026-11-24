@@ -30,15 +30,15 @@ export const TypeCard = ({ b, onOpen }: { b: LeaveBalance; onOpen: () => void })
         type="button"
         onClick={onOpen}
         aria-label={`${b.label}: ${availableOfTotal(b)} available. View details`}
-        className="flex min-w-0 cursor-pointer flex-col items-start gap-1 rounded-lg border border-solid border-[#EAEAEA] bg-white p-4 text-left font-[inherit] shadow-[0px_1px_12px_1px_rgba(122,122,122,0.06)] transition-[border-color,box-shadow] hover:border-[#FFE4E4] hover:shadow-[0px_4px_16px_2px_rgba(122,122,122,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#FF3A3A] sm:px-5"
+        className="flex min-w-0 cursor-pointer flex-col items-start gap-1 rounded-lg border border-solid border-[var(--peko-border)] bg-white p-4 text-left font-[inherit] shadow-[0px_1px_12px_1px_rgba(122,122,122,0.06)] transition-[border-color,box-shadow] hover:border-[var(--peko-primary-border)] hover:shadow-[0px_4px_16px_2px_rgba(122,122,122,0.12)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--peko-primary)] sm:px-5"
         data-type-card={b.type}
     >
-        <Text className="w-full truncate text-[13px] !text-[#8B8B8B]">{b.label}</Text>
+        <Text className="w-full truncate text-[13px] !text-[var(--peko-muted)]">{b.label}</Text>
         <Text className="whitespace-nowrap tabular-nums" data-available-total>
-            <span className="text-[22px] font-medium leading-7 text-[#121212]">{fmtDays(b.available)}</span>
-            <span className="text-[13px] text-[#8B8B8B]"> / {fmtDays(b.type === COMP_OFF ? b.credited : b.allocated)} days</span>
+            <span className="text-[22px] font-medium leading-7 text-[var(--peko-text)]">{fmtDays(b.available)}</span>
+            <span className="text-[13px] text-[var(--peko-muted)]"> / {fmtDays(b.type === COMP_OFF ? b.credited : b.allocated)} days</span>
         </Text>
-        <span className="mt-0.5 text-[13px] font-medium text-[#FF3A3A]">View details ›</span>
+        <span className="mt-0.5 text-[13px] font-medium text-[var(--peko-primary)]">View details ›</span>
     </button>
 );
 
@@ -47,11 +47,11 @@ export const TypeCard = ({ b, onOpen }: { b: LeaveBalance; onOpen: () => void })
  * just "Up to 7 days per event · Working days · apply when needed".
  */
 export const EventTypeCard = ({ t, onApply }: { t: LeaveTypeConfig; onApply: () => void }) => (
-    <div className="flex min-w-0 flex-col items-start gap-1 rounded-lg border border-solid border-[#EAEAEA] bg-[#FAFAFA] p-4 sm:px-5" data-event-card={t.id}>
-        <Text className="w-full truncate text-[13px] !text-[#8B8B8B]">{typeLabel(t.name)}</Text>
-        <Text className="text-sm font-medium !text-[#121212]">Up to {limitText(t)} per event</Text>
-        <Text className="text-[13px] !text-[#8B8B8B]">{COUNT_LABEL[t.count]} · apply when needed</Text>
-        <button type="button" onClick={onApply} className="mt-0.5 cursor-pointer border-0 bg-transparent p-0 text-[13px] font-medium text-[#FF3A3A] font-[inherit]">
+    <div className="flex min-w-0 flex-col items-start gap-1 rounded-lg border border-solid border-[var(--peko-border)] bg-[var(--peko-subtle)] p-4 sm:px-5" data-event-card={t.id}>
+        <Text className="w-full truncate text-[13px] !text-[var(--peko-muted)]">{typeLabel(t.name)}</Text>
+        <Text className="text-sm font-medium !text-[var(--peko-text)]">Up to {limitText(t)} per event</Text>
+        <Text className="text-[13px] !text-[var(--peko-muted)]">{COUNT_LABEL[t.count]} · apply when needed</Text>
+        <button type="button" onClick={onApply} className="mt-0.5 cursor-pointer border-0 bg-transparent p-0 text-[13px] font-medium text-[var(--peko-primary)] font-[inherit]">
             Apply ›
         </button>
     </div>
@@ -112,9 +112,9 @@ const STATUS_COLOR: Record<LogStatus, string> = {
 const signed = (n: number) => (n > 0 ? `+${fmtDays(n)}` : `−${fmtDays(-n)}`);
 
 const DaysCell = ({ r }: { r: LeaveLogRow }) => {
-    if (r.days !== null) return <span className={`tabular-nums ${r.days < 0 ? 'text-[#B42318]' : 'text-[#067647]'}`}>{signed(r.days)}</span>;
-    if (r.plainDays !== undefined) return <span className="tabular-nums text-[#8B8B8B]">{fmtDays(r.plainDays)}</span>;
-    return <span className="text-[#8B8B8B]">–</span>;
+    if (r.days !== null) return <span className={`tabular-nums ${r.days < 0 ? 'text-[var(--peko-error-ink)]' : 'text-[#067647]'}`}>{signed(r.days)}</span>;
+    if (r.plainDays !== undefined) return <span className="tabular-nums text-[var(--peko-muted)]">{fmtDays(r.plainDays)}</span>;
+    return <span className="text-[var(--peko-muted)]">–</span>;
 };
 
 export const LogStatusTag = ({ r }: { r: Pick<LeaveLogRow, 'status' | 'statusKind'> }) => (
@@ -137,7 +137,7 @@ export const LeaveLogTable = ({
     pageSize?: number;
 }) => {
     const date = { title: 'Date', key: 'date', render: (_: unknown, r: LeaveLogRow) => <span className="whitespace-nowrap">{dayjs(r.date).format('D MMM YYYY')}</span> };
-    const period = { title: 'Period', key: 'period', render: (_: unknown, r: LeaveLogRow) => r.period || <span className="text-[#8B8B8B]">–</span> };
+    const period = { title: 'Period', key: 'period', render: (_: unknown, r: LeaveLogRow) => r.period || <span className="text-[var(--peko-muted)]">–</span> };
     const days = { title: 'Days (+/−)', key: 'days', align: 'right' as const, render: (_: unknown, r: LeaveLogRow) => <DaysCell r={r} /> };
     const status = { title: 'Status', key: 'status', render: (_: unknown, r: LeaveLogRow) => <LogStatusTag r={r} /> };
     const columns: ColumnsType<LeaveLogRow> =
@@ -159,7 +159,7 @@ export const LeaveLogTable = ({
                   { title: 'Reason', key: 'reason', render: (_, r) => <span className="block max-w-[260px] whitespace-normal break-words">{r.reason || '–'}</span> },
               ];
     return (
-        <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[#EAEAEA] bg-white">
+        <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[var(--peko-border)] bg-white">
             <Table<LeaveLogRow>
                 rowKey="key"
                 size="middle"
@@ -190,7 +190,7 @@ export const LeaveLogTable = ({
 export const LeaveSection = ({ title, children, extra, label }: { title: string; children: ReactNode; extra?: ReactNode; label?: string }) => (
     <section aria-label={label ?? title} className={`${ESS_CARD} flex min-w-0 flex-col gap-3`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="m-0 text-base font-medium text-[#121212]">{title}</h3>
+            <h3 className="m-0 text-base font-medium text-[var(--peko-text)]">{title}</h3>
             {extra}
         </div>
         {children}
