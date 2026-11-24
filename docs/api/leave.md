@@ -255,3 +255,57 @@ The person in the employee's department whose own manager is outside it, or who 
 and each person's department). Several → the one with the most people in the department under them, then the lowest
 id. The step is skipped when the endorser is the employee or the level 1 approver. Backend: the same rule over the
 org chart; when the org has explicit department heads, use those instead.
+
+## Leave settings rework: per-event triggers, Maternity, holiday upload (PROTOTYPE-SETUP: this run)
+
+Spec: `docs/dev-notes/dev-notes.json` (pay:settings:leave:types / config / holidays / approvals, pay:leave:overview,
+ess:leave:overview / requests). Rules: `src/prototype/rules/leave.ts`, `src/prototype/rules/holidayImport.ts` (tests:
+`rules/__tests__/leavePolicy.test.ts`, `rules/__tests__/holidayImport.test.ts`, store:
+`mocks/store/__tests__/atsLeavePolicy.test.ts`). Stored data is migrated on read (`migrateLeavePolicy`,
+`migrateLeaveType`); nothing needs a one-off script.
+
+### Changed and new fields
+
+| Where | Field | Values | Notes |
+|---|---|---|---|
+| `LeaveTypeConfig` | `probation` | `'MONTHLY' \| 'DAILY' \| 'FULL' \| 'NONE'` | `DAILY` is new: credited daily while on Probation. `NONE` = nothing until Active. |
+| | `yearEnd` + `excess` | `'carry' \| 'encash' \| 'lapse'` + `'lapse' \| 'encash'` | The four end-of-cycle options: all lapse / all encashed / carry up to `carryForward`, the rest lapses / carry, the rest encashed. Each adds a ledger line on the last working day of the cycle. |
+| | `exitOpts` | `[] \| ['encash'] \| ['prepone']` | One option now (none = lapse). Stored both → `['encash']`. |
+| | `halfDay` | boolean | Per type (was the company-wide `leaveRules.halfDay`, which seeds it on migration). Always `false` for per-event types. |
+| | `trigger` | `'birthadopt' \| 'birth' \| 'adoption' \| 'loss' \| 'procedure' \| 'other'` | Per event: decides the date label asked on the request (`other` uses `eventLabel`). |
+| | `docRequired`, `docName` | boolean, string | Per event: every request needs a document; `docName` is what employees are asked for. Yearly types keep `proofAfterDays`. |
+| | `system`, `mat` | `'maternity'`, `{ d1, d2, d3, pre, post }` | The statutory Maternity type: calendar days by child (minimum 182 / 182 / 84) and the start window in weeks before / after the delivery date (`pre` ≤ 8; 6 at most for the third child or later, applied automatically). It can't be deleted or renamed; saving below the minimum is refused (400). |
+| `LeavePolicy` | `sandwich` | `{ on, when: 'always' \| 'longer', overDays, weeklyOffs, holidays }` | Was an enum (`OFF` / `WEEKLY_OFFS` / `WEEKLY_OFFS_AND_HOLIDAYS`), mapped on read and still accepted on PUT. `longer` = only when the request covers more than `overDays` days from first to last day. |
+| | `creditTime` | `'HH:mm'` | Custom credit date: daily credits count each day from this time (default 12:00). Monthly custom credits use `creditDay`. |
+| | `matOn` | boolean | Whether Maternity is offered when it is optional (10 or fewer current employees). Ignored above 10 (always offered). |
+| `LeaveRequest` / `LeaveChange` / `HrAddLeaveInput` | `child` | `1 \| 2 \| 3` | Maternity: which child (third = third or later). Sets the days and the start window. |
+| `LeaveBalance` | `halfDay` | boolean | The type's half-day rule, for the Apply form. |
+| `LeaveSettingsView` | `headcount`, `maternityRequired` | number, boolean | Current employees (no past leaving date) and whether Maternity is required (more than 10). |
+| employee leave types (HR) | `eventTypes`, `events` | | The per-event types the employee can take, and `{ type, eventDate }` already booked. |
+
+### New endpoint
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `leave-settings/holidays/bulk` | `{ holidays: [{ date, name }] }` | `LeaveSettingsView`. The Ready rows of the bulk upload, one entry per date. Dates already holidays are skipped; a bad date or empty name refuses the whole call (400); an empty list → 400 "There are no holidays to import." |
+
+The spreadsheet itself is read in the browser (Start date, End date, Holiday name; YYYY-MM-DD, DD/MM/YYYY or Excel
+dates) and reviewed with `reviewHolidayRows` before anything is sent. Backend: accept the same body; checking the file
+server-side can reuse the same statuses (Ready / Already added / Start date isn’t a date / Holiday name is missing /
+End date is before the start date / More than 31 days long).
+
+Changed bodies: `PUT leave-settings/config` also takes `sandwich` as the object, `creditTime`, `matOn`; `halfDay` is no
+longer sent by the screen (kept for older clients). Leave requests, changes and HR add leave take `child`.
+
+### Per-event checks (replace the ones above)
+
+The window limits the START date only; the leave then runs in one go for the entitlement.
+
+1. No event date → "Add the {date label}." (400)
+2. Maternity without a child → "Pick which child this is (first, second, third or later)." (400)
+3. Start before the window → "{Type} can start from {date} at the earliest." (409)
+4. Start after the window → "{Type} has to start by {date}." (409)
+5. More days than the entitlement → "{Type} is up to N days (working days) for one event. Shorten the dates." (409)
+6. Another open or approved request for the same type and event date → "There’s already a {type} request for this
+   event. It has to be taken in one go; change that request instead." (409)
+7. Document required and missing → "{Type} needs a supporting document: {docName}." (400)
