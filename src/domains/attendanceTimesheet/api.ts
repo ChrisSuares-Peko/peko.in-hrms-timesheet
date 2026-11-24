@@ -308,6 +308,9 @@ export const updateLeaveType = (s: AtsScope, id: string, body: Partial<LeaveType
 export const setLeaveTypeActive = (s: AtsScope, id: string, active: boolean) => call<LeaveSettingsView>(s, 'post', `leave-settings/types/${id}/active`, { body: { active } });
 export const removeLeaveType = (s: AtsScope, id: string) => call<LeaveSettingsView>(s, 'delete', `leave-settings/types/${id}`);
 export const addPublicHoliday = (s: AtsScope, body: { date: string; name: string }) => call<LeaveSettingsView>(s, 'post', 'leave-settings/holidays', { body });
+/** PROTOTYPE-SETUP (Leave settings rework): the bulk upload's Ready rows, one entry per date. */
+export const importPublicHolidays = (s: AtsScope, holidays: { date: string; name: string }[]) =>
+    call<LeaveSettingsView>(s, 'post', 'leave-settings/holidays/bulk', { body: { holidays } });
 export const removePublicHoliday = (s: AtsScope, date: string) => call<LeaveSettingsView>(s, 'delete', `leave-settings/holidays/${date}`);
 
 // ---- timesheets at Payroll (PROTOTYPE-SETUP: Final batch, Slice 1) ---------------------------------------------

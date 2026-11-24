@@ -88,7 +88,7 @@ import {
     type WorkEvidence,
 } from '@src/prototype/rules/leave';
 
-import { addHoliday, holidaysOf, removeHoliday } from './atsHolidays';
+import { addHoliday, addHolidays, holidaysOf, removeHoliday } from './atsHolidays';
 import { atsCompOffs, atsEmployeeLife, atsLeaveCancels, atsLeaveChanges, atsLeaveRequests, leaveRequestsOf, lifeOf, openingBalancesOf } from './atsRequests';
 import {
     activeOvertimeOn,
@@ -1349,6 +1349,12 @@ export const updateLeaveConfig = (
 
 export const addPublicHoliday = (mode: DataMode, body: { date?: string; name?: string } | undefined) => {
     addHoliday(mode, body);
+    return leaveSettingsView(mode);
+};
+
+/** PROTOTYPE-SETUP (Leave settings rework): "Import N days" from the bulk upload. */
+export const importPublicHolidays = (mode: DataMode, body: { holidays?: { date?: string; name?: string }[] } | undefined) => {
+    addHolidays(mode, body);
     return leaveSettingsView(mode);
 };
 

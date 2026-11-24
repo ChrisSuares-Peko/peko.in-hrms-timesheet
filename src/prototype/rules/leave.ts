@@ -658,6 +658,25 @@ export const creditedBy = (
 };
 
 /** Has today's daily credit landed? Start: yes (start of the day). End: no (once the day is over). Custom: from the set time. */
+/** PROTOTYPE-SETUP (Leave settings rework): the two cards under Credit date — what it means for monthly and daily credits. */
+export const creditDateCards = (rule: LeaveCreditDate, day = 1, time = '12:00') => {
+    const hhmm = dayjsTime(time);
+    if (rule === 'END') return { monthly: 'On the last day of each month, once the month is worked.', daily: 'Once each day is over (the day counts from the next day).' };
+    if (rule === 'CUSTOM') return { monthly: `On the ${ordinal(day)} of each month.`, daily: `Each day from ${hhmm}.` };
+    return { monthly: 'On the 1st of each month, for the month ahead.', daily: 'At the start of each day.' };
+};
+
+const ordinal = (n: number) => {
+    const t = n % 100;
+    if (t >= 11 && t <= 13) return `${n}th`;
+    return `${n}${({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th'}`;
+};
+/** "12:00" → "12:00 PM"; "09:30" → "9:30 AM". */
+const dayjsTime = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+};
+
 export const dailyCreditToday = (rule: LeaveCreditDate = 'START', nowTime = '00:00', creditTime = '12:00') => {
     if (rule === 'END') return false;
     if (rule === 'CUSTOM') return nowTime >= creditTime;
@@ -773,6 +792,20 @@ export const sandwichDays = (all: string[], work: string[], cal: WorkCalendar, r
         // A holiday on a weekly off is a weekly off.
         return isWeeklyOffFor(cal, d) ? rule.weeklyOffs : rule.holidays;
     }).length;
+};
+
+/**
+ * PROTOTYPE-SETUP (Leave settings rework): the live worked example under the sandwich setting (notes
+ * pay:settings:leave:config). Leave on the 1st–9th (a Monday to a Tuesday) with the 6th and 7th weekly offs and the 4th
+ * a public holiday: 6 days without the rule, 9 with weekly offs and holidays counting. Uses the engine itself.
+ */
+export const sandwichExample = (rule: SandwichConfig) => {
+    const cal: WorkCalendar = { weeklyOff: ['SATURDAY', 'SUNDAY'], isHoliday: d => d === '2027-03-04' };
+    const without = countLeaveDays('2027-03-01', '2027-03-09', null, cal, { ...rule, on: false }).days;
+    const withRule = countLeaveDays('2027-03-01', '2027-03-09', null, cal, rule).days;
+    const lead = 'Leave from Mon 1st to Tue 9th, with Sat 6th and Sun 7th weekly offs and Thu 4th a public holiday';
+    const text = rule.on ? `${lead}: ${withRule} days with this setting (${without} without the sandwich rule).` : `${lead}: ${without} days (the sandwich rule is off).`;
+    return { without, with: withRule, text };
 };
 
 /** "3 working days (weekly offs and public holidays aren’t counted)." / "4 days: 2 working days + 2 days off in between (sandwich rule)." */

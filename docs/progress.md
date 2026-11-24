@@ -14,7 +14,7 @@ approvals, pay:leave:overview, ess:leave:overview / requests) and `docs/prototyp
 |---|---|---|
 | A + B — Leave type model, migrations, engine rules and tests | Leave: leave type model, migrations and rules for the settings rework | done |
 | C1 — Payroll settings → Leave types (table, view, drawer incl. Maternity) | Leave: leave types table, view and drawer (yearly, per event, Maternity) | done |
-| C2 — Configuration (credit date, sandwich, …) and Public holidays bulk upload | | |
+| C2 — Configuration (credit date, sandwich, …) and Public holidays bulk upload | Leave: configuration rework and public holidays bulk upload | done |
 | C3 — ESS Apply for leave and Payroll Add leave | | |
 | D — Peko One tokens, type, buttons, inputs, underline tabs, tags, InfoTip (shared pieces) | Design: Peko One tokens, underline section tabs and InfoTip | done (tooltips moved with each screen) |
 | E + VERIFY — developer notes, VERIFY 1–9, build, push | | |
@@ -69,6 +69,24 @@ Decisions:
 13. **Section switchers** are antd line Tabs (`PekoSectionTabs`): Payroll Leave, the other Payroll service pages
     (Timesheet, Overtime, Reimbursements — same shared sub-tabs), Payroll settings → Leave, ESS Leave. Counts are the
     small red pills. Filters (status, month, year, Day/Week/Month) stay Segmented.
+14. **Leave types table**: Accrual for "all at once" types reads "All at once · 8 days"; per-event types read "Per event
+    (no accrual)" and carryover "No". The sub-line for Maternity is "Statutory · required" (more than 10 employees) or
+    "Statutory · optional" (+ ", not offered" when matOn is off). Delete is disabled for Maternity with its own tooltip.
+15. **Maternity "Offer" switch** lives in the Maternity drawer and saves `matOn` through the configuration endpoint
+    (updateLeaveConfig) before the type itself; it is disabled when required by headcount.
+16. **End-of-cycle choice** is one radio list of the four options (All lapse / All encashed / Carry forward, the rest
+    lapses / Carry forward, the rest is encashed) with the carry limit beside it, mapped to yearEnd + excess.
+17. **Holiday bulk upload — .xls**: exceljs (already a dependency) can't read the old Excel 97–2003 binary format. The
+    picker accepts .xls as asked; such a file gets "Save it as .xlsx (or .csv) and upload it again." (same as the
+    timesheet upload). A new endpoint `POST leave-settings/holidays/bulk` adds the Ready dates in one call; dates already
+    holidays are skipped server-side too. A row whose every date is already a holiday — including dates from an earlier
+    Ready row in the same file — is "Already added". An empty End date means a one-day holiday.
+18. **Credit date custom time** uses a 15-minute TimePicker; the two cards ("Monthly credits", "Daily credits") are
+    always visible since they are the value the choice produces, not an explanation.
+19. **Sandwich live example** sits in the tooltip next to the switch and as one short result line ("Example: 1st–9th
+    counts 9 days (6 without the rule)") while the rule is on; both come from the engine (`sandwichExample`).
+20. **Configuration scope note** "These rules apply to every leave type" stays visible as one short line (the notes ask
+    for a note at the top); its explanation is a tooltip.
 8. **Date-dependent tests**: "Reporting manager at level 2" and "leave and absent days" also fail on the previous
    commit on 24 Nov (their dates land on a weekend); left as they are.
 

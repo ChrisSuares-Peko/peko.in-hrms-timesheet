@@ -61,6 +61,7 @@ import { homeOf } from '../store/atsHome';
 import {
     addLeaveType,
     addPublicHoliday,
+    importPublicHolidays,
     adminEmployeeLeaveTypes,
     adminLeaveBalances,
     adminLeaveEntries,
@@ -352,6 +353,7 @@ export const atsRoutes: MockRoute[] = [
     route('POST', `${A}/leave-settings/types/:id/active`, ctx => run(ctx.mode, () => setLeaveTypeActive(ctx.mode, ctx.params.id!, ctx.body))),
     route('DELETE', `${A}/leave-settings/types/:id`, ctx => run(ctx.mode, () => removeLeaveType(ctx.mode, ctx.params.id!))),
     route('POST', `${A}/leave-settings/holidays`, ctx => run(ctx.mode, () => addPublicHoliday(ctx.mode, ctx.body))),
+    route('POST', `${A}/leave-settings/holidays/bulk`, ctx => run(ctx.mode, () => importPublicHolidays(ctx.mode, ctx.body))),
     route('DELETE', `${A}/leave-settings/holidays/:date`, ctx => run(ctx.mode, () => removePublicHoliday(ctx.mode, ctx.params.date!))),
     route('GET', `${A}/payroll/months`, ctx => run(ctx.mode, () => payrollMonths(ctx.mode))),
     route('GET', `${A}/payroll/months/:month`, ctx => run(ctx.mode, () => payrollMonthStatus(ctx.mode, monthOrFail(ctx.params.month)))),

@@ -11,6 +11,7 @@ import {
     createLeaveRequest,
     createLopRequest,
     endorserFor,
+    importPublicHolidays,
     leaveSettingsView,
     leaveViewOf,
     removeLeaveType,
@@ -233,5 +234,23 @@ describe('configuration', () => {
         expect(leaveSettingsView(M).policy).toMatchObject({ sandwich: { on: true, when: 'longer', overDays: 4, weeklyOffs: true, holidays: true }, creditTime: '09:30' });
         updateLeaveConfig(M, { creditTime: '25:00' });
         expect(leaveSettingsView(M).policy.creditTime).toBe('09:30');
+    });
+});
+
+describe('Public holidays bulk upload (store)', () => {
+    it('adds the Ready dates, one entry per date, and skips dates already holidays', () => {
+        const before = leaveSettingsView(M).holidays;
+        const taken = before[0].date;
+        const fresh = ['2031-04-01', '2031-04-02'];
+        const v = importPublicHolidays(M, { holidays: [{ date: taken, name: 'Dup' }, ...fresh.map(date => ({ date, name: 'Founders days' }))] });
+        expect(v.holidays.length).toBe(before.length + 2);
+        expect(v.holidays.filter(h => h.name === 'Founders days').map(h => h.date)).toEqual(fresh);
+        expect(v.holidays.find(h => h.date === taken)?.name).toBe(before[0].name);
+        expect(publicHolidayOn(M, '2031-04-02')).toBeTruthy();
+    });
+    it('refuses an empty list and bad rows', () => {
+        expect(() => importPublicHolidays(M, { holidays: [] })).toThrow('There are no holidays to import.');
+        expect(() => importPublicHolidays(M, { holidays: [{ date: '1/4/2031', name: 'x' }] })).toThrow();
+        expect(() => importPublicHolidays(M, { holidays: [{ date: '2031-04-01', name: ' ' }] })).toThrow();
     });
 });
