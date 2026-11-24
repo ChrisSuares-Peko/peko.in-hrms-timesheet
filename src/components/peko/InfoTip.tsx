@@ -8,7 +8,7 @@ import { InfoCircleOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
 
 const InfoTip = ({ title, label = 'More information', placement = 'top', ...rest }: { title: ReactNode; label?: string; placement?: 'top' | 'right' | 'bottom' | 'left' | 'topLeft' | 'topRight' } & Record<`data-${string}`, unknown>) => (
-    <Tooltip title={title} placement={placement} styles={{ root: { maxWidth: 360 } }}>
+    <Tooltip title={title} placement={placement} trigger={['hover', 'focus']} styles={{ root: { maxWidth: 360 } }}>
         <span role="button" tabIndex={0} aria-label={label} className="peko-infotip" data-infotip {...rest}>
             <InfoCircleOutlined />
         </span>

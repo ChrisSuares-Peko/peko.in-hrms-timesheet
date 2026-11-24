@@ -19,6 +19,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
 import { ESS_CARD } from '@src/components/ess/essTokens';
+import InfoTip from '@src/components/peko/InfoTip';
 import { PekoSectionTabs } from '@src/components/peko/PageHeader';
 import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
@@ -398,9 +399,12 @@ const Balances = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () =
                     data-leave-balances
                 />
             </div>
-            <Text type="secondary" className="text-xs">
-                Available leaves out leave in request; allocated is this year’s entitlement plus what was carried forward. Click someone for their cards and
-                credits. Employees on probation follow each type’s probation rule until you mark them Active.
+            <Text type="secondary" className="inline-flex items-center text-xs" data-balances-note>
+                Click someone for their cards and credits
+                <InfoTip
+                    label="About balances"
+                    title="Available leaves out leave in request; allocated is this year’s entitlement plus what was carried forward. Employees on probation follow each type’s probation rule until you mark them Active."
+                />
             </Text>
             <EmployeeLeave employeeId={open} onClose={() => setOpen(null)} />
         </Flex>

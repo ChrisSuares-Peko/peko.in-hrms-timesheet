@@ -605,9 +605,13 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
         >
             <Flex vertical gap={16} className="w-full min-w-0">
                 <Flex vertical gap={2}>
-                    <Text className="text-lg font-medium">{SECTION_TITLE[section]}</Text>
+                    {/* PROTOTYPE-SETUP (Leave settings rework: Peko One help text): the section's description is a tooltip. */}
+                    <Text className="inline-flex items-center text-lg font-medium">
+                        {SECTION_TITLE[section]}
+                        <InfoTip title={SECTION_LINE[section]} label={`About ${SECTION_TITLE[section]}`} />
+                    </Text>
                     <Text type="secondary" className="text-xs">
-                        {SECTION_LINE[section]} Last saved {fmtStamp(settings.updatedAt)}.
+                        Last saved {fmtStamp(settings.updatedAt)}
                     </Text>
                 </Flex>
 
