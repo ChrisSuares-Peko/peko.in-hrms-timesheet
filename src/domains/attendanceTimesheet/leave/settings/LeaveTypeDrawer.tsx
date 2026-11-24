@@ -1,58 +1,70 @@
-// PROTOTYPE-SETUP (Leave module): Leave Policies → Leave types → Add / Edit (a drawer, each field with help text) and
-// View (every rule of a type in plain language). A used type keeps its name.
-// PROTOTYPE-SETUP (Leave policy settings; notes pay:settings:leave:types): Name · Kind (yearly balance / per event) ·
-// Count leave in (working / calendar days). Yearly: days per year, credited; "When an employee joins" (pro-rated,
-// during probation); "At the end of the leave cycle" (carry forward up to N / encash / lapse); "When an employee leaves"
-// (pro-rated, then encash in F&F and/or bring the last working day forward; stored only). Per event: up to N days or
-// weeks per event, the event date label, when it can be taken. "Other": supporting document, applies to, show to
-// employees. Changing kind, counting, days, credit, probation, year end, carry forward, applies-to or the event limit
-// asks for confirmation with the number of employees affected.
+// PROTOTYPE-SETUP (Leave module; Leave settings rework — notes pay:settings:leave:types): Leave Policies → Leave types
+// → Add / Edit (a drawer) and View (every rule of a type, grouped as in the drawer). Help text is in tooltips (InfoTip);
+// only values, choices, statuses and errors are on screen.
+//   every type ...... Name · Kind (Yearly balance / Per event) · Count leave in · Applicable gender · Show to employees
+//   Yearly balance .. Days per year; 1 · During probation; 2 · After probation (credit + the four end-of-cycle options +
+//                     carry limit); 3 · When an employee leaves; Requests (half days, supporting documents)
+//   Per event ....... Triggered by; Number of days; When the leave can start; Supporting documents
+//   Maternity ....... "Statutory leave"; Offer maternity leave (headcount rule); Triggered by (fixed); Days of leave by
+//                     child (legal minimum shown); When the leave can start (weeks before / after); Supporting documents
+// Changing the rules asks for confirmation with the number of employees affected. A used type keeps its name;
+// Maternity can't be renamed or deleted.
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 
-import { Alert, Button, Checkbox, Drawer, Flex, Input, InputNumber, Modal, Radio, Switch, Typography } from 'antd';
+import { Alert, Button, Drawer, Flex, Input, InputNumber, Modal, Radio, Select, Switch, Typography } from 'antd';
+import dayjs from 'dayjs';
 
+import InfoTip from '@src/components/peko/InfoTip';
+import StatusTag from '@src/components/peko/StatusTag';
+import { MATERNITY_MIN } from '@src/prototype/rules/attendance';
 import {
     APPLIES_LABEL,
     COUNT_LABEL,
     CREDIT_LABEL,
-    EXIT_OPT_LABEL,
+    MATERNITY_CHILD_LABEL,
     PROBATION_LABEL,
+    TRIGGERS,
     accrualText,
     daysText,
-    entitlementText,
+    eventDateLabel,
     exitText,
     fmtDays,
+    isMaternity,
     limitText,
+    maternityPreWeeks,
     proofText,
     typeLabel,
     windowText,
     yearEndText,
 } from '@src/prototype/rules/leave';
 
-import type { LeaveExitOpt, LeaveTypeConfig, LeaveTypeInput } from '../../types';
+import type { LeaveExcess, LeaveTrigger, LeaveTypeConfig, LeaveTypeInput, LeaveYearEnd, MaternityRule } from '../../types';
 
 const { Text } = Typography;
 
-const SectionHeading = ({ title, note }: { title: string; note: string }) => (
-    <div className="border-0 border-t border-solid border-[var(--peko-line)] pt-3" data-lt-section={title}>
-        <Text className="block text-base font-medium text-[var(--peko-text)]">{title}</Text>
-        <Text type="secondary" className="text-xs">
-            {note}
+/** A drawer section: "1 · During probation" with its tooltip. */
+const SectionHeading = ({ title, tip }: { title: string; tip?: ReactNode }) => (
+    <div className="border-0 border-t border-solid border-[var(--peko-line)] pt-4" data-lt-section={title}>
+        <Text className="inline-flex items-center text-base font-semibold leading-6 text-[var(--peko-text)]">
+            {title}
+            {tip && <InfoTip title={tip} label={`About ${title}`} />}
         </Text>
     </div>
 );
 
-const Field = ({ label, help, children, htmlFor }: { label: string; help: string; children: React.ReactNode; htmlFor?: string }) => (
-    <Flex vertical gap={4}>
-        <label htmlFor={htmlFor} className="text-sm text-[var(--peko-text)]">
+/** A field: a 13px medium label with its explanation in a tooltip, then the control. */
+const Field = ({ label, tip, children, htmlFor }: { label: string; tip?: ReactNode; children: ReactNode; htmlFor?: string }) => (
+    <Flex vertical gap={6}>
+        <label htmlFor={htmlFor} className="inline-flex items-center text-[13px] font-medium text-[var(--peko-text)]">
             {label}
+            {tip && <InfoTip title={tip} label={`About ${label}`} />}
         </label>
-        <Text type="secondary" className="text-xs">
-            {help}
-        </Text>
         {children}
     </Flex>
 );
+
+const DEFAULT_MAT: MaternityRule = { d1: 182, d2: 182, d3: 84, pre: 8, post: 0 };
 
 const BLANK: LeaveTypeInput = {
     name: '',
@@ -62,16 +74,16 @@ const BLANK: LeaveTypeInput = {
     credit: 'MONTHLY',
     probation: 'MONTHLY',
     yearEnd: 'lapse',
+    excess: 'lapse',
     carryForward: 0,
-    exitOpts: ['prepone'],
-    limit: null,
+    exitOpts: [],
+    halfDay: true,
+    limit: 5,
     limitUnit: 'days',
+    trigger: 'other',
     eventLabel: '',
     windowBefore: null,
     windowAfter: null,
-    excess: 'lapse',
-    halfDay: true,
-    trigger: 'other',
     docRequired: false,
     docName: '',
     proofAfterDays: null,
@@ -80,15 +92,44 @@ const BLANK: LeaveTypeInput = {
 };
 
 /** The fields whose change moves balances or entitlements (asks for confirmation). */
-const BALANCE_FIELDS: (keyof LeaveTypeInput)[] = ['kind', 'count', 'daysPerYear', 'credit', 'probation', 'yearEnd', 'carryForward', 'appliesTo', 'limit', 'limitUnit'];
+const RULE_FIELDS: (keyof LeaveTypeInput)[] = ['kind', 'count', 'daysPerYear', 'credit', 'probation', 'yearEnd', 'excess', 'carryForward', 'appliesTo', 'limit', 'limitUnit', 'mat', 'windowBefore', 'windowAfter'];
 
-const optional = (n: number | null | undefined) => (n === null || n === undefined ? null : Number(n));
+/** The four end-of-cycle options as one choice. */
+type CycleEnd = 'lapse' | 'encash' | 'carry-lapse' | 'carry-encash';
+const cycleEndOf = (v: Pick<LeaveTypeInput, 'yearEnd' | 'excess'>): CycleEnd => {
+    if (v.yearEnd === 'carry') return v.excess === 'encash' ? 'carry-encash' : 'carry-lapse';
+    return v.yearEnd === 'encash' ? 'encash' : 'lapse';
+};
+const CYCLE_END: Record<CycleEnd, { yearEnd: LeaveYearEnd; excess: LeaveExcess; label: string }> = {
+    lapse: { yearEnd: 'lapse', excess: 'lapse', label: 'All lapse' },
+    encash: { yearEnd: 'encash', excess: 'lapse', label: 'All encashed' },
+    'carry-lapse': { yearEnd: 'carry', excess: 'lapse', label: 'Carry forward, the rest lapses' },
+    'carry-encash': { yearEnd: 'carry', excess: 'encash', label: 'Carry forward, the rest is encashed' },
+};
+
+const optional = (n: number | string | null | undefined) => (n === null || n === undefined || n === '' ? null : Number(n));
+
+/** The live example in the start-window tooltip: the event on 1 December. */
+export const windowExample = (before: number | null, after: number | null, event: string) => {
+    const due = dayjs(`${dayjs().year()}-12-01`);
+    const from = before === null ? 'any time before' : due.subtract(before, 'day').format('D MMM');
+    const to = after === null ? 'any time after' : due.add(after, 'day').format('D MMM');
+    return `Example: ${event} on 1 December → the leave can start from ${from} to ${to}; its days then run on from the start date in one go.`;
+};
+
+const offerText = (required: boolean, offer: boolean, headcount: number) => {
+    if (required) return `Required (${headcount} employees)`;
+    return offer ? 'Offered' : 'Not offered';
+};
 
 export const LeaveTypeDrawer = ({
     open,
     type,
     used,
     affected,
+    headcount = 0,
+    maternityRequired = false,
+    matOn = false,
     onClose,
     onSave,
 }: {
@@ -98,53 +139,81 @@ export const LeaveTypeDrawer = ({
     used: boolean;
     /** Employees the type applies to now (for the confirmation). */
     affected: number;
+    /** Current employees, and whether Maternity is required (more than 10) — for the Maternity switch. */
+    headcount?: number;
+    maternityRequired?: boolean;
+    matOn?: boolean;
     onClose: () => void;
-    onSave: (input: LeaveTypeInput) => Promise<boolean>;
+    /** Saves the type; for Maternity also whether it's offered (when it's optional). */
+    onSave: (input: LeaveTypeInput, extra?: { matOn?: boolean }) => Promise<boolean>;
 }) => {
     const [v, setV] = useState<LeaveTypeInput>(BLANK);
+    const [offer, setOffer] = useState(false);
     const [error, setError] = useState('');
     const [confirming, setConfirming] = useState(false);
     const [busy, setBusy] = useState(false);
+    const maternity = isMaternity(type);
 
     useEffect(() => {
         if (!open) return;
         setV(type ? { ...type } : BLANK);
+        setOffer(maternityRequired || matOn);
         setError('');
         setConfirming(false);
-    }, [open, type]);
+    }, [open, type, maternityRequired, matOn]);
 
     const set = <K extends keyof LeaveTypeInput>(k: K, value: LeaveTypeInput[K]) => {
         setV(cur => ({ ...cur, [k]: value }));
         setError('');
         setConfirming(false);
     };
-    const changesBalances = Boolean(type) && BALANCE_FIELDS.some(k => JSON.stringify((type as LeaveTypeInput)[k]) !== JSON.stringify(v[k]));
+    const mat = v.mat ?? DEFAULT_MAT;
+    const setMat = (k: keyof MaternityRule, value: number) => set('mat', { ...mat, [k]: value });
+    const changesRules = Boolean(type) && RULE_FIELDS.some(k => JSON.stringify((type as LeaveTypeInput)[k] ?? null) !== JSON.stringify(v[k] ?? null));
     const event = v.kind === 'event';
 
     const save = async () => {
         if (!v.name.trim()) return setError('Give the leave type a name.');
         if (!event && !(v.daysPerYear > 0)) return setError('Enter the days per year.');
-        if (event && !((v.limit ?? 0) > 0)) return setError('Enter how much can be taken per event.');
-        if (changesBalances && !confirming) {
+        if (event && !maternity && !((v.limit ?? 0) > 0)) return setError('Enter how many days one event gives.');
+        if (maternity && (mat.d1 < MATERNITY_MIN.d1 || mat.d2 < MATERNITY_MIN.d2 || mat.d3 < MATERNITY_MIN.d3)) {
+            return setError(`Days by child can’t go below the legal minimum (${MATERNITY_MIN.d1} / ${MATERNITY_MIN.d2} / ${MATERNITY_MIN.d3}).`);
+        }
+        if (changesRules && !confirming) {
             setConfirming(true);
             return undefined;
         }
         setBusy(true);
-        const ok = await onSave({ ...v, name: v.name.trim() });
+        const ok = await onSave({ ...v, name: v.name.trim() }, maternity ? { matOn: offer } : undefined);
         setBusy(false);
         if (ok) onClose();
         return undefined;
     };
 
     const monthly = v.daysPerYear / 12;
+    const cycleEnd = cycleEndOf(v);
+    const carrying = v.yearEnd === 'carry';
+    const probationOn = v.probation !== 'NONE';
     let saveLabel = 'Add leave type';
     if (type) saveLabel = confirming ? 'Confirm and save' : 'Save changes';
+    const triggerDate = eventDateLabel({ id: '', trigger: v.trigger, eventLabel: v.eventLabel });
+    const eventWord = triggerDate.toLowerCase().replace(/^date of (the )?/, '');
+
     return (
         <Drawer
             open={open}
             onClose={onClose}
-            title={type ? `Edit ${type.name}` : 'Add leave type'}
-            width={540}
+            title={
+                <span className="inline-flex items-center gap-2">
+                    {type ? `Edit ${type.name}` : 'Add leave type'}
+                    {maternity && (
+                        <StatusTag tone="info" className="!m-0" data-statutory>
+                            Statutory leave
+                        </StatusTag>
+                    )}
+                </span>
+            }
+            width={560}
             destroyOnHidden
             styles={{ wrapper: { maxWidth: '100vw' } }}
             footer={
@@ -157,7 +226,7 @@ export const LeaveTypeDrawer = ({
                             message={`This changes ${type?.name} for ${affected} employee${affected === 1 ? '' : 's'} from today. Leave that’s already approved stays as it is.`}
                         />
                     )}
-                    {error && <Alert type="error" showIcon message={error} />}
+                    {error && <Alert type="error" showIcon message={error} data-lt-error />}
                     <Flex justify="end" gap={8}>
                         <Button onClick={onClose}>Cancel</Button>
                         <Button type="primary" loading={busy} onClick={save} data-save-leave-type>
@@ -168,261 +237,376 @@ export const LeaveTypeDrawer = ({
             }
         >
             <Flex vertical gap={18} data-leave-type-drawer>
-                <Field label="Name" help="What employees see when they apply, e.g. Annual, Sick, Bereavement leave." htmlFor="lt-name">
-                    <Input id="lt-name" value={v.name} disabled={used} placeholder="e.g. Bereavement leave" onChange={e => set('name', e.target.value)} maxLength={40} />
-                    {used && (
-                        <Text type="secondary" className="text-xs">
-                            Already used, so the name can’t change.
-                        </Text>
-                    )}
+                {maternity && (
+                    <Text className="inline-flex items-center text-[13px] text-[var(--peko-text-2)]" data-maternity-note>
+                        Code on Social Security, 2020
+                        <InfoTip
+                            title="Every company has Maternity. Its numbers follow the Code on Social Security, 2020: you can be more generous than the law, never less. It can’t be deleted or renamed."
+                            label="About statutory maternity leave"
+                        />
+                    </Text>
+                )}
+                <Field label="Name" tip="What employees see when they apply, e.g. Annual, Sick, Bereavement leave. A type that has been used keeps its name." htmlFor="lt-name">
+                    <Input id="lt-name" value={v.name} disabled={used || maternity} placeholder="e.g. Bereavement leave" onChange={e => set('name', e.target.value)} maxLength={40} />
                 </Field>
-                <Field
-                    label="Kind"
-                    help="Yearly balance: days credited over the leave cycle (annual, casual, sick). Per event: statutory leave taken for an event such as a birth, with no yearly balance."
-                >
-                    <Radio.Group
-                        optionType="button"
-                        value={v.kind}
-                        onChange={e => set('kind', e.target.value)}
-                        aria-label="Kind"
-                        data-lt-kind
-                        options={[
-                            { value: 'yearly', label: 'Yearly balance' },
-                            { value: 'event', label: 'Per event' },
-                        ]}
-                    />
-                </Field>
-                <Field
-                    label="Count leave in"
-                    help="Working days skip the employee’s own weekly offs and public holidays. Calendar days count every day in the range, as statutory leave like maternity does."
-                >
-                    <Radio.Group
-                        optionType="button"
-                        value={v.count}
-                        onChange={e => set('count', e.target.value)}
-                        aria-label="Count leave in"
-                        data-lt-count
-                        options={[
-                            { value: 'working', label: 'Working days' },
-                            { value: 'calendar', label: 'Calendar days' },
-                        ]}
-                    />
-                </Field>
-
-                {!event && (
+                {!maternity && (
                     <>
-                        <Field label="Days per year" help="How many days of this leave each employee gets in a full leave cycle. Joiners and leavers get a pro-rated share." htmlFor="lt-days">
-                            <Flex align="center" gap={8}>
-                                <InputNumber id="lt-days" min={0.5} max={366} step={0.5} value={v.daysPerYear} onChange={n => set('daysPerYear', Number(n ?? 0))} className="!w-[120px]" />
-                                <Text type="secondary" className="text-xs">
-                                    days ({fmtDays(monthly)} a month)
-                                </Text>
-                            </Flex>
-                        </Field>
-                        <Field label="Credited" help="When the days land in the employee’s balance. The day of the month for monthly credits is set in Configuration → Credit date.">
+                        <Field label="Kind" tip="Yearly balance: days credited over the leave cycle (annual, casual, sick). Per event: leave for an event such as a birth, adoption or surgery, with no yearly balance.">
                             <Radio.Group
                                 optionType="button"
-                                value={v.credit}
-                                onChange={e => set('credit', e.target.value)}
-                                aria-label="Credited"
+                                value={v.kind}
+                                onChange={e => set('kind', e.target.value)}
+                                aria-label="Kind"
+                                data-lt-kind
                                 options={[
-                                    { value: 'CYCLE_START', label: 'At the start of the leave cycle' },
-                                    { value: 'MONTHLY', label: 'Monthly' },
-                                    { value: 'DAILY', label: 'Daily' },
-                                ]}
-                            />
-                            <Text type="secondary" className="text-xs">
-                                {v.credit === 'CYCLE_START' && 'The full year’s days are available from day one of the cycle.'}
-                                {v.credit === 'MONTHLY' && `${daysText(monthly)} land each month, on the credit date.`}
-                                {v.credit === 'DAILY' && `A little is added every day, about ${daysText(monthly)} a month.`}
-                            </Text>
-                        </Field>
-                        <SectionHeading title="When an employee joins" note="Joiners get a pro-rated share for the rest of the leave cycle (a month counts if they join on or before the 15th)." />
-                        <Field label="During probation" help="How this leave works while an employee’s status is Probation. It switches to the normal rule when HR marks them Active.">
-                            <Radio.Group
-                                optionType="button"
-                                value={v.probation}
-                                onChange={e => set('probation', e.target.value)}
-                                aria-label="During probation"
-                                options={[
-                                    { value: 'MONTHLY', label: 'Credited monthly' },
-                                    { value: 'FULL', label: 'Full entitlement' },
-                                    { value: 'NONE', label: 'Not available' },
+                                    { value: 'yearly', label: 'Yearly balance' },
+                                    { value: 'event', label: 'Per event' },
                                 ]}
                             />
                         </Field>
-                        <SectionHeading
-                            title="At the end of the leave cycle"
-                            note="For employees still working. It runs automatically on the last working day of the cycle."
-                        />
-                        <Field label="Unused leave at year end" help="Carry forward moves unused days into the next cycle up to the limit (the rest lapses). Encash pays them out through payroll and the balance restarts. Lapse lets them go.">
-                            <Radio.Group value={v.yearEnd} onChange={e => set('yearEnd', e.target.value)} aria-label="Unused leave at year end" className="flex flex-col gap-1.5" data-lt-year-end>
-                                <Radio value="carry">
-                                    <Flex align="center" gap={8} wrap="wrap">
-                                        Carry forward up to
-                                        <InputNumber
-                                            min={0}
-                                            max={366}
-                                            size="small"
-                                            value={v.carryForward}
-                                            disabled={v.yearEnd !== 'carry'}
-                                            onChange={n => set('carryForward', Number(n ?? 0))}
-                                            className="!w-[80px]"
-                                            aria-label="Carry forward up to"
-                                            data-lt-carry
-                                        />
-                                        days, the rest lapses
-                                    </Flex>
-                                </Radio>
-                                <Radio value="encash">Encash (paid out by payroll; the balance restarts)</Radio>
-                                <Radio value="lapse">Lapse</Radio>
-                            </Radio.Group>
+                        <Field label="Count leave in" tip="Working days skip the employee’s own weekly offs and public holidays. Calendar days count every day in the range, as statutory leave does.">
+                            <Radio.Group
+                                optionType="button"
+                                value={v.count}
+                                onChange={e => set('count', e.target.value)}
+                                aria-label="Count leave in"
+                                data-lt-count
+                                options={[
+                                    { value: 'working', label: 'Working days' },
+                                    { value: 'calendar', label: 'Calendar days' },
+                                ]}
+                            />
                         </Field>
-                        <SectionHeading
-                            title="When an employee leaves"
-                            note="Leave is pro-rated for the year up to their last working day. What they have left can then be used as ticked below."
-                        />
-                        <Field
-                            label="Unused leave on leaving"
-                            help="Tick both to let the employee choose; tick none and it lapses. Full and final settlement is a separate module that comes later; this setting only records the rule."
-                        >
-                            <Checkbox.Group
-                                value={v.exitOpts}
-                                onChange={vals => set('exitOpts', vals as LeaveExitOpt[])}
-                                aria-label="Unused leave on leaving"
-                                className="flex flex-col gap-1.5"
-                                options={(['encash', 'prepone'] as const).map(o => ({ value: o, label: EXIT_OPT_LABEL[o] }))}
+                        <Field label="Applicable gender" tip="Who can apply for it. Other employees don’t see this type at all.">
+                            <Radio.Group
+                                optionType="button"
+                                value={v.appliesTo}
+                                onChange={e => set('appliesTo', e.target.value)}
+                                aria-label="Applicable gender"
+                                data-lt-gender
+                                options={[
+                                    { value: 'ALL', label: 'All' },
+                                    { value: 'FEMALE', label: 'Female' },
+                                    { value: 'MALE', label: 'Male' },
+                                ]}
                             />
                         </Field>
                     </>
                 )}
 
-                {event && (
+                {!event && (
                     <>
-                        <SectionHeading title="Per event" note="No yearly balance, accrual, carry forward or leaving rule: each event allows up to the limit." />
-                        <Field label="Up to" help="How much can be taken for one event, counted as set above (calendar days for maternity: 26 weeks = 182 days)." htmlFor="lt-limit">
+                        <Field label="Days per year" tip="Days of this leave in a full leave cycle. Joiners and leavers get a pro-rated share (a month counts if they join on or before the 15th)." htmlFor="lt-days">
+                            <Flex align="center" gap={8}>
+                                <InputNumber id="lt-days" min={0.5} max={366} step={0.5} value={v.daysPerYear} onChange={n => set('daysPerYear', Number(n ?? 0))} className="!w-[120px]" />
+                                <Text type="secondary" className="text-xs">
+                                    {fmtDays(monthly)} a month
+                                </Text>
+                            </Flex>
+                        </Field>
+
+                        <SectionHeading title="1 · During probation" tip="New joiners on Probation follow this rule until HR marks them Active (Payroll → Leave → Balances). There’s no probation length to set." />
+                        <Field label="Can employees on probation use it?" tip="No: nothing is credited until HR marks the employee Active.">
+                            <Radio.Group
+                                optionType="button"
+                                value={probationOn ? 'yes' : 'no'}
+                                onChange={e => set('probation', e.target.value === 'no' ? 'NONE' : 'MONTHLY')}
+                                aria-label="Can employees on probation use it?"
+                                data-lt-prob-on
+                                options={[
+                                    { value: 'yes', label: 'Yes' },
+                                    { value: 'no', label: 'No' },
+                                ]}
+                            />
+                        </Field>
+                        {probationOn && (
+                            <Field label="How it’s credited during probation" tip="Monthly: a twelfth of the year each month. Daily: a little every day. All at once: the full year’s days straight away.">
+                                <Radio.Group
+                                    optionType="button"
+                                    value={v.probation}
+                                    onChange={e => set('probation', e.target.value)}
+                                    aria-label="How it’s credited during probation"
+                                    data-lt-prob
+                                    options={[
+                                        { value: 'MONTHLY', label: 'Monthly' },
+                                        { value: 'DAILY', label: 'Daily' },
+                                        { value: 'FULL', label: 'All at once' },
+                                    ]}
+                                />
+                            </Field>
+                        )}
+
+                        <SectionHeading title="2 · After probation" tip="Regular employees. The day of the month for monthly credits (and the time for daily ones) is set in Configuration → Credit date." />
+                        <Field label="How it’s credited" tip={`All at once: the full year’s days on the first day of the cycle. Monthly: ${daysText(monthly)} each month. Daily: about ${daysText(monthly)} a month, a little every day.`}>
+                            <Radio.Group
+                                optionType="button"
+                                value={v.credit}
+                                onChange={e => set('credit', e.target.value)}
+                                aria-label="How it’s credited"
+                                data-lt-credit
+                                options={[
+                                    { value: 'CYCLE_START', label: 'All at once' },
+                                    { value: 'MONTHLY', label: 'Monthly' },
+                                    { value: 'DAILY', label: 'Daily' },
+                                ]}
+                            />
+                        </Field>
+                        <Field
+                            label="At the end of the leave cycle"
+                            tip="Runs automatically on the last working day of the cycle. Carry forward moves unused days into the next cycle up to the limit; above it, days lapse or are paid out by payroll."
+                        >
+                            <Radio.Group
+                                value={cycleEnd}
+                                onChange={e => {
+                                    const c = CYCLE_END[e.target.value as CycleEnd];
+                                    setV(cur => ({ ...cur, yearEnd: c.yearEnd, excess: c.excess }));
+                                    setError('');
+                                    setConfirming(false);
+                                }}
+                                aria-label="At the end of the leave cycle"
+                                className="flex flex-col gap-1.5"
+                                data-lt-year-end
+                                options={(Object.keys(CYCLE_END) as CycleEnd[]).map(k => ({ value: k, label: CYCLE_END[k].label }))}
+                            />
+                            {carrying && (
+                                <Flex align="center" gap={8} className="mt-1">
+                                    <Text className="text-sm">Carry forward up to</Text>
+                                    <InputNumber min={0} max={366} value={v.carryForward} onChange={n => set('carryForward', Number(n ?? 0))} className="!w-[90px]" aria-label="Carry forward up to" data-lt-carry />
+                                    <Text className="text-sm">days</Text>
+                                </Flex>
+                            )}
+                        </Field>
+
+                        <SectionHeading title="3 · When an employee leaves" tip="Leave is pro-rated to the last working day. Full and final settlement is a later module: this records the rule only." />
+                        <Field label="Unused leave">
+                            <Radio.Group
+                                value={v.exitOpts[0] ?? 'lapse'}
+                                onChange={e => set('exitOpts', e.target.value === 'lapse' ? [] : [e.target.value])}
+                                aria-label="Unused leave on leaving"
+                                className="flex flex-col gap-1.5"
+                                data-lt-exit
+                                options={[
+                                    { value: 'encash', label: 'Encash' },
+                                    { value: 'prepone', label: 'Bring last working day forward' },
+                                    { value: 'lapse', label: 'Lapse' },
+                                ]}
+                            />
+                        </Field>
+
+                        <SectionHeading title="Requests" />
+                        <Field label="Half days" tip="Off: the Apply form only offers full days for this type.">
+                            <Switch checked={v.halfDay} onChange={c => set('halfDay', c)} aria-label="Half days" className="self-start" data-lt-half-day />
+                        </Field>
+                        <Field label="Supporting documents" tip="When on, employees attach a document (e.g. a medical certificate) for leave longer than the number of days set; 0 = every request.">
+                            <Flex align="center" gap={8} wrap="wrap">
+                                <Switch checked={v.proofAfterDays !== null} onChange={c => set('proofAfterDays', c ? 3 : null)} aria-label="Supporting documents" data-lt-docs />
+                                {v.proofAfterDays !== null && (
+                                    <>
+                                        <Text className="text-sm">for leave longer than</Text>
+                                        <InputNumber min={0} max={366} value={v.proofAfterDays} onChange={n => set('proofAfterDays', Number(n ?? 0))} className="!w-[80px]" aria-label="Documents for leave longer than" data-lt-proof />
+                                        <Text className="text-sm">days</Text>
+                                    </>
+                                )}
+                            </Flex>
+                        </Field>
+                    </>
+                )}
+
+                {event && !maternity && (
+                    <>
+                        <SectionHeading title="Per event" tip="No yearly balance, accrual, carry forward or leaving rule. One request per event, taken in one go." />
+                        <Field label="Triggered by" tip="The event the leave is for. It decides the date employees are asked for.">
+                            <Select<LeaveTrigger>
+                                value={v.trigger}
+                                onChange={t => set('trigger', t)}
+                                aria-label="Triggered by"
+                                data-lt-trigger
+                                options={(Object.keys(TRIGGERS) as LeaveTrigger[]).map(k => ({ value: k, label: TRIGGERS[k].label }))}
+                            />
+                            {v.trigger === 'other' && (
+                                <Input value={v.eventLabel} placeholder="Date asked on the request, e.g. Date of the move" maxLength={60} onChange={e => set('eventLabel', e.target.value)} aria-label="Event date label" data-lt-event-label />
+                            )}
+                            <Text type="secondary" className="text-xs">
+                                Employees enter: {triggerDate}
+                            </Text>
+                        </Field>
+                        <Field label="Number of days" tip="For one event, taken in one go, counted as set above (working or calendar days)." htmlFor="lt-limit">
                             <Flex align="center" gap={8}>
                                 <InputNumber id="lt-limit" min={1} max={v.limitUnit === 'weeks' ? 52 : 366} value={v.limit ?? undefined} onChange={n => set('limit', optional(n))} className="!w-[100px]" data-lt-limit />
                                 <Radio.Group
                                     optionType="button"
                                     value={v.limitUnit}
                                     onChange={e => set('limitUnit', e.target.value)}
-                                    aria-label="Limit unit"
+                                    aria-label="Days or weeks"
                                     options={[
                                         { value: 'days', label: 'Days' },
                                         { value: 'weeks', label: 'Weeks' },
                                     ]}
                                 />
-                                <Text type="secondary" className="text-xs">
-                                    per event
-                                </Text>
                             </Flex>
                         </Field>
-                        <Field label="Event date asked on the request" help="The date the employee enters when applying, e.g. “Date of birth or adoption”." htmlFor="lt-event">
-                            <Input id="lt-event" value={v.eventLabel} placeholder="e.g. Date of birth or adoption" maxLength={60} onChange={e => set('eventLabel', e.target.value)} data-lt-event-label />
-                        </Field>
-                        <Field label="When it can be taken" help="Leave has to start no earlier than the first number of days before the event, and end within the second number after it. Empty = no limit on that side.">
-                            <Flex align="center" gap={8} wrap="wrap">
+                        <Field label="When the leave can start" tip={`The start date has to fall in this window around the event; empty = no limit on that side. ${windowExample(v.windowBefore, v.windowAfter, eventWord)}`}>
+                            <Flex align="center" gap={8} wrap="wrap" className="text-sm">
                                 From
                                 <InputNumber min={0} max={366} value={v.windowBefore ?? undefined} placeholder="Any" onChange={n => set('windowBefore', optional(n))} className="!w-[80px]" aria-label="Days before the event" data-lt-before />
                                 days before to
                                 <InputNumber min={0} max={366} value={v.windowAfter ?? undefined} placeholder="Any" onChange={n => set('windowAfter', optional(n))} className="!w-[80px]" aria-label="Days after the event" data-lt-after />
-                                days after the event
+                                days after
+                            </Flex>
+                            <Text type="secondary" className="text-xs" data-lt-window-text>
+                                {windowText({ id: '', trigger: v.trigger, eventLabel: v.eventLabel, windowBefore: v.windowBefore, windowAfter: v.windowAfter })}
+                            </Text>
+                        </Field>
+                        <Field label="Supporting documents" tip="When on, every request needs a document; say what to ask for.">
+                            <Flex vertical gap={6}>
+                                <Switch checked={v.docRequired} onChange={c => set('docRequired', c)} aria-label="Supporting documents" className="self-start" data-lt-doc-required />
+                                {v.docRequired && <Input value={v.docName} placeholder="e.g. Birth certificate or adoption order" maxLength={80} onChange={e => set('docName', e.target.value)} aria-label="What to ask for" data-lt-doc-name />}
                             </Flex>
                         </Field>
                     </>
                 )}
 
-                <SectionHeading title="Other" note="Documents, who it’s for, and whether employees see it." />
-                <Field
-                    label="Supporting document needed when longer than"
-                    help="If a request is longer than this, the employee has to attach a document (for example a medical certificate) before they can send it."
-                    htmlFor="lt-proof"
-                >
-                    <Flex align="center" gap={8}>
-                        <InputNumber
-                            id="lt-proof"
-                            min={0}
-                            max={366}
-                            value={v.proofAfterDays ?? undefined}
-                            placeholder="Never"
-                            onChange={n => set('proofAfterDays', optional(n))}
-                            className="!w-[120px]"
-                        />
-                        <Text type="secondary" className="text-xs">
-                            days (empty = never, 0 = always)
-                        </Text>
-                    </Flex>
-                </Field>
-                <Field label="Applies to" help="Who can apply for it. Other employees won’t see this type at all.">
-                    <Radio.Group
-                        optionType="button"
-                        value={v.appliesTo}
-                        onChange={e => set('appliesTo', e.target.value)}
-                        aria-label="Applies to"
-                        options={[
-                            { value: 'ALL', label: 'All employees' },
-                            { value: 'FEMALE', label: 'Female' },
-                            { value: 'MALE', label: 'Male' },
-                        ]}
-                    />
-                </Field>
-                <Field
-                    label="Show to employees"
-                    help="Turn off to stop offering this leave type without deleting it. Balances and past leave stay as they are, and HR can still see it."
-                >
-                    <Flex align="center" gap={8}>
-                        <Switch checked={v.active !== false} onChange={c => set('active', c)} aria-label="Show to employees" data-show-to-employees />
-                        <Text className="text-sm">{v.active === false ? 'Hidden (deactivated)' : 'Shown'}</Text>
-                    </Flex>
-                </Field>
-                <Text type="secondary" className="text-xs">
-                    Every leave type is paid. Loss of pay is the only unpaid leave: employees request it from ESS → Leave → Request LOP.
-                </Text>
+                {maternity && (
+                    <>
+                        <Field
+                            label="Offer maternity leave"
+                            tip={`Required with more than 10 current employees (people in Employees without a past leaving date): always on. With 10 or fewer it’s optional and off by default. You have ${headcount}.`}
+                        >
+                            <Flex align="center" gap={8}>
+                                <Switch checked={offer} disabled={maternityRequired} onChange={setOffer} aria-label="Offer maternity leave" data-mat-offer />
+                                <Text className="text-sm">{offerText(maternityRequired, offer, headcount)}</Text>
+                            </Flex>
+                        </Field>
+                        <Field label="Triggered by">
+                            <Text className="text-sm" data-mat-trigger>
+                                Expected or actual date of delivery
+                            </Text>
+                        </Field>
+                        <Field label="Days of leave by child" tip="Calendar days, from the start date in one go. Employees say which child it is when they apply; approvers check it.">
+                            <Flex vertical gap={8}>
+                                {([1, 2, 3] as const).map(c => {
+                                    const key = `d${c}` as 'd1' | 'd2' | 'd3';
+                                    const min = MATERNITY_MIN[key];
+                                    return (
+                                        <Flex key={c} align="center" gap={8} wrap="wrap">
+                                            <Text className="w-[150px] text-sm">{MATERNITY_CHILD_LABEL[c]}</Text>
+                                            <InputNumber min={0} max={366} value={mat[key]} onChange={n => setMat(key, Number(n ?? 0))} className="!w-[90px]" aria-label={`${MATERNITY_CHILD_LABEL[c]} days`} status={mat[key] < min ? 'error' : undefined} data-mat-days={c} />
+                                            <Text type="secondary" className="text-xs">
+                                                days · legal minimum {min}
+                                            </Text>
+                                        </Flex>
+                                    );
+                                })}
+                            </Flex>
+                        </Field>
+                        <Field label="When the leave can start" tip={`The law caps “before” at 8 weeks (6 for the third child or later, applied automatically). ${windowExample(maternityPreWeeks(mat, 1) * 7, mat.post * 7, 'due date')}`}>
+                            <Flex align="center" gap={8} wrap="wrap" className="text-sm">
+                                From
+                                <InputNumber min={0} max={MATERNITY_MIN.preMax} value={mat.pre} onChange={n => setMat('pre', Number(n ?? 0))} className="!w-[70px]" aria-label="Weeks before the delivery date" data-mat-pre />
+                                weeks before the delivery date to
+                                <InputNumber min={0} max={52} value={mat.post} onChange={n => setMat('post', Number(n ?? 0))} className="!w-[70px]" aria-label="Weeks after the delivery date" data-mat-post />
+                                weeks after it
+                            </Flex>
+                        </Field>
+                        <Field label="Supporting documents" tip="On by default. Say what to ask for.">
+                            <Flex vertical gap={6}>
+                                <Switch checked={v.docRequired} onChange={c => set('docRequired', c)} aria-label="Supporting documents" className="self-start" data-lt-doc-required />
+                                {v.docRequired && <Input value={v.docName} placeholder="e.g. Medical certificate with the expected date of delivery" maxLength={80} onChange={e => set('docName', e.target.value)} aria-label="What to ask for" data-lt-doc-name />}
+                            </Flex>
+                        </Field>
+                    </>
+                )}
+
+                {!maternity && (
+                    <Field label="Show to employees" tip="Off: employees don’t see this type. Nothing is deleted: balances and past leave stay, and HR can still see it.">
+                        <Flex align="center" gap={8}>
+                            <Switch checked={v.active !== false} onChange={c => set('active', c)} aria-label="Show to employees" data-show-to-employees />
+                            <Text className="text-sm">{v.active === false ? 'Hidden (inactive)' : 'Shown'}</Text>
+                        </Flex>
+                    </Field>
+                )}
             </Flex>
         </Drawer>
     );
 };
 
-/** Every rule of a type in plain language (the View popup). */
-export const leaveTypeRules = (type: LeaveTypeConfig): [string, string][] => {
-    const rows: [string, string][] = [
-        ['Status', type.active ? 'Active (shown to employees)' : 'Inactive (hidden from employees)'],
-        ['Kind', type.kind === 'event' ? 'Per event (no yearly balance)' : 'Yearly balance'],
-        ['Entitlement', entitlementText(type)],
-        ['Counted in', `${COUNT_LABEL[type.count]}${type.count === 'calendar' ? ' (weekends and public holidays included)' : ' (the employee’s weekly offs and public holidays aren’t counted)'}`],
-    ];
-    if (type.kind === 'event') {
-        rows.push(['Event date asked', type.eventLabel || 'Event date']);
-        rows.push(['When it can be taken', windowText(type)]);
-        rows.push(['Limit', `Up to ${limitText(type)} for one event, including leave already booked for the same event date`]);
-    } else {
-        rows.push(['Credited', `${CREDIT_LABEL[type.credit]} · ${accrualText(type)}`]);
-        rows.push(['When an employee joins', 'Pro-rated for the rest of the leave cycle (a month counts if they join on or before the 15th)']);
-        rows.push(['During probation', PROBATION_LABEL[type.probation]]);
-        rows.push(['At the end of the leave cycle', `${yearEndText(type)}${type.yearEnd === 'carry' && type.carryForward > 0 ? '; anything above that lapses' : ''} (runs on the last working day of the cycle)`]);
-        rows.push(['When an employee leaves', `Pro-rated to the last working day; then: ${exitText(type)}`]);
-    }
-    rows.push(['Supporting document', proofText(type)]);
-    rows.push(['Applies to', APPLIES_LABEL[type.appliesTo]]);
-    return rows;
+const kindText = (type: LeaveTypeConfig) => {
+    if (isMaternity(type)) return 'Statutory, per event';
+    return type.kind === 'event' ? 'Per event (no yearly balance)' : 'Yearly balance';
 };
 
-export const LeaveTypeView = ({
-    type,
-    requests,
-    onClose,
-    onEdit,
-}: {
-    type: LeaveTypeConfig | null;
-    requests: number;
-    onClose: () => void;
-    onEdit: () => void;
-}) =>
+/** Every rule of a type in plain language, grouped as in the drawer (the View popup). */
+export const leaveTypeRules = (type: LeaveTypeConfig): { group: string; rows: [string, string][] }[] => {
+    const basics: [string, string][] = [
+        ['Status', type.active ? 'Active (shown to employees)' : 'Inactive (hidden from employees)'],
+        ['Kind', kindText(type)],
+        ['Counted in', COUNT_LABEL[type.count]],
+        ['Applicable gender', APPLIES_LABEL[type.appliesTo]],
+    ];
+    if (isMaternity(type)) {
+        const m = type.mat ?? DEFAULT_MAT;
+        return [
+            { group: 'Leave type', rows: basics },
+            {
+                group: 'Per event',
+                rows: [
+                    ['Triggered by', eventDateLabel(type)],
+                    ['Days by child', `${MATERNITY_CHILD_LABEL[1]} ${m.d1} · ${MATERNITY_CHILD_LABEL[2]} ${m.d2} · ${MATERNITY_CHILD_LABEL[3]} ${m.d3}`],
+                    ['When it can start', `From ${m.pre} weeks before (at most 6 for the third child or later) to ${m.post} weeks after the delivery date`],
+                    ['Supporting documents', type.docRequired ? type.docName || 'Required' : 'Not needed'],
+                ],
+            },
+        ];
+    }
+    if (type.kind === 'event') {
+        return [
+            { group: 'Leave type', rows: basics },
+            {
+                group: 'Per event',
+                rows: [
+                    ['Triggered by', `${TRIGGERS[type.trigger]?.label ?? 'Other event'} (asks for: ${eventDateLabel(type)})`],
+                    ['Number of days', `${limitText(type)} for one event, taken in one go`],
+                    ['When it can start', windowText(type)],
+                    ['Supporting documents', type.docRequired ? type.docName || 'Required' : 'Not needed'],
+                ],
+            },
+        ];
+    }
+    return [
+        { group: 'Leave type', rows: [...basics, ['Days per year', `${fmtDays(type.daysPerYear)} (${fmtDays(type.daysPerYear / 12)} a month)`]] },
+        { group: '1 · During probation', rows: [['Rule', PROBATION_LABEL[type.probation]]] },
+        {
+            group: '2 · After probation',
+            rows: [
+                ['Credited', `${CREDIT_LABEL[type.credit]} · ${accrualText(type)}`],
+                ['End of the leave cycle', yearEndText(type)],
+            ],
+        },
+        { group: '3 · When an employee leaves', rows: [['Unused leave', exitText(type)]] },
+        {
+            group: 'Requests',
+            rows: [
+                ['Half days', type.halfDay ? 'Allowed' : 'Not allowed'],
+                ['Supporting documents', proofText(type)],
+            ],
+        },
+    ];
+};
+
+export const LeaveTypeView = ({ type, requests, onClose, onEdit }: { type: LeaveTypeConfig | null; requests: number; onClose: () => void; onEdit: () => void }) =>
     type ? (
         <Modal
             open
-            title={typeLabel(type.name)}
+            title={
+                <span className="inline-flex items-center gap-2">
+                    {typeLabel(type.name)}
+                    {isMaternity(type) && (
+                        <StatusTag tone="info" className="!m-0">
+                            Statutory leave
+                        </StatusTag>
+                    )}
+                </span>
+            }
             onCancel={onClose}
             destroyOnHidden
             footer={[
@@ -434,16 +618,24 @@ export const LeaveTypeView = ({
                 </Button>,
             ]}
         >
-            <dl className="m-0 grid grid-cols-[minmax(0,160px)_minmax(0,1fr)] gap-x-4 gap-y-2.5 text-sm" data-leave-type-view>
-                {[...leaveTypeRules(type), ['Used', `${requests} request${requests === 1 ? '' : 's'} so far${requests ? ' (so it can’t be deleted or renamed)' : ''}`] as [string, string]].map(([k, val]) => (
-                    <div key={k} className="contents">
-                        <dt className="text-[var(--peko-muted)]">{k}</dt>
-                        <dd className="m-0 text-[var(--peko-text)]">{val}</dd>
+            <Flex vertical gap={14} data-leave-type-view>
+                {leaveTypeRules(type).map(g => (
+                    <div key={g.group} data-view-group={g.group}>
+                        <Text className="mb-1.5 block text-[13px] font-semibold text-[var(--peko-text)]">{g.group}</Text>
+                        <dl className="m-0 grid grid-cols-[minmax(0,150px)_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
+                            {g.rows.map(([k, val]) => (
+                                <div key={k} className="contents">
+                                    <dt className="text-[var(--peko-muted)]">{k}</dt>
+                                    <dd className="m-0 text-[var(--peko-text)]">{val}</dd>
+                                </div>
+                            ))}
+                        </dl>
                     </div>
                 ))}
-            </dl>
-            <Text type="secondary" className="mt-3 block text-xs">
-                All leave is paid. Loss of pay is the only unpaid leave.
-            </Text>
+                <Text type="secondary" className="text-xs">
+                    Used in {requests} request{requests === 1 ? '' : 's'}
+                    {requests ? ', so it can’t be deleted or renamed' : ''}.
+                </Text>
+            </Flex>
         </Modal>
     ) : null;

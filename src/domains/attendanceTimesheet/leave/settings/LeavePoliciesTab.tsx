@@ -1,7 +1,8 @@
 // PROTOTYPE-SETUP (Leave module): Payroll settings → Leave Policies, rebuilt as four sub-tabs (?leaveTab=).
-//   Leave types ....... search, "Add leave type"; the table (leave type, days per year, credited, accrual rate, carry
-//                       forward, applies to, status, Action: View · Edit · Delete). Delete only for a type never used
-//                       (disabled with a tooltip otherwise); deactivating is "Show to employees" in the Edit drawer
+//   Leave types ....... search, "Add leave type"; the table (Leave type + a small line, Number of days, Accrual type and
+//                       rate, Leave balance carryover, Applicable gender, Action: View · Edit · Delete). Delete only for
+//                       a type never used and never for Maternity (disabled with a tooltip); deactivating is "Show to
+//                       employees" in the Edit drawer
 //   Public holidays ... a dated list per year: add a date and a name, remove
 //   Configuration ..... leave year (+ the automatic roll-forward), half-day leave, sandwich rule, comp off + expiry.
 //                       Probation and pro-rating are fixed rules, not settings; the late check-in deduction is an
@@ -16,11 +17,12 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
+import InfoTip from '@src/components/peko/InfoTip';
 import { PekoSectionTabs } from '@src/components/peko/PageHeader';
 import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
-import { APPLIES_LABEL, COUNT_LABEL, CREDIT_DATE_LABEL, LOP_RULE_LABEL, ROUNDING_LABEL, creditedText, entitlementText, exitText, yearEndText } from '@src/prototype/rules/leave';
+import { CREDIT_DATE_LABEL, LOP_RULE_LABEL, ROUNDING_LABEL, carryText, creditedText, daysText, entitlementText, isMaternity } from '@src/prototype/rules/leave';
 import { showToast } from '@src/slices/apiSlice';
 
 import { LeaveTypeDrawer, LeaveTypeView } from './LeaveTypeDrawer';
@@ -36,6 +38,23 @@ type Sub = 'types' | 'holidays' | 'config' | 'approvals';
 // ---- Leave types ----------------------------------------------------------------------------------------------
 
 const USED_TIP = 'Already used in leave requests, so it can’t be deleted. Open Edit to deactivate it instead.';
+/** "Monthly · 1 day a month" / "All at once · 8 days" / "Per event (no accrual)". */
+const accrualColumn = (t: LeaveTypeConfig) => {
+    if (t.kind === 'event') return 'Per event (no accrual)';
+    return t.credit === 'CYCLE_START' ? `All at once · ${daysText(t.daysPerYear)}` : creditedText(t);
+};
+const MATERNITY_TIP = 'Maternity is statutory leave: it can’t be deleted.';
+const GENDER_LABEL: Record<LeaveTypeConfig['appliesTo'], string> = { ALL: 'All', FEMALE: 'Female', MALE: 'Male' };
+
+/** The small line under the name: Yearly balance / Per event / Statutory · required or optional / Inactive. */
+const typeSubLine = (t: LeaveTypeConfig, view: LeaveSettingsView) => {
+    let kind = t.kind === 'event' ? 'Per event' : 'Yearly balance';
+    if (isMaternity(t)) {
+        if (view.maternityRequired) kind = 'Statutory · required';
+        else kind = `Statutory · optional${view.policy.matOn ? '' : ', not offered'}`;
+    }
+    return t.active ? kind : `${kind} · Inactive`;
+};
 
 type Editing = { type: LeaveTypeConfig | null } | null;
 
@@ -58,26 +77,24 @@ const LeaveTypes = ({
     const text = q.trim().toLowerCase();
     const rows = view.policy.types.filter(t => !text || t.name.toLowerCase().includes(text));
     const columns: ColumnsType<LeaveTypeConfig> = [
-        { title: 'Leave type', key: 'n', render: (_, t) => <Text className="font-medium">{t.name}</Text> },
-        // PROTOTYPE-SETUP (Leave policy settings): Entitlement · Credited · Counted in · Year end · On leaving.
-        { title: 'Entitlement', key: 'd', render: (_, t) => <span className="block max-w-[150px] whitespace-normal" data-entitlement={t.id}>{entitlementText(t)}</span> },
-        { title: 'Credited', key: 'c', render: (_, t) => <span className="block max-w-[170px] whitespace-normal">{creditedText(t)}</span> },
-        { title: 'Counted in', key: 'ci', render: (_, t) => COUNT_LABEL[t.count] },
-        { title: 'Year end', key: 'ye', render: (_, t) => <span className="block max-w-[150px] whitespace-normal">{yearEndText(t)}</span> },
-        { title: 'On leaving', key: 'ol', render: (_, t) => <span className="block max-w-[170px] whitespace-normal">{exitText(t)}</span> },
-        { title: 'Applies to', key: 'a', render: (_, t) => APPLIES_LABEL[t.appliesTo] },
+        // PROTOTYPE-SETUP (Leave settings rework): Leave type (a small line under it) · Number of days · Accrual type and
+        // rate · Leave balance carryover · Applicable gender · Action.
         {
-            title: 'Status',
-            key: 's',
-            render: (_, t) =>
-                t.active ? (
-                    <StatusTag color="success" className="!m-0">
-                        Active
-                    </StatusTag>
-                ) : (
-                    <StatusTag className="!m-0">Inactive</StatusTag>
-                ),
+            title: 'Leave type',
+            key: 'n',
+            render: (_, t) => (
+                <div className="flex flex-col" data-type-name={t.id}>
+                    <Text className="font-medium">{t.name}</Text>
+                    <Text type="secondary" className="text-xs" data-type-sub={t.id}>
+                        {typeSubLine(t, view)}
+                    </Text>
+                </div>
+            ),
         },
+        { title: 'Number of days', key: 'd', render: (_, t) => <span className="block max-w-[170px] whitespace-normal" data-entitlement={t.id}>{entitlementText(t)}</span> },
+        { title: 'Accrual type and rate', key: 'c', render: (_, t) => <span className="block max-w-[190px] whitespace-normal">{accrualColumn(t)}</span> },
+        { title: 'Leave balance carryover', key: 'cf', render: (_, t) => (t.kind === 'event' ? 'No' : carryText(t)) },
+        { title: 'Applicable gender', key: 'a', render: (_, t) => GENDER_LABEL[t.appliesTo] },
         {
             title: 'Action',
             key: 'x',
@@ -89,11 +106,11 @@ const LeaveTypes = ({
                     <Button size="small" onClick={() => setEditing({ type: t })} data-edit-type={t.id}>
                         Edit
                     </Button>
-                    {used(t.id) ? (
-                        <Tooltip title={USED_TIP}>
+                    {used(t.id) || isMaternity(t) ? (
+                        <Tooltip title={isMaternity(t) ? MATERNITY_TIP : USED_TIP}>
                             {/* A disabled button swallows hover: the span carries the tooltip. */}
                             <span className="inline-block">
-                                <Button size="small" type="text" danger disabled className="pointer-events-none" aria-label={`Delete ${t.name} (${USED_TIP})`} data-delete-type={t.id}>
+                                <Button size="small" type="text" danger disabled className="pointer-events-none" aria-label={`Delete ${t.name} (${isMaternity(t) ? MATERNITY_TIP : USED_TIP})`} data-delete-type={t.id}>
                                     Delete
                                 </Button>
                             </span>
@@ -113,10 +130,12 @@ const LeaveTypes = ({
         <Flex vertical gap={12} data-leave-types-tab>
             <Flex justify="space-between" align="flex-start" gap={12} wrap="wrap">
                 <div className="min-w-0 flex-1 basis-[280px]">
-                    <Text className="block text-base font-medium">Leave types</Text>
-                    <Text type="secondary" className="text-xs">
-                        These settings decide what employees see and can apply for in ESS. Yearly types build a balance; per-event types (maternity,
-                        paternity) allow up to a limit per event. All leave is paid: loss of pay is the only unpaid leave.
+                    <Text className="inline-flex items-center text-base font-semibold" data-types-title>
+                        Leave types
+                        <InfoTip
+                            label="About leave types"
+                            title={`These settings decide what employees see and can apply for in ESS. Yearly types build a balance; per-event types (maternity, paternity) give a number of days per event. All leave is paid: loss of pay is the only unpaid leave. A type that has been used can’t be deleted or renamed; to stop offering it, turn off “Show to employees”. ${view.migrationNote ?? ''}`}
+                        />
                     </Text>
                 </div>
                 <div className="w-full sm:w-[240px]">
@@ -136,10 +155,6 @@ const LeaveTypes = ({
                     data-leave-types-table
                 />
             </div>
-            <Text type="secondary" className="text-xs">
-                A type that has been used can’t be deleted or renamed (past leave keeps its history). To stop offering it, open Edit and turn off “Show to
-                employees”. Click View for every setting of a type. {view.migrationNote}
-            </Text>
             <LeaveTypeView
                 type={viewing}
                 requests={viewing ? view.usage[viewing.id]?.requests ?? 0 : 0}
@@ -154,8 +169,15 @@ const LeaveTypes = ({
                 type={editing?.type ?? null}
                 used={editing?.type ? used(editing.type.id) : false}
                 affected={editing?.type ? view.usage[editing.type.id]?.employees ?? 0 : 0}
+                headcount={view.headcount}
+                maternityRequired={view.maternityRequired}
+                matOn={view.policy.matOn}
                 onClose={() => setEditing(null)}
-                onSave={async (input: LeaveTypeInput) => {
+                onSave={async (input: LeaveTypeInput, extra?: { matOn?: boolean }) => {
+                    if (extra && extra.matOn !== undefined && !view.maternityRequired && extra.matOn !== view.policy.matOn) {
+                        const cfg = await updateLeaveConfig(scope, { matOn: extra.matOn });
+                        if (!cfg) return false;
+                    }
                     const res = editing?.type ? await updateLeaveType(scope, editing.type.id, input) : await addLeaveType(scope, input);
                     return onView(res, editing?.type ? `${input.name} updated` : `${input.name} added`);
                 }}

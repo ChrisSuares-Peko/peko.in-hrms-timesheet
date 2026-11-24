@@ -13,7 +13,7 @@ approvals, pay:leave:overview, ess:leave:overview / requests) and `docs/prototyp
 | Step | Commit | Status |
 |---|---|---|
 | A + B — Leave type model, migrations, engine rules and tests | Leave: leave type model, migrations and rules for the settings rework | done |
-| C1 — Payroll settings → Leave types (table, view, drawer incl. Maternity) | | |
+| C1 — Payroll settings → Leave types (table, view, drawer incl. Maternity) | Leave: leave types table, view and drawer (yearly, per event, Maternity) | done |
 | C2 — Configuration (credit date, sandwich, …) and Public holidays bulk upload | | |
 | C3 — ESS Apply for leave and Payroll Add leave | | |
 | D — Peko One tokens, type, buttons, inputs, underline tabs, tags, InfoTip (shared pieces) | Design: Peko One tokens, underline section tabs and InfoTip | done (tooltips moved with each screen) |
