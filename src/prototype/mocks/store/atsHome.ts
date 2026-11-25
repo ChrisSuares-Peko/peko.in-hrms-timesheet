@@ -362,5 +362,6 @@ export const homeOf = (mode: DataMode, e: MockEmployee): EssHomeView => {
         requests: requestsOf(mode, e),
         announcements: announcementsOf(hasTracking(settings.mode)),
         myTeam: teamWaiting(mode, e),
+        essShow: getSettings(mode).essShow,
     };
 };

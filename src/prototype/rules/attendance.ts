@@ -325,6 +325,7 @@ export const DEFAULT_SETTINGS: AtsSettings = {
     reimbursements: { categories: DEFAULT_REIMBURSEMENT_CATEGORIES, claimWindowDays: 60 },
     timesheetFiling: DEFAULT_FILING,
     updatedAt: '',
+    essShow: { payslips: false, mypay: false },
 };
 
 /** Shift length, break included (09:30–18:30 = 540). */

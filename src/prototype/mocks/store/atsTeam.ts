@@ -1259,6 +1259,11 @@ export const updateSettings = (mode: DataMode, body: Partial<AtsSettings> | unde
             : cur.lateDeductionDays,
         leavePolicy: leavePolicyFrom(b.leavePolicy, cur.leavePolicy),
         timesheetFiling: filingFrom(b.timesheetFiling, cur.timesheetFiling),
+        // PROTOTYPE-SETUP (Payroll settings → ESS): Payslips and My pay in ESS.
+        essShow: {
+            payslips: typeof b.essShow?.payslips === 'boolean' ? b.essShow.payslips : cur.essShow.payslips,
+            mypay: typeof b.essShow?.mypay === 'boolean' ? b.essShow.mypay : cur.essShow.mypay,
+        },
         updatedAt: nowIso(),
     };
     atsSettings.set(mode, next);

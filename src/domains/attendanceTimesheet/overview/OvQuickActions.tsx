@@ -42,19 +42,22 @@ const OvQuickActions = ({
     mode,
     to,
     myTeam = null,
+    showPayslips = false,
     className = '',
 }: {
     mode: AtsMode;
     to: Record<QuickActionKey, string>;
     /** Someone with direct reports: what's waiting for them (null = no My team tile). */
     myTeam?: { waiting: number } | null;
+    /** PROTOTYPE-SETUP (Payroll settings → ESS): the Payslips tile only when Payslips is turned on. */
+    showPayslips?: boolean;
     className?: string;
 }) => {
     const allTiles: { key: QuickActionKey; icon: string; title: string; count?: string }[] = [
         { key: 'section', icon: AttendanceIcon, title: sectionTileTitle(mode) },
         { key: 'leave', icon: LeaveIcon, title: 'Leave' },
         { key: 'reimbursements', icon: ReimbursementIcon, title: 'Reimbursements' },
-        { key: 'payslips', icon: PayslipsIcon, title: 'Payslips' },
+        ...(showPayslips ? [{ key: 'payslips' as const, icon: PayslipsIcon, title: 'Payslips' }] : []),
         { key: 'documents', icon: DocumentsIcon, title: 'Documents' },
         { key: 'profile', icon: ProfileIcon, title: 'My profile' },
         ...(myTeam ? [{ key: 'team' as const, icon: TeamIcon, title: 'My team', ...(myTeam.waiting ? { count: String(myTeam.waiting) } : {}) }] : []),

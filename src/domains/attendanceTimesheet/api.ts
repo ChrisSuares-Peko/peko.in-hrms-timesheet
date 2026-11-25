@@ -3,6 +3,7 @@
 // `false` on error. Rule errors (overlap, locked day, approved week, ...) come back as 4xx: ApiClient's
 // interceptor shows the server message as a toast, so callers only need to check for `false`.
 import { SuccessGenericResponse } from '@customtypes/general';
+import type { AttendanceImportRow } from '@src/prototype/rules/attendanceImport';
 import type { SubmissionAcknowledgement } from '@src/prototype/rules/timesheetFiling';
 import type { ImportPreview } from '@src/prototype/rules/timesheetImport';
 import { ApiClient } from '@src/services/config';
@@ -355,6 +356,11 @@ export const getAdminLeaveCalendar = (s: AtsScope, month: string) => call<TeamLe
 export const getAdminOffToday = (s: AtsScope) => call<AdminOffToday[]>(s, 'get', 'payroll/admin/leave/off-today');
 export const getAdminLeaveBalances = (s: AtsScope) => call<AdminLeaveBalances>(s, 'get', 'payroll/admin/leave/balances');
 export const getAdminLeaveView = (s: AtsScope, employeeId: number) => call<LeaveView>(s, 'get', `payroll/admin/leave/${employeeId}`);
+/** PROTOTYPE-SETUP (Bulk attendance upload): the review of the file's rows, and the import. */
+export const reviewAttendanceUpload = (s: AtsScope, rows: string[][], replace: boolean) =>
+    call<{ rows: AttendanceImportRow[] }>(s, 'post', 'payroll/admin/attendance/upload/review', { body: { rows, replace } });
+export const importAttendanceUpload = (s: AtsScope, rows: { employeeId: string; date: string; checkIn: string; checkOut: string | null }[], replace: boolean) =>
+    call<{ imported: number; replaced: number; message: string }>(s, 'post', 'payroll/admin/attendance/upload', { body: { rows, replace } });
 /** PROTOTYPE-SETUP (Leave fixes): Balances → Adjust balance (add / deduct days with a reason). */
 export const adjustLeaveBalance = (s: AtsScope, employeeId: number, body: { type: string; direction: 'add' | 'deduct'; days: number; reason: string }) =>
     call<{ message: string }>(s, 'post', `payroll/admin/leave/${employeeId}/adjust`, { body });

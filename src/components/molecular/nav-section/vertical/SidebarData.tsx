@@ -27,7 +27,7 @@ import {
 } from '@src/domains/dashboard/corporateCards/utils/activeRole';
 // import { ComingSoon } from '@src/domains/dashboard/MoreServices/utils/data';
 import { useAppSelector } from '@src/hooks/store';
-import { atsSettings } from '@src/prototype/mocks/store/atsStore';
+import { atsSettings, essShowOf } from '@src/prototype/mocks/store/atsStore';
 import { teamWaiting } from '@src/prototype/mocks/store/atsTeam';
 import { ESS_EMPLOYEE_GROUP, ESS_MANAGER_GROUP, essSubItems } from '@src/prototype/persona/essNav';
 import { ESS_TABS } from '@src/prototype/persona/essPersonas';
@@ -505,7 +505,8 @@ export function useNavData() {
                     // (My team, Slice 5): so does ESS - Manager (the same pages), and "My team" shows only for someone
                     // with direct reports, with a badge of what's waiting for them.
                     const myTeam = teamWaiting(dataMode, essTab.persona);
-                    const subItems = essSubItems(atsSettings.get(dataMode).mode, route, myTeam);
+                    // PROTOTYPE-SETUP (Payroll settings → ESS): Payslips / My pay only when turned on.
+                    const subItems = essSubItems(atsSettings.get(dataMode).mode, route, myTeam, essShowOf(atsSettings.get(dataMode)));
                     const activeSub = subItems
                         .filter(s => location.pathname === s.key || location.pathname.startsWith(`${s.key}/`))
                         .sort((a, b) => b.key.length - a.key.length)[0]?.key;

@@ -6,6 +6,7 @@ import { lazy } from 'react';
 
 import { Navigate } from 'react-router-dom';
 
+import { EssFeatureGate, MyPayPlaceholder } from '@src/domains/attendanceTimesheet/ess/EssFeatureGate';
 import { ESS_TABS } from '@src/prototype/persona/essPersonas';
 
 const EssLayout = lazy(() => import('@src/domains/dashboard/Ess/pages/EssLayout'));
@@ -40,7 +41,24 @@ const essTabRoutes = (base: string) => [
             { element: <MyTeamPage />, path: 'my-team/:tab' },
             // PROTOTYPE-SETUP (Final batch, Slice 6): the ESS Leave page on the live leave store.
             { element: <EssLeavePage />, path: 'leaves' },
-            { element: <Payslips />, path: 'payslips' },
+            // PROTOTYPE-SETUP (Payroll settings → ESS): Payslips and My pay only when the company has turned them on;
+            // otherwise a direct link goes to the Overview.
+            {
+                element: (
+                    <EssFeatureGate feature="payslips">
+                        <Payslips />
+                    </EssFeatureGate>
+                ),
+                path: 'payslips',
+            },
+            {
+                element: (
+                    <EssFeatureGate feature="mypay">
+                        <MyPayPlaceholder />
+                    </EssFeatureGate>
+                ),
+                path: 'my-pay',
+            },
             { element: <Reimbursements />, path: 'reimbursements' },
             { element: <Documents />, path: 'documents' },
             { element: <Profile />, path: 'profile' },

@@ -5,7 +5,7 @@
 // manager persona) expands into the same pages, plus "My team" — shown only to someone with direct reports, with a
 // badge of what's waiting for them. Used by the desktop sidebar and the mobile drawer.
 import './essNav.css';
-import type { AtsMode } from '@src/domains/attendanceTimesheet/types';
+import type { AtsMode, EssShow } from '@src/domains/attendanceTimesheet/types';
 import { titleFor } from '@src/prototype/rules/attendance';
 import { paths } from '@src/routes/paths';
 
@@ -33,15 +33,17 @@ export interface EssSubItem {
 
 /**
  * The ESS pages under a persona's base. `myTeam` adds "My team" (only for someone with direct reports), with the count
- * of items waiting for them.
+ * of items waiting for them. PROTOTYPE-SETUP (Payroll settings → ESS): Payslips and My pay only when the company has
+ * turned them on (`show`, both off by default).
  */
-export const essSubItems = (atsMode: AtsMode, root: string, myTeam?: { waiting: number } | null): EssSubItem[] => [
+export const essSubItems = (atsMode: AtsMode, root: string, myTeam?: { waiting: number } | null, show: EssShow = { payslips: false, mypay: false }): EssSubItem[] => [
     { key: root, text: 'Overview' },
     // PROTOTYPE-SETUP (Settings, Slice 3): in Neither the section is just Overtime.
     { key: `${root}/attendance-timesheet`, text: titleFor(atsMode) },
     { key: `${root}/leaves`, text: 'Leaves' },
     { key: `${root}/reimbursements`, text: 'Reimbursements' },
-    { key: `${root}/payslips`, text: 'Payslips' },
+    ...(show.payslips ? [{ key: `${root}/payslips`, text: 'Payslips' }] : []),
+    ...(show.mypay ? [{ key: `${root}/my-pay`, text: 'My pay' }] : []),
     { key: `${root}/documents`, text: 'Documents' },
     { key: `${root}/profile`, text: 'My profile' },
     ...(myTeam ? [{ key: `${root}/my-team`, text: 'My team', badge: myTeam.waiting }] : []),

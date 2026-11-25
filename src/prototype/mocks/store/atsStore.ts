@@ -138,8 +138,16 @@ export const getSettings = (mode: DataMode): AtsSettings => {
         // PROTOTYPE-SETUP (Leave settings rework): the company-wide half-day setting becomes each yearly type's halfDay.
         leavePolicy: migrateLeavePolicy(s.leavePolicy, (s.leaveRules as { proofDays?: number } | undefined)?.proofDays, s.leaveRules?.halfDay ?? DEFAULT_SETTINGS.leaveRules.halfDay),
         lateDeductionDays: s.lateDeductionDays ?? DEFAULT_SETTINGS.lateDeductionDays,
+        // PROTOTYPE-SETUP (Payroll settings → ESS): off when never saved.
+        essShow: essShowOf(s),
     };
 };
+
+/** Payslips / My pay visibility in ESS (both off unless the company turned them on). */
+export const essShowOf = (s: Partial<Pick<AtsSettings, 'essShow'>> | undefined) => ({
+    payslips: s?.essShow?.payslips === true,
+    mypay: s?.essShow?.mypay === true,
+});
 
 /** Employees in this data set (none in Empty mode; the ESS personas still work on their own data). */
 export const employeesFor = (mode: DataMode) => (mode === 'empty' ? [] : EMPLOYEES);

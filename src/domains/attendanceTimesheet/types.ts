@@ -98,6 +98,12 @@ export interface TimesheetFilingSettings {
     projectCodes: string[];
 }
 
+/** PROTOTYPE-SETUP (Payroll settings → ESS): which Payroll-owned ESS pages employees see (both off by default). */
+export interface EssShow {
+    payslips: boolean;
+    mypay: boolean;
+}
+
 export interface AtsSettings {
     mode: AtsMode;
     /** Standard day. Shift length (end − start) includes the break. */
@@ -137,6 +143,8 @@ export interface AtsSettings {
     /** PROTOTYPE-SETUP (Settings, Slice 5): reimbursement categories and the claim window. */
     reimbursements: ReimbursementRules;
     updatedAt: string;
+    /** PROTOTYPE-SETUP (Payroll settings → ESS): Payslips and My pay in ESS (off until the company turns them on). */
+    essShow: EssShow;
 }
 
 // ---- people -----------------------------------------------------------------------------------------------
@@ -187,8 +195,9 @@ export interface AttendanceRecord {
     outDays?: number;
     /** Breaks taken during the session. */
     breaks?: AttendanceBreak[];
-    /** How the times got here. 'correction' = an approved attendance correction. */
-    source: 'ess' | 'manual' | 'correction';
+    /** How the times got here. 'correction' = an approved attendance correction; 'upload' = Payroll's bulk
+     *  attendance upload (PROTOTYPE-SETUP: Bulk attendance upload). */
+    source: 'ess' | 'manual' | 'correction' | 'upload';
     /** PROTOTYPE-SETUP (Final batch, Slice 2): Attendance only mode — where they worked from, as it changed. */
     locations?: LocationStamp[];
 }
@@ -1055,6 +1064,8 @@ export interface EssHomeView {
     announcements: { title: string; text: string; date?: string }[];
     /** PROTOTYPE-SETUP (My team: overview entry points): for someone with direct reports — what's waiting for them. */
     myTeam: { waiting: number } | null;
+    /** PROTOTYPE-SETUP (Payroll settings → ESS): the Payslips tile shows only when Payslips is on. */
+    essShow: EssShow;
 }
 
 export interface ApprovalCounts {

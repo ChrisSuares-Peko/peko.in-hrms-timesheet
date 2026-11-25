@@ -10,6 +10,8 @@ import LeavePoliciesTab from '@src/domains/attendanceTimesheet/leave/settings/Le
 import { PayrollServiceBar } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
 // PROTOTYPE-SETUP: ESS Service 1 — the single Attendance & Timesheet settings tab (replaces the V1 one).
 import AtsSettingsTab from '@src/domains/attendanceTimesheet/payroll/AtsSettingsTab';
+// PROTOTYPE-SETUP (Payroll settings → ESS): what employees see in ESS (Payslips, My pay).
+import EssVisibilityTab from '@src/domains/attendanceTimesheet/payroll/EssVisibilityTab';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
 
 import ComplianceSettings from './complianceSettings';
@@ -21,7 +23,7 @@ import SalaryComp from '../components/organizationSettings/SalaryComponents/Sala
 import SubscriptionSettings from '../components/organizationSettings/SubscriptionSettings';
 
 /** Settings tab → notes key (null: the tab sets its own). */
-const SETTINGS_KEY: Record<string, string | null> = { '5': null, '10': 'pay:settings:ato', '12': 'pay:settings:reimb' };
+const SETTINGS_KEY: Record<string, string | null> = { '5': null, '10': 'pay:settings:ato', '12': 'pay:settings:reimb', '13': 'pay:settings:ess' };
 
 const OrganizationSettings = () => {
     const location = useLocation();
@@ -106,6 +108,12 @@ const OrganizationSettings = () => {
             key: '12',
             label: 'Reimbursements',
             children: activeTabKey === '12' ? <AtsSettingsTab section="reimbursements" /> : null,
+        },
+        // PROTOTYPE-SETUP (Payroll settings → ESS): Payslips and My pay visibility in ESS (both off by default).
+        {
+            key: '13',
+            label: 'ESS',
+            children: activeTabKey === '13' ? <EssVisibilityTab /> : null,
         },
     ];
 

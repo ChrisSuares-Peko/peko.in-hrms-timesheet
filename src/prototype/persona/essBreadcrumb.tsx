@@ -19,6 +19,7 @@ import { EssTab, essTabFor } from './essPersonas';
 const PAGE_NAMES: Record<string, string> = {
     leaves: 'Leaves',
     payslips: 'Payslips',
+    'my-pay': 'My pay',
     reimbursements: 'Reimbursements',
     documents: 'Documents',
     profile: 'Profile',

@@ -5,10 +5,14 @@ import { useSearchParams } from 'react-router-dom';
 
 // PROTOTYPE-SETUP (Payroll admin, Slices 1 and 5): the service tabs on top, and Requests — the admin requests list for
 // attendance corrections (was "Attendance corrections"). Overtime moved to its own service tab (Payroll → Overtime).
+import InfoTip from '@src/components/peko/InfoTip';
 import { PekoPageHeader, PekoTabLabel } from '@src/components/peko/PageHeader';
 import AdminRequestsList from '@src/domains/attendanceTimesheet/payroll/admin/AdminRequestsList';
 import { PayrollServiceBar, useAdminCounts } from '@src/domains/attendanceTimesheet/payroll/admin/adminShared';
+import AttendanceUploadModal from '@src/domains/attendanceTimesheet/payroll/admin/AttendanceUploadModal';
+import { useAppDispatch } from '@src/hooks/store';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
+import { showToast } from '@src/slices/apiSlice';
 
 import AddHolidaysModal from '../components/modals/AddHolidaysModal';
 import MarkAttendanceModal from '../components/modals/MarkAttendanceModal';
@@ -38,6 +42,9 @@ const Timesheet = () => {
     const [markAttendanceOpen, setMarkAttendanceOpen] = useState(false);
     const [addHolidayOpen, setAddHolidayOpen] = useState(false);
     const [dailyRefetchTrigger, setDailyRefetchTrigger] = useState(0);
+    // PROTOTYPE-SETUP (Bulk attendance upload): for employees who aren't on the biometric system.
+    const [uploading, setUploading] = useState(false);
+    const dispatch = useAppDispatch();
     // PROTOTYPE-SETUP (Design update): the page action sits right-aligned on the tab row.
     let action = null;
     if (activeTab === '1' || activeTab === '2') {
@@ -57,7 +64,30 @@ const Timesheet = () => {
     return (
         <>
             <PayrollServiceBar active="attendance" />
-            <PekoPageHeader title="Attendance" description="Everyone’s daily attendance, monthly summary, holidays, shifts and correction requests." />
+            <PekoPageHeader
+                title="Attendance"
+                description="Everyone’s daily attendance, monthly summary, holidays, shifts and correction requests."
+                actions={
+                    <span className="inline-flex items-center">
+                        <Button type="primary" onClick={() => setUploading(true)} data-bulk-attendance>
+                            Bulk attendance upload
+                        </Button>
+                        <InfoTip
+                            label="About bulk attendance upload"
+                            title="For employees who aren’t on the biometric system: upload their check-in and check-out times from an Excel file. Unpaid days (loss of pay) for this month’s payroll go through the existing Loss of Pay upload instead."
+                        />
+                    </span>
+                }
+            />
+            <AttendanceUploadModal
+                open={uploading}
+                onClose={() => setUploading(false)}
+                onImported={message => {
+                    setUploading(false);
+                    dispatch(showToast({ variant: 'success', description: message }));
+                    setDailyRefetchTrigger(t => t + 1);
+                }}
+            />
 
             <MarkAttendanceModal
                 open={markAttendanceOpen}

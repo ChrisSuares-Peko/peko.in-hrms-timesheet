@@ -142,6 +142,7 @@ const EssOverviewPage = () => {
                                 team: paths.myTeam('approvals'),
                             }}
                             myTeam={home.myTeam}
+                            showPayslips={home.essShow?.payslips === true}
                         />
                     </div>
                     {/* PROTOTYPE-SETUP (Overview v4, Slice 5): no Recent days when nothing is tracked. */}

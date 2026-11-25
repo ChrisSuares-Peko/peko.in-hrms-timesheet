@@ -25,6 +25,7 @@ import {
     adminTimesheetOverview,
     adminWeekGrid,
 } from '../store/atsAdmin';
+import { importAttendanceUpload, reviewAttendanceUpload } from '../store/atsAttendanceImport';
 import {
     addEntry,
     attendanceMonthOf,
@@ -351,6 +352,9 @@ export const atsRoutes: MockRoute[] = [
     route('POST', `${A}/payroll/admin/leave/employees/:employeeId/mark-active`, ctx => run(ctx.mode, () => markActive(ctx.mode, ctx.params.employeeId!))),
     route('GET', `${A}/payroll/admin/leave/employees/:employeeId/types`, ctx => run(ctx.mode, () => adminEmployeeLeaveTypes(ctx.mode, ctx.params.employeeId!))),
     // PROTOTYPE-SETUP (Leave fixes): Balances → Adjust balance and Import opening balances.
+    // PROTOTYPE-SETUP (Bulk attendance upload): Payroll → Attendance, review then import.
+    route('POST', `${A}/payroll/admin/attendance/upload/review`, ctx => run(ctx.mode, () => reviewAttendanceUpload(ctx.mode, ctx.body))),
+    route('POST', `${A}/payroll/admin/attendance/upload`, ctx => run(ctx.mode, () => importAttendanceUpload(ctx.mode, ctx.body))),
     route('GET', `${A}/payroll/admin/leave/opening-balances`, ctx => run(ctx.mode, () => openingBalanceContext(ctx.mode))),
     route('POST', `${A}/payroll/admin/leave/opening-balances`, ctx => run(ctx.mode, () => importOpeningBalances(ctx.mode, ctx.body))),
     route('POST', `${A}/payroll/admin/leave/:employeeId/adjust`, ctx => run(ctx.mode, () => adjustLeaveBalance(ctx.mode, ctx.params.employeeId!, ctx.body))),

@@ -41,6 +41,8 @@ export const legacyDay = (mode: DataMode, e: MockEmployee, date: string): MockAt
         d.outDays === 1 ? 'Checked out the next day' : null,
         d.breakMinutes ? `Breaks ${formatDuration(d.breakMinutes)}` : null,
         recordOf(mode, e, date)?.source === 'correction' ? 'Corrected (approved)' : null,
+        // PROTOTYPE-SETUP (Bulk attendance upload): times from Payroll's upload.
+        recordOf(mode, e, date)?.source === 'upload' ? 'Uploaded' : null,
     ].filter(Boolean);
     return {
         id: legacyIdOf(e, date),
@@ -54,7 +56,7 @@ export const legacyDay = (mode: DataMode, e: MockEmployee, date: string): MockAt
         totalHours: completed ? round2(d.minutesAtWork / 60) : 0,
         otHours: approvedOt ? round2(approvedOt.minutes / 60) : 0,
         notes: notes.length ? notes.join(' · ') : null,
-        method: recordOf(mode, e, date)?.source === 'manual' ? 'manual' : 'ess',
+        method: ['manual', 'upload'].includes(recordOf(mode, e, date)?.source ?? '') ? 'manual' : 'ess',
     };
 };
 
