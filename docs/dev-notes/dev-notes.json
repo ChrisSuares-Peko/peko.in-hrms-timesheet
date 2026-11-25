@@ -83,7 +83,8 @@
       "One summary line: credited so far of total · credit method · next credit (or \"accrues daily\") · probation rule if on probation · what lapses at the end of the cycle. Comp off: how it’s earned and when it expires.",
       "ONE log table with everything for this type (no separate credits button): Date, Entry, Period, Days (+/−), Status, Reason.",
       "Filters: Show (All / Leave / Credits / Deductions, with counts), status (approved or credited / in request / rejected / withdrawn or cancelled), date range with Clear.",
-      "Clicking a leave row opens the request drawer (same drawer as My requests)."
+      "Clicking a leave row opens the request drawer (same drawer as My requests).",
+      "\"Apply for leave\" on this page opens the form with this leave type already selected."
      ]
     ],
     [
@@ -122,7 +123,8 @@
       "Details: type, from, to, day type (full / first half / second half, \"of each day\" for ranges), duration, reason, document; for change requests also \"Was: …\". For comp off: day worked, hours, comp off days.",
       "Banners: the approver’s comment when an update was requested; \"A cancellation/change of this leave is waiting for {approver}\".",
       "Approval chain, then History (every action with who, when and comment).",
-      "Actions by state: Pending → Edit request, Withdraw. Update requested → Update and resubmit, Withdraw. Approved → Change leave (if not finished), Cancel leave. Rejected / withdrawn / cancelled → read only."
+      "Actions by state: Pending → Edit request, Withdraw. Update requested → Update and resubmit, Withdraw. Approved → Change leave (if not finished), Cancel leave. Rejected / withdrawn / cancelled → read only.",
+      "Withdraw asks for confirmation (\"Withdraw this request?\")."
      ]
     ],
     [
@@ -188,6 +190,12 @@
      "Rules",
      [
       "Items appear for whoever the leave approvers resolve to (reporting manager by default, or a specific person). Approving at Level 1 sends it to Level 2 if one is set; otherwise it’s final and the effects run (balances, attendance, timesheet)."
+     ]
+    ],
+    [
+     "View",
+     [
+      "Every leave, cancellation, change and comp off request has a View button that opens the full request read-only (details, attached document, approval chain, history). Attached documents also show on the row (\"📎 file name\"), so approvers can check them before deciding."
      ]
     ]
    ],
@@ -267,6 +275,12 @@
      [
       "Reason required. Applies immediately. If the leave has started, HR can choose \"Cancel from\" (past days allowed for HR). Days go back to the balance, the request shows as Cancelled, attendance and timesheet update."
      ]
+    ],
+    [
+     "View and export",
+     [
+      "Each row has View (opens the request drawer read-only: details, document, approval chain, history) next to Cancel. \"Export\" downloads the filtered table as Excel."
+     ]
     ]
    ],
    "prompt": "Build: Payroll → Leave → Leaves\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Leave module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: All approved leave across the company (replaces the live \"Leaves\" tab), with HR cancel.\n\nBuild or change:\n- The Leaves table with filters and search, and HR Cancel.\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Filters and search narrow the table; Cancel applies immediately and returns the days.\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
@@ -284,6 +298,12 @@
       "Waiting for you: Select all, checkboxes, \"Approve selected (N)\"; per row Approve / Ask for update / Reject. Approving short shows \"Not enough leave\".",
       "With managers/approvers: read-only, \"Waiting for {name}. You can decide once they approve.\", Remind {name}. Update requested: Remind employee.",
       "Includes leave cancellations, leave changes and comp off requests."
+     ]
+    ],
+    [
+     "View",
+     [
+      "Every leave, cancellation, change and comp off request has a View button that opens the full request read-only (details, attached document, approval chain, history). Attached documents also show on the row (\"📎 file name\"), so approvers can check them before deciding."
      ]
     ]
    ],
@@ -306,6 +326,14 @@
      [
       "Probation is a status, not a length. \"Mark active\" sets status Active with confirmedOn = today; from that date the normal leave rules apply (upfront types credit the rest of the year; \"not available\" types start crediting)."
      ]
+    ],
+    [
+     "Adjust, import, export",
+     [
+      "Each row has \"Adjust balance\": leave type (with current availability), Add days / Deduct days, days, reason (required, shown in the employee’s ledger and Recent activity), a live \"9.5 → 11.5 days available after this\" preview. Saved as an adjustment {employee, type, ±days, reason, date, by} that the engine counts as a credit or deduction in that cycle. Also reachable from the employee’s balance popup.",
+      "\"Import opening balances\" (for companies moving to Peko mid-year): upload → review, like the holiday upload. Template columns: Employee ID, Leave type, Opening balance (days), As of date. Review statuses: Ready, Employee ID not found, Leave type not found (yearly types only), This type doesn’t apply to the employee, Opening balance isn’t a number, Duplicate row, Already imported. Imports Ready rows as \"Opening balance\" ledger lines.",
+      "\"Export\" downloads the table as Excel (employee, department, status, available and allocated per type)."
+     ]
     ]
    ],
    "prompt": "Build: Payroll → Leave → Balances\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Leave module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: Every employee’s leave position, and where HR confirms employees out of probation.\n\nBuild or change:\n- The Balances sub-tab with available / allocated per type, status and Mark active.\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Numbers match the employee’s own cards; Mark active switches the employee to full-employee rules.\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
@@ -327,13 +355,15 @@
       "Scope: everything here is per leave type. Company-wide rules (credit date, rounding, leave year, sandwich rule, LOP, comp off) are in Configuration.",
       "Table columns only: Leave type (with a small line: Yearly balance / Per event / Statutory · required or optional / Inactive) · Number of days (\"12 days a year\", \"7 days per event\", \"182 days per birth\") · Accrual type and rate (\"Monthly · 1 day a month\", \"Per event\") · Leave balance carryover (\"Yes, up to 30 days\" / \"No\") · Applicable gender · Action (View, Edit, Delete).",
       "View shows every rule of the type, grouped as in the drawer. Delete is disabled for used types and for Maternity.",
-      "Maternity is set up for every company and can’t be deleted or renamed. Required when the company has more than 10 current employees (headcount from Employees, people without a past leaving date): always on, switch locked. 10 or fewer: optional, off by default."
+      "Maternity is set up for every company and can’t be deleted or renamed. Required when the company has more than 10 current employees (headcount from Employees, people without a past leaving date): always on, switch locked. 10 or fewer: optional, off by default.",
+      "Delete asks for confirmation (\"Delete Paternity?\" … can’t be undone; disable instead if you might use it again)."
      ]
     ],
     [
      "Drawer: every type",
      [
-      "Name; Kind: Yearly balance / Per event; Count leave in: Working days / Calendar days; Applicable gender; Show to employees (off = hidden, nothing deleted). Maternity skips kind, count and gender (fixed: per event, calendar days, female)."
+      "Name; Kind: Yearly balance / Per event; Count leave in: Working days / Calendar days; Applicable gender. Maternity skips kind, count and gender (fixed: per event, calendar days, female).",
+      "Footer (existing types only): \"Disable leave type\" (red outline, left) / \"Enable leave type\" when disabled, plus Cancel and Save. It applies straight away: disabling hides the type from employees without deleting it; balances and past leave stay. Tooltip explains this. For Maternity the button is disabled while it’s legally required (more than 10 employees); with 10 or fewer it switches maternity on/off. Disabled types show \"Inactive\" in the table."
      ]
     ],
     [
@@ -377,6 +407,12 @@
      ]
     ],
     [
+     "Holidays with ranges",
+     [
+      "A holiday can be one day or a range (e.g. Diwali, 3 days). Add holiday / Edit open a popup: Holiday name, From, To (same as From for one day), max 31 days, no overlap with other holidays. The table groups consecutive dates with the same name: Holiday · Date (range) · Days · Action (Edit, Remove). Remove asks for confirmation. Stored per date; the grouping is for display and editing."
+     ]
+    ],
+    [
      "What’s on the page",
      [
       "Year switcher (last / this / next), add date + name, table (date, day, \"Weekly off\" tag, name, Remove), summary \"N holidays in 2026 · M on working days\"."
@@ -407,7 +443,8 @@
     [
      "Design notes",
      [
-      "Field explanations, panel descriptions, worked examples and policy notes on this page are tooltips (info icon next to the label or title), not visible text. Keep only values, choices, statuses and errors always visible."
+      "Field explanations, panel descriptions, worked examples and policy notes on this page are tooltips (info icon next to the label or title), not visible text. Keep only values, choices, statuses and errors always visible.",
+      "Negative balance: on/off; \"Up to N days below zero per leave type\" (empty = no limit). When on, employees (and HR) can book more than the available balance up to that limit; the balance goes negative and is recovered from the next credits, or in the full & final settlement if they leave. Yearly balance types only. Approvers see \"−1.5 after this (negative balance, recovered from the next credits)\"."
      ]
     ],
     [
