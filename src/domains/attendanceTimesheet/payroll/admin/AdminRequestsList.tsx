@@ -217,6 +217,7 @@ const AdminRequestsList = ({
                                         setComment('');
                                         setCommentError(false);
                                     }}
+                                    viewAs="admin"
                                 />
                             </Flex>
                         </div>

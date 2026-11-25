@@ -533,7 +533,6 @@ const leaveItem = (mode: DataMode, l: LeaveRequest, viewer: ApproverRole, cache?
         title: `${typeLabel(leaveTypeName(mode, l.type))} · ${when}`,
         detail: [
             `${daysText(l.days)} of leave${l.half ? ' (half days)' : ''}`,
-            l.proof ? `Document attached: ${l.proof.name}` : '',
             l.addedByHr ? 'Added by HR' : '',
             l.lossOfPayDays ? `${daysText(l.lossOfPayDays)} loss of pay` : '',
         ]
@@ -544,6 +543,7 @@ const leaveItem = (mode: DataMode, l: LeaveRequest, viewer: ApproverRole, cache?
         // PROTOTYPE-SETUP (Leave policy settings): loss of pay and per-event leave have no balance line.
         ...(l.lop ? { unpaid: true } : {}),
         ...(eventLineOf(mode, l) ? { eventLine: eventLineOf(mode, l)! } : {}),
+        ...(l.proof ? { document: l.proof.name } : {}),
         notes: l.reason,
         at: l.createdAt,
         trail: l.trail,
@@ -594,6 +594,7 @@ const changeItem = (mode: DataMode, c: LeaveChange, viewer: ApproverRole): Reque
         leave: { start: c.start, end: c.end, half: c.half ?? null },
         ...(balance ? { leaveBalance: balance } : {}),
         ...(eventLineOf(mode, c) ? { eventLine: eventLineOf(mode, c)! } : {}),
+        ...(c.proof ? { document: c.proof.name } : {}),
         notes: c.reason,
         at: c.createdAt,
         trail: c.trail,

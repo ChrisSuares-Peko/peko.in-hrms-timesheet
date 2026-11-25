@@ -50,6 +50,7 @@ import type {
     LopRule,
     MaternityChild,
     MaternityRule,
+    NegativeBalance,
     SandwichConfig,
     LeaveProbationRule,
     LeaveTypeConfig,
@@ -215,6 +216,23 @@ const isLegacy = (p: unknown): p is LegacyLeavePolicy => Boolean(p && typeof p =
  * company-wide half-day setting becomes each yearly type's halfDay; the sandwich enum becomes its settings object; a
  * company without the Maternity type gets the statutory default.
  */
+/** PROTOTYPE-SETUP (Leave fixes): the negative balance setting; older settings have none (off, 5 days preset). */
+export const negativeOf = (v: unknown): NegativeBalance => {
+    const n = (v ?? {}) as Partial<NegativeBalance>;
+    if (n.max === null) return { on: n.on === true, max: null };
+    const max = Number(n.max);
+    return { on: n.on === true, max: Number.isFinite(max) && max >= 0 ? Math.round(max * 2) / 2 : DEFAULT_POLICY.negative.max };
+};
+
+/** How far below zero a yearly balance may go: 0 when off, Infinity when there's no limit. */
+export const negativeRoom = (n: NegativeBalance | undefined) => {
+    if (!n?.on) return 0;
+    return n.max === null ? Infinity : n.max;
+};
+
+/** "−1.5 after this (negative balance, recovered from the next credits)" — the approver's line within the allowance. */
+export const NEGATIVE_AFTER_TEXT = 'negative balance, recovered from the next credits';
+
 export const migrateLeavePolicy = (stored: unknown, legacyProofDays?: number, companyHalfDay = true): LeavePolicy => {
     if (!stored) return DEFAULT_POLICY;
     const withMaternity = (types: LeaveTypeConfig[]) => (types.some(t => isMaternity(t)) ? types : [...types, { ...DEFAULT_MATERNITY }]);
@@ -229,6 +247,7 @@ export const migrateLeavePolicy = (stored: unknown, legacyProofDays?: number, co
             lateOrder: p.lateOrder ?? DEFAULT_POLICY.lateOrder,
             creditTime: /^\d{2}:\d{2}$/.test(p.creditTime ?? '') ? p.creditTime! : DEFAULT_POLICY.creditTime,
             matOn: typeof p.matOn === 'boolean' ? p.matOn : DEFAULT_POLICY.matOn,
+            negative: negativeOf(p.negative),
         };
     }
     const old = stored;
@@ -853,6 +872,11 @@ export const LEAVE_MESSAGES = {
         who
             ? `${who} has ${daysText(Math.max(0, available))} of ${label} available.`
             : `You have ${daysText(Math.max(0, available))} of ${label} available${pending ? ` (${fmtDays(pending)} more already waiting for approval)` : ''}. Apply for fewer days or pick another leave type.`,
+    /** PROTOTYPE-SETUP (Leave fixes): over the balance and past the negative balance allowance too. */
+    balanceNegative: (available: number, label: string, room: number, pending: number, who?: string) =>
+        `Even with the negative balance allowance of ${daysText(room)}, ${who ? `${who} has` : 'you have'} ${fmtDays(available)} ${dayWord(available)} of ${label} available${
+            !who && pending ? ` (${fmtDays(pending)} more already waiting for approval)` : ''
+        }.${who ? '' : ' Apply for fewer days or pick another leave type.'}`,
     proof: (label: string, after: number) => (after === 0 ? `${label} needs a supporting document.` : `${label} of more than ${daysText(after)} needs a supporting document.`),
     reason: 'Add a short reason.',
     note: 'Add a short note.',
@@ -891,6 +915,8 @@ export const validateLeave = (
         /** PROTOTYPE-SETUP (Leave settings rework): per-event types — is there already an active request (approved or in
          *  request) for this type and event date (the request itself left out)? */
         eventTaken?: (type: string, eventDate: string) => boolean;
+        /** PROTOTYPE-SETUP (Leave fixes): the negative balance setting (yearly types, not comp off). */
+        negative?: NegativeBalance;
     }
 ) => {
     const type = ctx.types.find(t => t.id === input.type);
@@ -923,7 +949,9 @@ export const validateLeave = (
         if (type.docRequired && !input.proof?.name) throw new RuleError(LEAVE_MESSAGES.document(label, type.docName), 400);
     } else {
         const available = ctx.available[type.id] ?? 0;
-        if (count.days > available + 1e-9) throw new RuleError(LEAVE_MESSAGES.balance(available, label, ctx.pending[type.id] ?? 0, ctx.who), 409);
+        const room = type.id === COMP_OFF ? 0 : negativeRoom(ctx.negative);
+        if (count.days > available + room + 1e-9)
+            throw new RuleError(room ? LEAVE_MESSAGES.balanceNegative(available, label, room, ctx.pending[type.id] ?? 0, ctx.who) : LEAVE_MESSAGES.balance(available, label, ctx.pending[type.id] ?? 0, ctx.who), 409);
         if (needsProof(type, count.days) && !input.proof?.name) throw new RuleError(LEAVE_MESSAGES.proof(label, type.proofAfterDays!), 400);
     }
     const reason = input.reason?.trim() ?? '';
@@ -1322,7 +1350,38 @@ export interface LeaveYearInput {
     lateDays: number;
     /** Approved comp off claims (worked day, approval day, days). */
     compOff: { worked: string; approvedOn: string; days: number }[];
+    /** PROTOTYPE-SETUP (Leave fixes): HR's adjustments (+ add, − deduct) and imported opening balances, per type. */
+    adjustments?: LeaveAdjustmentInput[];
 }
+
+export interface LeaveAdjustmentInput {
+    type: string;
+    /** + added, − deducted. */
+    days: number;
+    /** The day it counts from (an opening balance: its "as of" date). */
+    date: string;
+    reason: string;
+    opening?: boolean;
+}
+
+/**
+ * The ledger line for an adjustment: "Opening balance (imported, as of 1 Apr)", "Added by HR: reason",
+ * "Deducted by HR: reason".
+ */
+export const adjustmentLedger = (a: LeaveAdjustmentInput, date: string): LedgerEntry => {
+    if (a.opening) return { date, kind: 'OPENING', amount: a.days, text: `Opening balance (imported, as of ${dayMonth(a.date)})` };
+    return a.days >= 0 ? { date, kind: 'ADJUST_ADD', amount: a.days, text: `Added by HR: ${a.reason}` } : { date, kind: 'ADJUST_DEDUCT', amount: a.days, text: `Deducted by HR: ${a.reason}` };
+};
+
+/**
+ * Which adjustments count this leave year: dated inside it, up to today. An opening balance dated before the year's
+ * start counts from the start (it's where the balance begins in Peko).
+ */
+export const adjustmentsInYear = (list: LeaveAdjustmentInput[], type: string, year: { start: string; end: string }, asOf: string) =>
+    list
+        .filter(a => a.type === type)
+        .map(a => ({ a, date: a.opening && a.date < year.start ? year.start : a.date }))
+        .filter(x => x.date >= year.start && x.date <= year.end && x.date <= asOf);
 
 const takenText = (l: { start: string; end: string; half: LeaveHalf | null }) =>
     `${l.half ? 'Half-day leave' : 'Leave'} taken${l.end > l.start ? ` (to ${dayMonth(l.end)})` : ''}`;
@@ -1367,14 +1426,18 @@ export const computeLeaveYear = (input: LeaveYearInput) => {
         input.leave
             .filter(l => l.type === t.id && l.state === 'approved' && inYear(l))
             .forEach(l => ledger.push({ date: l.start, kind: 'TAKEN', amount: -l.days, text: takenText(l) }));
-        const credited = carried + (sched.daily ? roundDays(creditedBy(sched, t, asOf, year, facts.dateOfJoin, todayCounts), rounding) : creditedBy(sched, t, asOf, year, facts.dateOfJoin));
+        // PROTOTYPE-SETUP (Leave fixes): HR's adjustments and opening balances count as credits / deductions this cycle.
+        const adj = adjustmentsInYear(input.adjustments ?? [], t.id, year, asOf);
+        adj.forEach(x => ledger.push(adjustmentLedger(x.a, x.date)));
+        const adjusted = adj.reduce((s, x) => s + x.a.days, 0);
+        const credited = adjusted + carried + (sched.daily ? roundDays(creditedBy(sched, t, asOf, year, facts.dateOfJoin, todayCounts), rounding) : creditedBy(sched, t, asOf, year, facts.dateOfJoin));
         const nextCredit = sched.daily ? null : sched.credits.find(c => c.date > asOf) ?? null;
         return {
             t,
             credited,
             approved: sumOf(t.id, 'approved'),
             inRequest: sumOf(t.id, 'in_request'),
-            allocated: sched.entitlement + carried,
+            allocated: sched.entitlement + carried + adjusted,
             carried,
             next: nextCredit ? { date: nextCredit.date, amount: nextCredit.amount } : null,
             ledger,

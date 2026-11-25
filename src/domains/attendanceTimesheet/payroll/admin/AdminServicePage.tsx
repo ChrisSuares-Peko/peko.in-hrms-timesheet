@@ -152,7 +152,7 @@ const Details = ({ service }: { service: Service }) => {
             >
                 <Flex vertical gap={10} data-person-requests>
                     {/* Read-only here: decide under Requests. */}
-                    {open?.requests.map(r => <RequestCard key={r.item.id} item={{ ...r.item, waitingForYou: false }} onDecide={() => {}} />)}
+                    {open?.requests.map(r => <RequestCard key={r.item.id} item={{ ...r.item, waitingForYou: false }} onDecide={() => {}} viewAs="admin" />)}
                 </Flex>
             </Modal>
         </Flex>

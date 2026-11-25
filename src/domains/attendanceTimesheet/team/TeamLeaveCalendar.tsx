@@ -48,7 +48,17 @@ const ClashChip = ({ names }: { names: string[] }) =>
     );
 
 /** Leave requests waiting for the manager (level 1), earliest first. */
-const LeaveToApprove = ({ items, onShow, onDecide }: { items: RequestItem[] | null; onShow: (month: string) => void; onDecide: ReturnType<typeof useTeamDecision>['start'] }) => (
+const LeaveToApprove = ({
+    items,
+    onShow,
+    onDecide,
+    viewAs,
+}: {
+    items: RequestItem[] | null;
+    onShow: (month: string) => void;
+    onDecide: ReturnType<typeof useTeamDecision>['start'];
+    viewAs: 'team' | 'admin';
+}) => (
     <section aria-label="Leave to approve" className={`${ESS_CARD} flex h-full min-h-0 flex-col !px-0 !py-0`} data-leave-to-approve>
         <div className="px-4 pb-2 pt-4">
             <Flex align="center" gap={8}>
@@ -85,7 +95,7 @@ const LeaveToApprove = ({ items, onShow, onDecide }: { items: RequestItem[] | nu
                             </Button>
                         )}
                     </Flex>
-                    <RequestCard item={r} onDecide={d => onDecide(r, d)} />
+                    <RequestCard item={r} onDecide={d => onDecide(r, d)} viewAs={viewAs} />
                 </div>
             ))}
         </div>
@@ -98,11 +108,13 @@ export interface TeamLeaveCalendarProps {
     loadMonth?: (month: string) => Promise<TeamLeaveView | false | null | undefined>;
     /** The requests the side panel lists (default: waiting for the manager). */
     loadPending?: () => Promise<RequestItem[] | false | null | undefined>;
+    /** PROTOTYPE-SETUP (Leave fixes): whose endpoint the rows' View loads the request from (My team or Payroll). */
+    viewAs?: 'team' | 'admin';
     /** The decision (default: the manager's, level 1). */
     decide?: DecideFn;
 }
 
-const TeamLeaveCalendar = ({ onChanged, loadMonth, loadPending: pendingLoader, decide }: TeamLeaveCalendarProps) => {
+const TeamLeaveCalendar = ({ onChanged, loadMonth, loadPending: pendingLoader, decide, viewAs = 'team' }: TeamLeaveCalendarProps) => {
     const scope = useAtsScope();
     const [month, setMonth] = useState(dayjs().format('YYYY-MM'));
     const [view, setView] = useState<TeamLeaveView | null>(null);
@@ -198,7 +210,7 @@ const TeamLeaveCalendar = ({ onChanged, loadMonth, loadPending: pendingLoader, d
             )}
             <div className="relative min-w-0 min-[1100px]:min-h-[420px]">
                 <div className="min-[1100px]:absolute min-[1100px]:inset-0">
-                    <LeaveToApprove items={pending} onShow={setMonth} onDecide={start} />
+                    <LeaveToApprove items={pending} onShow={setMonth} onDecide={start} viewAs={viewAs} />
                 </div>
             </div>
             </div>

@@ -239,6 +239,7 @@ const TeamApprovalsInbox = ({ settings, onChanged }: { settings: TeamSettings; o
                                         setComment('');
                                         setCommentError(false);
                                     }}
+                                    viewAs="team"
                                 />
                             )}
                         </div>

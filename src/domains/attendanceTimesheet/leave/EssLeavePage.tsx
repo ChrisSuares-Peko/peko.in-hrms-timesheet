@@ -133,7 +133,7 @@ const LeaveTypePage = ({
                 <Typography.Title level={4} className="!mb-0 min-w-0 flex-1">
                     {b.label}
                 </Typography.Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={onApply}>
+                <Button type="primary" icon={<PlusOutlined />} onClick={onApply} data-type-apply>
                     Apply for leave
                 </Button>
             </div>

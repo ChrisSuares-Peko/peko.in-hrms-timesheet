@@ -112,3 +112,61 @@ export const holidayReviewSummary = (rows: HolidayImportRow[]) => {
 
 /** The entries "Import N days" adds: one per date of each Ready row. */
 export const holidaysToImport = (rows: HolidayImportRow[]) => rows.filter(r => r.status === 'ready').flatMap(r => r.dates.map(date => ({ date, name: r.name })));
+
+// ---- holidays with ranges (notes pay:settings:leave:holidays → "Holidays with ranges") -------------------------------
+
+export interface HolidayGroup {
+    name: string;
+    from: string;
+    to: string;
+    days: number;
+}
+
+/**
+ * Consecutive dates with the same name are one holiday (e.g. Diwali, 3 days). Holidays are stored per date; the grouping
+ * is for display and editing.
+ */
+export const holidayGroups = (list: { date: string; name: string }[]): HolidayGroup[] => {
+    const out: HolidayGroup[] = [];
+    [...list]
+        .sort((a, b) => a.date.localeCompare(b.date))
+        .forEach(h => {
+            const last = out[out.length - 1];
+            if (last && last.name === h.name && addDays(last.to, 1) === h.date) {
+                last.to = h.date;
+                last.days += 1;
+            } else out.push({ name: h.name, from: h.date, to: h.date, days: 1 });
+        });
+    return out;
+};
+
+/** Every date from `from` to `to`, both included. */
+export const datesBetween = (from: string, to: string) => {
+    const out: string[] = [];
+    for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
+    return out;
+};
+
+export const HOLIDAY_RANGE_MESSAGES = {
+    from: 'Pick the start date.',
+    order: 'The end date is before the start date.',
+    long: 'A holiday can be at most 31 days long.',
+    name: 'Add the holiday’s name.',
+} as const;
+
+/**
+ * Checks a holiday being added or edited: a start date, the end not before it, at most 31 days, a name, and no date that
+ * is already another holiday (`own` = the dates of the holiday being edited, which it may keep). Returns the problem
+ * (`clash` = the first date already taken) or null.
+ */
+export const holidayRangeProblem = (h: { name: string; from: string; to: string }, existing: string[], own: string[] = []): { message: string; clash?: string } | null => {
+    if (!h.from) return { message: HOLIDAY_RANGE_MESSAGES.from };
+    const to = h.to || h.from;
+    if (to < h.from) return { message: HOLIDAY_RANGE_MESSAGES.order };
+    if (datesBetween(h.from, to).length > 31) return { message: HOLIDAY_RANGE_MESSAGES.long };
+    if (!h.name.trim()) return { message: HOLIDAY_RANGE_MESSAGES.name };
+    const mine = new Set(own);
+    const taken = new Set(existing.filter(d => !mine.has(d)));
+    const clash = datesBetween(h.from, to).find(d => taken.has(d));
+    return clash ? { message: 'is already a holiday.', clash } : null;
+};

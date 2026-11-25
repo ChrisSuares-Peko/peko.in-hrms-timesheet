@@ -86,10 +86,14 @@ import {
     withEndorsement,
     type LateMark,
     type WorkEvidence,
+    negativeOf,
+    negativeRoom,
+    daysText,
 } from '@src/prototype/rules/leave';
+import { ADJUST_MESSAGES, OPENING_STATUS, type OpeningContext, adjustmentProblem, reviewOpeningRows } from '@src/prototype/rules/openingBalances';
 
-import { addHoliday, addHolidays, holidaysOf, removeHoliday } from './atsHolidays';
-import { atsCompOffs, atsEmployeeLife, atsLeaveCancels, atsLeaveChanges, atsLeaveRequests, leaveRequestsOf, lifeOf, openingBalancesOf } from './atsRequests';
+import { addHoliday, addHolidays, holidaysOf, removeHoliday, updateHoliday } from './atsHolidays';
+import { atsCompOffs, atsEmployeeLife, atsLeaveAdjustments, atsLeaveCancels, atsLeaveChanges, atsLeaveRequests, leaveRequestsOf, lifeOf, openingBalancesOf } from './atsRequests';
 import {
     activeOvertimeOn,
     atsAttendance,
@@ -260,6 +264,7 @@ const depsOf = (mode: DataMode) => [
     atsSettings.get(mode),
     atsLeaveRequests.get(mode),
     atsCompOffs.get(mode),
+    atsLeaveAdjustments.get(mode),
     atsEmployeeLife.get(mode),
     atsAttendance.get(mode),
     atsCorrections.get(mode),
@@ -308,6 +313,11 @@ const computeYear = (mode: DataMode, e: MockEmployee, exclude?: string) => {
         late: lateEventsOf(mode, e, year.start > life.dateOfJoin ? year.start : life.dateOfJoin),
         lateDays: settings.lateDeductionDays,
         compOff,
+        // PROTOTYPE-SETUP (Leave fixes): HR's adjustments and imported opening balances.
+        adjustments: atsLeaveAdjustments
+            .get(mode)
+            .filter(a => a.employeeId === e.id)
+            .map(a => ({ type: a.type, days: a.days, date: a.date, reason: a.reason, opening: a.opening })),
     });
 };
 
@@ -457,7 +467,13 @@ export const leaveViewOf = (mode: DataMode, e: MockEmployee): LeaveView => {
         managerName: managerRef(e)?.name ?? null,
         // PROTOTYPE-SETUP (Settings, Slice 1): who a new request would go to, by name (cancellations and comp off too).
         approvalPath: approvalPathText(newTrail(mode, LEAVE_ROUTE, e), managerRef(e)?.id ?? null),
-        rules: { halfDay: settings.leaveRules.halfDay, sandwich: settings.leavePolicy.sandwich, compOff: settings.leavePolicy.compOff, lop: settings.leavePolicy.lop },
+        rules: {
+            halfDay: settings.leaveRules.halfDay,
+            sandwich: settings.leavePolicy.sandwich,
+            compOff: settings.leavePolicy.compOff,
+            lop: settings.leavePolicy.lop,
+            negative: settings.leavePolicy.negative,
+        },
         eventTypes: ownTypes(mode, e).filter(x => isEventType(x)),
         calendar: { weeklyOff: cal.weeklyOff, shift: scheduleOf(mode, e).shift, holidays: holidayRange(mode, addDays(t, -400), addDays(t, 400)) },
         holidays: holidaysOf(mode)
@@ -487,6 +503,7 @@ const checkLeave = (mode: DataMode, e: MockEmployee, input: Partial<LeaveRequest
         pending: b.pending,
         onProbation: lifeOf(mode, e).status === 'PROBATION',
         eventTaken: eventTakenFor(mode, e, exclude),
+        negative: settings.leavePolicy.negative,
         ...(who ? { who, reasonMessage: LEAVE_MESSAGES.note } : {}),
     });
 };
@@ -731,6 +748,9 @@ export const resubmitLeaveChange = (mode: DataMode, e: MockEmployee, id: string,
     return leaveViewOf(mode, e);
 };
 
+/** How far below zero this type may go (comp off: never; per-event types have no balance). */
+const roomFor = (mode: DataMode, type: string) => (type === COMP_OFF ? 0 : negativeRoom(getSettings(mode).leavePolicy.negative));
+
 /** An approved change replaces the leave (the old one kept as "Was"); days beyond what's left are flagged as loss of pay. */
 const applyChange = (mode: DataMode, id: string) => {
     const c = atsLeaveChanges.get(mode).find(x => x.id === id);
@@ -740,7 +760,7 @@ const applyChange = (mode: DataMode, id: string) => {
     if (!l || !e || l.trail.status !== 'APPROVED') return;
     const left = balancesFor(mode, e, l.id).left[c.type];
     // PROTOTYPE-SETUP (Leave policy settings): per-event types have no balance, so nothing is flagged.
-    const lop = left === undefined ? 0 : lossOfPayOnApproval(left, c.days);
+    const lop = left === undefined ? 0 : lossOfPayOnApproval(left + roomFor(mode, c.type), c.days);
     const at = nowIso();
     atsLeaveRequests.update(mode, list =>
         list.map(x => {
@@ -765,13 +785,23 @@ const applyChange = (mode: DataMode, id: string) => {
     );
 };
 
+/**
+ * PROTOTYPE-SETUP (Leave fixes): the approver's balance line; below zero but within the negative balance allowance is
+ * `negativeOk` ("−1.5 after this (negative balance, recovered from the next credits)", no "Not enough leave" warning).
+ */
+const balanceInfo = (mode: DataMode, type: string, now: number, days: number) => {
+    const after = Math.round((now - days) * 100) / 100;
+    const room = roomFor(mode, type);
+    return { typeName: leaveTypeName(mode, type), availableNow: now, after, days, ...(after < 0 && -after <= room + 1e-9 ? { negativeOk: true } : {}) };
+};
+
 /** "Annual: 7 available now · 6.5 after this" for a change request: the original's days count as free again. */
 export const changeBalanceLine = (mode: DataMode, c: LeaveChange) => {
     const e = findEmployee(c.employeeId);
     if (!e) return undefined;
     const now = balancesFor(mode, e, c.leaveId).left[c.type];
     if (now === undefined) return undefined;
-    return { typeName: leaveTypeName(mode, c.type), availableNow: now, after: Math.round((now - c.days) * 100) / 100, days: c.days };
+    return balanceInfo(mode, c.type, now, c.days);
 };
 
 // ---- comp off ---------------------------------------------------------------------------------------------------------
@@ -911,7 +941,8 @@ export const applyLeaveDecision = (mode: DataMode, kind: 'leave' | 'cancel' | 'c
     if (l.lop) return;
     const left = balancesFor(mode, e, l.id).left[l.type];
     if (left === undefined) return;
-    const lop = lossOfPayOnApproval(left, l.days);
+    // PROTOTYPE-SETUP (Leave fixes): the negative balance allowance counts as available (not loss of pay).
+    const lop = lossOfPayOnApproval(left + roomFor(mode, l.type), l.days);
     if (lop > 0) atsLeaveRequests.update(mode, list => list.map(x => (x.id === id ? { ...x, lossOfPayDays: lop } : x)));
 };
 
@@ -926,7 +957,7 @@ export const leaveBalanceLine = (mode: DataMode, l: LeaveRequest, cache?: Map<nu
     }
     const now = b.left[l.type];
     if (now === undefined) return undefined;
-    return { typeName: leaveTypeName(mode, l.type), availableNow: now, after: Math.round((now - l.days) * 100) / 100, days: l.days };
+    return balanceInfo(mode, l.type, now, l.days);
 };
 
 // ---- HR ---------------------------------------------------------------------------------------------------------------
@@ -1110,6 +1141,78 @@ export const adminLeaveBalances = (mode: DataMode): AdminLeaveBalances => {
 };
 
 export const adminLeaveViewOf = (mode: DataMode, employeeId: string | number) => leaveViewOf(mode, employeeOr404(mode, employeeId));
+
+// ---- Balances: Adjust balance, Import opening balances (PROTOTYPE-SETUP: Leave fixes) --------------------------------
+
+/** The yearly types an employee has a balance for (comp off and per-event leave have none to adjust). */
+const adjustableTypes = (mode: DataMode, e: MockEmployee) => ownTypes(mode, e).filter(t => !isEventType(t));
+
+/**
+ * HR adds or deducts days on one type, with a reason (shown in the employee's ledger and Recent activity). Counted as a
+ * credit or deduction in this cycle. A deduction can't take the balance below zero past the negative allowance.
+ */
+export const adjustLeaveBalance = (mode: DataMode, employeeId: string | number, body: { type?: string; direction?: string; days?: number; reason?: string } | undefined) => {
+    const e = employeeOr404(mode, employeeId);
+    const t = adjustableTypes(mode, e).find(x => x.id === body?.type);
+    if (!t) throw new RuleError(ADJUST_MESSAGES.type, 400);
+    const direction = body?.direction === 'deduct' ? 'deduct' : 'add';
+    const days = Number(body?.days);
+    const reason = String(body?.reason ?? '').trim();
+    const available = leaveYearFor(mode, e).balances.find(b => b.type === t.id)?.available ?? 0;
+    const problem = adjustmentProblem({ direction, days, reason }, { first: first(e.fullName), available, label: typeLabel(t.name), room: negativeRoom(getSettings(mode).leavePolicy.negative) });
+    if (problem) throw new RuleError(problem, 400);
+    const at = nowIso();
+    atsLeaveAdjustments.update(mode, list => [...list, { id: uid('adj'), employeeId: e.id, type: t.id, days: direction === 'add' ? days : -days, reason, date: today(), by: 'HR team', createdAt: at }]);
+    return { message: `${daysText(days)} ${direction === 'add' ? 'added to' : 'deducted from'} ${first(e.fullName)}’s ${typeLabel(t.name)}` };
+};
+
+/** What the opening balance review checks against. */
+const openingContext = (mode: DataMode): OpeningContext => {
+    const policy = getSettings(mode).leavePolicy;
+    const people = employeesFor(mode);
+    const codeOf = new Map(people.map(e => [e.id, e.employeeId]));
+    return {
+        employees: people.map(e => ({ id: e.id, employeeId: e.employeeId, name: e.fullName, types: adjustableTypes(mode, e).map(t => t.id) })),
+        types: policy.types.filter(t => !isEventType(t)).map(t => ({ id: t.id, name: t.name })),
+        imported: new Set(atsLeaveAdjustments.get(mode).filter(a => a.opening).map(a => `${codeOf.get(a.employeeId)}:${a.type}`)),
+        today: today(),
+    };
+};
+
+/** The template's sample rows and the review context (the review itself runs in the browser too). */
+export const openingBalanceContext = (mode: DataMode) => {
+    const c = openingContext(mode);
+    return { ...c, imported: [...c.imported] };
+};
+
+/** "Import N rows": each row is checked again here; Ready rows become "Opening balance" ledger lines. */
+export const importOpeningBalances = (mode: DataMode, body: { rows?: { employeeId?: string; type?: string; days?: number; asOf?: string }[] } | undefined) => {
+    const rows = Array.isArray(body?.rows) ? body.rows : [];
+    if (!rows.length) throw new RuleError('There are no opening balances to import.', 400);
+    const review = reviewOpeningRows(
+        rows.map(r => [String(r?.employeeId ?? ''), String(r?.type ?? ''), String(r?.days ?? ''), String(r?.asOf ?? '')]),
+        openingContext(mode)
+    );
+    const ready = review.filter(r => r.status === 'ready');
+    if (!ready.length) throw new RuleError(`None of these rows can be imported: ${OPENING_STATUS[review[0].status].toLowerCase()}.`, 409);
+    const at = nowIso();
+    const people = employeesFor(mode);
+    atsLeaveAdjustments.update(mode, list => [
+        ...list,
+        ...ready.map(r => ({
+            id: uid('opn'),
+            employeeId: people.find(x => x.employeeId === r.employeeId)!.id,
+            type: r.type,
+            days: r.days ?? 0,
+            reason: 'Opening balance',
+            date: r.asOf,
+            by: 'HR team',
+            opening: true,
+            createdAt: at,
+        })),
+    ]);
+    return { imported: ready.length, skipped: review.length - ready.length, message: `${ready.length} opening balance${ready.length === 1 ? '' : 's'} imported` };
+};
 
 /** HR → Add leave: one employee's applicable types with what's available (for the drawer's type list). */
 export const adminEmployeeLeaveTypes = (mode: DataMode, employeeId: string | number) => {
@@ -1304,7 +1407,7 @@ export const removeLeaveType = (mode: DataMode, id: string) => {
 export const updateLeaveConfig = (
     mode: DataMode,
     body:
-        | Partial<Pick<LeavePolicy, 'year' | 'cycleStart' | 'lateOrder' | 'creditDate' | 'creditDay' | 'creditTime' | 'rounding' | 'lop' | 'matOn'>> & {
+        | Partial<Pick<LeavePolicy, 'year' | 'cycleStart' | 'lateOrder' | 'creditDate' | 'creditDay' | 'creditTime' | 'rounding' | 'lop' | 'matOn' | 'negative'>> & {
               sandwich?: Partial<SandwichConfig> | string;
               compOff?: Partial<LeavePolicy['compOff']>;
               halfDay?: boolean;
@@ -1339,6 +1442,8 @@ export const updateLeaveConfig = (
         lop: b.lop === 'USED_UP' || b.lop === 'ANY_TIME' ? b.lop : p.lop,
         creditTime: typeof b.creditTime === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(b.creditTime) ? b.creditTime : p.creditTime,
         matOn: typeof b.matOn === 'boolean' ? b.matOn : p.matOn,
+        // PROTOTYPE-SETUP (Leave fixes): negative balance (on / off, up to N days; null = no limit).
+        negative: b.negative === undefined ? p.negative : negativeOf({ ...p.negative, ...b.negative }),
     };
     atsSettings.set(mode, {
         ...atsSettings.get(mode),
@@ -1350,8 +1455,14 @@ export const updateLeaveConfig = (
     return leaveSettingsView(mode);
 };
 
-export const addPublicHoliday = (mode: DataMode, body: { date?: string; name?: string } | undefined) => {
+export const addPublicHoliday = (mode: DataMode, body: { date?: string; from?: string; to?: string; name?: string } | undefined) => {
     addHoliday(mode, body);
+    return leaveSettingsView(mode);
+};
+
+/** PROTOTYPE-SETUP (Leave fixes): Edit a holiday (name, From, To); `start` is its current first date. */
+export const updatePublicHoliday = (mode: DataMode, start: string, body: { from?: string; to?: string; name?: string } | undefined) => {
+    updateHoliday(mode, start, body);
     return leaveSettingsView(mode);
 };
 

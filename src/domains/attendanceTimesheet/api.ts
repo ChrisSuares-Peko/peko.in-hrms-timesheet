@@ -298,7 +298,7 @@ export const resubmitCompOff = (s: AtsScope, id: string, body: { date: string; r
 export const getLeaveSettings = (s: AtsScope) => call<LeaveSettingsView>(s, 'get', 'leave-settings');
 export const updateLeaveConfig = (
     s: AtsScope,
-    body: Partial<Pick<LeavePolicy, 'year' | 'cycleStart' | 'sandwich' | 'lateOrder' | 'creditDate' | 'creditDay' | 'creditTime' | 'rounding' | 'lop' | 'matOn'>> & {
+    body: Partial<Pick<LeavePolicy, 'year' | 'cycleStart' | 'sandwich' | 'lateOrder' | 'creditDate' | 'creditDay' | 'creditTime' | 'rounding' | 'lop' | 'matOn' | 'negative'>> & {
         compOff?: Partial<LeavePolicy['compOff']>;
         halfDay?: boolean;
         lateDeductionDays?: number;
@@ -308,7 +308,10 @@ export const addLeaveType = (s: AtsScope, body: LeaveTypeInput) => call<LeaveSet
 export const updateLeaveType = (s: AtsScope, id: string, body: Partial<LeaveTypeInput>) => call<LeaveSettingsView>(s, 'put', `leave-settings/types/${id}`, { body });
 export const setLeaveTypeActive = (s: AtsScope, id: string, active: boolean) => call<LeaveSettingsView>(s, 'post', `leave-settings/types/${id}/active`, { body: { active } });
 export const removeLeaveType = (s: AtsScope, id: string) => call<LeaveSettingsView>(s, 'delete', `leave-settings/types/${id}`);
-export const addPublicHoliday = (s: AtsScope, body: { date: string; name: string }) => call<LeaveSettingsView>(s, 'post', 'leave-settings/holidays', { body });
+export const addPublicHoliday = (s: AtsScope, body: { from: string; to: string; name: string }) => call<LeaveSettingsView>(s, 'post', 'leave-settings/holidays', { body });
+/** PROTOTYPE-SETUP (Leave fixes): edit the holiday that starts on `start` (name, from, to). */
+export const updatePublicHoliday = (s: AtsScope, start: string, body: { from: string; to: string; name: string }) =>
+    call<LeaveSettingsView>(s, 'put', `leave-settings/holidays/${start}`, { body });
 /** PROTOTYPE-SETUP (Leave settings rework): the bulk upload's Ready rows, one entry per date. */
 export const importPublicHolidays = (s: AtsScope, holidays: { date: string; name: string }[]) =>
     call<LeaveSettingsView>(s, 'post', 'leave-settings/holidays/bulk', { body: { holidays } });
@@ -352,6 +355,20 @@ export const getAdminLeaveCalendar = (s: AtsScope, month: string) => call<TeamLe
 export const getAdminOffToday = (s: AtsScope) => call<AdminOffToday[]>(s, 'get', 'payroll/admin/leave/off-today');
 export const getAdminLeaveBalances = (s: AtsScope) => call<AdminLeaveBalances>(s, 'get', 'payroll/admin/leave/balances');
 export const getAdminLeaveView = (s: AtsScope, employeeId: number) => call<LeaveView>(s, 'get', `payroll/admin/leave/${employeeId}`);
+/** PROTOTYPE-SETUP (Leave fixes): Balances → Adjust balance (add / deduct days with a reason). */
+export const adjustLeaveBalance = (s: AtsScope, employeeId: number, body: { type: string; direction: 'add' | 'deduct'; days: number; reason: string }) =>
+    call<{ message: string }>(s, 'post', `payroll/admin/leave/${employeeId}/adjust`, { body });
+/** Import opening balances: the review context (employees, yearly types, already imported) and the import. */
+export const getOpeningBalanceContext = (s: AtsScope) =>
+    call<{ employees: { id: number; employeeId: string; name: string; types: string[] }[]; types: { id: string; name: string }[]; imported: string[]; today: string }>(
+        s,
+        'get',
+        'payroll/admin/leave/opening-balances'
+    );
+export const importOpeningBalances = (s: AtsScope, rows: { employeeId: string; type: string; days: number; asOf: string }[]) =>
+    call<{ imported: number; skipped: number; message: string }>(s, 'post', 'payroll/admin/leave/opening-balances', { body: { rows } });
+/** PROTOTYPE-SETUP (Leave fixes): a team member's leave, for an approver's read-only View. */
+export const getTeamMemberLeaveView = (s: AtsScope, employeeId: number) => call<LeaveView>(s, 'get', `team/members/${employeeId}/leave`);
 /** PROTOTYPE-SETUP (Leave module): Payroll → Leave — Overview, Leaves (approved), Add leave, Cancel, Mark active. */
 export const getAdminLeaveOverview = (s: AtsScope) => call<AdminLeaveOverview>(s, 'get', 'payroll/admin/leave/overview');
 export const getAdminLeaveEntries = (s: AtsScope) => call<AdminLeaveEntry[]>(s, 'get', 'payroll/admin/leave/leaves');

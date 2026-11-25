@@ -12,13 +12,14 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
 import StatusTag from '@src/components/peko/StatusTag';
-import { LOP_UNPAID_LINE } from '@src/prototype/rules/leave';
+import { LOP_UNPAID_LINE, NEGATIVE_AFTER_TEXT } from '@src/prototype/rules/leave';
 
-
-import type { OvertimeContext, RequestItem } from '../types';
 import { displayTime, displayTimeOn, fmtDate, fmtStamp, formatDuration } from './format';
 import { RequestStatusTag } from './StatusTags';
 import TrailSteps from './TrailSteps';
+import { DocChip } from '../leave/LeaveRequestDrawer';
+import { ViewRequestButton, drawerItemOf, type ViewerSource } from '../leave/LeaveRequestViewer';
+import type { OvertimeContext, RequestItem } from '../types';
 
 dayjs.extend(relativeTime);
 
@@ -127,12 +128,16 @@ export type RequestDecision = 'approve' | 'reject' | 'update';
  * PROTOTYPE-SETUP (My team, Slice 3): one request — who, what, the change, the reason, the status and its trail — with
  * Reject / Ask for update / Approve while it's waiting for the viewer. Shared by the queues and the My team inbox.
  */
-export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (d: RequestDecision) => void }) => {
+export const RequestCard = ({ item, onDecide, viewAs }: { item: RequestItem; onDecide: (d: RequestDecision) => void; viewAs?: ViewerSource }) => {
+    // PROTOTYPE-SETUP (Leave fixes): leave, cancellation, change and comp off rows get a read-only View (viewAs = whose
+    // endpoint loads the employee's leave: My team or Payroll).
+    const drawerItem = viewAs ? drawerItemOf(item) : null;
     // PROTOTYPE-SETUP (Leave module): approving leave beyond what's available asks first ("Not enough leave").
     const [short, setShort] = useState(false);
     const lb = item.leaveBalance;
     const approve = () => {
-        if (lb && lb.after < 0) setShort(true);
+        // PROTOTYPE-SETUP (Leave fixes): within the negative balance allowance it approves without the warning.
+        if (lb && lb.after < 0 && !lb.negativeOk) setShort(true);
         else onDecide('approve');
     };
     return (
@@ -169,6 +174,11 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
                             <Typography.Text className="text-sm !text-[var(--peko-warning-ink)]" data-unpaid-line>
                                 {LOP_UNPAID_LINE}
                             </Typography.Text>
+                        )}
+                        {item.document && (
+                            <span>
+                                <DocChip name={item.document} />
+                            </span>
                         )}
                         {item.eventLine && (
                             <Typography.Text className="text-sm !text-[var(--peko-text-2)]" data-event-line>
@@ -211,6 +221,7 @@ export const RequestCard = ({ item, onDecide }: { item: RequestItem; onDecide: (
                             {timeAgo(item.at)}
                         </Typography.Text>
                     </Tooltip>
+                    {drawerItem && viewAs && <ViewRequestButton source={viewAs} employeeId={item.employee.id} item={drawerItem} />}
                     {item.waitingForYou && (
                         <Flex gap={8} wrap="wrap" justify="flex-end">
                             {/* PROTOTYPE-SETUP (Design update): small row buttons; Approve is outlined green (peko-approve). */}
@@ -260,12 +271,30 @@ type LeaveBalanceInfo = NonNullable<RequestItem['leaveBalance']>;
 const days = (n: number) => `${Math.round(n * 100) / 100} day${Math.abs(n) <= 1 ? '' : 's'}`;
 const num = (n: number) => String(Math.round(n * 100) / 100);
 
-/** "Annual: 7 available now · 6.5 after this" (red when short: "short by 1.5 (would be loss of pay)"). */
-export const LeaveBalanceLine = ({ b }: { b: LeaveBalanceInfo }) => (
-    <Typography.Text className={`text-sm ${b.after < 0 ? '!text-[var(--peko-error-ink)]' : '!text-[var(--peko-text-2)]'}`} data-leave-balance-line={b.after < 0 ? 'short' : 'ok'}>
-        {b.typeName}: {num(b.availableNow)} available now · {b.after < 0 ? `short by ${num(-b.after)} (would be loss of pay)` : `${num(b.after)} after this`}
-    </Typography.Text>
-);
+/**
+ * "Annual: 7 available now · 6.5 after this" (red when short: "short by 1.5 (would be loss of pay)"; amber within the
+ * negative balance allowance: "−1.5 after this (negative balance, recovered from the next credits)").
+ */
+export const LeaveBalanceLine = ({ b }: { b: LeaveBalanceInfo }) => {
+    const short = b.after < 0 && !b.negativeOk;
+    let tone = '!text-[var(--peko-text-2)]';
+    let after = `${num(b.after)} after this`;
+    let state = 'ok';
+    if (short) {
+        tone = '!text-[var(--peko-error-ink)]';
+        after = `short by ${num(-b.after)} (would be loss of pay)`;
+        state = 'short';
+    } else if (b.after < 0) {
+        tone = '!text-[var(--peko-warning-ink)]';
+        after = `−${num(-b.after)} after this (${NEGATIVE_AFTER_TEXT})`;
+        state = 'negative';
+    }
+    return (
+        <Typography.Text className={`text-sm ${tone}`} data-leave-balance-line={state}>
+            {b.typeName}: {num(b.availableNow)} available now · {after}
+        </Typography.Text>
+    );
+};
 
 /** "Not enough leave": the loss-of-pay amount, Approve anyway or Ask for update. */
 export const NotEnoughLeaveModal = ({

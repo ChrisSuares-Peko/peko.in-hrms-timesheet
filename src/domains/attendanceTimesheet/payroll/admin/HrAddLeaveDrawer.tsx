@@ -146,6 +146,7 @@ const HrAddLeaveDrawer = ({ open, onClose, onAdded }: { open: boolean; onClose: 
                     available: Object.fromEntries(info.balances.map(x => [x.type, x.available])),
                     pending: Object.fromEntries(info.balances.map(x => [x.type, x.inRequest])),
                     onProbation: info.status === 'PROBATION',
+                    negative: info.rules.negative,
                     eventTaken: (t: string, date: string) => (info.events ?? []).some(x => x.type === t && x.eventDate === date),
                     who: first,
                     reasonMessage: 'Add a short note.',

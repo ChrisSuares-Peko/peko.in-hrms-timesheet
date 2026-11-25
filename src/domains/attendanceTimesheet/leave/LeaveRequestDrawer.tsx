@@ -6,11 +6,16 @@
 //   actions ......... pending: Edit request · Withdraw; update requested: Update and resubmit · Withdraw;
 //                     approved: Change leave · Cancel leave (a change / cancellation request; hidden while one waits)
 // Leave cancellations, change requests and comp off open here too, with their own Edit / Update / Withdraw.
+// PROTOTYPE-SETUP (Leave fixes): Withdraw asks for confirmation ("Withdraw this request?"). `readOnly` (approvers' and
+// HR's "View") shows the same details, document, chain and history with no actions.
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { Alert, Button, Drawer, Popconfirm, Typography } from 'antd';
+import { PaperClipOutlined } from '@ant-design/icons';
+import { Alert, Button, Drawer, Typography } from 'antd';
 import dayjs from 'dayjs';
 
+import ConfirmDialog from '@src/components/peko/ConfirmDialog';
 import useScreenSize from '@src/hooks/useScreenSize';
 import { MATERNITY_CHILD_LABEL, daysText, typeLabel } from '@src/prototype/rules/leave';
 import { type LogItemKind, periodText, requestHistory } from '@src/prototype/rules/leaveLog';
@@ -68,8 +73,29 @@ const find = (view: LeaveView, it: DrawerItem) => {
     return view.compOffs.find(r => r.id === it.id);
 };
 
-const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView; item: DrawerItem | null; onClose: () => void; actions: DrawerActions }) => {
+/** "📎 file name": an attached document, on request rows and in the drawer. */
+export const DocChip = ({ name }: { name: string }) => (
+    <span className="inline-flex max-w-full items-center gap-1 rounded-md bg-[var(--peko-subtle)] px-2 py-px text-xs text-[var(--peko-text-2)]" data-doc-chip>
+        <PaperClipOutlined />
+        <span className="truncate">{name}</span>
+    </span>
+);
+
+const LeaveRequestDrawer = ({
+    view,
+    item,
+    onClose,
+    actions,
+    readOnly = false,
+}: {
+    view: LeaveView;
+    item: DrawerItem | null;
+    onClose: () => void;
+    actions: DrawerActions;
+    readOnly?: boolean;
+}) => {
     const { xs } = useScreenSize();
+    const [withdrawing, setWithdrawing] = useState<string | null>(null);
     const found = item ? find(view, item) : undefined;
     if (!item || !found) return null;
     const history = requestHistory(view, item.kind, item.id);
@@ -85,9 +111,9 @@ const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView;
     let note: ReactNode = null;
 
     const withdraw = (what: string) => (
-        <Popconfirm title={`Withdraw this ${what}?`} okText="Withdraw" onConfirm={() => actions.onWithdraw(item)}>
-            <Button data-drawer-withdraw>Withdraw</Button>
-        </Popconfirm>
+        <Button onClick={() => setWithdrawing(what)} data-drawer-withdraw>
+            Withdraw
+        </Button>
     );
 
     if (item.kind === 'leave') {
@@ -101,7 +127,11 @@ const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView;
                 <Row label="Day type">{r.half ? `${dayTypeText(r.half)}${r.end > r.start ? ' of each day' : ''}` : 'Full days'}</Row>
                 <Row label="Duration">{daysText(r.days)}</Row>
                 <Row label="Reason">{r.reason || '–'}</Row>
-                {r.proof && <Row label="Document">{r.proof.name}</Row>}
+                {r.proof && (
+                    <Row label="Document">
+                        <DocChip name={r.proof.name} />
+                    </Row>
+                )}
                 {/* PROTOTYPE-SETUP (Leave policy settings): per-event leave shows its event date; loss of pay is unpaid. */}
                 {r.eventDate && <Row label="Event date">{fmtDay(r.eventDate)}</Row>}
                 {r.child && <Row label="Child">{MATERNITY_CHILD_LABEL[r.child]}</Row>}
@@ -214,7 +244,11 @@ const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView;
                 <Row label="Duration">{daysText(c.days)}</Row>
                 <Row label="Was">{wasText({ ...c.was, typeName: c.wasTypeName })}</Row>
                 <Row label="Reason">{c.reason}</Row>
-                {c.proof && <Row label="Document">{c.proof.name}</Row>}
+                {c.proof && (
+                    <Row label="Document">
+                        <DocChip name={c.proof.name} />
+                    </Row>
+                )}
             </>
         );
         if (open)
@@ -266,9 +300,20 @@ const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView;
             onClose={onClose}
             destroyOnHidden
             // PROTOTYPE-SETUP (Design update, rule 11): actions right-aligned with the primary last (each list puts it first).
-            footer={buttons ? <div className="flex flex-row-reverse flex-wrap justify-start gap-2">{buttons}</div> : null}
+            footer={buttons && !readOnly ? <div className="flex flex-row-reverse flex-wrap justify-start gap-2">{buttons}</div> : null}
             data-leave-drawer={`${item.kind}:${item.id}`}
+            data-read-only={readOnly || undefined}
         >
+            <ConfirmDialog
+                open={Boolean(withdrawing)}
+                title={`Withdraw this ${withdrawing ?? 'request'}?`}
+                confirm="Withdraw"
+                onClose={() => setWithdrawing(null)}
+                onConfirm={() => actions.onWithdraw(item)}
+                data-withdraw-confirm
+            >
+                Nobody will be asked to approve it any more, and it can’t be reopened. You can apply again later.
+            </ConfirmDialog>
             <div className="flex flex-col gap-5">
                 <div className="flex flex-wrap items-center gap-2">
                     <LeaveStatusTag r={{ state, statusLabel }} />
@@ -277,6 +322,11 @@ const LeaveRequestDrawer = ({ view, item, onClose, actions }: { view: LeaveView;
                     </Text>
                 </div>
                 {ask && <Alert type="warning" showIcon message={`${ask.by} asked for an update`} description={ask.comment} data-drawer-ask />}
+                {readOnly && (
+                    <Text type="secondary" className="text-xs" data-drawer-employee>
+                        {view.employeeName}
+                    </Text>
+                )}
                 {note && <div className="flex flex-col gap-2">{note}</div>}
                 <Section title="Details">
                     <div>{details}</div>

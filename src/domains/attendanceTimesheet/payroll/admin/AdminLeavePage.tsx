@@ -4,15 +4,17 @@
 //                strip; the company leave calendar with "Leave to approve" (waiting for a team, i.e. you) beside it
 //   Leaves ..... approved leave as a table (name + email, type, from, to, duration, reason, applied on, added by, status
 //                Upcoming / On leave now / Taken), filters (when, type, date range, search by name / email / type) and
-//                Cancel (HR: a reason, applies straight away — only the days from today once it has started)
+//                Cancel (HR: a reason, applies straight away — only the days from today once it has started);
+//                View (the request drawer, read-only) and Export (the filtered table as Excel)
 //   Requests ... the shared admin list; its views follow the approval setup (Waiting for you only when a team approves
 //                at some level, With managers / approvers only when a person does); no Approved view (that's Leaves);
 //                a clash chip per request (approved leave in the same department overlapping)
 //   Balances ... every employee: status (Probation with "Mark active"), per type "available / allocated" ("—" when
-//                the type doesn't apply), late deductions and loss of pay; a row opens their cards and credits
+//                the type doesn't apply), late deductions and loss of pay; a row opens their cards and credits;
+//                "Adjust balance" per row (and in the popup), "Import opening balances" and "Export" (BalanceModals)
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { DownloadOutlined, PlusOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons';
 import { Button, DatePicker, Empty, Flex, Input, Modal, Popconfirm, Segmented, Select, Skeleton, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs, { type Dayjs } from 'dayjs';
@@ -22,6 +24,7 @@ import { ESS_CARD } from '@src/components/ess/essTokens';
 import InfoTip from '@src/components/peko/InfoTip';
 import { PekoSectionTabs } from '@src/components/peko/PageHeader';
 import StatusTag from '@src/components/peko/StatusTag';
+import { downloadSheet } from '@src/domains/dashboard/globalBusinessSetup/utils/excel/downloadSheet';
 import { useAppDispatch } from '@src/hooks/store';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
 import { adminRequestViews, daysText, fmtDays, typeLabel } from '@src/prototype/rules/leave';
@@ -30,12 +33,14 @@ import { showToast } from '@src/slices/apiSlice';
 import { CountTile, PayrollServiceBar, ServiceHeader, notifyAdminChanged, useAdminCounts } from './adminShared';
 import { decideAdminRequest, getAdminLeaveBalances, getAdminLeaveCalendar, getAdminLeaveEntries, getAdminLeaveOverview, getAdminLeaveView, getAdminRequests, hrCancelLeave, markEmployeeActive } from '../../api';
 import { CancelLeaveModal, CancelTarget } from '../../leave/LeaveActionModals';
+import { ViewRequestButton } from '../../leave/LeaveRequestViewer';
 import { BalanceCard, ExitBanner, LateDeductionsPanel, LossOfPayCard, ProbationBanner, leaveYearLine } from '../../leave/leaveUi';
 import TeamLeaveCalendar from '../../team/TeamLeaveCalendar';
 import { PersonCell } from '../../team/teamShared';
 import type { AdminLeaveBalances, AdminLeaveEntry, AdminLeaveOverview, AdminLeaveRow, AdminRequestRow, LeaveView } from '../../types';
 import { useAtsSettings, usePayrollScope } from '../usePayrollAts';
 import AdminRequestsList from './AdminRequestsList';
+import { AdjustBalanceModal, OpeningBalancesModal } from './BalanceModals';
 import HrAddLeaveDrawer from './HrAddLeaveDrawer';
 
 const { Text } = Typography;
@@ -108,6 +113,7 @@ const Overview = ({ reloadKey }: { reloadKey: number }) => {
                 loadMonth={loadMonth}
                 loadPending={loadPending}
                 decide={(item, d, comment) => decideAdminRequest(scope, 'leave', item.id, d, comment)}
+                viewAs="admin"
                 onChanged={() => {
                     notifyAdminChanged();
                     load();
@@ -178,20 +184,35 @@ const Leaves = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () => 
         { title: 'Added by', key: 'b', render: (_, r) => r.addedBy },
         { title: 'Status', key: 's', render: (_, r) => <StatusTag color={STATE[r.state].color} className="!m-0">{STATE[r.state].label}</StatusTag> },
         {
-            title: '',
+            title: 'Action',
             key: 'x',
-            render: (_, r) =>
-                r.cancelFrom ? (
-                    <Button
-                        size="small"
-                        onClick={() => setCancel({ id: r.id, who: r.employee.name, typeName: r.typeName, start: r.start, end: r.end, half: r.half, cancelFrom: r.cancelFrom!, cancelDays: r.cancelDays })}
-                        data-hr-cancel
-                    >
-                        Cancel
-                    </Button>
-                ) : null,
+            render: (_, r) => (
+                <Flex gap={4} wrap="nowrap">
+                    {/* PROTOTYPE-SETUP (Leave fixes): View opens the request drawer read-only. */}
+                    <ViewRequestButton source="admin" employeeId={r.employee.id} item={{ kind: 'leave', id: r.id }} />
+                    {r.cancelFrom ? (
+                        <Button
+                            size="small"
+                            onClick={() => setCancel({ id: r.id, who: r.employee.name, typeName: r.typeName, start: r.start, end: r.end, half: r.half, cancelFrom: r.cancelFrom!, cancelDays: r.cancelDays })}
+                            data-hr-cancel
+                        >
+                            Cancel
+                        </Button>
+                    ) : null}
+                </Flex>
+            ),
         },
     ];
+    // PROTOTYPE-SETUP (Leave fixes): "Export" downloads the filtered table as Excel.
+    const exportLeaves = () =>
+        downloadSheet(
+            [
+                ['Name', 'Email', 'Leave type', 'From', 'To', 'Days', 'Reason', 'Applied on', 'Added by', 'Status'],
+                ...list.map(r => [r.employee.name, r.employee.email, typeLabel(r.typeName), r.start, r.end, r.days, r.reason || '', r.createdAt.slice(0, 10), r.addedBy, STATE[r.state].label]),
+            ],
+            'Leaves',
+            `leaves-${dayjs().format('YYYY-MM-DD')}.xlsx`
+        );
     return (
         <Flex vertical gap={10} className="min-w-0" data-admin-leaves>
             <Flex gap={8} wrap="wrap" align="center">
@@ -226,6 +247,9 @@ const Leaves = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () => 
                     value={q}
                     onChange={e => setQ(e.target.value)}
                 />
+                <Button icon={<DownloadOutlined />} onClick={exportLeaves} disabled={!list.length} data-export-leaves>
+                    Export
+                </Button>
             </Flex>
             <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[var(--peko-border)] bg-white">
                 <Table<AdminLeaveEntry>
@@ -261,15 +285,29 @@ const Leaves = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () => 
 
 // ---- Balances -----------------------------------------------------------------------------------------------
 
-const EmployeeLeave = ({ employeeId, onClose }: { employeeId: number | null; onClose: () => void }) => {
+const EmployeeLeave = ({ employeeId, onClose, onAdjust, reloadKey }: { employeeId: number | null; onClose: () => void; onAdjust: (id: number) => void; reloadKey: number }) => {
     const scope = usePayrollScope();
     const [view, setView] = useState<LeaveView | null>(null);
     useEffect(() => {
         setView(null);
         if (employeeId) getAdminLeaveView(scope, employeeId).then(res => setView(res || null));
-    }, [scope, employeeId]);
+    }, [scope, employeeId, reloadKey]);
     return (
-        <Modal open={employeeId !== null} title={view ? `${view.employeeName} · leave` : 'Leave'} width={960} onCancel={onClose} footer={null} destroyOnHidden>
+        <Modal
+            open={employeeId !== null}
+            title={view ? `${view.employeeName} · leave` : 'Leave'}
+            width={960}
+            onCancel={onClose}
+            destroyOnHidden
+            footer={[
+                <Button key="a" onClick={() => employeeId && onAdjust(employeeId)} data-popup-adjust>
+                    Adjust balance
+                </Button>,
+                <Button key="c" onClick={onClose}>
+                    Close
+                </Button>,
+            ]}
+        >
             {!view ? (
                 <Skeleton active paragraph={{ rows: 6 }} />
             ) : (
@@ -298,6 +336,15 @@ const Balances = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () =
     const [params, setParams] = useSearchParams();
     const [data, setData] = useState<AdminLeaveBalances | null>(null);
     const [q, setQ] = useState('');
+    const [adjusting, setAdjusting] = useState<number | null>(null);
+    const [importing, setImporting] = useState(false);
+    const [popupKey, setPopupKey] = useState(0);
+    const toast = (message: string) => {
+        dispatch(showToast({ variant: 'success', description: message }));
+        load();
+        setPopupKey(k => k + 1);
+        onChanged();
+    };
     const load = useCallback(() => getAdminLeaveBalances(scope).then(res => setData(res || { types: [], rows: [] })), [scope]);
     useEffect(() => {
         load();
@@ -378,12 +425,62 @@ const Balances = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () =
                     <Text type="secondary">0</Text>
                 ),
         },
+        {
+            title: 'Action',
+            key: 'x',
+            render: (_, r) => (
+                <Button
+                    size="small"
+                    onClick={e => {
+                        e.stopPropagation();
+                        setAdjusting(r.employee.id);
+                    }}
+                    data-adjust-balance={r.employee.id}
+                >
+                    Adjust balance
+                </Button>
+            ),
+        },
     ];
     const text = q.trim().toLowerCase();
     const rows = (data?.rows ?? []).filter(r => !text || r.employee.name.toLowerCase().includes(text) || r.employee.email.toLowerCase().includes(text));
+    // PROTOTYPE-SETUP (Leave fixes): "Export" — employee, department, status, available and allocated per type.
+    const exportBalances = () =>
+        downloadSheet(
+            [
+                ['Employee ID', 'Employee', 'Department', 'Status', ...(data?.types ?? []).flatMap(t => [`${t.name} available`, `${t.name} allocated`])],
+                ...rows.map(r => [
+                    r.employee.employeeId,
+                    r.employee.name,
+                    r.employee.department,
+                    r.status === 'PROBATION' ? 'Probation' : 'Active',
+                    ...(data?.types ?? []).flatMap((t): (string | number)[] => {
+                        const v = r.types[t.id];
+                        return v ? [v.available, v.allocated] : ['', ''];
+                    }),
+                ]),
+            ],
+            'Leave balances',
+            `leave-balances-${dayjs().format('YYYY-MM-DD')}.xlsx`
+        );
     return (
         <Flex vertical gap={8} className="min-w-0">
-            <Input allowClear prefix={<SearchOutlined />} placeholder="Search by name or email" aria-label="Search employees" className="w-full sm:w-[280px]" value={q} onChange={e => setQ(e.target.value)} />
+            <Flex gap={8} wrap="wrap" align="center">
+                <Input allowClear prefix={<SearchOutlined />} placeholder="Search by name or email" aria-label="Search employees" className="w-full sm:w-[280px]" value={q} onChange={e => setQ(e.target.value)} />
+                <span className="flex-1" />
+                <span className="inline-flex items-center">
+                    <Button icon={<UploadOutlined />} onClick={() => setImporting(true)} data-import-opening>
+                        Import opening balances
+                    </Button>
+                    <InfoTip
+                        label="About opening balances"
+                        title="For companies moving to Peko mid-year: upload each employee’s current balance per leave type. It’s added to their ledger as an opening balance."
+                    />
+                </span>
+                <Button icon={<DownloadOutlined />} onClick={exportBalances} disabled={!rows.length} data-export-balances>
+                    Export
+                </Button>
+            </Flex>
             <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[var(--peko-border)] bg-white">
                 <Table<AdminLeaveRow>
                     rowKey={r => r.employee.id}
@@ -406,7 +503,23 @@ const Balances = ({ reloadKey, onChanged }: { reloadKey: number; onChanged: () =
                     title="Available leaves out leave in request; allocated is this year’s entitlement plus what was carried forward. Employees on probation follow each type’s probation rule until you mark them Active."
                 />
             </Text>
-            <EmployeeLeave employeeId={open} onClose={() => setOpen(null)} />
+            <EmployeeLeave employeeId={open} onClose={() => setOpen(null)} onAdjust={setAdjusting} reloadKey={popupKey} />
+            <AdjustBalanceModal
+                employeeId={adjusting}
+                onClose={() => setAdjusting(null)}
+                onSaved={message => {
+                    setAdjusting(null);
+                    toast(message);
+                }}
+            />
+            <OpeningBalancesModal
+                open={importing}
+                onClose={() => setImporting(false)}
+                onImported={message => {
+                    setImporting(false);
+                    toast(message);
+                }}
+            />
         </Flex>
     );
 };

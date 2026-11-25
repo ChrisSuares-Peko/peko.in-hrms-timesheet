@@ -2,6 +2,7 @@
 // holidays. Seeded from the calendar's public holidays (last year, this year, next year). They drive the calendars, the
 // timesheet prefill, leave day counts and comp off eligibility. A holiday on a weekly off gives no extra day.
 import { RuleError } from '@src/prototype/rules/attendance';
+import { datesBetween, holidayGroups, holidayRangeProblem } from '@src/prototype/rules/holidayImport';
 
 import { createCollection } from './persistentStore';
 import { currentYear, holidaysForYear } from '../data/time-calendar';
@@ -34,13 +35,47 @@ export const HOLIDAY_MESSAGES = {
     missing: 'That holiday isn’t in the list any more.',
 } as const;
 
-export const addHoliday = (mode: DataMode, body: { date?: string; name?: string } | undefined) => {
-    const date = String(body?.date ?? '');
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+const longDate = (iso: string) => {
+    const d = new Date(`${iso}T00:00:00`);
+    return `${d.getDate()} ${d.toLocaleString('en-GB', { month: 'short' })} ${d.getFullYear()}`;
+};
+
+/** The holiday (all its consecutive dates with the same name) that starts on `from`. */
+const groupFrom = (mode: DataMode, from: string) => {
+    const g = holidayGroups(holidaysOf(mode)).find(x => x.from === from);
+    if (!g) throw new RuleError(HOLIDAY_MESSAGES.missing, 404);
+    return g;
+};
+
+/**
+ * PROTOTYPE-SETUP (Leave fixes: holidays with ranges): a holiday is one day or a range (`from`–`to`, at most 31 days,
+ * no date that's already a holiday). `date` is still accepted for a one-day holiday. Stored one entry per date.
+ */
+const checkedRange = (mode: DataMode, body: { date?: string; from?: string; to?: string; name?: string } | undefined, own: string[] = []) => {
+    const from = String(body?.from ?? body?.date ?? '');
+    const to = String(body?.to || from);
     const name = String(body?.name ?? '').trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new RuleError(HOLIDAY_MESSAGES.date, 400);
-    if (!name) throw new RuleError(HOLIDAY_MESSAGES.name, 400);
-    if (holidaysOf(mode).some(h => h.date === date)) throw new RuleError(HOLIDAY_MESSAGES.duplicate, 409);
-    return atsHolidays.update(mode, list => [...list, { date, name }].sort((a, b) => a.date.localeCompare(b.date)));
+    if (!ISO.test(from) || !ISO.test(to)) throw new RuleError(HOLIDAY_MESSAGES.date, 400);
+    const problem = holidayRangeProblem({ name, from, to }, holidaysOf(mode).map(h => h.date), own);
+    if (problem?.clash) throw new RuleError(`${longDate(problem.clash)} is already a holiday.`, 409);
+    if (problem) throw new RuleError(problem.message, 400);
+    return { from, to, name };
+};
+
+export const addHoliday = (mode: DataMode, body: { date?: string; from?: string; to?: string; name?: string } | undefined) => {
+    const { from, to, name } = checkedRange(mode, body);
+    return atsHolidays.update(mode, list => [...list, ...datesBetween(from, to).map(date => ({ date, name }))].sort((x, y) => x.date.localeCompare(y.date)));
+};
+
+/** Edit: the holiday starting on `start` gets a new name and dates (it may keep its own dates). */
+export const updateHoliday = (mode: DataMode, start: string, body: { from?: string; to?: string; name?: string } | undefined) => {
+    const g = groupFrom(mode, start);
+    const own = datesBetween(g.from, g.to);
+    const { from, to, name } = checkedRange(mode, body, own);
+    return atsHolidays.update(mode, list =>
+        [...list.filter(h => !(h.name === g.name && own.includes(h.date))), ...datesBetween(from, to).map(date => ({ date, name }))].sort((x, y) => x.date.localeCompare(y.date))
+    );
 };
 
 /**
@@ -59,7 +94,9 @@ export const addHolidays = (mode: DataMode, body: { holidays?: { date?: string; 
     return fresh.length;
 };
 
+/** Removes the holiday starting on `date`: every date of it when it's a range. */
 export const removeHoliday = (mode: DataMode, date: string) => {
-    if (!holidaysOf(mode).some(h => h.date === date)) throw new RuleError(HOLIDAY_MESSAGES.missing, 404);
-    return atsHolidays.update(mode, list => list.filter(h => h.date !== date));
+    const g = groupFrom(mode, date);
+    const own = new Set(datesBetween(g.from, g.to));
+    return atsHolidays.update(mode, list => list.filter(h => !(h.name === g.name && own.has(h.date))));
 };

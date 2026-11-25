@@ -1,7 +1,8 @@
 // PROTOTYPE-SETUP (Leave module; Leave settings rework — notes pay:settings:leave:types): Leave Policies → Leave types
 // → Add / Edit (a drawer) and View (every rule of a type, grouped as in the drawer). Help text is in tooltips (InfoTip);
 // only values, choices, statuses and errors are on screen.
-//   every type ...... Name · Kind (Yearly balance / Per event) · Count leave in · Applicable gender · Show to employees
+//   every type ...... Name · Kind (Yearly balance / Per event) · Count leave in · Applicable gender; footer (existing
+//                     types): Disable / Enable leave type, applied straight away (PROTOTYPE-SETUP: Leave fixes)
 //   Yearly balance .. Days per year; 1 · During probation; 2 · After probation (credit + the four end-of-cycle options +
 //                     carry limit); 3 · When an employee leaves; Requests (half days, supporting documents)
 //   Per event ....... Triggered by; Number of days; When the leave can start; Supporting documents
@@ -23,6 +24,7 @@ import {
     COUNT_LABEL,
     CREDIT_LABEL,
     MATERNITY_CHILD_LABEL,
+    MATERNITY_HEADCOUNT,
     PROBATION_LABEL,
     TRIGGERS,
     accrualText,
@@ -132,6 +134,7 @@ export const LeaveTypeDrawer = ({
     matOn = false,
     onClose,
     onSave,
+    onToggle,
 }: {
     open: boolean;
     /** null = a new type. */
@@ -144,11 +147,16 @@ export const LeaveTypeDrawer = ({
     maternityRequired?: boolean;
     matOn?: boolean;
     onClose: () => void;
-    /** Saves the type; for Maternity also whether it's offered (when it's optional). */
-    onSave: (input: LeaveTypeInput, extra?: { matOn?: boolean }) => Promise<boolean>;
+    /** Saves the type. */
+    onSave: (input: LeaveTypeInput) => Promise<boolean>;
+    /**
+     * PROTOTYPE-SETUP (Leave fixes): "Disable leave type" / "Enable leave type" — applies straight away (Maternity: whether
+     * it's offered, when it's optional).
+     */
+    onToggle?: () => Promise<boolean>;
 }) => {
     const [v, setV] = useState<LeaveTypeInput>(BLANK);
-    const [offer, setOffer] = useState(false);
+    const [toggling, setToggling] = useState(false);
     const [error, setError] = useState('');
     const [confirming, setConfirming] = useState(false);
     const [busy, setBusy] = useState(false);
@@ -157,10 +165,9 @@ export const LeaveTypeDrawer = ({
     useEffect(() => {
         if (!open) return;
         setV(type ? { ...type } : BLANK);
-        setOffer(maternityRequired || matOn);
         setError('');
         setConfirming(false);
-    }, [open, type, maternityRequired, matOn]);
+    }, [open, type]);
 
     const set = <K extends keyof LeaveTypeInput>(k: K, value: LeaveTypeInput[K]) => {
         setV(cur => ({ ...cur, [k]: value }));
@@ -184,7 +191,7 @@ export const LeaveTypeDrawer = ({
             return undefined;
         }
         setBusy(true);
-        const ok = await onSave({ ...v, name: v.name.trim() }, maternity ? { matOn: offer } : undefined);
+        const ok = await onSave({ ...v, name: v.name.trim() });
         setBusy(false);
         if (ok) onClose();
         return undefined;
@@ -198,6 +205,20 @@ export const LeaveTypeDrawer = ({
     if (type) saveLabel = confirming ? 'Confirm and save' : 'Save changes';
     const triggerDate = eventDateLabel({ id: '', trigger: v.trigger, eventLabel: v.eventLabel });
     const eventWord = triggerDate.toLowerCase().replace(/^date of (the )?/, '');
+    // Disabled = hidden from employees (Maternity: not offered).
+    const offered = maternityRequired || matOn;
+    const isOff = maternity ? !offered : type?.active === false;
+    const toggleTip =
+        maternity && maternityRequired
+            ? `Maternity leave is required by law with more than ${MATERNITY_HEADCOUNT} employees, so it can’t be disabled.`
+            : 'Disabling hides this leave type from employees without deleting it. Balances and past leave stay, and you can enable it again any time.';
+    const toggle = async () => {
+        if (!onToggle) return;
+        setToggling(true);
+        const ok = await onToggle();
+        setToggling(false);
+        if (ok) onClose();
+    };
 
     return (
         <Drawer
@@ -227,7 +248,15 @@ export const LeaveTypeDrawer = ({
                         />
                     )}
                     {error && <Alert type="error" showIcon message={error} data-lt-error />}
-                    <Flex justify="end" gap={8}>
+                    <Flex justify="end" gap={8} wrap="wrap">
+                        {type && onToggle && (
+                            <span className="mr-auto inline-flex items-center">
+                                <Button danger={!isOff} loading={toggling} disabled={maternity && maternityRequired} onClick={toggle} data-toggle-type={isOff ? 'enable' : 'disable'}>
+                                    {isOff ? 'Enable leave type' : 'Disable leave type'}
+                                </Button>
+                                <InfoTip title={toggleTip} label="About disabling" />
+                            </span>
+                        )}
                         <Button onClick={onClose}>Cancel</Button>
                         <Button type="primary" loading={busy} onClick={save} data-save-leave-type>
                             {saveLabel}
@@ -469,13 +498,12 @@ export const LeaveTypeDrawer = ({
                 {maternity && (
                     <>
                         <Field
-                            label="Offer maternity leave"
-                            tip={`Required with more than 10 current employees (people in Employees without a past leaving date): always on. With 10 or fewer it’s optional and off by default. You have ${headcount}.`}
+                            label="Offered to employees"
+                            tip={`Required with more than 10 current employees (people in Employees without a past leaving date): always on. With 10 or fewer it’s optional and off by default; turn it on or off with Enable / Disable leave type below. You have ${headcount}.`}
                         >
-                            <Flex align="center" gap={8}>
-                                <Switch checked={offer} disabled={maternityRequired} onChange={setOffer} aria-label="Offer maternity leave" data-mat-offer />
-                                <Text className="text-sm">{offerText(maternityRequired, offer, headcount)}</Text>
-                            </Flex>
+                            <Text className="text-sm" data-mat-offer={offered ? 'on' : 'off'}>
+                                {offerText(maternityRequired, offered, headcount)}
+                            </Text>
                         </Field>
                         <Field label="Triggered by">
                             <Text className="text-sm" data-mat-trigger>
@@ -517,14 +545,6 @@ export const LeaveTypeDrawer = ({
                     </>
                 )}
 
-                {!maternity && (
-                    <Field label="Show to employees" tip="Off: employees don’t see this type. Nothing is deleted: balances and past leave stay, and HR can still see it.">
-                        <Flex align="center" gap={8}>
-                            <Switch checked={v.active !== false} onChange={c => set('active', c)} aria-label="Show to employees" data-show-to-employees />
-                            <Text className="text-sm">{v.active === false ? 'Hidden (inactive)' : 'Shown'}</Text>
-                        </Flex>
-                    </Field>
-                )}
             </Flex>
         </Drawer>
     );

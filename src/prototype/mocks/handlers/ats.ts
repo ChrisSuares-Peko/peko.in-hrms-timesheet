@@ -66,6 +66,9 @@ import {
     adminLeaveBalances,
     adminLeaveEntries,
     adminLeaveViewOf,
+    adjustLeaveBalance,
+    importOpeningBalances,
+    openingBalanceContext,
     adminOffToday,
     compOffCalendar,
     compOffCheck,
@@ -79,6 +82,7 @@ import {
     markActive,
     removeLeaveType,
     removePublicHoliday,
+    updatePublicHoliday,
     requestLeaveCancellation,
     leaveCancelCheck,
     requestLeaveChange,
@@ -286,6 +290,8 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/team/timesheets/month`, ess((ctx, me) => teamMonthSummary(ctx.mode, me, monthParam(ctx.query)))),
     route('GET', `${A}/team/members/:employeeId/timesheet/week`, ess((ctx, me) => weekView(ctx.mode, member(ctx, me), dateParam(ctx.query), { readOnly: true, viewer: me.id }))),
     route('GET', `${A}/team/members/:employeeId/timesheet/month`, ess((ctx, me) => timesheetMonthOf(ctx.mode, member(ctx, me), monthParam(ctx.query)))),
+    // PROTOTYPE-SETUP (Leave fixes): an approver's read-only "View" of a team member's leave request.
+    route('GET', `${A}/team/members/:employeeId/leave`, ess((ctx, me) => leaveViewOf(ctx.mode, member(ctx, me)))),
     route('GET', `${A}/team/members/:employeeId/attendance`, ess((ctx, me) => attendanceMonthOf(ctx.mode, member(ctx, me), monthParam(ctx.query)))),
     // PROTOTYPE-SETUP (My team, Slice 4): Team attendance (month grid) and the Leave calendar.
     route('GET', `${A}/team/attendance`, ess((ctx, me) => teamAttendance(ctx.mode, me, monthParam(ctx.query)))),
@@ -344,6 +350,10 @@ export const atsRoutes: MockRoute[] = [
     route('GET', `${A}/payroll/admin/leave/balances`, ctx => run(ctx.mode, () => adminLeaveBalances(ctx.mode))),
     route('POST', `${A}/payroll/admin/leave/employees/:employeeId/mark-active`, ctx => run(ctx.mode, () => markActive(ctx.mode, ctx.params.employeeId!))),
     route('GET', `${A}/payroll/admin/leave/employees/:employeeId/types`, ctx => run(ctx.mode, () => adminEmployeeLeaveTypes(ctx.mode, ctx.params.employeeId!))),
+    // PROTOTYPE-SETUP (Leave fixes): Balances → Adjust balance and Import opening balances.
+    route('GET', `${A}/payroll/admin/leave/opening-balances`, ctx => run(ctx.mode, () => openingBalanceContext(ctx.mode))),
+    route('POST', `${A}/payroll/admin/leave/opening-balances`, ctx => run(ctx.mode, () => importOpeningBalances(ctx.mode, ctx.body))),
+    route('POST', `${A}/payroll/admin/leave/:employeeId/adjust`, ctx => run(ctx.mode, () => adjustLeaveBalance(ctx.mode, ctx.params.employeeId!, ctx.body))),
     route('GET', `${A}/payroll/admin/leave/:employeeId`, ctx => run(ctx.mode, () => adminLeaveViewOf(ctx.mode, ctx.params.employeeId!))),
     // PROTOTYPE-SETUP (Leave module): Payroll settings → Leave Policies.
     route('GET', `${A}/leave-settings`, ctx => run(ctx.mode, () => leaveSettingsView(ctx.mode))),
@@ -354,6 +364,7 @@ export const atsRoutes: MockRoute[] = [
     route('DELETE', `${A}/leave-settings/types/:id`, ctx => run(ctx.mode, () => removeLeaveType(ctx.mode, ctx.params.id!))),
     route('POST', `${A}/leave-settings/holidays`, ctx => run(ctx.mode, () => addPublicHoliday(ctx.mode, ctx.body))),
     route('POST', `${A}/leave-settings/holidays/bulk`, ctx => run(ctx.mode, () => importPublicHolidays(ctx.mode, ctx.body))),
+    route('PUT', `${A}/leave-settings/holidays/:date`, ctx => run(ctx.mode, () => updatePublicHoliday(ctx.mode, ctx.params.date!, ctx.body))),
     route('DELETE', `${A}/leave-settings/holidays/:date`, ctx => run(ctx.mode, () => removePublicHoliday(ctx.mode, ctx.params.date!))),
     route('GET', `${A}/payroll/months`, ctx => run(ctx.mode, () => payrollMonths(ctx.mode))),
     route('GET', `${A}/payroll/months/:month`, ctx => run(ctx.mode, () => payrollMonthStatus(ctx.mode, monthOrFail(ctx.params.month)))),

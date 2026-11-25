@@ -929,12 +929,15 @@ export interface RequestItem {
      * comp off claim), and for a leave request the type's balance: "Annual: 7 available now · 6.5 after this".
      */
     leaveKind?: 'leave' | 'cancel' | 'compoff' | 'change';
-    leaveBalance?: { typeName: string; availableNow: number; after: number; days: number };
+    /** `negativeOk`: below zero but within the company's negative balance allowance (PROTOTYPE-SETUP: Leave fixes). */
+    leaveBalance?: { typeName: string; availableNow: number; after: number; days: number; negativeOk?: boolean };
     /** PROTOTYPE-SETUP (Leave policy settings): loss of pay — approvers see "Unpaid: payroll treats these days as loss
      *  of pay." instead of a balance line (and no short-balance warning). */
     unpaid?: boolean;
     /** Per-event leave: "Up to 7 days per event · Date of birth or adoption: Tue 3 Nov" instead of a balance line. */
     eventLine?: string;
+    /** PROTOTYPE-SETUP (Leave fixes): the attached document's name, shown on the row ("📎 file name"). */
+    document?: string;
     waitingForYou: boolean;
 }
 
@@ -1250,6 +1253,17 @@ export interface LeavePolicy {
     matOn: boolean;
     rounding: LeaveRounding;
     lop: LopRule;
+    /**
+     * PROTOTYPE-SETUP (Leave fixes): negative balance — when on, employees and HR can book more than the available
+     * balance, up to `max` days below zero per yearly type (null = no limit). Recovered from the next credits, or in the
+     * full & final settlement.
+     */
+    negative: NegativeBalance;
+}
+
+export interface NegativeBalance {
+    on: boolean;
+    max: number | null;
 }
 
 export type LeaveHalf = 'FIRST' | 'SECOND';
@@ -1388,6 +1402,10 @@ export type LedgerKind =
     | 'TAKEN'
     | 'LATE'
     | 'LATE_REVERSED'
+    /** PROTOTYPE-SETUP (Leave fixes): HR's balance adjustments and imported opening balances. */
+    | 'ADJUST_ADD'
+    | 'ADJUST_DEDUCT'
+    | 'OPENING'
     /** PROTOTYPE-SETUP (Leave policy settings): year end — unused days encashed (paid out by payroll). */
     | 'ENCASHED';
 
@@ -1536,6 +1554,8 @@ export interface LeaveView {
         compOff: { enabled: boolean; expiryDays: number };
         /** PROTOTYPE-SETUP (Leave policy settings): loss of pay — only once paid leave is used up, or any time. */
         lop: LopRule;
+        /** PROTOTYPE-SETUP (Leave fixes): negative balance allowance. */
+        negative: NegativeBalance;
     };
     /** PROTOTYPE-SETUP (Leave policy settings): the per-event types the employee can apply for (no balance). */
     eventTypes: LeaveTypeConfig[];

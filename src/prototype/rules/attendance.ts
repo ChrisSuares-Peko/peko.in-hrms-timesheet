@@ -287,6 +287,7 @@ export const DEFAULT_LEAVE_POLICY: LeavePolicy = {
     rounding: 'NONE',
     lop: 'USED_UP',
     matOn: false,
+    negative: { on: false, max: 5 },
 };
 
 /** Late check-ins deduct this many days by default (0 = off). */

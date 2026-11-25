@@ -3,7 +3,8 @@
 //                       rate, Leave balance carryover, Applicable gender, Action: View · Edit · Delete). Delete only for
 //                       a type never used and never for Maternity (disabled with a tooltip); deactivating is "Show to
 //                       employees" in the Edit drawer
-//   Public holidays ... a dated list per year: add a date and a name, remove; "Bulk upload" (HolidayUploadModal)
+//   Public holidays ... per year, consecutive same-name dates grouped (ranges); Add holiday / Edit (HolidayEditModal),
+//                       Remove (confirmed); "Bulk upload" (HolidayUploadModal)
 //   Configuration ..... credit date, rounding, leave year (+ the automatic roll-forward), loss of pay, sandwich rule,
 //                       comp off + expiry (half days are per leave type now).
 //                       Probation and pro-rating are fixed rules, not settings; the late check-in deduction is an
@@ -14,22 +15,25 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { DeleteOutlined, PlusOutlined, SearchOutlined, UploadOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Checkbox, DatePicker, Empty, Flex, Input, InputNumber, Popconfirm, Radio, Segmented, Select, Skeleton, Switch, Table, TimePicker, Tooltip, Typography } from 'antd';
+import { Alert, Button, Card, Checkbox, Empty, Flex, Input, InputNumber, Radio, Segmented, Select, Skeleton, Switch, Table, TimePicker, Tooltip, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import dayjs, { type Dayjs } from 'dayjs';
+import dayjs from 'dayjs';
 import { useSearchParams } from 'react-router-dom';
 
+import ConfirmDialog from '@src/components/peko/ConfirmDialog';
 import InfoTip from '@src/components/peko/InfoTip';
 import { PekoSectionTabs } from '@src/components/peko/PageHeader';
 import StatusTag from '@src/components/peko/StatusTag';
 import { useAppDispatch } from '@src/hooks/store';
 import { useDevPage } from '@src/prototype/devNotes/devPage';
+import { holidayGroups, type HolidayGroup } from '@src/prototype/rules/holidayImport';
 import { CREDIT_DATE_LABEL, LOP_RULE_LABEL, ROUNDING_LABEL, carryText, creditDateCards, creditedText, daysText, entitlementText, isMaternity, sandwichExample } from '@src/prototype/rules/leave';
 import { showToast } from '@src/slices/apiSlice';
 
+import HolidayEditModal from './HolidayEditModal';
 import HolidayUploadModal from './HolidayUploadModal';
 import { LeaveTypeDrawer, LeaveTypeView } from './LeaveTypeDrawer';
-import { addLeaveType, addPublicHoliday, getLeaveSettings, removeLeaveType, removePublicHoliday, updateLeaveConfig, updateLeaveType } from '../../api';
+import { addLeaveType, addPublicHoliday, getLeaveSettings, removeLeaveType, removePublicHoliday, setLeaveTypeActive, updateLeaveConfig, updateLeaveType, updatePublicHoliday } from '../../api';
 import AtsSettingsTab from '../../payroll/AtsSettingsTab';
 import { usePayrollScope } from '../../payroll/usePayrollAts';
 import type { LeavePolicy, LeaveSettingsView, LeaveTypeConfig, LeaveTypeInput, SandwichConfig } from '../../types';
@@ -40,7 +44,7 @@ type Sub = 'types' | 'holidays' | 'config' | 'approvals';
 
 // ---- Leave types ----------------------------------------------------------------------------------------------
 
-const USED_TIP = 'Already used in leave requests, so it can’t be deleted. Open Edit to deactivate it instead.';
+const USED_TIP = 'Already used in leave requests, so it can’t be deleted. Open Edit to disable it instead.';
 /** "Monthly · 1 day a month" / "All at once · 8 days" / "Per event (no accrual)". */
 const accrualColumn = (t: LeaveTypeConfig) => {
     if (t.kind === 'event') return 'Per event (no accrual)';
@@ -76,6 +80,7 @@ const LeaveTypes = ({
     const scope = usePayrollScope();
     const [q, setQ] = useState('');
     const [viewing, setViewing] = useState<LeaveTypeConfig | null>(null);
+    const [deleting, setDeleting] = useState<LeaveTypeConfig | null>(null);
     const used = (id: string) => (view.usage[id]?.requests ?? 0) > 0;
     const text = q.trim().toLowerCase();
     const rows = view.policy.types.filter(t => !text || t.name.toLowerCase().includes(text));
@@ -119,11 +124,9 @@ const LeaveTypes = ({
                             </span>
                         </Tooltip>
                     ) : (
-                        <Popconfirm title={`Delete ${t.name}?`} description="It hasn’t been used, so nothing else changes." okText="Delete" onConfirm={async () => onView(await removeLeaveType(scope, t.id), `${t.name} deleted`)}>
-                            <Button size="small" type="text" danger disabled={view.policy.types.length <= 1} data-delete-type={t.id}>
-                                Delete
-                            </Button>
-                        </Popconfirm>
+                        <Button size="small" type="text" danger disabled={view.policy.types.length <= 1} onClick={() => setDeleting(t)} data-delete-type={t.id}>
+                            Delete
+                        </Button>
                     )}
                 </Flex>
             ),
@@ -137,7 +140,7 @@ const LeaveTypes = ({
                         Leave types
                         <InfoTip
                             label="About leave types"
-                            title={`These settings decide what employees see and can apply for in ESS. Yearly types build a balance; per-event types (maternity, paternity) give a number of days per event. All leave is paid: loss of pay is the only unpaid leave. A type that has been used can’t be deleted or renamed; to stop offering it, turn off “Show to employees”. ${view.migrationNote ?? ''}`}
+                            title={`These settings decide what employees see and can apply for in ESS. Yearly types build a balance; per-event types (maternity, paternity) give a number of days per event. All leave is paid: loss of pay is the only unpaid leave. A type that has been used can’t be deleted or renamed; to stop offering it, open Edit and disable it. ${view.migrationNote ?? ''}`}
                         />
                     </Text>
                 </div>
@@ -158,6 +161,18 @@ const LeaveTypes = ({
                     data-leave-types-table
                 />
             </div>
+            {/* PROTOTYPE-SETUP (Leave fixes): Delete asks for confirmation. */}
+            <ConfirmDialog
+                open={Boolean(deleting)}
+                title={`Delete ${deleting?.name ?? ''}?`}
+                confirm="Delete leave type"
+                onClose={() => setDeleting(null)}
+                onConfirm={async () => deleting && onView(await removeLeaveType(scope, deleting.id), `${deleting.name} deleted`)}
+                data-delete-type-confirm
+            >
+                {deleting &&
+                    `${deleting.name} will be removed for every employee. It hasn’t been used yet, so no history is lost. This can’t be undone; to stop offering a type you might use again, disable it instead.`}
+            </ConfirmDialog>
             <LeaveTypeView
                 type={viewing}
                 requests={viewing ? view.usage[viewing.id]?.requests ?? 0 : 0}
@@ -176,13 +191,17 @@ const LeaveTypes = ({
                 maternityRequired={view.maternityRequired}
                 matOn={view.policy.matOn}
                 onClose={() => setEditing(null)}
-                onSave={async (input: LeaveTypeInput, extra?: { matOn?: boolean }) => {
-                    if (extra && extra.matOn !== undefined && !view.maternityRequired && extra.matOn !== view.policy.matOn) {
-                        const cfg = await updateLeaveConfig(scope, { matOn: extra.matOn });
-                        if (!cfg) return false;
-                    }
+                onSave={async (input: LeaveTypeInput) => {
                     const res = editing?.type ? await updateLeaveType(scope, editing.type.id, input) : await addLeaveType(scope, input);
                     return onView(res, editing?.type ? `${input.name} updated` : `${input.name} added`);
+                }}
+                // PROTOTYPE-SETUP (Leave fixes): Disable / Enable leave type, straight away (Maternity: offered or not).
+                onToggle={async () => {
+                    const t = editing?.type;
+                    if (!t) return false;
+                    const on = isMaternity(t) ? !view.policy.matOn : t.active === false;
+                    const res = isMaternity(t) ? await updateLeaveConfig(scope, { matOn: on }) : await setLeaveTypeActive(scope, t.id, on);
+                    return onView(res, on ? `${t.name} enabled. Employees can see and apply for it again.` : `${t.name} disabled. Employees won’t see it; balances and past leave stay.`);
                 }}
             />
         </Flex>
@@ -191,110 +210,120 @@ const LeaveTypes = ({
 
 // ---- Public holidays ----------------------------------------------------------------------------------------
 
+// PROTOTYPE-SETUP (Leave fixes — notes pay:settings:leave:holidays → "Holidays with ranges"): the table groups
+// consecutive dates with the same name (Holiday · Date · Days · Action: Edit, Remove). Add holiday / Edit open a popup
+// (HolidayEditModal); Remove asks for confirmation. Stored per date.
 const Holidays = ({ view, onView }: { view: LeaveSettingsView; onView: (v: LeaveSettingsView | false, msg?: string) => boolean }) => {
     const scope = usePayrollScope();
     const thisYear = dayjs().year();
     const [year, setYear] = useState(String(thisYear));
-    const [date, setDate] = useState<Dayjs | null>(null);
-    const [name, setName] = useState('');
-    const [error, setError] = useState('');
     const [uploading, setUploading] = useState(false);
+    const [editing, setEditing] = useState<HolidayGroup | 'new' | null>(null);
+    const [removing, setRemoving] = useState<HolidayGroup | null>(null);
     const weekend = (d: string) => [0, 6].includes(dayjs(d).day());
-    const inYear = view.holidays.filter(h => h.date.slice(0, 4) === year);
-    const add = async () => {
-        if (!date) return setError('Pick a date.');
-        if (!name.trim()) return setError('Add the holiday’s name.');
-        const iso = date.format('YYYY-MM-DD');
-        if (view.holidays.some(h => h.date === iso)) return setError('There’s already a holiday on that date.');
-        if (onView(await addPublicHoliday(scope, { date: iso, name: name.trim() }), `${name.trim()} added`)) {
-            setDate(null);
-            setName('');
-            setError('');
-            setYear(iso.slice(0, 4));
-        }
-        return undefined;
-    };
+    const groups = holidayGroups(view.holidays).filter(g => g.from.slice(0, 4) === year || g.to.slice(0, 4) === year);
+    const days = groups.reduce((n, g) => n + g.days, 0);
+    const working = view.holidays.filter(h => h.date.slice(0, 4) === year && !weekend(h.date)).length;
+    const dateText = (g: HolidayGroup) =>
+        g.days === 1 ? dayjs(g.from).format('ddd, D MMM YYYY') : `${dayjs(g.from).format('ddd, D MMM')} – ${dayjs(g.to).format('ddd, D MMM YYYY')}`;
     return (
         <Flex vertical gap={12} data-holidays-tab>
-            <Flex justify="space-between" align="flex-start" gap={12} wrap="wrap">
-                <div className="min-w-0 flex-1 basis-[280px]">
+            <Flex justify="space-between" align="center" gap={12} wrap="wrap">
+                <div className="min-w-0 flex-1 basis-[220px]">
                     <Text className="inline-flex items-center text-base font-semibold" data-holidays-title>
                         Public holidays
                         <InfoTip
                             label="About public holidays"
-                            title="Office-wide days off. They show in every calendar, fill the timesheet for the shift, aren’t counted as leave days, and decide comp off. A holiday on a weekly off doesn’t give an extra day off."
+                            title="Office-wide days off. They show in every calendar, fill the timesheet for the shift, aren’t counted as leave days, and decide comp off. A holiday on a weekly off doesn’t give an extra day off. A holiday can be one day or a range (e.g. Diwali, 3 days)."
                         />
                     </Text>
                 </div>
-                <Segmented value={year} onChange={v => setYear(String(v))} options={[thisYear - 1, thisYear, thisYear + 1].map(y => ({ value: String(y), label: String(y) }))} aria-label="Year" />
-            </Flex>
-            <Flex gap={8} wrap="wrap">
-                <DatePicker value={date} onChange={setDate} format="D MMM YYYY" aria-label="Holiday date" className="w-full sm:w-[180px]" />
-                <Input
-                    value={name}
-                    onChange={e => {
-                        setName(e.target.value);
-                        setError('');
-                    }}
-                    onPressEnter={add}
-                    placeholder="Holiday name, e.g. Diwali"
-                    aria-label="Holiday name"
-                    className="w-full sm:flex-1"
-                    maxLength={60}
-                />
-                <Button type="primary" icon={<PlusOutlined />} onClick={add} data-add-holiday>
-                    Add holiday
-                </Button>
-                {/* PROTOTYPE-SETUP (Leave settings rework): "Bulk upload" next to Add holiday. */}
-                <Button icon={<UploadOutlined />} onClick={() => setUploading(true)} data-bulk-holidays>
-                    Bulk upload
-                </Button>
+                <Flex gap={8} wrap="wrap" align="center">
+                    <Segmented value={year} onChange={v => setYear(String(v))} options={[thisYear - 1, thisYear, thisYear + 1].map(y => ({ value: String(y), label: String(y) }))} aria-label="Year" />
+                    {/* PROTOTYPE-SETUP (Leave settings rework): "Bulk upload" next to Add holiday. */}
+                    <Button icon={<UploadOutlined />} onClick={() => setUploading(true)} data-bulk-holidays>
+                        Bulk upload
+                    </Button>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setEditing('new')} data-add-holiday>
+                        Add holiday
+                    </Button>
+                </Flex>
             </Flex>
             <HolidayUploadModal
                 open={uploading}
                 existing={view.holidays.map(h => h.date)}
                 onClose={() => setUploading(false)}
-                onImported={(v, days) => {
+                onImported={(v, n) => {
                     setUploading(false);
-                    onView(v, `${days} holiday date${days === 1 ? '' : 's'} imported`);
+                    onView(v, `${n} holiday date${n === 1 ? '' : 's'} imported`);
                 }}
             />
-            {error && <Alert type="error" showIcon message={error} />}
+            <HolidayEditModal
+                open={Boolean(editing)}
+                holiday={editing === 'new' ? null : editing}
+                existing={view.holidays.map(h => h.date)}
+                onClose={() => setEditing(null)}
+                onSave={async h => {
+                    const res = editing && editing !== 'new' ? await updatePublicHoliday(scope, editing.from, h) : await addPublicHoliday(scope, h);
+                    const ok = onView(res, `${h.name} ${editing === 'new' ? 'added' : 'updated'}`);
+                    if (ok) setYear(h.from.slice(0, 4));
+                    return ok;
+                }}
+            />
+            <ConfirmDialog
+                open={Boolean(removing)}
+                title={`Remove ${removing?.name ?? ''}?`}
+                confirm="Remove holiday"
+                onClose={() => setRemoving(null)}
+                onConfirm={async () => removing && onView(await removePublicHoliday(scope, removing.from), `${removing.name} removed`)}
+                data-remove-holiday-confirm
+            >
+                {removing &&
+                    (removing.days === 1
+                        ? `${dayjs(removing.from).format('D MMM YYYY')} will be a working day again.`
+                        : `${dayjs(removing.from).format('D MMM')} to ${dayjs(removing.to).format('D MMM YYYY')} will be working days again.`)}{' '}
+                Calendars, timesheets and leave counts update for everyone.
+            </ConfirmDialog>
             <div className="min-w-0 overflow-hidden rounded-lg border border-solid border-[var(--peko-border)] bg-white">
-                <Table
-                    rowKey="date"
+                <Table<HolidayGroup>
+                    rowKey="from"
                     size="middle"
                     pagination={false}
-                    dataSource={inYear}
+                    dataSource={groups}
                     scroll={{ x: 'max-content' }}
-                    locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`No holidays for ${year}. Add the year’s public holidays above.`} /> }}
+                    locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={`No holidays for ${year}. Add the year’s public holidays, or upload them in bulk.`} /> }}
                     columns={[
-                        { title: 'Date', key: 'd', render: (_, h) => dayjs(h.date).format('D MMM YYYY') },
                         {
-                            title: 'Day',
-                            key: 'w',
-                            render: (_, h) => (
+                            title: 'Holiday',
+                            key: 'n',
+                            render: (_, g) => (
                                 <span>
-                                    {dayjs(h.date).format('dddd')}
-                                    {weekend(h.date) && <StatusTag tone="leave" className="!ml-2">Weekly off</StatusTag>}
+                                    <Text className="font-medium">{g.name}</Text>
+                                    {g.days === 1 && weekend(g.from) && <StatusTag tone="leave" className="!ml-2">Weekly off</StatusTag>}
                                 </span>
                             ),
                         },
-                        { title: 'Holiday', key: 'n', render: (_, h) => <Text className="font-medium">{h.name}</Text> },
+                        { title: 'Date', key: 'd', render: (_, g) => <span data-holiday-date={g.from}>{dateText(g)}</span> },
+                        { title: 'Days', key: 'c', render: (_, g) => g.days },
                         {
-                            title: '',
+                            title: 'Action',
                             key: 'x',
-                            render: (_, h) => (
-                                <Button size="small" type="text" icon={<DeleteOutlined />} onClick={async () => onView(await removePublicHoliday(scope, h.date), `${h.name} removed`)} aria-label={`Remove ${h.name}`}>
-                                    Remove
-                                </Button>
+                            render: (_, g) => (
+                                <Flex gap={4} wrap="nowrap">
+                                    <Button size="small" onClick={() => setEditing(g)} data-edit-holiday={g.from}>
+                                        Edit
+                                    </Button>
+                                    <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => setRemoving(g)} aria-label={`Remove ${g.name}`} data-remove-holiday={g.from}>
+                                        Remove
+                                    </Button>
+                                </Flex>
                             ),
                         },
                     ]}
                 />
             </div>
-            <Text type="secondary" className="text-xs">
-                {inYear.length} holiday{inYear.length === 1 ? '' : 's'} in {year} · {inYear.filter(h => !weekend(h.date)).length} on working days
+            <Text type="secondary" className="text-xs" data-holidays-summary>
+                {groups.length} holiday{groups.length === 1 ? '' : 's'} · {days} day{days === 1 ? '' : 's'} · {working} on working days
             </Text>
         </Flex>
     );
@@ -320,6 +349,7 @@ interface Config {
     creditTime: string;
     rounding: LeavePolicy['rounding'];
     lop: LeavePolicy['lop'];
+    negative: LeavePolicy['negative'];
 }
 
 const configOf = (v: LeaveSettingsView): Config => ({
@@ -334,6 +364,7 @@ const configOf = (v: LeaveSettingsView): Config => ({
     creditTime: v.policy.creditTime,
     rounding: v.policy.rounding,
     lop: v.policy.lop,
+    negative: v.policy.negative,
 });
 
 /** A settings card whose title carries the explanation in a tooltip. */
@@ -381,6 +412,7 @@ const Configuration = ({ view, onView }: { view: LeaveSettingsView; onView: (v: 
             creditTime: c.creditTime,
             rounding: c.rounding,
             lop: c.lop,
+            negative: c.negative,
         });
         setBusy(false);
         onView(res, 'Leave configuration saved.');
@@ -484,6 +516,44 @@ const Configuration = ({ view, onView }: { view: LeaveSettingsView; onView: (v: 
                     className="flex flex-col gap-1.5"
                     options={(['USED_UP', 'ANY_TIME'] as const).map(v => ({ value: v, label: LOP_RULE_LABEL[v] }))}
                 />
+            </Panel>
+            {/* PROTOTYPE-SETUP (Leave fixes — notes pay:settings:leave:config): Negative balance, on / off and "Up to N days
+                below zero per leave type" (empty = no limit). Yearly balance types only. */}
+            <Panel
+                title="Negative balance"
+                tip="If allowed, employees (and HR adding leave) can take more leave than they have. The balance goes below zero and is recovered from the next credits; anything still negative when someone leaves is recovered in the full & final settlement. Applies to yearly balance types, not per-event leave or comp off."
+                data-config-negative
+            >
+                <Flex vertical gap={10}>
+                    <Flex align="center" gap={8}>
+                        <Switch checked={c.negative.on} onChange={on => set('negative', { ...c.negative, on })} aria-label="Negative balance" data-negative-on />
+                        <Text className="text-sm">{c.negative.on ? 'On' : 'Off'}</Text>
+                    </Flex>
+                    {c.negative.on ? (
+                        <Flex align="center" gap={8} wrap="wrap">
+                            <Text className="text-sm">Up to</Text>
+                            <InputNumber
+                                min={0}
+                                max={365}
+                                step={0.5}
+                                placeholder="No limit"
+                                value={c.negative.max ?? null}
+                                onChange={n => set('negative', { ...c.negative, max: n === null || n === undefined ? null : Math.round(Number(n) * 2) / 2 })}
+                                className="!w-[96px]"
+                                aria-label="Days below zero"
+                                data-negative-max
+                            />
+                            <Text className="inline-flex items-center text-sm">
+                                days below zero per leave type
+                                <InfoTip title="Leave it empty for no limit." label="About the limit" />
+                            </Text>
+                        </Flex>
+                    ) : (
+                        <Text type="secondary" className="text-sm">
+                            Employees can’t take more than their available balance.
+                        </Text>
+                    )}
+                </Flex>
             </Panel>
             <Panel
                 title="Sandwich rule"

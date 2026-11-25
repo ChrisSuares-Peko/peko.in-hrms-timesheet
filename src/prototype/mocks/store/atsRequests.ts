@@ -97,6 +97,24 @@ export const atsLeaveCancels = createCollection<LeaveCancellation[]>('ats-leave-
 /** PROTOTYPE-SETUP (Leave module): requests to change approved leave (the original stays until one is approved). */
 export const atsLeaveChanges = createCollection<LeaveChange[]>('ats-leave-changes', () => []);
 
+/**
+ * PROTOTYPE-SETUP (Leave fixes): HR's balance adjustments ({employee, type, ±days, reason, date, by}) and imported
+ * opening balances (`opening`, dated by their "as of" date). The engine counts them as credits / deductions.
+ */
+export interface LeaveAdjustment {
+    id: string;
+    employeeId: number;
+    type: string;
+    days: number;
+    reason: string;
+    date: string;
+    by: string;
+    opening?: boolean;
+    createdAt: string;
+}
+
+export const atsLeaveAdjustments = createCollection<LeaveAdjustment[]>('ats-leave-adjustments', () => []);
+
 /** Seeded: Vikram's half day of comp off for the Saturday he worked (waiting for his manager). */
 export const atsCompOffs = createCollection<CompOffRequest[]>('ats-comp-offs', mode => {
     if (mode === 'empty') return [];

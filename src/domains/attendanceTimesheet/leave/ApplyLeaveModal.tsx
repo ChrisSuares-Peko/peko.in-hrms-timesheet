@@ -41,6 +41,7 @@ import {
     fmtDays,
     isMaternity,
     needsProof,
+    negativeRoom,
     startRange,
     startRangeText,
     typeLabel,
@@ -244,6 +245,7 @@ const ApplyLeaveModal = ({
                     available: Object.fromEntries(types.map(x => [x.type, x.type === type ? available : x.available])),
                     pending: Object.fromEntries(types.map(x => [x.type, x.type === type ? pending : x.inRequest])),
                     onProbation: view.status === 'PROBATION',
+                    negative: view.rules.negative,
                 }
             );
         } catch (e) {
@@ -363,9 +365,19 @@ const ApplyLeaveModal = ({
                             {notAvailable ? (
                                 <Text className="text-sm !text-[var(--peko-warning-ink)]">Not available during probation</Text>
                             ) : (
-                                <Text className="text-sm">
+                                <Text className="inline-flex flex-wrap items-center text-sm">
                                     <b className="font-medium">{daysText(available)} available</b>
-                                    <span className="text-[var(--peko-muted)]"> {b.type === COMP_OFF ? 'of comp off' : `of ${fmtDays(b.allocated)} this year`}</span>
+                                    <span className="whitespace-pre text-[var(--peko-muted)]"> {b.type === COMP_OFF ? 'of comp off' : `of ${fmtDays(b.allocated)} this year`}</span>
+                                    {/* PROTOTYPE-SETUP (Leave fixes): the negative balance allowance, in a tooltip. */}
+                                    {b.type !== COMP_OFF && negativeRoom(view.rules.negative) > 0 && (
+                                        <InfoTip
+                                            label="About negative balance"
+                                            data-negative-tip
+                                            title={`You can take up to ${
+                                                negativeRoom(view.rules.negative) === Infinity ? 'any number of days' : daysText(negativeRoom(view.rules.negative))
+                                            } more than you have. The balance goes below zero and is recovered from your next credits.`}
+                                        />
+                                    )}
                                 </Text>
                             )}
                             {pending > 0 && (

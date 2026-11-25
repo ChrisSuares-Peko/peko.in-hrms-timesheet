@@ -70,6 +70,9 @@ const ENTRY_OF: Record<LedgerKind, string> = {
     LATE: 'Late check-in',
     LATE_REVERSED: 'Late deduction reversed',
     ENCASHED: 'Encashed at year end',
+    ADJUST_ADD: 'Balance adjusted',
+    ADJUST_DEDUCT: 'Balance adjusted',
+    OPENING: 'Opening balance',
 };
 
 const ledgerStatus = (k: LedgerKind): { status: string; statusKind: LogStatus; group: LogGroup } => {
@@ -79,6 +82,8 @@ const ledgerStatus = (k: LedgerKind): { status: string; statusKind: LogStatus; g
     if (k === 'COMP_OFF_EXPIRED') return { status: 'Expired', statusKind: 'expired', group: 'deduction' };
     if (k === 'LATE') return { status: 'Deducted', statusKind: 'deducted', group: 'deduction' };
     if (k === 'LATE_REVERSED') return { status: 'Reversed', statusKind: 'reversed', group: 'deduction' };
+    // PROTOTYPE-SETUP (Leave fixes): HR's deduction.
+    if (k === 'ADJUST_DEDUCT') return { status: 'Deducted', statusKind: 'deducted', group: 'deduction' };
     return { status: 'Credited', statusKind: 'credited', group: 'credit' };
 };
 
@@ -116,7 +121,7 @@ const ledgerRows = (b: LeaveBalance, today: string): LeaveLogRow[] =>
             what: x.text,
             period: '',
             days: x.amount,
-            reason: x.kind === 'LAPSED' || x.kind === 'ENCASHED' || x.kind === 'LATE' || x.kind === 'LATE_REVERSED' ? x.text : '',
+            reason: ['LAPSED', 'ENCASHED', 'LATE', 'LATE_REVERSED', 'ADJUST_ADD', 'ADJUST_DEDUCT', 'OPENING'].includes(x.kind) ? x.text : '',
             ...ledgerStatus(x.kind),
         }));
 
