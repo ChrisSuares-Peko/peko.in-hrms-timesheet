@@ -309,3 +309,46 @@ The window limits the START date only; the leave then runs in one go for the ent
 6. Another open or approved request for the same type and event date → "There’s already a {type} request for this
    event. It has to be taken in one go; change that request instead." (409)
 7. Document required and missing → "{Type} needs a supporting document: {docName}." (400)
+
+## Leave fixes: balances, View, confirmations, holiday ranges, negative balance (PROTOTYPE-SETUP: this run)
+
+Spec: `docs/dev-notes/dev-notes.json` (pay:leave:details / leaves / requests, ess:team:approvals, ess:leave:type /
+requests, pay:settings:leave:types / holidays / config). Rules: `src/prototype/rules/openingBalances.ts`,
+`src/prototype/rules/holidayImport.ts` (`holidayGroups`, `holidayRangeProblem`), `src/prototype/rules/leave.ts`
+(`negativeRoom`, `adjustmentLedger`). Tests: `rules/__tests__/leaveFixes.test.ts`,
+`mocks/store/__tests__/atsLeaveFixes.test.ts`. Stored settings are migrated on read (`negative` defaults to off, 5 days).
+
+### Changed and new fields
+
+| Where | Field | Values | Notes |
+|---|---|---|---|
+| `LeavePolicy` | `negative` | `{ on: boolean, max: number \| null }` | Negative balance: when on, yearly types (not comp off, not per-event leave) can go up to `max` days below zero; `null` = no limit. Checked for employees, HR's Add leave, and on approval (within the allowance it isn't loss of pay). |
+| `LeaveView.rules` / HR employee leave types `rules` | `negative` | as above | So the Apply and Add leave forms check the same limit. |
+| `RequestItem` | `document` | string | The attached document's name, shown on the row ("📎 file name"). Replaces the "Document attached: …" text in `detail`. |
+| `RequestItem.leaveBalance` | `negativeOk` | boolean | Below zero but within the allowance: the approver sees "−1.5 after this (negative balance, recovered from the next credits)" and no "Not enough leave" warning. |
+| new collection | leave adjustment | `{ id, employeeId, type, days (±), reason, date, by, opening?, createdAt }` | HR's adjustments and imported opening balances. The engine counts them as credits / deductions in the cycle of `date` (an opening balance dated before the cycle counts from its start). Ledger kinds `ADJUST_ADD`, `ADJUST_DEDUCT`, `OPENING`. |
+| public holidays | (unchanged storage) | one `{ date, name }` per date | Consecutive dates with the same name are one holiday for display and editing. |
+
+### Endpoints
+
+| Method | Path | Body | Returns | Errors |
+|---|---|---|---|---|
+| POST | `leave-settings/holidays` | `{ name, from, to }` (or `{ name, date }` for one day) | settings view | 400 start / order / more than 31 days / name; 409 "4 Apr 2027 is already a holiday." |
+| PUT | `leave-settings/holidays/:from` | `{ name, from, to }` | settings view | as above (the holiday's own dates may be kept); 404 not found |
+| DELETE | `leave-settings/holidays/:from` | — | settings view | removes every date of the holiday starting on `:from`; 404 |
+| PUT | `leave-settings/config` | `negative: { on, max }` added | settings view | |
+| POST | `payroll/admin/leave/:employeeId/adjust` | `{ type, direction: 'add' \| 'deduct', days, reason }` | `{ message }` | 400 type (yearly types the employee has), days (> 0, half days, ≤ 365), reason, a deduction past zero + the allowance |
+| GET | `payroll/admin/leave/opening-balances` | — | `{ employees, types, imported, today }` | The review context (yearly types; "employee code:type" already imported). |
+| POST | `payroll/admin/leave/opening-balances` | `{ rows: [{ employeeId (code), type, days, asOf }] }` | `{ imported, skipped, message }` | Each row is checked again; 400 empty; 409 when none is Ready. |
+| GET | `team/members/:employeeId/leave` | — | the employee's leave view | For an approver's read-only View (403/404 unless they manage or approve that employee). Payroll uses `payroll/admin/leave/:employeeId`. |
+
+### Checks
+
+1. Opening balance statuses: Ready · Employee ID not found · Leave type not found (yearly types only) · This type
+   doesn't apply to the employee · Opening balance isn't a number · Duplicate row (same employee and type earlier in the
+   file) · Already imported.
+2. Adjust: the employee's yearly types only (comp off has its own earned / expiry rules); a deduction can't take the
+   balance below zero past the negative allowance.
+3. Exports are built in the browser from the loaded tables: Leaves (the filtered rows: Name, Email, Leave type, From,
+   To, Days, Reason, Applied on, Added by, Status) and Balances (Employee ID, Employee, Department, Status, available
+   and allocated per type).

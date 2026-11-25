@@ -1,9 +1,76 @@
-# Progress — Leave module: settings rework, per-event & maternity, holiday upload, Peko One design
+# Progress — Leave module: fixes (balances, View, confirmations, holiday ranges, negative balance)
 
 PROTOTYPE-SETUP. Run log. Sources: `docs/dev-notes/dev-notes.json` (the notes) and
 `docs/prototypes/leave-prototype.html` (the panel's look and behaviour). If a run stops, continue from the first step
 that isn't **done**. The previous run (Leave module updates + module-grouped notes panel, `c34e05f`–`9b91229`) is
 finished and pushed; its log is in git history (`git show 9b91229:docs/progress.md`).
+
+## Leave fixes: balances, View, confirmations, holiday ranges, negative balance — done
+
+Spec: the latest `docs/dev-notes/dev-notes.json` and `docs/prototypes/leave-prototype.html` (pay:leave:details / leaves /
+requests, ess:team:approvals, ess:leave:type / requests, pay:settings:leave:types / holidays / config). API notes:
+`docs/api/leave.md` → "Leave fixes".
+
+| Step | Status |
+|---|---|
+| 1 — Balances: Adjust balance (row + employee popup), Import opening balances (upload → review → import), Export | done |
+| 2 — Read-only View on every leave / cancellation / change / comp off request (My team, Payroll Requests, Payroll Leaves, the overview's "Leave to approve"); 📎 document chip on rows | done |
+| 3 — Confirmation popups: Delete leave type, Remove holiday, Withdraw request | done |
+| 4 — Apply for leave from a type page preselects the type | done (already wired; verified, test hook added) |
+| 5 — Public holidays: ranges (From / To, ≤ 31 days, no overlap), Add / Edit popup, grouped table | done |
+| 6 — Export on Payroll Leaves (the filtered table) | done |
+| 7 — Configuration → Negative balance; enforced in Apply, HR Add leave and the approver's check | done |
+| Notes extra — leave type drawer footer: Disable / Enable leave type (replaces "Show to employees") | done |
+
+Migrations: `negative` is new on the leave policy (read as off with a 5-day preset when missing). Holidays are still
+stored per date, so existing data needs nothing. Adjustments are a new collection (empty to start).
+
+Decisions:
+1. **Confirmation popups** use a new shared `ConfirmDialog` (src/components/peko): a question title, one sentence, Cancel
+   and the action named and red ("Delete leave type", "Remove holiday", "Withdraw"). The platform's
+   ConfirmationModal has Yes / No buttons, which Peko One avoids.
+2. **Withdraw wording**: the prototype says "It goes back to nobody for approval…", which reads oddly; the popup says
+   "Nobody will be asked to approve it any more, and it can’t be reopened. You can apply again later."
+3. **Holiday ranges** are grouped for display: consecutive dates with the same name. Edit and Remove address a holiday
+   by its first date (`PUT/DELETE leave-settings/holidays/:from`) and act on every date of it. An edit may keep its own
+   dates; any other holiday date is an overlap ("4 Apr 2027 is already a holiday."). The "Weekly off" tag shows on
+   one-day holidays only.
+4. **View** reuses the ESS request drawer with `readOnly` (no actions; "View the leave" inside still works). Approvers
+   in My team load the employee's leave through a new `team/members/:id/leave` (same access check as other team member
+   pages); Payroll uses its existing employee leave endpoint. View also shows on the Payroll overview's "Leave to approve"
+   and in My team's leave calendar list.
+5. **Document on rows**: a 📎 chip (PaperClip icon, not the emoji) replaces the "Document attached: …" text.
+6. **Adjust balance** covers yearly types only: comp off has its own earned / expiry rules and per-event leave has no
+   balance. Half days only, at most 365 at a time. A deduction can't take the balance below zero past the negative
+   allowance (the prototype doesn't check; an uncapped deduction would silently create loss of pay).
+7. **Opening balances** count in the cycle of their "As of" date; one dated before the current cycle counts from the
+   cycle's start (it's where the balance begins in Peko). Empty "As of" = today. Leave type matches the name with or
+   without "leave", or the id. The file is re-checked on the server before import.
+8. **Adjustments in the engine** add to credited and allocated (so "available / allocated" stays consistent) with ledger
+   lines "Added by HR: reason", "Deducted by HR: reason", "Opening balance (imported, as of 15 Dec)"; they show in the
+   type log and Recent activity as "Balance adjusted" / "Opening balance".
+9. **Negative balance** applies to yearly types, not comp off or per-event leave. Within the allowance an approval is
+   not loss of pay, and the approver's line is amber: "−1.5 after this (negative balance, recovered from the next
+   credits)". Late check-in deductions still never push a balance below zero (they go to loss of pay, as before). The
+   Apply form shows the allowance in a tooltip next to "N days available". Recovery from the next credits is just the
+   balance arithmetic; the full & final recovery already follows the type's exit settlement.
+10. **Exports** are built in the browser from the loaded table (Leaves: the filtered rows; Balances: the searched rows)
+    as .xlsx with the prototype's columns.
+11. **Disable / Enable leave type** (notes, not in this request's list but part of the same notes update): the drawer
+    footer button applies straight away; "Show to employees" is gone from the drawer body. For Maternity it switches
+    `matOn` and is disabled while required (more than 10 employees); the body shows "Offered to employees" as text.
+12. **Apply from a type page** already opened the form with that type; verified and given a test hook
+    (`data-type-apply`).
+13. **Date-dependent tests**: on 25 Nov, "leave and absent days" and two routing tests ("the typical setup…", "items in
+    flight…") fail on the previous commit too (their picked day lands on a weekend or holiday); left as they are.
+
+VERIFY (Chrome via a script at 1440 and 375): delete-type, remove-holiday and withdraw popups; Disable → "Inactive" →
+Enable; Maternity's button disabled (21 employees); a 3-day holiday added, overlap refused, edited to 4 days, removed;
+negative balance saved (on, 3); type page preselects Casual; Payroll Requests View (read-only, no footer actions,
+Details / Approval chain / History, 📎 medical-note.pdf on the row and in the drawer); My team View; Leaves View +
+Export; Adjust (preview 16 → 18, reason required, ledger line, toast), popup Adjust; Import (5 rows: Ready / Employee ID
+not found / Leave type not found / isn't a number / Duplicate → "Import 1 row"); three .xlsx downloads; no overflow, no
+console errors.
 
 ## Leave module: settings rework, per-event & maternity, holiday upload, Peko One design + tooltips — done
 
