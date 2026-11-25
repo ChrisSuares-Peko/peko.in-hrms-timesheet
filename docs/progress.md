@@ -1,9 +1,61 @@
-# Progress — Leave module: fixes (balances, View, confirmations, holiday ranges, negative balance)
+# Progress — Leave module: fixes, bulk attendance upload, ESS visibility
 
 PROTOTYPE-SETUP. Run log. Sources: `docs/dev-notes/dev-notes.json` (the notes) and
 `docs/prototypes/leave-prototype.html` (the panel's look and behaviour). If a run stops, continue from the first step
 that isn't **done**. The previous run (Leave module updates + module-grouped notes panel, `c34e05f`–`9b91229`) is
 finished and pushed; its log is in git history (`git show 9b91229:docs/progress.md`).
+
+## Bulk attendance upload and Payroll settings → ESS — done
+
+Spec: `docs/dev-notes/dev-notes.json` (pay:attendance → "Bulk attendance upload", pay:settings:ess) and
+`docs/prototypes/leave-prototype.html`. API notes: `docs/api/attendance-timesheet.md` → "Bulk attendance upload and ESS
+visibility".
+
+| Step | Status |
+|---|---|
+| 1 — Payroll → Attendance: "Bulk attendance upload" (template, upload → review → import, Replace existing records, source = upload, Loss of Pay note) | done |
+| 2 — Payroll settings → ESS: Payslips and My pay switches (off by default); menu, Overview tile, pages and direct links follow them | done |
+
+Migrations: `essShow` is new on the settings (read as both off when missing). `'upload'` is a new attendance record
+source; existing records are unchanged.
+
+Decisions:
+1. **Review on the server.** The browser reads the file (shared `readSheetRows`), the review and the import run in the
+   store (`payroll/admin/attendance/upload/review` and `/upload`) so "Already recorded" sees every existing record; the
+   import checks every row again. Ticking "Replace existing records" re-runs the review.
+2. **Status order** follows the notes: Employee ID not found → Date isn't a date → Date is in the future → Check-in time
+   is missing or not a time → Check-out isn't a time → Duplicate row (same employee and date earlier in the file) →
+   Already recorded / Will replace. "Already recorded" = the day has a check-in.
+3. **Times**: 24-hour, AM/PM, with seconds, "9.30", or an Excel time. A check-out earlier than **or equal to** the
+   check-in counts as the next day (as in the prototype). An empty check-out is allowed (the day shows as still
+   checked in), as the notes only flag a check-out that isn't a time.
+4. **Replacing** keeps the day's breaks and sets the new check-in / check-out; the record's working-from locations are
+   dropped (they belonged to the old check-in).
+5. **"Marked as uploaded"**: `source = 'upload'`; Payroll's Daily Log adds "Uploaded" to the day's notes and counts it
+   as a manual entry. Attendance, the timesheet prefill, late marks and leave read it like any other record.
+6. **Button placement**: "Bulk attendance upload" is the primary button in the Attendance page header (top right, with
+   the tooltip); "Mark Attendance" stays on the tab row as before. The Loss of Pay note is a blue info alert on the
+   upload step and in the tooltip.
+7. **ESS tab** is a new "ESS" tab after Reimbursements in Payroll settings (the prototype's tab). The platform's existing
+   "ESS Settings" tab (portal access, onboarding documents, check-in options) is left as it is; its "View Payslips"
+   line is the portal feature list, not this switch.
+8. **Switches save straight away** (no Save button), with a toast; nothing is deleted when hidden.
+9. **Hidden means**: no Payslips / My pay in the ESS menu (both ESS - Employee and ESS - Manager), no Payslips quick
+   action on the Overview, and `/payslips` and `/my-pay` under either ESS base go to the Overview. The old /employee
+   portal (outside this prototype) is untouched.
+10. **My pay** has no ESS page in this codebase (it belongs to the Payroll service): when on, the menu item opens a
+    placeholder page "My pay" with an empty state, so the visibility can be checked end to end.
+
+VERIFY (Chrome via a script at 1440 and 375): Attendance header button + tooltip; upload step's blue Loss of Pay note;
+template download (attendance-upload-template.xlsx); a 7-row CSV reviewed as Ready (9:45 PM → 6:00 AM "(next day)") /
+Already recorded, skipped / Employee ID not found / Date is in the future / Check-in time is missing or not a time /
+Check-out isn't a time / Duplicate row, "Import 1 record"; with Replace → Will replace, "Import 2 records"; both records
+written with source upload (outDays 1 for the overnight one). ESS: off by default for both personas (no menu items, no
+tile, direct links go to the Overview); both on → menu Payslips + My pay, tile, pages open; Payslips off again → hidden
+while My pay stays. No overflow, no console errors.
+
+Tests: the upload's validation (times, every status, replace, next day, summary, template), the store import (source,
+replace keeping breaks, refusals), ESS visibility defaults and saves, the ESS menu with and without the switches.
 
 ## Leave fixes: balances, View, confirmations, holiday ranges, negative balance — done
 

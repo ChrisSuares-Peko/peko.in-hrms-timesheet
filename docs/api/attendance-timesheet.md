@@ -358,3 +358,30 @@ HR's queue has one profile update waiting (Karthik: new mobile number and addres
 - `outDays`, for a next-day check-out;
 - `breaks: { count, minutes, onBreak }`;
 - `openFrom`, for an earlier day that's still checked in.
+
+
+## Bulk attendance upload and ESS visibility (PROTOTYPE-SETUP: Payroll → Attendance, Payroll settings → ESS)
+
+Spec: `docs/dev-notes/dev-notes.json` (pay:attendance → "Bulk attendance upload", pay:settings:ess). Rules:
+`src/prototype/rules/attendanceImport.ts`; store: `src/prototype/mocks/store/atsAttendanceImport.ts`. Tests:
+`rules/__tests__/attendanceImport.test.ts`, `mocks/store/__tests__/atsAttendanceImport.test.ts`,
+`prototype/persona/__tests__/essNav.test.ts`.
+
+### Fields
+
+| Where | Field | Values | Notes |
+|---|---|---|---|
+| `AttendanceRecord` | `source` | adds `'upload'` | Written by the bulk upload. Payroll's daily log notes "Uploaded" (method manual). |
+| `AtsSettings` | `essShow` | `{ payslips: boolean, mypay: boolean }` | Both `false` when never saved (read through `getSettings`). Saved with `PUT settings`. |
+| `EssHomeView` | `essShow` | as above | The ESS Overview shows the Payslips quick action only when `payslips` is on. |
+
+### Endpoints
+
+| Method | Path | Body | Returns | Notes |
+|---|---|---|---|---|
+| POST | `payroll/admin/attendance/upload/review` | `{ rows: string[][], replace }` | `{ rows: AttendanceImportRow[] }` | The file's cells (header and blank rows allowed). Statuses: `ready`, `recorded` ("Already recorded, skipped"), `replace` ("Will replace"), `employee`, `date`, `future`, `checkIn`, `checkOut`, `duplicate`. |
+| POST | `payroll/admin/attendance/upload` | `{ rows: [{ employeeId (code), date, checkIn, checkOut }], replace }` | `{ imported, replaced, message }` | Re-checked; writes check-in / check-out (`outDays` 1 when the check-out isn't after the check-in), keeps existing breaks when replacing, `source: 'upload'`. 400 empty; 409 nothing importable. |
+| PUT | `settings` | `essShow: { payslips?, mypay? }` | settings | Each flag kept when not sent. |
+
+Times: `09:30`, `9:30 AM`, `18:05:00`, `9.30`, or an Excel time (a day fraction; exceljs time cells arrive as HH:mm).
+Dates: YYYY-MM-DD, DD/MM/YYYY or an Excel date.
