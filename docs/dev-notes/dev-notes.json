@@ -696,6 +696,16 @@
      [
       "Keep the existing Attendance page. Add a Requests section for attendance corrections waiting on Payroll, using the shared admin requests list."
      ]
+    ],
+    [
+     "Bulk attendance upload",
+     [
+      "\"Bulk attendance upload\" (primary button, top right of Payroll → Attendance, with a tooltip): for employees who aren’t on the biometric system.",
+      "Two steps like the other uploads: 1 · Upload file, 2 · Review. Template (Excel): Employee ID, Date, Check-in, Check-out. Times in 24-hour or AM/PM (or Excel times); a check-out earlier than the check-in counts as the next day. Accepts .xlsx, .xls, .csv.",
+      "A blue note on the upload step: unpaid days (loss of pay) for this month’s payroll go through the existing Loss of Pay upload, not this file.",
+      "Review statuses: Ready · Already recorded, skipped · Will replace (when \"Replace existing records\" is ticked; the checkbox appears only if some rows already have attendance) · problems: Employee ID not found, Date isn’t a date, Date is in the future, Check-in time is missing or not a time, Check-out isn’t a time, Duplicate row.",
+      "\"Import N records\" writes check-in / check-out for those days (keeping existing breaks when replacing), marked as uploaded (source = upload). They show in Attendance and the employee’s timesheet; late marks and the usual rules apply."
+     ]
     ]
    ],
    "prompt": "Build: Payroll → Attendance\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Attendance module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: Admin view of attendance.\n\nBuild or change:\n- Payroll → Attendance as described.\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Behaviour matches the notes and the prototype on this page.\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
@@ -795,6 +805,29 @@
     ]
    ],
    "prompt": "Build: Payroll settings → Reimbursements\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Reimbursements module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: Reimbursement settings.\n\nBuild or change:\n- Reimbursement settings as described.\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Behaviour matches the notes and the prototype on this page.\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
+  },
+  "pay:settings:ess": {
+   "title": "Payroll settings → ESS",
+   "module": "ESS shell",
+   "what": "Controls which ESS pages employees can see. Payslips and My pay stay hidden until the company turns them on.",
+   "sections": [
+    [
+     "What’s on the page",
+     [
+      "Panel \"What employees see in ESS\" (tooltip explains it). Two rows, each with a switch and a status line (Visible to employees / Hidden from employees):",
+      "Payslips: monthly payslips in ESS. Off by default.",
+      "My pay: salary structure, earnings, deductions and tax details in ESS. Off by default.",
+      "Turning one on adds it to every employee’s ESS menu (and Payslips to the Overview quick tiles) straight away; turning it off hides it again. Nothing is deleted. Stored as settings.essShow = { payslips, mypay }."
+     ]
+    ],
+    [
+     "Rules",
+     [
+      "When hidden, the pages, menu items, Overview tiles and any direct links to them are hidden for employees and managers alike. The pages themselves belong to the Payroll service (not part of this prototype); only the visibility control is built here."
+     ]
+    ]
+   ],
+   "prompt": "Build: Payroll settings → ESS\n\nAdd an \"ESS\" tab to Payroll settings with \"What employees see in ESS\": switches for Payslips and My pay (both off by default). When off, hide those ESS pages, menu items, Overview tiles and direct links for everyone; when on, show them. Store per company. Read the developer notes for this page and match the prototype (docs/prototypes/leave-prototype.html). Don't ask questions; log decisions in docs/progress.md; keep tests green."
   }
  },
  "guide": {
