@@ -12,6 +12,7 @@ import { essRequester } from '../requester';
 import { MockContext, MockRoute, route } from '../router';
 import {
     adminApproverPeople,
+    adminEmailCopyPeople,
     adminBulkApprove,
     adminCounts,
     adminDecide,
@@ -331,6 +332,8 @@ export const atsRoutes: MockRoute[] = [
     // PROTOTYPE-SETUP (Payroll admin, Slices 1–5): the admin side — one tab per service, all employees, level 2.
     route('GET', `${A}/payroll/admin/counts`, ctx => run(ctx.mode, () => adminCounts(ctx.mode))),
     route('GET', `${A}/payroll/admin/approver-people`, ctx => run(ctx.mode, () => adminApproverPeople(ctx.mode))),
+    // PROTOTYPE-SETUP (Leave email copies): the people "Also email these people" can pick.
+    route('GET', `${A}/payroll/admin/email-copy-people`, ctx => run(ctx.mode, () => adminEmailCopyPeople(ctx.mode))),
     route('GET', `${A}/payroll/admin/people`, ctx => run(ctx.mode, () => adminPeople(ctx.mode))),
     route('GET', `${A}/payroll/admin/departments`, ctx => run(ctx.mode, () => adminDepartments(ctx.mode))),
     route('GET', `${A}/payroll/admin/requests/:requestType`, ctx => run(ctx.mode, () => adminRequests(ctx.mode, adminTypeParam(ctx.params)))),

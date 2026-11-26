@@ -44,7 +44,7 @@ import { useAppDispatch } from '@src/hooks/store';
 import { DEFAULT_FILING, PROJECT_CODE_RE, WEEKDAYS, displayTime, filingFieldsError, formatDuration, hasCheckIn, normaliseApprover } from '@src/prototype/rules/attendance';
 import { showToast } from '@src/slices/apiSlice';
 
-import { getApproverPeople, runAutoSubmitNow, updateAtsSettings } from '../api';
+import { getApproverPeople, getEmailCopyPeople, runAutoSubmitNow, updateAtsSettings } from '../api';
 import { usePayrollScope, useAtsSettings } from './usePayrollAts';
 import { fmtStamp } from '../components/format';
 import type { AtsMode, AtsSettings, FilingFrequency, LeaveEndorsement, LeavePolicy, LeaveTypeConfig, Level1Approver, Level2Approver, Level2ConfigurableType, Weekday, ReimbursementCategory } from '../types';
@@ -76,6 +76,8 @@ interface FormValues {
     level1: Record<Level2Key, Level1Approver>;
     /** PROTOTYPE-SETUP (Leave policy settings): extra approval for longer leave (Leave → Approvals). */
     endorsement: LeaveEndorsement;
+    /** PROTOTYPE-SETUP (Leave email copies): "Also email these people" (a person id as text, '' = No one). */
+    emailCc: { on: boolean; people: string[] };
     level2: Record<Level2Key, Level2Approver>;
     /** PROTOTYPE-SETUP (Settings, Slice 4): half-day leave (edited in Leave Policies → Configuration). */
     leaveRules: { halfDay: boolean };
@@ -179,6 +181,7 @@ const toForm = (s: AtsSettings): FormValues => ({
     submissionTime: s.timesheetApproval.submissionTime,
     level1: levelsOf(s.level1),
     endorsement: { ...s.leaveEndorsement },
+    emailCc: { on: s.leaveEmailCc.on, people: [0, 1, 2, 3].map(i => (s.leaveEmailCc.people[i] ? String(s.leaveEmailCc.people[i]) : '')) },
     level2: levelsOf({
         attendance: s.level2.attendance,
         overtime: s.level2.overtime,
@@ -213,6 +216,7 @@ const fromForm = (v: FormValues): SettingsBody => ({
     level1: { ...v.level1 },
     level2: { ...v.level2 },
     ...(v.endorsement ? { leaveEndorsement: { enabled: Boolean(v.endorsement.enabled), overDays: Number(v.endorsement.overDays ?? 5), endorser: v.endorsement.endorser } } : {}),
+    ...(v.emailCc ? { leaveEmailCc: { on: Boolean(v.emailCc.on), people: [0, 1, 2, 3].map(i => (v.emailCc.people?.[i] ? Number(v.emailCc.people[i]) : null)) } } : {}),
     leaveRules: { halfDay: Boolean(v.leaveRules.halfDay) },
     reimbursements: { claimWindowDays: v.reimbursements.claimWindowDays ?? 60, categories: v.reimbursements.categories },
     timesheetFiling: {
@@ -440,6 +444,13 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
     useEffect(() => {
         getApproverPeople(scope).then(res => setPeople(res || []));
     }, [scope]);
+    // PROTOTYPE-SETUP (Leave email copies): who can be copied (Managers · HR and Admin).
+    const [copyPeople, setCopyPeople] = useState<{ managers: Person[]; hrAdmin: Person[] }>({ managers: [], hrAdmin: [] });
+    useEffect(() => {
+        if (section === 'leave') getEmailCopyPeople(scope).then(res => res && setCopyPeople(res));
+    }, [scope, section]);
+    const ccOn = Form.useWatch(['emailCc', 'on'], form);
+    const ccPeople: string[] | undefined = Form.useWatch(['emailCc', 'people'], form);
 
     const mode = Form.useWatch('mode', form);
     const approvalEnabled = Form.useWatch('approvalEnabled', form);
@@ -956,6 +967,66 @@ const AtsSettingsTab = ({ section = 'ato' }: { section?: SettingsSection }) => {
                                     </Flex>
                                 </Flex>
                             )}
+                        </Flex>
+                    </Card>
+                )}
+
+                {/* PROTOTYPE-SETUP (Leave email copies — notes pay:settings:leave:approvals): up to 4 people copied on
+                    every leave approval email (every level, every trigger), as separate emails. Off keeps the choices. */}
+                {section === 'leave' && (
+                    <Card
+                        title={
+                            <span className="inline-flex items-center">
+                                Also email these people
+                                <InfoTip
+                                    label="About email copies"
+                                    title="Besides the approver at each level, up to 4 people can get a copy of every leave approval email (every level, every trigger), for example the HR head or a team lead. Each gets their own email, so no one sees the other recipients. They get the email only; they don’t approve anything."
+                                />
+                            </span>
+                        }
+                        size="small"
+                        data-email-copy-card
+                    >
+                        <Flex vertical gap={12}>
+                            <Flex align="center" gap={8}>
+                                <Form.Item name={['emailCc', 'on']} valuePropName="checked" noStyle>
+                                    <Switch aria-label="Also email these people" data-email-copy-on />
+                                </Form.Item>
+                                <Text className="text-sm">{ccOn ? 'On' : 'Off'}</Text>
+                            </Flex>
+                            {/* The dropdowns stay in the form when off (the choices are kept), hidden. */}
+                            <div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${ccOn ? '' : 'hidden'}`} data-email-copy-people>
+                                {[0, 1, 2, 3].map(i => {
+                                    const taken = (ccPeople ?? []).filter((v, j) => v && j !== i);
+                                    const opt = (x: Person) => ({ value: String(x.id), label: `${x.name} · ${x.title}`, disabled: taken.includes(String(x.id)) });
+                                    return (
+                                        <Flex key={i} vertical gap={4}>
+                                            <Text className="text-[13px] font-medium">Person {i + 1}</Text>
+                                            <Form.Item name={['emailCc', 'people', i]} noStyle>
+                                                <Select
+                                                    aria-label={`Person ${i + 1}`}
+                                                    popupMatchSelectWidth={false}
+                                                    data-email-copy-person={i + 1}
+                                                    options={[
+                                                        { value: '', label: 'No one' },
+                                                        { label: 'Managers', options: copyPeople.managers.map(opt) },
+                                                        { label: 'HR and Admin', options: copyPeople.hrAdmin.map(opt) },
+                                                    ]}
+                                                />
+                                            </Form.Item>
+                                        </Flex>
+                                    );
+                                })}
+                            </div>
+                            <Text type="secondary" className="text-xs" data-email-copy-summary>
+                                {(() => {
+                                    if (!ccOn) return 'Off: only the approver at each level gets the email.';
+                                    const all = [...copyPeople.managers, ...copyPeople.hrAdmin];
+                                    const names = (ccPeople ?? []).filter(Boolean).map(id => all.find(x => String(x.id) === id)?.name ?? '');
+                                    if (!names.length) return 'No one selected yet.';
+                                    return `${names.length} ${names.length === 1 ? 'person gets' : 'people get'} a copy: ${names.join(', ')}.`;
+                                })()}
+                            </Text>
                         </Flex>
                     </Card>
                 )}

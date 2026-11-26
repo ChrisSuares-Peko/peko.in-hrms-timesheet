@@ -20,6 +20,7 @@ import type {
     TimesheetLeaveRow,
     ApprovalStep,
     ApprovalType,
+    LeaveEmailCc,
 } from '@src/domains/attendanceTimesheet/types';
 import {
     DEFAULT_FILING,
@@ -134,6 +135,8 @@ export const getSettings = (mode: DataMode): AtsSettings => {
         reimbursements: { ...DEFAULT_SETTINGS.reimbursements, ...s.reimbursements },
         // PROTOTYPE-SETUP (Leave policy settings): extra approval for longer leave (off when never saved).
         leaveEndorsement: { ...DEFAULT_SETTINGS.leaveEndorsement, ...s.leaveEndorsement },
+        // PROTOTYPE-SETUP (Leave email copies): off with no one chosen when never saved.
+        leaveEmailCc: emailCcOf(s.leaveEmailCc),
         // PROTOTYPE-SETUP (Leave module): a policy stored in the earlier shape is mapped to the current one.
         // PROTOTYPE-SETUP (Leave settings rework): the company-wide half-day setting becomes each yearly type's halfDay.
         leavePolicy: migrateLeavePolicy(s.leavePolicy, (s.leaveRules as { proofDays?: number } | undefined)?.proofDays, s.leaveRules?.halfDay ?? DEFAULT_SETTINGS.leaveRules.halfDay),
@@ -141,6 +144,21 @@ export const getSettings = (mode: DataMode): AtsSettings => {
         // PROTOTYPE-SETUP (Payroll settings → ESS): off when never saved.
         essShow: essShowOf(s),
     };
+};
+
+/**
+ * PROTOTYPE-SETUP (Leave email copies): "Also email these people" — always 4 slots; an id that isn't an employee, or
+ * one already picked in an earlier slot, reads as No one.
+ */
+export const emailCcOf = (v: Partial<LeaveEmailCc> | undefined): LeaveEmailCc => {
+    const seen = new Set<number>();
+    const people = [0, 1, 2, 3].map(i => {
+        const id = Number(v?.people?.[i]);
+        if (!v?.people?.[i] || !Number.isInteger(id) || seen.has(id) || !EMPLOYEES.some(e => e.id === id)) return null;
+        seen.add(id);
+        return id;
+    });
+    return { on: v?.on === true, people };
 };
 
 /** Payslips / My pay visibility in ESS (both off unless the company turned them on). */

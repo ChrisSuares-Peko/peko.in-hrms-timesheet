@@ -322,6 +322,7 @@ export const DEFAULT_SETTINGS: AtsSettings = {
     leaveRules: { halfDay: true },
     // PROTOTYPE-SETUP (Leave policy settings): extra approval for longer leave is off by default.
     leaveEndorsement: { enabled: false, overDays: 5, endorser: 'DEPT_HEAD' },
+    leaveEmailCc: { on: false, people: [null, null, null, null] },
     reimbursements: { categories: DEFAULT_REIMBURSEMENT_CATEGORIES, claimWindowDays: 60 },
     timesheetFiling: DEFAULT_FILING,
     updatedAt: '',

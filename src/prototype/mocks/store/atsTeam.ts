@@ -120,6 +120,7 @@ import {
     openSessionBefore,
     weekRoute,
     weekWaitingWith,
+    emailCcOf,
 } from './atsStore';
 import { actorOf } from '../data/ats-seed';
 import { MockEmployee, findEmployee } from '../data/employees';
@@ -1253,6 +1254,8 @@ export const updateSettings = (mode: DataMode, body: Partial<AtsSettings> | unde
         leaveRules: { halfDay: typeof b.leaveRules?.halfDay === 'boolean' ? b.leaveRules.halfDay : cur.leaveRules.halfDay },
         reimbursements: reimbursementsFrom(b.reimbursements, cur.reimbursements),
         leaveEndorsement: endorsementFrom(b.leaveEndorsement, cur.leaveEndorsement),
+        // PROTOTYPE-SETUP (Leave email copies): "Also email these people".
+        leaveEmailCc: b.leaveEmailCc === undefined ? cur.leaveEmailCc : emailCcOf({ ...cur.leaveEmailCc, ...b.leaveEmailCc }),
         // PROTOTYPE-SETUP (Final batch, Slice 1): leave deducted per late check-in (0 = off), and the leave policy.
         lateDeductionDays: Number.isFinite(Number(b.lateDeductionDays)) && Number(b.lateDeductionDays) >= 0 && Number(b.lateDeductionDays) <= 5
             ? Math.round(Number(b.lateDeductionDays) * 4) / 4

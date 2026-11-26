@@ -254,6 +254,18 @@ export const adminApproverPeople = (mode: DataMode) => {
         .map(e => ({ id: e.id, name: e.fullName, title: e.designation }));
 };
 
+/**
+ * PROTOTYPE-SETUP (Leave email copies): who can be copied — Managers (anyone with direct reports, and the CEO) and HR
+ * and Admin (the HR department, managers already listed above left out).
+ */
+export const adminEmailCopyPeople = (mode: DataMode) => {
+    const all = employeesFor(mode);
+    const managers = all.filter(e => !managerOf(e) || all.some(x => x.managerEmployeeId === e.employeeId));
+    const hr = all.filter(e => e.department === 'HR' && !managers.includes(e));
+    const row = (e: (typeof all)[number]) => ({ id: e.id, name: e.fullName, title: e.designation });
+    return { managers: managers.map(row), hrAdmin: hr.map(row) };
+};
+
 /** Every employee (the Details tables list everyone, with or without requests). */
 export const adminPeople = (mode: DataMode) => employeesFor(mode).map(personRef);
 

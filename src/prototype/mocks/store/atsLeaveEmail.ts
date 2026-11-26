@@ -7,6 +7,9 @@
 //                  so nothing is due
 //   recipients ... a person step (the reporting manager, a set person, the endorser) → that person; a team step
 //                  (Admin / HR) → every company user with that role (approverUsers); never the employee themselves
+//   copies ....... PROTOTYPE-SETUP (Leave email copies): when "Also email these people" is on, up to 4 chosen people
+//                  get the same email too — each their own email (no one sees other recipients), logged with
+//                  `copy: true`; not someone already getting it as an approver, and not the employee themselves
 //   once ......... one key per request, round and step (leaveEmailKey): a key that's in the log is never sent again
 //   log .......... every attempt: request, level, recipient, time, status (sent / failed)
 //   failures ..... the transport is wrapped: a failed email is logged as failed and never blocks the request (the
@@ -19,7 +22,7 @@ import { LEAVE_EMAIL_TEMPLATES, type LeaveEmailPlaceholder, type LeaveEmailTrigg
 import { paths } from '@src/routes/paths';
 
 import { atsCompOffs, atsLeaveCancels, atsLeaveChanges, atsLeaveRequests } from './atsRequests';
-import { leaveTypeName } from './atsStore';
+import { getSettings, leaveTypeName } from './atsStore';
 import { createCollection } from './persistentStore';
 import { COMPANY } from '../data/company';
 import { EMPLOYEES, ESS_MANAGER, findEmployee } from '../data/employees';
@@ -52,6 +55,20 @@ export const recipientsFor = (step: ApprovalStep, requesterId: number): EmailRec
     return approverUsers().filter(u => u.employeeId !== requesterId);
 };
 
+/**
+ * PROTOTYPE-SETUP (Leave email copies): the chosen people when "Also email these people" is on — not anyone already
+ * getting the email as an approver, and not the employee themselves.
+ */
+export const copyRecipients = (mode: DataMode, requesterId: number, approvers: EmailRecipient[] = []): EmailRecipient[] => {
+    const cc = getSettings(mode).leaveEmailCc;
+    if (!cc.on) return [];
+    const taken = new Set(approvers.map(a => a.email));
+    return cc.people
+        .map(id => (id === null ? undefined : findEmployee(id)))
+        .filter((e): e is NonNullable<typeof e> => Boolean(e) && e!.id !== requesterId && !taken.has(e!.email))
+        .map(e => ({ name: e.fullName, email: e.email, employeeId: e.id }));
+};
+
 // ---- the log ---------------------------------------------------------------------------------------------------------
 
 export interface LeaveEmailLogEntry {
@@ -67,6 +84,8 @@ export interface LeaveEmailLogEntry {
     at: string;
     status: 'sent' | 'failed';
     error?: string;
+    /** A copy for "Also email these people" (they don't approve anything). */
+    copy?: boolean;
 }
 
 export const atsLeaveEmailLog = createCollection<LeaveEmailLogEntry[]>('ats-leave-email-log', () => []);
@@ -168,7 +187,9 @@ export const sendLeaveEmails = (mode: DataMode, kind: LeaveEmailKind, r: Request
         const key = leaveEmailKey(kind, r.id, due);
         if (atsLeaveEmailLog.get(mode).some(x => x.key === key)) return [];
         const template = LEAVE_EMAIL_TEMPLATES[due.trigger];
-        const entries: LeaveEmailLogEntry[] = recipientsFor(due.step, r.employeeId).map(to => {
+        const approvers = recipientsFor(due.step, r.employeeId);
+        const copies = copyRecipients(mode, r.employeeId, approvers);
+        const entries: LeaveEmailLogEntry[] = [...approvers.map(to => ({ to, copy: false })), ...copies.map(to => ({ to, copy: true }))].map(({ to, copy }) => {
             const values = valuesFor(mode, kind, r, due.step, to);
             const subject = renderLeaveEmail(template.subject, values);
             const body = renderLeaveEmail(template.body, values);
@@ -181,7 +202,21 @@ export const sendLeaveEmails = (mode: DataMode, kind: LeaveEmailKind, r: Request
                 error = err instanceof Error ? err.message : String(err);
             }
             seq += 1;
-            return { id: `em-${Date.now()}-${seq}`, key, kind, requestId: r.id, level: values.level, trigger: due.trigger, recipient: to, subject, body, at: nowIso(), status, ...(error ? { error } : {}) };
+            return {
+                id: `em-${Date.now()}-${seq}`,
+                key,
+                kind,
+                requestId: r.id,
+                level: values.level,
+                trigger: due.trigger,
+                recipient: to,
+                subject,
+                body,
+                at: nowIso(),
+                status,
+                ...(error ? { error } : {}),
+                ...(copy ? { copy: true } : {}),
+            };
         });
         if (entries.length) atsLeaveEmailLog.update(mode, list => [...list, ...entries]);
         return entries;

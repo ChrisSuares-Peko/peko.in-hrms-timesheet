@@ -337,6 +337,9 @@ export const payrollSendBackWeek = (s: AtsScope, employeeId: number, weekStart: 
 export const getAdminCounts = (s: AtsScope) => call<AdminCounts>(s, 'get', 'payroll/admin/counts');
 /** PROTOTYPE-SETUP (Settings, Slice 3): every manager and the CEO (and anyone already named) — "a specific person". */
 export const getApproverPeople = (s: AtsScope) => call<{ id: number; name: string; title: string }[]>(s, 'get', 'payroll/admin/approver-people');
+/** PROTOTYPE-SETUP (Leave email copies): Managers and HR and Admin, for "Also email these people". */
+export const getEmailCopyPeople = (s: AtsScope) =>
+    call<{ managers: { id: number; name: string; title: string }[]; hrAdmin: { id: number; name: string; title: string }[] }>(s, 'get', 'payroll/admin/email-copy-people');
 export const getAdminPeople = (s: AtsScope) => call<PersonRef[]>(s, 'get', 'payroll/admin/people');
 export const getAdminDepartments = (s: AtsScope) => call<string[]>(s, 'get', 'payroll/admin/departments');
 export const getAdminRequests = (s: AtsScope, type: AdminRequestType) => call<AdminRequestRow[]>(s, 'get', `payroll/admin/requests/${type}`);

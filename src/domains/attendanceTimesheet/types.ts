@@ -104,6 +104,12 @@ export interface EssShow {
     mypay: boolean;
 }
 
+/** PROTOTYPE-SETUP (Leave email copies): stored per company as { on, people: [id or null × 4] }. */
+export interface LeaveEmailCc {
+    on: boolean;
+    people: (number | null)[];
+}
+
 export interface AtsSettings {
     mode: AtsMode;
     /** Standard day. Shift length (end − start) includes the break. */
@@ -140,6 +146,9 @@ export interface AtsSettings {
     leaveRules: LeaveRequestRules;
     /** PROTOTYPE-SETUP (Leave policy settings): "Extra approval for longer leave" (leave and leave changes). */
     leaveEndorsement: LeaveEndorsement;
+    /** PROTOTYPE-SETUP (Leave email copies): "Also email these people" — up to 4 employees copied on every leave
+     *  approval email (Person 1–4; null = No one). Off keeps the choices. */
+    leaveEmailCc: LeaveEmailCc;
     /** PROTOTYPE-SETUP (Settings, Slice 5): reimbursement categories and the claim window. */
     reimbursements: ReimbursementRules;
     updatedAt: string;
