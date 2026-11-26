@@ -352,3 +352,29 @@ requests, pay:settings:leave:types / holidays / config). Rules: `src/prototype/r
 3. Exports are built in the browser from the loaded tables: Leaves (the filtered rows: Name, Email, Leave type, From,
    To, Days, Reason, Applied on, Added by, Status) and Balances (Employee ID, Employee, Department, Status, available
    and allocated per type).
+
+
+## Leave email notifications (PROTOTYPE-SETUP: this run)
+
+Spec: `docs/dev-notes/dev-notes.json` → guide.shared → "Email notifications for leave applications". Wording:
+`src/prototype/rules/leaveEmailTemplates.ts` (the one place to paste product's subject and body per trigger). Triggers:
+`src/prototype/rules/leaveEmail.ts`; sending and log: `src/prototype/mocks/store/atsLeaveEmail.ts`. Tests:
+`mocks/store/__tests__/atsLeaveEmail.test.ts`.
+
+| Trigger | When | Who |
+|---|---|---|
+| `submitted` | a new request (leave incl. half days / per-event / maternity / loss of pay, cancellation, change, comp off) | the first step that isn't skipped |
+| `next_level` | a step approves and the request moves on | the next step (the endorsement step, then Level 2) |
+| `resubmitted` | the employee updates after "Ask for update" (or edits an open request) and it starts again | Level 1 (or the first step that isn't skipped) |
+
+Recipients: a person step (reporting manager, a set person, the endorser) → that person; a team step (Admin / HR) →
+every company user with the role (the company admin account + the HR department in the demo data); never the requester.
+HR's Add leave is approved at once → no email.
+
+Once: key = request kind + id + round (number of resubmits) + step index; a key in the log is never sent again.
+
+Log entry: `{ id, key, kind, requestId, level, trigger, recipient: { name, email }, subject, body, at, status: 'sent' |
+'failed', error? }` — `GET payroll/admin/leave/email-log`. A failed send is logged and never blocks the request.
+
+`{request_link}`: a person → `/ess-…/my-team/approvals?request=<id>`; a team → `/payroll/services/leave?view=requests&request=<id>`.
+Both pages open that request's View when it's in the list.

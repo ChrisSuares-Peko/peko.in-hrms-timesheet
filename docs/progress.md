@@ -1,9 +1,56 @@
-# Progress — Leave module: fixes, bulk attendance upload, ESS visibility
+# Progress — Leave module: fixes, bulk attendance upload, ESS visibility, email notifications
 
 PROTOTYPE-SETUP. Run log. Sources: `docs/dev-notes/dev-notes.json` (the notes) and
 `docs/prototypes/leave-prototype.html` (the panel's look and behaviour). If a run stops, continue from the first step
 that isn't **done**. The previous run (Leave module updates + module-grouped notes panel, `c34e05f`–`9b91229`) is
 finished and pushed; its log is in git history (`git show 9b91229:docs/progress.md`).
+
+## Leave email notifications at every approval level — done
+
+Spec: `docs/dev-notes/dev-notes.json` → guide.shared → "Email notifications for leave applications". API notes:
+`docs/api/leave.md` → "Leave email notifications".
+
+| Step | Status |
+|---|---|
+| Triggers: submit → first level not skipped; approve → next level (endorsement included); resubmit → Level 1 | done |
+| Every leave-type request: leave (half days, per-event, maternity, LOP), cancellation, change, comp off | done |
+| One template per trigger with the placeholders, in one file | done |
+| Once per level per request; a log of every send; a failed email never blocks | done |
+| `{request_link}` opens the request (My team → Approvals / Payroll → Leave → Requests) | done |
+
+Decisions:
+1. **One place for the wording**: `src/prototype/rules/leaveEmailTemplates.ts`, three templates (submitted, next_level,
+   resubmitted), each subject + body marked "[Wording from product]". Unknown placeholders are left visible so a typo
+   shows up.
+2. **Extra placeholder `{request_type}`** (Leave request / Leave cancellation / Leave change / Comp off request): the
+   four request types share the three templates, and the given list had no way to tell them apart.
+3. **How triggers fire**: the request collections got a change hook (`onChange`, prev and next); the email module
+   watches the four leave-family collections and only looks at requests whose approval trail changed in that write. So
+   every path (ESS, My team, Payroll, HR) is covered in one place, seeded data never sends, and a listener can't throw
+   into the write.
+4. **Once per level**: key = kind + id + round + step index, where round = the number of "Updated / Edited and
+   resubmitted" events. A key already in the log is skipped, so re-renders, retries and unrelated saves send nothing.
+5. **Edits count as resubmits**: an employee editing an open request restarts it at Level 1 (existing behaviour), so
+   Level 1 gets the `resubmitted` email for the new version.
+6. **Team approvers**: every team step reads "Admin / HR" in this product (HR, Payroll, Finance, Admin), so all of them
+   go to the users with the Admin / HR role. The demo has no user-role table, so that is the company admin account
+   (admin@acmetech.in) plus the HR department (Ritu, Nikhil, Farah). The real list comes from the company's users and
+   roles.
+7. **Never the requester**: an HR person's own leave doesn't email them as an approver.
+8. **Failures**: the send is wrapped; a failure is logged with status `failed` and the error, and isn't retried
+   automatically (a retry would need the same key, so it can't duplicate). The request goes on as normal.
+9. **Transport**: the prototype has no mail server; `setEmailTransport` is the seam (a no-op that counts as sent here;
+   tests swap in a failing one). The log is readable at `GET payroll/admin/leave/email-log`; there's no screen for it.
+10. **Deep links**: the person link goes to their ESS (`/ess-manager` for the demo manager, `/ess-employee` otherwise)
+    My team → Approvals with `?request=<id>`; the team link to Payroll → Leave → Requests with `?request=<id>`. Both
+    lists open the request's read-only View when it's there (closing it drops the parameter).
+11. **Dates in emails**: "Mon 7 Dec 2026"; `{day_type}` Full day(s) / First half / Second half; `{days}` "2.5 days".
+
+VERIFY: in the app (Chrome), Sneha's request emailed Arjun (Level 1, sent); Arjun's approval emailed the four Admin / HR
+users (Level 2); the Payroll and My team links opened the request's View. Tests (11): manager → Admin / HR, skipped
+Level 1 (CEO), endorsement step, a set person at Level 1, the requester left out, Ask for update → resubmit (Level 1
+again, once; an unrelated save sends nothing), HR Add leave (none), loss of pay, change, cancellation, comp off, a failed
+send logged without blocking, the trigger rules and the template.
 
 ## Bulk attendance upload and Payroll settings → ESS — done
 
