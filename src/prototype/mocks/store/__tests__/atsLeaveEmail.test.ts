@@ -195,7 +195,8 @@ describe('email copies (Also email these people)', () => {
     it('a person can’t be picked twice; off keeps the choices but stops the copies', () => {
         updateSettings(M, { leaveEmailCc: { on: true, people: [manish.id, manish.id, 999999, ceo.id] } });
         expect(getSettingsCc()).toEqual({ on: true, people: [manish.id, null, null, ceo.id] });
-        updateSettings(M, { leaveEmailCc: { on: false } });
+        // Only `on` is sent: the server merges it, so the people stay.
+        updateSettings(M, { leaveEmailCc: { on: false } as ReturnType<typeof getSettingsCc> });
         expect(getSettingsCc()).toEqual({ on: false, people: [manish.id, null, null, ceo.id] });
         const start = working(today(), 25);
         createLeaveRequest(M, imran, { type: 'CASUAL', start, end: start, reason: 'x' });
