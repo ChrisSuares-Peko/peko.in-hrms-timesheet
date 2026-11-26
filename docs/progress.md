@@ -1,9 +1,37 @@
-# Progress — Leave module: fixes, bulk attendance upload, ESS visibility, email notifications
+# Progress — Leave module: fixes, bulk attendance upload, ESS visibility, email notifications and copies
 
 PROTOTYPE-SETUP. Run log. Sources: `docs/dev-notes/dev-notes.json` (the notes) and
 `docs/prototypes/leave-prototype.html` (the panel's look and behaviour). If a run stops, continue from the first step
 that isn't **done**. The previous run (Leave module updates + module-grouped notes panel, `c34e05f`–`9b91229`) is
 finished and pushed; its log is in git history (`git show 9b91229:docs/progress.md`).
+
+## Leave email copies: "Also email these people" — done
+
+Spec: `docs/dev-notes/dev-notes.json` → pay:settings:leave:approvals → "Also email these people", guide.shared → email
+rules (Copies). Payroll settings → Leave → Approvals, under "Extra approval for longer leave".
+
+Migrations: `leaveEmailCc` is new on the settings (off, no one chosen, when missing).
+
+Decisions:
+1. **Saved with the approvals form** (Save settings / Discard changes), like the extra approval card; not on its own.
+2. **Off keeps the choices**: the four dropdowns stay in the form (hidden) when the switch is off, so turning it back on
+   shows the same people; the summary reads "Off: only the approver at each level gets the email."
+3. **Lists**: Managers = anyone with direct reports, and the CEO (no manager); HR and Admin = the HR department minus
+   anyone already under Managers, so nobody appears twice. Picked people are disabled in the other dropdowns; the
+   server also drops a repeat or an unknown id.
+4. **No double email**: a copied person who is also an approver at that level (e.g. an HR person at the Admin / HR
+   level) gets the approver email only; the employee is never copied on their own request.
+5. **Same email**: copies use the same template as that level's approvers (`{approver_name}` = the copied person's name,
+   `{request_link}` the same link) and are logged with `copy: true`. Product's wording can say "for your information" if
+   needed; the template file is the one place.
+6. **Once**: copies go out in the same send as the approvers for that request, round and step, so they're never
+   repeated either.
+
+VERIFY (Chrome, 1440): off by default with the dropdowns hidden; on → "No one selected yet."; Person 1 Manish (Managers),
+Person 2 Farah (HR and Admin); both disabled in Person 3; summary "2 people get a copy: Manish Patel, Farah Khan.";
+saved { on: true, people: [Manish, Farah, –, –] }; turned off and saved → choices kept. Tests (4): off by default, copies
+at every level (one email each, not twice for an approver, not to the employee), repeats dropped and off keeps choices,
+the two lists.
 
 ## Leave email notifications at every approval level — done
 

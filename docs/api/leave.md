@@ -378,3 +378,11 @@ Log entry: `{ id, key, kind, requestId, level, trigger, recipient: { name, email
 
 `{request_link}`: a person → `/ess-…/my-team/approvals?request=<id>`; a team → `/payroll/services/leave?view=requests&request=<id>`.
 Both pages open that request's View when it's in the list.
+
+### Email copies: "Also email these people" (PROTOTYPE-SETUP)
+
+| Where | Field / path | Notes |
+|---|---|---|
+| `AtsSettings` | `leaveEmailCc: { on: boolean, people: (number \| null)[4] }` | Off with no one chosen when never saved. Saved with `PUT settings` (the Leave → Approvals form). Ids that aren't employees, or repeat an earlier slot, read as `null`. `on: false` keeps `people`. |
+| GET | `payroll/admin/email-copy-people` | `{ managers, hrAdmin }` — Managers (anyone with direct reports, and the CEO); HR and Admin (the HR department, managers left out). |
+| log entry | `copy: true` | A copy. Each copied person gets their own email (no other recipients shown), the same template as that level's approvers, at every level and trigger. Not sent to someone already getting it as an approver, nor to the employee themselves. |

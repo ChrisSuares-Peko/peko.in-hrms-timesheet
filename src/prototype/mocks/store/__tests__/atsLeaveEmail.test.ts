@@ -10,10 +10,11 @@ import { leaveEmailDue, leaveEmailKey } from '@src/prototype/rules/leaveEmail';
 import { LEAVE_EMAIL_TEMPLATES, renderLeaveEmail } from '@src/prototype/rules/leaveEmailTemplates';
 
 import { findEmployee } from '../../data/employees';
+import { adminEmailCopyPeople } from '../atsAdmin';
 import { createLeaveRequest, createLopRequest, hrAddLeave, requestLeaveCancellation, requestLeaveChange, resubmitLeaveRequest, updateLeaveConfig } from '../atsLeave';
 import { approverUsers, leaveEmailLog, setEmailTransport, type EmailTransport } from '../atsLeaveEmail';
 import { atsCompOffs, atsLeaveRequests } from '../atsRequests';
-import { publicHolidayOn, today } from '../atsStore';
+import { getSettings, publicHolidayOn, today } from '../atsStore';
 import { decideRequest, updateSettings } from '../atsTeam';
 import { resetAllCollections } from '../persistentStore';
 
@@ -43,6 +44,7 @@ const latest = (e = imran) => [...atsLeaveRequests.get(M)].filter(l => l.employe
 /** "level → recipients" for one request, in send order. */
 const sends = (requestId: string) => leaveEmailLog(M).filter(x => x.requestId === requestId).map(x => `${x.trigger} · ${x.level} → ${x.recipient.name}`);
 const team = () => approverUsers().map(u => u.name);
+const getSettingsCc = () => getSettings(M).leaveEmailCc;
 const HR_TEAM = () => team().map(n => `· Level 2 → ${n}`);
 
 describe('leave email triggers (store)', () => {
@@ -155,6 +157,57 @@ describe('leave email triggers (store)', () => {
         const l = latest();
         expect(l.trail.status).toBe('PENDING_MANAGER');
         expect(leaveEmailLog(M).find(x => x.requestId === l.id)).toMatchObject({ status: 'failed', error: 'SMTP down', level: 'Level 1' });
+    });
+});
+
+// PROTOTYPE-SETUP (Leave email copies): "Also email these people".
+describe('email copies (Also email these people)', () => {
+    const farah = findEmployee('ACME-020')!; // HR: also a Level 2 (Admin / HR) recipient
+    const copiesOf = (requestId: string) => leaveEmailLog(M).filter(x => x.requestId === requestId && x.copy).map(x => `${x.level} → ${x.recipient.name}`);
+    const approversOf = (requestId: string) => leaveEmailLog(M).filter(x => x.requestId === requestId && !x.copy).map(x => x.recipient.name);
+
+    it('off by default: approvers only', () => {
+        const start = working(today(), 25);
+        createLeaveRequest(M, imran, { type: 'CASUAL', start, end: start, reason: 'x' });
+        expect(copiesOf(latest().id)).toEqual([]);
+    });
+
+    it('on: every level’s email also goes to the chosen people, one email each; not to an approver twice, not to the employee', () => {
+        updateSettings(M, { leaveEmailCc: { on: true, people: [manish.id, farah.id, null, ceo.id] } });
+        const start = working(today(), 25);
+        createLeaveRequest(M, imran, { type: 'CASUAL', start, end: start, reason: 'x' });
+        const l = latest();
+        expect(approversOf(l.id)).toEqual([divya.fullName]);
+        expect(copiesOf(l.id)).toEqual([`Level 1 → ${manish.fullName}`, `Level 1 → ${farah.fullName}`, `Level 1 → ${ceo.fullName}`]);
+        // separate emails: one recipient each, the same wording as the approver's
+        const level1 = leaveEmailLog(M).filter(x => x.requestId === l.id);
+        expect(new Set(level1.map(x => x.recipient.email)).size).toBe(level1.length);
+        expect(level1.every(x => x.subject.includes(imran.fullName))).toBe(true);
+        decideRequest(M, 'leave', l.id, { role: 'MANAGER', manager: divya }, 'APPROVED');
+        // Level 2: Farah is an Admin / HR approver, so she gets the approver email only (no second copy).
+        expect(copiesOf(l.id).slice(3)).toEqual([`Level 2 → ${manish.fullName}`, `Level 2 → ${ceo.fullName}`]);
+        expect(approversOf(l.id)).toContain(farah.fullName);
+        // Manish's own leave: he isn't copied on it.
+        createLeaveRequest(M, manish, { type: 'CASUAL', start: working(start, 3), end: working(start, 3), reason: 'y' });
+        expect(copiesOf(latest(manish).id).map(x => x.split(' → ')[1])).not.toContain(manish.fullName);
+    });
+
+    it('a person can’t be picked twice; off keeps the choices but stops the copies', () => {
+        updateSettings(M, { leaveEmailCc: { on: true, people: [manish.id, manish.id, 999999, ceo.id] } });
+        expect(getSettingsCc()).toEqual({ on: true, people: [manish.id, null, null, ceo.id] });
+        updateSettings(M, { leaveEmailCc: { on: false } });
+        expect(getSettingsCc()).toEqual({ on: false, people: [manish.id, null, null, ceo.id] });
+        const start = working(today(), 25);
+        createLeaveRequest(M, imran, { type: 'CASUAL', start, end: start, reason: 'x' });
+        expect(copiesOf(latest().id)).toEqual([]);
+    });
+
+    it('who can be copied: Managers (people with reports, and the CEO) and HR and Admin', () => {
+        const list = adminEmailCopyPeople(M);
+        expect(list.managers.map(x => x.id)).toEqual(expect.arrayContaining([divya.id, manish.id, ceo.id]));
+        expect(list.managers.some(x => x.id === imran.id)).toBe(false);
+        expect(list.hrAdmin.map(x => x.name)).toContain(farah.fullName);
+        expect(list.hrAdmin.some(x => list.managers.some(m => m.id === x.id))).toBe(false);
     });
 });
 
