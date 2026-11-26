@@ -509,6 +509,13 @@
      [
       "When a leave application reaches an approval level, the approver(s) at that level get an email. Full rules in \"How to use these notes\" → Shared rules → \"Email notifications for leave applications\". Email wording comes from product separately."
      ]
+    ],
+    [
+     "Also email these people",
+     [
+      "Panel under the approver settings: on/off switch (off by default). When on, 4 dropdowns (Person 1–4), each with \"No one\" plus two groups: Managers (anyone with direct reports, and the CEO) and HR and Admin (HR department). A person already picked in one dropdown is disabled in the others. A summary line lists who gets a copy.",
+      "Effect: every leave approval email (all levels, all triggers) is also sent to the chosen people. Stored per company as { on, people: [id or empty × 4] }. Turning it off keeps the choices but stops the copies."
+     ]
     ]
    ],
    "prompt": "Build: Payroll settings → Leave → Approvals\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Leave module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: Who approves leave.\n\nBuild or change:\n- The leave approvals row with Level 1 / Level 2 dropdowns, wired to the routing rules.\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Changing approvers routes new requests correctly and leaves in-flight ones alone.\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
@@ -923,7 +930,8 @@
      "Triggers: a new request is submitted (email to Level 1, or to the first level that isn’t skipped); a level approves and it moves on (email to the next level); an employee resubmits after \"Ask for update\" (email to Level 1 again). HR’s \"Add leave\" is approved straight away, so it sends none.",
      "Covers every leave-type request: leave (including half days, per-event leave, maternity, LOP), leave cancellation and leave change requests, and comp off requests.",
      "Email content (subject and body) will be shared separately by product. Build the sending and the triggers now with a template per trigger that uses placeholders: {approver_name}, {employee_name}, {employee_id}, {department}, {leave_type}, {from_date}, {to_date}, {days}, {day_type}, {reason}, {level}, {request_id}, {request_link} (deep link that opens the request in My team → Approvals or Payroll → Leave → Requests). Keep the wording in one editable place.",
-     "Send once per level per request (no duplicates on re-renders or retries); log each send (request, level, recipient, time, status). A failed email must never block the request. In-app notifications stay as they are."
+     "Send once per level per request (no duplicates on re-renders or retries); log each send (request, level, recipient, time, status). A failed email must never block the request. In-app notifications stay as they are.",
+     "Copies: if \"Also email these people\" is on (Leave settings → Approvals), up to 4 chosen people also get every one of these emails, at every level, as separate emails (not visible to each other). They don’t approve anything. Off = approvers only."
     ]
    ]
   ],
