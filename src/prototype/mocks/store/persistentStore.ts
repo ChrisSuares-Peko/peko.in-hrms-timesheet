@@ -67,6 +67,11 @@ export interface PersistentCollection<T> {
     set: (mode: DataMode, value: T) => void;
     /** Read-modify-write; returns the new value. */
     update: (mode: DataMode, fn: (current: T) => T) => T;
+    /**
+     * PROTOTYPE-SETUP (Leave email notifications): called after every set / update (not the first seed) with the value
+     * before and after. A listener that throws is ignored, so it can never block the write.
+     */
+    onChange: (listener: (mode: DataMode, prev: T, next: T) => void) => () => void;
 }
 
 export const createCollection = <T>(
@@ -102,13 +107,33 @@ export const createCollection = <T>(
         return value;
     };
 
+    const listeners = new Set<(mode: DataMode, prev: T, next: T) => void>();
+    const notify = (mode: DataMode, prev: T, next: T) =>
+        listeners.forEach(l => {
+            try {
+                l(mode, prev, next);
+            } catch {
+                // a listener (e.g. an email) never blocks the write
+            }
+        });
+
     return {
         get: read,
-        set: write,
+        set: (mode, value) => {
+            const prev = read(mode);
+            write(mode, value);
+            notify(mode, prev, value);
+        },
         update: (mode, fn) => {
-            const next = fn(read(mode));
+            const prev = read(mode);
+            const next = fn(prev);
             write(mode, next);
+            notify(mode, prev, next);
             return next;
+        },
+        onChange: listener => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
         },
     };
 };

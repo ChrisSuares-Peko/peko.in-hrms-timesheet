@@ -116,6 +116,8 @@ import {
 } from './atsStore';
 import { MockEmployee, findEmployee } from '../data/employees';
 import type { DataMode } from '../envelope';
+// PROTOTYPE-SETUP (Leave email notifications): starts the email triggers on the leave request collections.
+import './atsLeaveEmail';
 
 const uid = (p: string) => `${p}-${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
 const first = (name: string) => name.split(' ')[0];

@@ -24,6 +24,7 @@ import { notifyAdminChanged } from './adminShared';
 import { bulkApproveAdmin, decideAdminRequest, getAdminRequests, remindAdminRequest } from '../../api';
 import { approvedToast } from '../../components/approvalText';
 import { PendingDecision, RequestCard, RequestDecisionModal } from '../../components/RequestQueue';
+import { RequestDeepLink } from '../../leave/LeaveRequestViewer';
 import type { AdminBucket, AdminRequestRow, AdminRequestType } from '../../types';
 import { usePayrollScope } from '../usePayrollAts';
 
@@ -224,6 +225,8 @@ const AdminRequestsList = ({
                     ))}
                 </Flex>
             )}
+            {/* PROTOTYPE-SETUP (Leave email notifications): ?request=<id> from an email opens that request. */}
+            <RequestDeepLink source="admin" items={rows?.map(r => r.item)} />
             <RequestDecisionModal
                 pending={pending}
                 busy={busy}

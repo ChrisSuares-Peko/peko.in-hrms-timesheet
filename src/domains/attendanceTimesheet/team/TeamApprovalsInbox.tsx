@@ -26,6 +26,7 @@ import {
 } from '../components/format';
 import { PendingDecision, RequestCard, RequestDecisionModal } from '../components/RequestQueue';
 import { useAtsScope } from '../hooks/useAtsScope';
+import { RequestDeepLink } from '../leave/LeaveRequestViewer';
 import type { RequestItem, TimesheetApprovalItem } from '../types';
 
 const { Text } = Typography;
@@ -249,6 +250,8 @@ const TeamApprovalsInbox = ({ settings, onChanged }: { settings: TeamSettings; o
             <Text type="secondary" className="text-xs">
                 Approving sends it on to the next approver set in Payroll settings, if there is one. “Ask for update” sends it straight back to the employee; when they resubmit, it comes back to you.
             </Text>
+            {/* PROTOTYPE-SETUP (Leave email notifications): ?request=<id> from an email opens that request. */}
+            <RequestDeepLink source="team" items={(items ?? []).flatMap(x => (x.req ? [x.req] : []))} />
             <RequestDecisionModal
                 pending={pending}
                 busy={busy}

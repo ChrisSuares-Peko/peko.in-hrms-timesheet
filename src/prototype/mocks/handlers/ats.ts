@@ -100,6 +100,7 @@ import {
     withdrawLeaveCancellation,
     withdrawLeaveRequest,
 } from '../store/atsLeave';
+import { leaveEmailLog } from '../store/atsLeaveEmail';
 import { createProfileRequest, myProfileOf, withdrawProfileRequest } from '../store/atsProfile';
 import { currentMonth, getSettings, overtimeContext, resetTodayCheckIn, today, weekView } from '../store/atsStore';
 import {
@@ -352,6 +353,8 @@ export const atsRoutes: MockRoute[] = [
     route('POST', `${A}/payroll/admin/leave/employees/:employeeId/mark-active`, ctx => run(ctx.mode, () => markActive(ctx.mode, ctx.params.employeeId!))),
     route('GET', `${A}/payroll/admin/leave/employees/:employeeId/types`, ctx => run(ctx.mode, () => adminEmployeeLeaveTypes(ctx.mode, ctx.params.employeeId!))),
     // PROTOTYPE-SETUP (Leave fixes): Balances → Adjust balance and Import opening balances.
+    // PROTOTYPE-SETUP (Leave email notifications): the send log (request, level, recipient, time, status).
+    route('GET', `${A}/payroll/admin/leave/email-log`, ctx => run(ctx.mode, () => leaveEmailLog(ctx.mode))),
     // PROTOTYPE-SETUP (Bulk attendance upload): Payroll → Attendance, review then import.
     route('POST', `${A}/payroll/admin/attendance/upload/review`, ctx => run(ctx.mode, () => reviewAttendanceUpload(ctx.mode, ctx.body))),
     route('POST', `${A}/payroll/admin/attendance/upload`, ctx => run(ctx.mode, () => importAttendanceUpload(ctx.mode, ctx.body))),

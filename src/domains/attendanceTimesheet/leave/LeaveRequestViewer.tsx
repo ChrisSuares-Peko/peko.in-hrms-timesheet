@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 
 import { Button } from 'antd';
+import { useSearchParams } from 'react-router-dom';
 
 import LeaveRequestDrawer, { type DrawerActions, type DrawerItem } from './LeaveRequestDrawer';
 import { getAdminLeaveView, getTeamMemberLeaveView } from '../api';
@@ -68,3 +69,26 @@ export const ViewRequestButton = ({ source, employeeId, item, size = 'small' }: 
 };
 
 export default LeaveRequestViewer;
+
+/**
+ * PROTOTYPE-SETUP (Leave email notifications): the email's {request_link} ends with ?request=<id>. When the list holding
+ * that request is loaded, its View opens (once); closing it drops the parameter.
+ */
+export const RequestDeepLink = ({ source, items }: { source: ViewerSource; items: Pick<RequestItem, 'id' | 'leaveKind' | 'employee'>[] | null | undefined }) => {
+    const [params, setParams] = useSearchParams();
+    const wanted = params.get('request');
+    const found = wanted ? items?.find(i => i.id === wanted && i.leaveKind) : undefined;
+    const item = found ? drawerItemOf(found) : null;
+    return (
+        <LeaveRequestViewer
+            source={source}
+            employeeId={found?.employee.id ?? null}
+            item={item}
+            onClose={() => {
+                const next = new URLSearchParams(params);
+                next.delete('request');
+                setParams(next, { replace: true });
+            }}
+        />
+    );
+};
