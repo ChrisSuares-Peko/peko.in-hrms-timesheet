@@ -66,6 +66,12 @@
       "Balances per type: available, total, credited, approved, in request, carried forward.",
       "Activity feed (last 10, newest change first). Upcoming leave. Holidays for the year. Employee status (probation) and leaving date."
      ]
+    ],
+    [
+     "Email notifications",
+     [
+      "When a leave application reaches an approval level, the approver(s) at that level get an email. Full rules in \"How to use these notes\" → Shared rules → \"Email notifications for leave applications\". Email wording comes from product separately."
+     ]
     ]
    ],
    "prompt": "Build: ESS → Leave → Overview\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Leave module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: The employee’s leave home: balances at a glance, recent leave activity, upcoming leave and the next public holiday. Also where they start a leave or comp off request.\n\nBuild or change:\n- The Overview sub-tab of the ESS Leave page as described in these notes: compact leave cards (available / total + View details, 4 per row), Recent activity (last 10 changes), Upcoming leave, Next public holiday, banners.\n- The Apply for leave, Request comp off and Request LOP modals with every rule and message listed, and the dynamic card grid (yearly + per-event cards + Upcoming leave + Next public holiday).\n- Balance and activity calculations as tested functions.\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Cards show only \"available / total\" and View details; 4 per row on desktop, 2 on phone.\n- Available excludes leave in request (10 credited, 4 taken, 2 requested shows 4).\n- Recent activity shows the 10 latest changes, newest first; a leave row opens the request drawer.\n- Apply form shows the balance on type pick, counts half days over a range, applies the sandwich rule, and shows the document field only when required.\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
@@ -197,6 +203,12 @@
      [
       "Every leave, cancellation, change and comp off request has a View button that opens the full request read-only (details, attached document, approval chain, history). Attached documents also show on the row (\"📎 file name\"), so approvers can check them before deciding."
      ]
+    ],
+    [
+     "Email notifications",
+     [
+      "When a leave application reaches an approval level, the approver(s) at that level get an email. Full rules in \"How to use these notes\" → Shared rules → \"Email notifications for leave applications\". Email wording comes from product separately."
+     ]
     ]
    ],
    "prompt": "Build: ESS → My team → Approvals\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Leave (approver view) module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: The approver’s inbox. For the Leave module, this is where leave, cancellation, change and comp off requests are decided at Level 1 (or Level 2 when a person is the Level 2 approver).\n\nBuild or change:\n- Leave items in the approver inbox with the balance line, the \"Not enough leave\" warning, and approve / ask for update / reject / bulk approve.\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Balance line correct and red when short.\n- Approving a short request shows the warning and approving anyway works.\n- Cancellations, changes and comp off appear under the Leave filter and apply their effects on final approval.\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
@@ -304,6 +316,12 @@
      "View",
      [
       "Every leave, cancellation, change and comp off request has a View button that opens the full request read-only (details, attached document, approval chain, history). Attached documents also show on the row (\"📎 file name\"), so approvers can check them before deciding."
+     ]
+    ],
+    [
+     "Email notifications",
+     [
+      "When a leave application reaches an approval level, the approver(s) at that level get an email. Full rules in \"How to use these notes\" → Shared rules → \"Email notifications for leave applications\". Email wording comes from product separately."
      ]
     ]
    ],
@@ -484,6 +502,12 @@
       "\"Reporting manager\" at Level 2 resolves to the employee’s manager when Level 1 approves; if that’s the same person who approved Level 1, the request is final.",
       "Approvers are fixed on each request when it’s submitted, so changing this doesn’t move requests in flight. Leave cancellations, changes and comp off use the same approvers. Older team values (Payroll, HR, Admin, Finance) all show as Admin / HR.",
       "Extra approval for longer leave (on/off): when a request is longer than N days, an endorsement step is added after Level 1 and before Level 2. Endorser: Department head of the employee’s department, or a specific person. Skipped if the endorser is the Level 1 approver or the employee. Shown in the approval chain as \"{name} (endorsement)\"; the item waits in that person’s My team → Approvals. Applies to leave and leave changes."
+     ]
+    ],
+    [
+     "Email notifications",
+     [
+      "When a leave application reaches an approval level, the approver(s) at that level get an email. Full rules in \"How to use these notes\" → Shared rules → \"Email notifications for leave applications\". Email wording comes from product separately."
      ]
     ]
    ],
@@ -701,7 +725,7 @@
      "Bulk attendance upload",
      [
       "\"Bulk attendance upload\" (primary button, top right of Payroll → Attendance, with a tooltip): for employees who aren’t on the biometric system.",
-      "Two steps like the other uploads: 1 · Upload file, 2 · Review. Template (Excel): Employee ID, Date, Check-in, Check-out. Times in 24-hour or AM/PM (or Excel times); a check-out earlier than the check-in counts as the next day. Accepts .xlsx, .xls, .csv.",
+      "Two steps like the other uploads: 1 · Upload file, 2 · Review. Template (Excel): Employee ID, Employee name, Date, Check-in, Check-out. The name is there so HR can read the file; if it doesn’t match the ID the row is flagged \"Name doesn’t match the Employee ID (name)\". Times in 24-hour or AM/PM (or Excel times); a check-out earlier than the check-in counts as the next day. Accepts .xlsx, .xls, .csv.",
       "A blue note on the upload step: unpaid days (loss of pay) for this month’s payroll go through the existing Loss of Pay upload, not this file.",
       "Review statuses: Ready · Already recorded, skipped · Will replace (when \"Replace existing records\" is ticked; the checkbox appears only if some rows already have attendance) · problems: Employee ID not found, Date isn’t a date, Date is in the future, Check-in time is missing or not a time, Check-out isn’t a time, Duplicate row.",
       "\"Import N records\" writes check-in / check-out for those days (keeping existing breaks when replacing), marked as uploaded (source = upload). They show in Attendance and the employee’s timesheet; late marks and the usual rules apply."
@@ -807,13 +831,14 @@
    "prompt": "Build: Payroll settings → Reimbursements\n\nContext: we are building the ESS service module by module (Leave first, then Attendance, then Timesheet, then Overtime, Reimbursements, Profile). This page is part of the Reimbursements module.\nRead first: the Developer notes for this page (this panel), the Shared platform rules in \"How to use these notes\", and the prototype (docs/prototypes/leave-prototype.html): open it and go to this page.\n\nWhat this page is: Reimbursement settings.\n\nBuild or change:\n- Reimbursement settings as described.\n\nRules for this run:\n- Reuse the existing components, design system, routing and data layer. Put business rules in tested functions, not in the component.\n- Don't ask me questions. Make the most reasonable choice, note it in docs/progress.md, and carry on.\n- Work on main, commit in small steps, run type-check, lint and tests, and fix what you break.\n\nDone when:\n- Behaviour matches the notes and the prototype on this page.\n- No console errors; type-check, lint, tests and the production build pass.\n\nReport: what changed (files), decisions, and each check pass/fail."
   },
   "pay:settings:ess": {
-   "title": "Payroll settings → ESS",
+   "title": "Payroll settings → ESS settings",
    "module": "ESS shell",
    "what": "Controls which ESS pages employees can see. Payslips and My pay stay hidden until the company turns them on.",
    "sections": [
     [
      "What’s on the page",
      [
+      "Put these toggles in the EXISTING \"ESS Settings\" tab of Payroll Settings (the live product already has it). Don’t create a new tab.",
       "Panel \"What employees see in ESS\" (tooltip explains it). Two rows, each with a switch and a status line (Visible to employees / Hidden from employees):",
       "Payslips: monthly payslips in ESS. Off by default.",
       "My pay: salary structure, earnings, deductions and tax details in ESS. Off by default.",
@@ -827,7 +852,7 @@
      ]
     ]
    ],
-   "prompt": "Build: Payroll settings → ESS\n\nAdd an \"ESS\" tab to Payroll settings with \"What employees see in ESS\": switches for Payslips and My pay (both off by default). When off, hide those ESS pages, menu items, Overview tiles and direct links for everyone; when on, show them. Store per company. Read the developer notes for this page and match the prototype (docs/prototypes/leave-prototype.html). Don't ask questions; log decisions in docs/progress.md; keep tests green."
+   "prompt": "Build: Payroll settings → ESS\n\nIn the existing \"ESS Settings\" tab of Payroll Settings, add \"What employees see in ESS\": switches for Payslips and My pay (both off by default). When off, hide those ESS pages, menu items, Overview tiles and direct links for everyone; when on, show them. Store per company. Read the developer notes for this page and match the prototype (docs/prototypes/leave-prototype.html). Don't ask questions; log decisions in docs/progress.md; keep tests green."
   }
  },
  "guide": {
@@ -889,6 +914,16 @@
     "Employee working days",
     [
      "The prototype uses company-wide weekly offs. The real build must use each employee’s own working days and shift (the per-employee schedule already in the latest code) for: late marks, hours targets, leave day counts, half days, the sandwich rule, calendars and comp off eligibility."
+    ]
+   ],
+   [
+    "Email notifications for leave applications",
+    [
+     "Every time a leave application reaches an approval level, the approver(s) at that level get an email: Level 1 (reporting manager or the set person/team), the extra endorsement step (when it applies), and Level 2 (Admin / HR or the set person). Team approvers (Admin / HR) = every user with that role in the company.",
+     "Triggers: a new request is submitted (email to Level 1, or to the first level that isn’t skipped); a level approves and it moves on (email to the next level); an employee resubmits after \"Ask for update\" (email to Level 1 again). HR’s \"Add leave\" is approved straight away, so it sends none.",
+     "Covers every leave-type request: leave (including half days, per-event leave, maternity, LOP), leave cancellation and leave change requests, and comp off requests.",
+     "Email content (subject and body) will be shared separately by product. Build the sending and the triggers now with a template per trigger that uses placeholders: {approver_name}, {employee_name}, {employee_id}, {department}, {leave_type}, {from_date}, {to_date}, {days}, {day_type}, {reason}, {level}, {request_id}, {request_link} (deep link that opens the request in My team → Approvals or Payroll → Leave → Requests). Keep the wording in one editable place.",
+     "Send once per level per request (no duplicates on re-renders or retries); log each send (request, level, recipient, time, status). A failed email must never block the request. In-app notifications stay as they are."
     ]
    ]
   ],
